@@ -139,6 +139,7 @@ func makeScene()*Builder {
  ant:=s.joint(rs,"space/antenna-pan","revolute",space,V{-.45,0,.85},V{0,0,1},-170,170)
  s.part("space/antenna-dish","ellipsoid",ant,V{0,0,.45},V{.18,.7,.7},white)
  s.animate(ant,V{0,0,1},0,120,-120,0,0)
+ addTitan(s)
  return s
 }
 type Geometry struct { Pos []float32; Idx []uint32 }
