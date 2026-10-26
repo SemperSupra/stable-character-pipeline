@@ -22,7 +22,7 @@ concurrency:
 jobs:
   build-validate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: mechanical-systems
@@ -66,6 +66,40 @@ jobs:
           assert all(a['count']>0 for a in scene['accessors'])
           print('validated',len(scene['meshes']),'meshes;',manifest['Tracks'],'joint tracks')
           PY
+      - name: Prepare Python and CPU offscreen renderer
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bounded CPU rendering dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: numpy==2.2.6 vtk==9.5.2
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1 libegl1 libosmesa6
+      - name: Render articulated glTF and encode demo video
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          xvfb-run -a python render_vtk.py --scene out/mechanical_scene.gltf --out out --frames 49 --width 960 --height 540
+          ffmpeg -hide_banner -loglevel error -y -framerate 6 -i out/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -movflags +faststart out/mechanical_articulation.mp4
+          ffmpeg -hide_banner -loglevel error -y -framerate 6 -i out/frame_%04d.png -vf "select='eq(n,0)+eq(n,12)+eq(n,24)+eq(n,36)',scale=480:270,tile=2x2" -frames:v 1 -update 1 out/mechanical_contact_sheet.png
+      - name: Validate actual frame changes and video
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, pathlib, subprocess
+          p=pathlib.Path('out')
+          hashes=[hashlib.sha256((p/f'frame_{i:04}.png').read_bytes()).hexdigest() for i in (0,12,24,36,48)]
+          assert len(set(hashes)) >= 4, 'motion did not change rendered pixels'
+          movie=p/'mechanical_articulation.mp4'
+          assert movie.stat().st_size>2000
+          check=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration:stream=nb_frames,width,height','-of','json',str(movie)]))
+          assert int(check['streams'][0]['nb_frames'])==49
+          assert float(check['format']['duration'])>8
+          assert (p/'mechanical_contact_sheet.png').stat().st_size>1000
+          print('validated frame changes and 49-frame MP4',check['format']['duration'])
+          PY
       - name: Upload generated public GLB and evidence
         if: success()
         uses: actions/upload-artifact@v4
@@ -76,5 +110,7 @@ jobs:
             mechanical-systems/out/mechanical_scene.gltf
             mechanical-systems/out/mechanical_scene.bin
             mechanical-systems/out/rig_manifest.json
+            mechanical-systems/out/mechanical_articulation.mp4
+            mechanical-systems/out/mechanical_contact_sheet.png
           retention-days: 7
           if-no-files-found: error
