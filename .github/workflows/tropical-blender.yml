@@ -1,0 +1,91 @@
+name: Tropical Fauna and Flora - Blender CPU render
+
+on:
+  pull_request:
+    paths:
+      - 'tropical-fauna-flora/**'
+      - '.github/workflows/tropical-blender.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tropical-fauna-flora/**'
+      - '.github/workflows/tropical-blender.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tropical-blender-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  blender-model-and-render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: tropical-fauna-flora
+    steps:
+      - name: Checkout public source without persistent credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Go 1.23
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tropical-fauna-flora/go.mod
+          cache: false
+      - name: Run deterministic source tests and generate real 3D assets
+        run: |
+          set -euo pipefail
+          go test -count=1 ./...
+          go test -race -count=1 ./...
+          go vet ./...
+          python3 -m py_compile render_blender.py tools/verify_blender.py tools/ecology_binding.py tools/ecology_blender.py
+          python3 -I tools/test_blender_loader.py
+          python3 -m unittest discover -s tools -p 'test_ecology_binding.py'
+          go run . -config scene.json -out out
+          sha256sum out/tropical_scene.glb
+          go run ./cmd/ecologyprobe -config examples/earth.json -out out/earth_ecology.json
+          python3 tools/ecology_binding.py --report out/earth_ecology.json --map examples/ecology_scene_map.json --model out/tropical_scene.glb --out out/ecology_binding.json --frames 48 --fps 12
+      - name: Install bounded minimal Blender and video encoder packages
+        timeout-minutes: 7
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          sudo timeout --signal=TERM --kill-after=10s 120s apt-get update -qq
+          sudo timeout --signal=TERM --kill-after=10s 240s apt-get install -y -qq --no-install-recommends blender ffmpeg xvfb python3-numpy
+          blender --version | head -n 2
+      - name: Headless Blender CPU scene build, animation and frames
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          OMP_NUM_THREADS: '2'
+        run: |
+          set -euo pipefail
+          xvfb-run -a blender -b -t 2 --python render_blender.py -- --input out/tropical_scene.glb --ecology-binding out/ecology_binding.json --out out/blender --frames 48 --fps 12 --width 640 --height 360 --samples 8
+          ffmpeg -hide_banner -loglevel error -y -framerate 12 -i out/blender/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -movflags +faststart out/blender/tropical_scene_blender.mp4
+          ffmpeg -hide_banner -loglevel error -y -framerate 12 -i out/blender/frame_%04d.png -vf "select='not(mod(n,12))',scale=320:180,tile=2x2:padding=3:margin=3" -frames:v 1 out/blender/contact_sheet.png
+      - name: Verify real model movement, frame sequence and video
+        run: |
+          set -euo pipefail
+          python3 tools/verify_blender.py out/blender out/ecology_binding.json
+      - name: Publish bounded derived model and Blender outputs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tropical-blender-${{ github.run_id }}
+          path: |
+            tropical-fauna-flora/out/tropical_scene.glb
+            tropical-fauna-flora/out/earth_ecology.json
+            tropical-fauna-flora/out/ecology_binding.json
+            tropical-fauna-flora/out/blender/tropical_scene.blend
+            tropical-fauna-flora/out/blender/tropical_scene_blender.mp4
+            tropical-fauna-flora/out/blender/contact_sheet.png
+            tropical-fauna-flora/out/blender/frame_0000.png
+            tropical-fauna-flora/out/blender/frame_0024.png
+            tropical-fauna-flora/out/blender/frame_0047.png
+            tropical-fauna-flora/out/blender/blender_receipt.json
+          retention-days: 3
+          if-no-files-found: error

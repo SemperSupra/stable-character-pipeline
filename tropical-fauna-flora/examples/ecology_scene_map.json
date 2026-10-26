@@ -1,0 +1,77 @@
+{
+  "schema": "scp.ecology.scene-map.v1",
+  "model_sha256": "67b503b6903de319739ea35a456dea270739f6fde30938e6c555de6451da972a",
+  "patch_positions": {
+    "paddy-west": [
+      -6.3,
+      1.25,
+      0
+    ],
+    "paddy-east": [
+      -2.5,
+      -0.3,
+      0
+    ],
+    "ditch-edge": [
+      0.3,
+      -3.65,
+      0
+    ]
+  },
+  "actor_nodes": {
+    "buffalo-a": {
+      "kind": "buffalo",
+      "node": "fauna/buffalo-01/root",
+      "origin": [
+        -3.2,
+        -0.65,
+        0
+      ]
+    },
+    "buffalo-b": {
+      "kind": "buffalo",
+      "node": "fauna/buffalo-02/root",
+      "origin": [
+        -6.9,
+        1.6,
+        0
+      ]
+    },
+    "egret-a": {
+      "kind": "egret",
+      "node": "fauna/egret-01/root",
+      "origin": [
+        -1,
+        -0.95,
+        0
+      ]
+    },
+    "egret-b": {
+      "kind": "egret",
+      "node": "fauna/egret-02/root",
+      "origin": [
+        -4.2,
+        -2.95,
+        0
+      ]
+    },
+    "egret-c": {
+      "kind": "egret",
+      "node": "fauna/egret-03/root",
+      "origin": [
+        -5.4,
+        2.75,
+        0
+      ]
+    },
+    "egret-d": {
+      "kind": "egret",
+      "node": "fauna/egret-04/root",
+      "origin": [
+        0.9,
+        2.3,
+        0
+      ]
+    }
+  }
+}

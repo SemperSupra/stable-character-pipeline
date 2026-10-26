@@ -1,0 +1,114 @@
+name: Tropical Fauna and Flora - free CPU model and render
+
+on:
+  pull_request:
+    paths:
+      - 'tropical-fauna-flora/**'
+      - '.github/workflows/tropical-fauna-flora.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tropical-fauna-flora/**'
+      - '.github/workflows/tropical-fauna-flora.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tropical-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-model-render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: tropical-fauna-flora
+    steps:
+      - name: Checkout (no persisted credentials)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Go 1.23
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tropical-fauna-flora/go.mod
+          cache: false
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test and audit original Go modeling code
+        run: |
+          set -euo pipefail
+          go test -count=1 ./...
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Execute Earth and speculative ecology rule probes
+        run: |
+          set -euo pipefail
+          go run ./cmd/ecologyprobe -config examples/earth.json -out out/earth_ecology.json
+          go run ./cmd/ecologyprobe -config examples/alien.json -out out/alien_ecology.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          expected={
+            'earth': '5b23e95debfcbc898f0067f7a8d2150c7060ab1d96d32ff62b191d0619693148',
+            'alien': '9383097569d921ea09eed1094640e09aa7c69f509533d0d5b7451bccc5e5c091',
+          }
+          reports={name:json.loads(Path('out/'+name+'_ecology.json').read_text()) for name in expected}
+          for name,r in reports.items():
+              assert r['ledger']['balanced'] is True, name
+              assert r['digest_sha256']==expected[name], name
+              assert len(r['frames'])==30, name
+          assert reports['earth']['ledger']['regrowth_g'] != reports['alien']['ledger']['regrowth_g']
+          print('PASS: Earth and speculative ecology event traces replay deterministically with mass ledger.')
+          PY
+      - name: Build deterministic glTF and GLB from source
+        run: |
+          set -euo pipefail
+          go run . -config scene.json -out out
+          sha256sum out/tropical_scene.glb
+      - name: Install isolated renderer requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: numpy==2.2.6 vtk==9.5.2
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1 libegl1 libosmesa6
+      - name: Render model tracks from exported scene
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          xvfb-run -a python render_vtk.py --scene out/tropical_scene.gltf --out out --frames 96 --fps 12 --width 640 --height 360
+          ffmpeg -hide_banner -loglevel error -y -framerate 12 -i out/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -movflags +faststart out/tropical_scene_v0.mp4
+          python tools/contact_sheet.py
+      - name: Encode iPhone-compatible MP4 and animated GIF preview
+        run: |
+          set -euo pipefail
+          ffmpeg -hide_banner -loglevel error -y -i out/tropical_scene_v0.mp4             -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100             -map 0:v:0 -map 1:a:0 -vf "fps=30,scale=640:360:flags=lanczos,format=yuv420p,setsar=1"             -c:v libx264 -preset medium -crf 20 -profile:v baseline -level:v 3.0             -x264-params ref=1:bframes=0 -c:a aac -b:a 96k -ar 44100 -ac 2             -shortest -movflags +faststart -tag:v avc1 -video_track_timescale 30000             out/tropical_scene_iphone.mp4
+          ffmpeg -hide_banner -loglevel error -y -i out/tropical_scene_v0.mp4             -vf "fps=8,scale=480:-1:flags=lanczos,split[x][y];[x]palettegen=stats_mode=diff[p];[y][p]paletteuse=dither=bayer:bayer_scale=4"             -loop 0 out/tropical_scene_preview.gif
+      - name: Verify model animation and encoded video
+        run: |
+          set -euo pipefail
+          python tools/verify_ci.py out
+      - name: Upload only generated public artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tropical-fauna-flora-${{ github.run_id }}
+          path: |
+            tropical-fauna-flora/out/tropical_scene.glb
+            tropical-fauna-flora/out/tropical_scene.gltf
+            tropical-fauna-flora/out/tropical_scene.bin
+            tropical-fauna-flora/out/tropical_scene_v0.mp4
+            tropical-fauna-flora/out/tropical_scene_iphone.mp4
+            tropical-fauna-flora/out/tropical_scene_preview.gif
+            tropical-fauna-flora/out/preview_4frame.png
+            tropical-fauna-flora/out/receipt.json
+            tropical-fauna-flora/out/earth_ecology.json
+            tropical-fauna-flora/out/alien_ecology.json
+          retention-days: 3
+          if-no-files-found: error

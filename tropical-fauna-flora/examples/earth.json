@@ -1,0 +1,16 @@
+{
+ "schema":"scp.ecology.v1","name":"thai-paddy-earth-prototype","fidelity":"earth_prototype","seed":26,"ticks":30,"light_permille":1000,
+ "patches":[
+  {"id":"paddy-east","biomass_g":3500,"capacity_g":6000,"regrowth_g_per_tick":28},
+  {"id":"paddy-west","biomass_g":4000,"capacity_g":6200,"regrowth_g_per_tick":24},
+  {"id":"ditch-edge","biomass_g":2600,"capacity_g":4000,"regrowth_g_per_tick":18}
+ ],
+ "animals":[
+  {"id":"buffalo-a","kind":"buffalo","patch":"paddy-west","intake_g_per_tick":75},
+  {"id":"buffalo-b","kind":"buffalo","patch":"paddy-east","intake_g_per_tick":65},
+  {"id":"egret-a","kind":"egret","patch":"ditch-edge"},
+  {"id":"egret-b","kind":"egret","patch":"ditch-edge"},
+  {"id":"egret-c","kind":"egret","patch":"ditch-edge"},
+  {"id":"egret-d","kind":"egret","patch":"ditch-edge"}
+ ]
+}

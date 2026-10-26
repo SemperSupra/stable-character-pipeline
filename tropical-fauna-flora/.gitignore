@@ -1,0 +1,6 @@
+# No generated artifacts in source git
+out/
+*.pyc
+__pycache__/
+.vscode/
+.idea/
