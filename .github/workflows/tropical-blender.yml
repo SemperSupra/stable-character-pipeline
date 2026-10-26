@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq blender ffmpeg xvfb
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq blender ffmpeg xvfb python3-numpy
           blender --version | head -n 2
       - name: Headless Blender CPU scene build, animation and frames
         env:
