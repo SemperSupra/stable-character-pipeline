@@ -16,6 +16,12 @@ import random
 import sys
 from pathlib import Path
 
+# Blender --python need not include this script's directory on sys.path.
+# Anchor the independent public ecology adapter to this source checkout.
+SCRIPT_ROOT = Path(__file__).resolve().parent
+if str(SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_ROOT))
+
 import bpy
 from mathutils import Vector
 
