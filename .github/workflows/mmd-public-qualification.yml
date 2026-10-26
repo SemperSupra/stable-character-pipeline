@@ -54,3 +54,53 @@ jobs:
             mmd-output-repeat/qualification.json
           retention-days: 14
           if-no-files-found: warn
+
+  blender-real-pmx:
+    if: github.event_name == 'push'
+    needs: pinned-upstream-synthetic-parsers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - name: Checkout rights-clean original fixture generator
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact released MMD Tools (no binary/community assets)
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Use Python 3.11 supported by official bpy 4.5.0
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Generate exact original PMX model on runner
+        run: |
+          set -euo pipefail
+          python mmd/qualification/probe.py --source vendor/mmd-tools --out mmd-output
+      - name: Install genuine Blender 4.5 Python distribution and MMD dependency
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'opencc-python-reimplemented==0.1.7'
+          python -c 'import bpy; assert bpy.app.version >= (4, 2, 0); print(bpy.app.version_string)'
+      - name: Real MMD Tools Blender import, topology probe, static Cycles proof, GLB and blend
+        timeout-minutes: 7
+        env:
+          OMP_NUM_THREADS: '2'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          python mmd/qualification/blender_probe.py --source vendor/mmd-tools --fixture mmd-output/synthetic_triangle.pmx --out mmd-blender-output
+      - name: Upload generated editable sources, interchange and receipts or first failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-blender-evidence
+          path: |
+            mmd-blender-output/*
+          retention-days: 14
+          if-no-files-found: warn
