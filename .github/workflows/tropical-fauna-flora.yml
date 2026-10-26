@@ -46,6 +46,26 @@ jobs:
           go test -count=1 ./...
           go test -race -count=1 ./...
           go vet ./...
+      - name: Execute Earth and speculative ecology rule probes
+        run: |
+          set -euo pipefail
+          go run ./cmd/ecologyprobe -config examples/earth.json -out out/earth_ecology.json
+          go run ./cmd/ecologyprobe -config examples/alien.json -out out/alien_ecology.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          expected={
+            'earth': '5b23e95debfcbc898f0067f7a8d2150c7060ab1d96d32ff62b191d0619693148',
+            'alien': '9383097569d921ea09eed1094640e09aa7c69f509533d0d5b7451bccc5e5c091',
+          }
+          reports={name:json.loads(Path('out/'+name+'_ecology.json').read_text()) for name in expected}
+          for name,r in reports.items():
+              assert r['ledger']['balanced'] is True, name
+              assert r['digest_sha256']==expected[name], name
+              assert len(r['frames'])==30, name
+          assert reports['earth']['ledger']['regrowth_g'] != reports['alien']['ledger']['regrowth_g']
+          print('PASS: Earth and speculative ecology event traces replay deterministically with mass ledger.')
+          PY
       - name: Build deterministic glTF and GLB from source
         run: |
           set -euo pipefail
@@ -88,5 +108,7 @@ jobs:
             tropical-fauna-flora/out/tropical_scene_preview.gif
             tropical-fauna-flora/out/preview_4frame.png
             tropical-fauna-flora/out/receipt.json
+            tropical-fauna-flora/out/earth_ecology.json
+            tropical-fauna-flora/out/alien_ecology.json
           retention-days: 3
           if-no-files-found: error
