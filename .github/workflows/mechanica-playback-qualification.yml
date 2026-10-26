@@ -45,6 +45,19 @@ jobs:
             apt-cache policy "${pkg}" | head -n 12 || true
           done
           export DEBIAN_FRONTEND=noninteractive
+          echo 'Refreshing APT indexes to avoid stale runner package versions (bounded HTTP timeouts)'
+          set +e
+          timeout --signal=TERM --kill-after=10s 120s sudo apt-get \
+            -o Acquire::Retries=0 \
+            -o Acquire::http::Timeout=15 \
+            -o Acquire::https::Timeout=15 update
+          update_rc=$?
+          set -e
+          if [ "$update_rc" -ne 0 ]; then
+            echo "Dependency index refresh failed, exit=${update_rc}"
+            printf '{"schema":"mechanica.dependency.v1","status":"FAIL","first_failure":"public-hosted-apt-update-exit-%s"}\n' "$update_rc" > qualification-evidence/dependency_report.json
+            exit "$update_rc"
+          fi
           set +e
           timeout --signal=TERM --kill-after=10s 180s sudo apt-get -o DPkg::Lock::Timeout=20 install -y --no-install-recommends ffmpeg blender python3-numpy xvfb libgl1 libegl1 libosmesa6
           rc=$?
