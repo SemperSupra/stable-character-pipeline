@@ -1,0 +1,58 @@
+name: Qualify OpenAlea MTG plant architecture on public CPU
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tropical-openalea-mtg-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openalea-mtg-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Set up isolated lightweight OpenAlea graph environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: openalea-mtg-probe
+          create-args: >-
+            python=3.11
+            openalea.mtg
+          channels: openalea3,conda-forge
+          cache-environment: false
+          cache-downloads: false
+      - name: Exercise actual upstream MTG API headlessly
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json
+          from openalea.mtg import MTG
+          graph=MTG()
+          p=graph.add_component(graph.root, label='banana')
+          a=graph.add_component(p, label='stem')
+          b1=graph.add_child(a,label='leaf-1')
+          b2=graph.add_child(a,label='leaf-2')
+          b3=graph.add_child(a,label='leaf-3')
+          assert graph.parent(b1) == a
+          assert graph.parent(b2) == a
+          assert graph.parent(b3) == a
+          assert graph.complex(a) == p
+          assert graph.nb_vertices() == 6
+          assert graph.nb_scales() == 3
+          report={'schema':'scp.floraprobe.v1','engine':'openalea.mtg',
+                  'species_label':'synthetic-banana-graph-not-botanical-growth',
+                  'vertices':graph.nb_vertices(),'scales':graph.nb_scales(),
+                  'parent_b1':graph.parent(b1),'parent_b2':graph.parent(b2),
+                  'parent_b3':graph.parent(b3)}
+          data=json.dumps(report,sort_keys=True).encode()
+          report['digest_sha256']=hashlib.sha256(data).hexdigest()
+          print('QUALIFIED_GRAPH_CONSTRUCTION_ONLY',json.dumps(report,sort_keys=True))
+          PY
