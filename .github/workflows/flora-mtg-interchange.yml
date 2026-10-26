@@ -72,6 +72,10 @@ jobs:
           assert receipt["glb_organs"]==15
           assert (root/"synthetic_flora_lineage.glb").read_bytes()[:4]==b"glTF"
           assert (root/"synthetic_flora_lineage.blend").read_bytes()[:7]==b"BLENDER"
+          for name in ("front","side"):
+              candidate=root/("diagnostic_"+name+".png")
+              assert candidate.read_bytes()[:8]==b"\x89PNG\r\n\x1a\n" and candidate.stat().st_size>4096
+              assert receipt["diagnostic_views"][name]
           print("F1C_ARTIFACTS_AND_RECEIPT_PRESENT")
           PY
       - name: Upload bounded synthetic qualification receipts, no third-party assets
@@ -84,5 +88,7 @@ jobs:
             out/flora-mtg-interchange/blender/roundtrip_receipt.json
             out/flora-mtg-interchange/blender/synthetic_flora_lineage.glb
             out/flora-mtg-interchange/blender/synthetic_flora_lineage.blend
+            out/flora-mtg-interchange/blender/diagnostic_front.png
+            out/flora-mtg-interchange/blender/diagnostic_side.png
           retention-days: 3
           if-no-files-found: error
