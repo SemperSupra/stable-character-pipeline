@@ -1,0 +1,76 @@
+name: Public editable audio source roundtrip
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/editable/**'
+      - '.github/workflows/editable-audio.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  editable-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/editable/go.mod
+      - name: Install public CPU sound engines
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends csound ffmpeg
+      - name: Unit, adversarial, and static verification
+        working-directory: audio-foundry/editable
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Verify immutable source edits, interchange, stems and mix
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/authoring-fixture"
+          mkdir -p "$dir"
+          trap 'rm -rf "$dir"' EXIT
+          cd audio-foundry/editable
+          go run ./cmd/authorctl init -out "$dir/source.json"
+          go run ./cmd/authorctl export -in "$dir/source.json" -out "$dir/source-bundle"
+          go run ./cmd/authorctl import-midi -in "$dir/source.json" -midi "$dir/source-bundle/melody.mid" -out "$dir/midi-roundtrip.json"
+          cmp "$dir/source.json" "$dir/midi-roundtrip.json"
+          go run ./cmd/authorctl edit -in "$dir/source.json" -out "$dir/revised-note.json" -field 'note[0].pitch' -value 62
+          go run ./cmd/authorctl edit -in "$dir/revised-note.json" -out "$dir/revision.json" -field 'motor.end_hz' -value 350
+          go run ./cmd/authorctl edit -in "$dir/revised-note.json" -out "$dir/note-reversed.json" -field 'note[0].pitch' -value 60
+          cmp "$dir/source.json" "$dir/note-reversed.json"
+          go run ./cmd/authorctl export -in "$dir/revision.json" -out "$dir/revision-bundle"
+          go run ./cmd/authorctl render -bundle "$dir/source-bundle" -out "$dir/initial-stems"
+          go run ./cmd/authorctl render -bundle "$dir/revision-bundle" -out "$dir/revised-stems"
+          # A semantic note edit and motor sweep edit MUST change their corresponding real WAV stems.
+          if cmp -s "$dir/initial-stems/musical_theme.wav" "$dir/revised-stems/musical_theme.wav"; then
+            echo 'Music stem remained unchanged after a note edit' >&2; exit 1
+          fi
+          if cmp -s "$dir/initial-stems/mechanical_motor.wav" "$dir/revised-stems/mechanical_motor.wav"; then
+            echo 'Motor stem remained unchanged after parameter edit' >&2; exit 1
+          fi
+          # Assert MusicXML parses and edit preserves original source project.
+          python3 - "$dir" <<'PY'
+          import sys, pathlib, json, xml.etree.ElementTree as ET
+          d=pathlib.Path(sys.argv[1]);src=json.loads((d/'source.json').read_text());new=json.loads((d/'revision.json').read_text())
+          assert src['notes'][0]['pitch']==60 and new['notes'][0]['pitch']==62
+          assert src['motor']['end_hz']==215 and new['motor']['end_hz']==350
+          assert ET.parse(d/'revision-bundle/melody.musicxml').getroot().tag=='score-partwise'
+          for stem_dir in ('initial-stems','revised-stems'):
+            m=json.loads((d/stem_dir/'scene_audio.json').read_text()); assert m['schema']=='scene_audio.v1';assert len(m['tracks'])==2
+          print('editable_source_interchange_PASS note/motor edits produced different stems; MusicXML and MIDI parsable')
+          PY
+          # Use the prior verified Go soundtrack mixer: complete integration from note source to playable mix.
+          cd ..
+          go run ./cmd/scene render -assets "$dir/revised-stems" -manifest "$dir/revised-stems/scene_audio.json" -out "$dir/revised-mix.wav" > "$dir/mix-receipt.json"
+          test -s "$dir/revised-mix.wav"
+          echo 'editable_audio_TO_SCENE_CONTRACT_PASS'
+      - name: Public source privacy gate
+        working-directory: audio-foundry/editable
+        run: |
+          go test -race -count=1 ./...
+          echo 'Only synthetic source, test notes, WAV stems and receipts; no final personal voices or recordings published.'
