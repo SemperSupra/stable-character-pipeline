@@ -67,6 +67,11 @@ def setup_render():
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
     scene.cycles.samples = 8
+    # Ubuntu's Blender 4.0.2 package lacks OpenImageDenoiser; never invoke it.
+    # Denoising is a renderer option, not a condition for assessing articulation.
+    for layer in scene.view_layers:
+        if hasattr(layer, "cycles"):
+            layer.cycles.use_denoising = False
     scene.render.threads_mode = "FIXED"
     scene.render.threads = 2
     scene.render.resolution_x = 480
