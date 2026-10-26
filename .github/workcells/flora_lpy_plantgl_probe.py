@@ -11,7 +11,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from openalea.lpy import Lsystem
-from openalea.plantgl.all import BBoxComputer, Color3, Cylinder, Discretizer, Material, Scene, Shape
+from openalea.plantgl.all import BBoxComputer, Color3, Cylinder, Discretizer, Material, PglTurtle, Scene, Shape
 
 SOURCE = """Axiom: A
 derivation length: 3
@@ -29,7 +29,14 @@ def derive():
             raise AssertionError("nondeterministic L-Py derivation")
         if first.count("A") != 8 or first.count("F") != 7:
             raise AssertionError("unexpected L-Py grammar module counts")
-    return first
+        # Use upstream L-Py's actual turtle interpreter to construct real PlantGL geometry.
+        turtle = PglTurtle()
+        Lsystem(str(model)).turtle_interpretation(Lsystem(str(model)).derive(), turtle)
+        derived_scene = turtle.getScene()
+        if len(derived_scene) < 1:
+            raise AssertionError("L-Py grammar did not produce PlantGL geometry")
+        derived_shapes = len(derived_scene)
+    return first, derived_shapes
 
 def geometry():
     scene = Scene()
@@ -45,7 +52,7 @@ def geometry():
     return len(scene)
 
 def main():
-    result = derive()
+    result, derived_shapes = derive()
     primitives = geometry()
     report = {
         "schema": "scp.floraprobe.lpy_plantgl.v1",
@@ -55,6 +62,7 @@ def main():
         "terminal_count": result.count("F"),
         "apex_count": result.count("A"),
         "plantgl_primitives": primitives,
+        "plantgl_derived_shapes": derived_shapes,
         "lpy_version": importlib.metadata.version("openalea.lpy"),
         "plantgl_version": importlib.metadata.version("openalea.plantgl")
     }
