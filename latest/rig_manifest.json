@@ -1,0 +1,632 @@
+{
+  "Schema": "mechanical.rig.v0",
+  "DurationSeconds": 8,
+  "Parts": 189,
+  "Tracks": 50,
+  "Rigs": [
+    {
+      "Name": "ground/suv",
+      "Root": 0,
+      "Joints": [
+        {
+          "Name": "car/left/front-hinge",
+          "Kind": "revolute",
+          "Node": 5,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -70,
+          "MaxDegrees": 70
+        },
+        {
+          "Name": "car/left/rear-hinge",
+          "Kind": "revolute",
+          "Node": 8,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -70,
+          "MaxDegrees": 70
+        },
+        {
+          "Name": "car/left/steering",
+          "Kind": "revolute",
+          "Node": 11,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -35,
+          "MaxDegrees": 35
+        },
+        {
+          "Name": "car/left/front-axle",
+          "Kind": "continuous",
+          "Node": 12,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -1000000,
+          "MaxDegrees": 1000000
+        },
+        {
+          "Name": "car/left/rear-axle",
+          "Kind": "continuous",
+          "Node": 15,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -1000000,
+          "MaxDegrees": 1000000
+        },
+        {
+          "Name": "car/right/front-hinge",
+          "Kind": "revolute",
+          "Node": 18,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -70,
+          "MaxDegrees": 70
+        },
+        {
+          "Name": "car/right/rear-hinge",
+          "Kind": "revolute",
+          "Node": 21,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -70,
+          "MaxDegrees": 70
+        },
+        {
+          "Name": "car/right/steering",
+          "Kind": "revolute",
+          "Node": 24,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -35,
+          "MaxDegrees": 35
+        },
+        {
+          "Name": "car/right/front-axle",
+          "Kind": "continuous",
+          "Node": 25,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -1000000,
+          "MaxDegrees": 1000000
+        },
+        {
+          "Name": "car/right/rear-axle",
+          "Kind": "continuous",
+          "Node": 28,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -1000000,
+          "MaxDegrees": 1000000
+        },
+        {
+          "Name": "car/tailgate-hinge",
+          "Kind": "revolute",
+          "Node": 31,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": 0,
+          "MaxDegrees": 75
+        }
+      ]
+    },
+    {
+      "Name": "air/utility-twin",
+      "Root": 33,
+      "Joints": [
+        {
+          "Name": "air/port/flap",
+          "Kind": "revolute",
+          "Node": 39,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -5,
+          "MaxDegrees": 45
+        },
+        {
+          "Name": "air/port/aileron",
+          "Kind": "revolute",
+          "Node": 41,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -25,
+          "MaxDegrees": 25
+        },
+        {
+          "Name": "air/port/propeller",
+          "Kind": "continuous",
+          "Node": 44,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -1000000,
+          "MaxDegrees": 1000000
+        },
+        {
+          "Name": "air/port/landing-gear",
+          "Kind": "revolute",
+          "Node": 47,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -85,
+          "MaxDegrees": 85
+        },
+        {
+          "Name": "air/starboard/flap",
+          "Kind": "revolute",
+          "Node": 50,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -5,
+          "MaxDegrees": 45
+        },
+        {
+          "Name": "air/starboard/aileron",
+          "Kind": "revolute",
+          "Node": 52,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -25,
+          "MaxDegrees": 25
+        },
+        {
+          "Name": "air/starboard/propeller",
+          "Kind": "continuous",
+          "Node": 55,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -1000000,
+          "MaxDegrees": 1000000
+        },
+        {
+          "Name": "air/starboard/landing-gear",
+          "Kind": "revolute",
+          "Node": 58,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -85,
+          "MaxDegrees": 85
+        },
+        {
+          "Name": "air/elevator",
+          "Kind": "revolute",
+          "Node": 61,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -25,
+          "MaxDegrees": 25
+        },
+        {
+          "Name": "air/rudder",
+          "Kind": "revolute",
+          "Node": 63,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -30,
+          "MaxDegrees": 30
+        }
+      ]
+    },
+    {
+      "Name": "space/orbital-tug",
+      "Root": 65,
+      "Joints": [
+        {
+          "Name": "space/port/solar-yoke",
+          "Kind": "revolute",
+          "Node": 69,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -100,
+          "MaxDegrees": 100
+        },
+        {
+          "Name": "space/port/RCS-gimbal",
+          "Kind": "revolute",
+          "Node": 72,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -15,
+          "MaxDegrees": 15
+        },
+        {
+          "Name": "space/starboard/solar-yoke",
+          "Kind": "revolute",
+          "Node": 74,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -100,
+          "MaxDegrees": 100
+        },
+        {
+          "Name": "space/starboard/RCS-gimbal",
+          "Kind": "revolute",
+          "Node": 77,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -15,
+          "MaxDegrees": 15
+        },
+        {
+          "Name": "space/docking-hatch",
+          "Kind": "revolute",
+          "Node": 79,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": 0,
+          "MaxDegrees": 115
+        },
+        {
+          "Name": "space/antenna-pan",
+          "Kind": "revolute",
+          "Node": 81,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -170,
+          "MaxDegrees": 170
+        }
+      ]
+    },
+    {
+      "Name": "titan/iron-atlas",
+      "Root": 83,
+      "Joints": [
+        {
+          "Name": "titan/iron-atlas/port/hip-pitch",
+          "Kind": "revolute",
+          "Node": 86,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -32,
+          "MaxDegrees": 32
+        },
+        {
+          "Name": "titan/iron-atlas/port/knee-pitch",
+          "Kind": "revolute",
+          "Node": 91,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -8,
+          "MaxDegrees": 56
+        },
+        {
+          "Name": "titan/iron-atlas/port/ankle-pitch",
+          "Kind": "revolute",
+          "Node": 95,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -28,
+          "MaxDegrees": 28
+        },
+        {
+          "Name": "titan/iron-atlas/starboard/hip-pitch",
+          "Kind": "revolute",
+          "Node": 100,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -32,
+          "MaxDegrees": 32
+        },
+        {
+          "Name": "titan/iron-atlas/starboard/knee-pitch",
+          "Kind": "revolute",
+          "Node": 105,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -8,
+          "MaxDegrees": 56
+        },
+        {
+          "Name": "titan/iron-atlas/starboard/ankle-pitch",
+          "Kind": "revolute",
+          "Node": 109,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -28,
+          "MaxDegrees": 28
+        },
+        {
+          "Name": "titan/iron-atlas/torso-yaw",
+          "Kind": "revolute",
+          "Node": 114,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -55,
+          "MaxDegrees": 55
+        },
+        {
+          "Name": "titan/iron-atlas/torso-pitch",
+          "Kind": "revolute",
+          "Node": 115,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -15,
+          "MaxDegrees": 15
+        },
+        {
+          "Name": "titan/iron-atlas/cockpit-yaw",
+          "Kind": "revolute",
+          "Node": 124,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -70,
+          "MaxDegrees": 70
+        },
+        {
+          "Name": "titan/iron-atlas/cockpit-pitch",
+          "Kind": "revolute",
+          "Node": 125,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -20,
+          "MaxDegrees": 25
+        },
+        {
+          "Name": "titan/iron-atlas/port/shoulder-roll",
+          "Kind": "revolute",
+          "Node": 130,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -35,
+          "MaxDegrees": 45
+        },
+        {
+          "Name": "titan/iron-atlas/port/elbow-pitch",
+          "Kind": "revolute",
+          "Node": 134,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -75,
+          "MaxDegrees": 85
+        },
+        {
+          "Name": "titan/iron-atlas/port/cannon-elevation",
+          "Kind": "revolute",
+          "Node": 137,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -20,
+          "MaxDegrees": 35
+        },
+        {
+          "Name": "titan/iron-atlas/port/barrel-ring-spin",
+          "Kind": "continuous",
+          "Node": 141,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -1000000,
+          "MaxDegrees": 1000000
+        },
+        {
+          "Name": "titan/iron-atlas/starboard/shoulder-roll",
+          "Kind": "revolute",
+          "Node": 143,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -35,
+          "MaxDegrees": 45
+        },
+        {
+          "Name": "titan/iron-atlas/starboard/elbow-pitch",
+          "Kind": "revolute",
+          "Node": 147,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -75,
+          "MaxDegrees": 85
+        },
+        {
+          "Name": "titan/iron-atlas/starboard/wrist-yaw",
+          "Kind": "revolute",
+          "Node": 150,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -90,
+          "MaxDegrees": 90
+        },
+        {
+          "Name": "titan/iron-atlas/starboard/claw-finger--1",
+          "Kind": "revolute",
+          "Node": 152,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -52,
+          "MaxDegrees": 52
+        },
+        {
+          "Name": "titan/iron-atlas/starboard/claw-finger-1",
+          "Kind": "revolute",
+          "Node": 154,
+          "Axis": [
+            1,
+            0,
+            0
+          ],
+          "MinDegrees": -52,
+          "MaxDegrees": 52
+        },
+        {
+          "Name": "titan/iron-atlas/port/pod-elevation",
+          "Kind": "revolute",
+          "Node": 156,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -8,
+          "MaxDegrees": 42
+        },
+        {
+          "Name": "titan/iron-atlas/starboard/pod-elevation",
+          "Kind": "revolute",
+          "Node": 170,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -8,
+          "MaxDegrees": 42
+        },
+        {
+          "Name": "titan/iron-atlas/maintenance-hatch",
+          "Kind": "revolute",
+          "Node": 184,
+          "Axis": [
+            0,
+            1,
+            0
+          ],
+          "MinDegrees": -85,
+          "MaxDegrees": 8
+        },
+        {
+          "Name": "titan/iron-atlas/sensor-mast-yaw",
+          "Kind": "revolute",
+          "Node": 186,
+          "Axis": [
+            0,
+            0,
+            1
+          ],
+          "MinDegrees": -135,
+          "MaxDegrees": 135
+        }
+      ]
+    }
+  ]
+}
