@@ -1,0 +1,46 @@
+name: Public synthetic voice qualification
+on:
+  pull_request:
+    paths:
+      - 'voice-foundry/**'
+      - '.github/workflows/voice-foundry.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-voice-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: voice-foundry/go.mod
+      - name: Install public synthetic voice engine
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y espeak-ng
+      - name: Unit tests and static checks
+        working-directory: voice-foundry
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Generate ephemeral public-safe speech
+        working-directory: voice-foundry
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          go run . -engine espeak-ng -voice en-us -text 'This is an original synthetic test voice for validating a public pipeline.' -out "$tmp/candidate.wav" > "$tmp/receipt.json"
+          test -s "$tmp/candidate.wav"
+          python3 - "$tmp/receipt.json" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding='utf-8') as f:
+              r = json.load(f)
+          assert r['classification'] == 'PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL'
+          assert r['bytes'] > 44
+          assert len(r['wav_sha256']) == 64
+          print('synthetic_voice_test_pass', r['wav_sha256'], r['bytes'])
+          PY
