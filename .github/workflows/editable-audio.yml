@@ -27,6 +27,7 @@ jobs:
         run: |
           go test -race -count=1 ./...
           go vet ./...
+          node --test browser/editor.test.mjs
       - name: Verify immutable source edits, interchange, stems and mix
         shell: bash
         run: |
@@ -43,6 +44,21 @@ jobs:
           go run ./cmd/authorctl edit -in "$dir/revised-note.json" -out "$dir/revision.json" -field 'motor.end_hz' -value 350
           go run ./cmd/authorctl edit -in "$dir/revised-note.json" -out "$dir/note-reversed.json" -field 'note[0].pitch' -value 60
           cmp "$dir/source.json" "$dir/note-reversed.json"
+          # Human browser revision uses the same schema, produces an equivalent project.
+          node --input-type=module - "$dir/source.json" "$dir/browser-revision.json" <<'JS'
+          import fs from 'node:fs';
+          import {readProject,applyEdit,revisionJSON} from './browser/editor.mjs';
+          let project = readProject(fs.readFileSync(process.argv[2], 'utf8'));
+          project = applyEdit(project, 'note[0].pitch', '62');
+          project = applyEdit(project, 'motor.end_hz', '350');
+          fs.writeFileSync(process.argv[3], revisionJSON(project));
+          console.log('creator_browser_source_revision_PASS');
+          JS
+          python3 - "$dir/revision.json" "$dir/browser-revision.json" <<'PY'
+          import json,sys
+          assert json.load(open(sys.argv[1]))==json.load(open(sys.argv[2]))
+          print('browser_operator_agent_same_semantics_PASS')
+          PY
           go run ./cmd/authorctl export -in "$dir/revision.json" -out "$dir/revision-bundle"
           go run ./cmd/authorctl render -bundle "$dir/source-bundle" -out "$dir/initial-stems"
           go run ./cmd/authorctl render -bundle "$dir/revision-bundle" -out "$dir/revised-stems"
