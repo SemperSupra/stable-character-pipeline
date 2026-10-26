@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Audio Foundry — Editable Source Project</title>
+<style>
+:root {color-scheme:light dark;font:16px/1.5 system-ui,sans-serif}*{box-sizing:border-box}
+body{max-width:900px;margin:0 auto;padding:1.25rem}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem}
+fieldset{border:1px solid #8888;border-radius:.75rem;padding:1rem}
+legend{font-weight:700}label{display:block;margin:.55rem 0}input,select{display:block;width:100%;font:inherit;padding:.45rem;border-radius:.3rem}
+button{font:inherit;padding:.6rem 1rem;margin:.5rem .5rem .5rem 0;cursor:pointer}button:disabled{opacity:.55}
+#status{padding:.7rem 1rem;border:1px solid #8888;border-radius:.5rem}#status.error{border-color:#c65d50}
+output{display:block;word-break:break-word}audio{width:100%}
+:focus-visible{outline:3px solid #358fe4;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main>
+<h1>Audio Foundry — editable source</h1>
+<p>Open an <code>editable_audio.v1</code> JSON project, change underlying music notes or procedural motor parameters, and export a new revision. This editor runs in your browser without network calls. WAV/M4A playback is separate; a changed source must be re-rendered with the Go and Csound tools.</p>
+<label for="source_file"><strong>Source project JSON</strong></label><input id="source_file" type="file" accept="application/json,.json" />
+<p id="status" role="status" aria-live="polite">Select a public synthetic source project to begin. Private final-character data must not be used with this public editor.</p>
+<form id="edit_form">
+<fieldset><legend>Composition</legend>
+<label for="bpm">Tempo (beats per minute)<input id="bpm" type="number" min="40" max="240" step="1" required/></label>
+<label for="note_index">Select note<select id="note_index" aria-label="Note to edit"></select></label>
+<label for="note_pitch">MIDI pitch (36–96)<input id="note_pitch" type="number" min="36" max="96" step="1" required/></label>
+<label for="note_velocity">Velocity (1–127)<input id="note_velocity" type="number" min="1" max="127" step="1" required/></label>
+<label for="note_start">Onset (MIDI ticks)<input id="note_start" type="number" min="0" step="120" required/></label>
+<label for="note_length">Duration (MIDI ticks)<input id="note_length" type="number" min="120" step="120" required/></label>
+</fieldset>
+<fieldset><legend>Procedural motor sound</legend>
+<label for="motor_start">Start frequency (Hz)<input id="motor_start" type="number" min="35" max="2500" step="0.1" required/></label>
+<label for="motor_end">End frequency (Hz)<input id="motor_end" type="number" min="35" max="2500" step="0.1" required/></label>
+<label for="motor_gain">Gain (0.001–0.25)<input id="motor_gain" type="number" min="0.001" max="0.25" step="0.001" required/></label>
+</fieldset>
+<div><button type="submit">Apply source changes</button><button type="button" id="reset" disabled>Revert edits</button><button type="button" id="export" disabled>Export revised project JSON</button></div>
+</form>
+<h2>Source changes</h2><output id="changes" aria-live="polite">None</output>
+<h2>Optional local audio listening</h2>
+<p>Use your operating system's audio player or select a previously rendered WAV/M4A recording below. This player does not regenerate audio and is not proof that downloads work on your device.</p>
+<input aria-label="Choose a rendered audio recording to preview" type="file" id="audio_file" accept="audio/*" />
+<audio controls id="audio_preview" preload="none">Your browser cannot play audio.</audio>
+</main>
+<script type="module" src="./ui.mjs"></script>
+<script>
+// Local optional playback only; source editing does not silently change audio.
+document.getElementById('audio_file').addEventListener('change', e => {
+ const file=e.target.files?.[0], player=document.getElementById('audio_preview');if(!file)return;
+ if(player.dataset.url)URL.revokeObjectURL(player.dataset.url);
+ const url=URL.createObjectURL(file);player.src=url;player.dataset.url=url;
+});
+</script>
+</body>
+</html>
