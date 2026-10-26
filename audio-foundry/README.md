@@ -21,6 +21,9 @@ Output directory must not exist. Generates:
 - Six 48kHz stereo 12s stems: `ambience_wind.wav`, `music_pad.wav`, `fauna_chirps.wav`, `foley_texture.wav`, `human_voice.wav`, `robot_voice.wav`
 - Separate dry input voice samples: `human_raw.wav` and `robot_raw.wav`
 - Combined `full_mix.wav` and machine-readable `receipt.json` with duration/sample/channel/hash verification.
+- iPhone-friendly previews: `full_mix.m4a` (AAC-LC), `full_mix.mp3`, and `full_mix_iphone.mp4` (H.264 + AAC with fast-start). The MP4 is a generic static video wrapper for players that cannot directly preview audio; it is not scene animation.
+
+For iPhone playback, open `full_mix_iphone.mp4` with the Files or Photos player. If chat attachment links do not open, use a durable file host such as an authorized Google Drive upload; the public test workflow deliberately does not publish media or use private credentials.
 
 The current contact and animal tracks are stylized sound fixtures, not biologically/physically valid models. The music is a chordal test pad, not a composed score. Mixer gain/compression only smoke-checks signal flow and is not broadcast-loudness mastering. The generated hash is a reproducibility **observation**, not a cross-machine bitwise determinism guarantee. Actual artistic quality must be independently listened to and judged.
 
