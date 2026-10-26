@@ -1,0 +1,80 @@
+name: Mechanical Systems - public articulated models
+
+on:
+  pull_request:
+    paths:
+      - 'mechanical-systems/**'
+      - '.github/workflows/mechanical-systems.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mechanical-systems/**'
+      - '.github/workflows/mechanical-systems.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mechanical-public
+  cancel-in-progress: true
+
+jobs:
+  build-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: mechanical-systems
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Go 1.23
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: mechanical-systems/go.mod
+          cache: false
+      - name: Unit, race, static and reproducibility tests
+        run: |
+          set -euo pipefail
+          go test -count=1 ./...
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Build independently articulated 3D models
+        run: |
+          set -euo pipefail
+          go run . -out out
+          sha256sum out/mechanical_scene.glb out/rig_manifest.json
+      - name: Verify exported artifact structure
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, struct
+          p=pathlib.Path('out')
+          manifest=json.loads((p/'rig_manifest.json').read_text())
+          scene=json.loads((p/'mechanical_scene.gltf').read_text())
+          glb=(p/'mechanical_scene.glb').read_bytes()
+          assert manifest['Schema']=='mechanical.rig.v0'
+          assert len(manifest['Rigs'])==3
+          assert manifest['Tracks']==sum(len(r['Joints']) for r in manifest['Rigs'])
+          assert len(scene['animations'][0]['channels'])==manifest['Tracks']
+          assert len(scene['nodes'])==manifest['Parts']+1
+          assert len(glb)>1000 and struct.unpack_from('<III',glb)==(0x46546c67,2,len(glb))
+          assert struct.unpack_from('<I',glb,16)[0]==0x4e4f534a
+          assert all(a['count']>0 for a in scene['accessors'])
+          print('validated',len(scene['meshes']),'meshes;',manifest['Tracks'],'joint tracks')
+          PY
+      - name: Upload generated public GLB and evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mechanical-articulation
+          path: |
+            mechanical-systems/out/mechanical_scene.glb
+            mechanical-systems/out/mechanical_scene.gltf
+            mechanical-systems/out/mechanical_scene.bin
+            mechanical-systems/out/rig_manifest.json
+          retention-days: 7
+          if-no-files-found: error
