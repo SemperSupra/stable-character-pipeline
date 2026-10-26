@@ -1,0 +1,14 @@
+{
+ "schema":"scp.ecology.v1","name":"speculative-hypergrowth-plain","fidelity":"speculative","seed":26,"ticks":30,"light_permille":2000,
+ "patches":[
+  {"id":"paddy-east","biomass_g":3500,"capacity_g":8500,"regrowth_g_per_tick":60},
+  {"id":"paddy-west","biomass_g":4000,"capacity_g":8500,"regrowth_g_per_tick":50},
+  {"id":"ditch-edge","biomass_g":2600,"capacity_g":7000,"regrowth_g_per_tick":40}
+ ],
+ "animals":[
+  {"id":"buffalo-a","kind":"buffalo","patch":"paddy-west","intake_g_per_tick":90},
+  {"id":"buffalo-b","kind":"buffalo","patch":"paddy-east","intake_g_per_tick":80},
+  {"id":"egret-a","kind":"egret","patch":"ditch-edge"},
+  {"id":"egret-b","kind":"egret","patch":"ditch-edge"}
+ ]
+}
