@@ -32,11 +32,31 @@ jobs:
           ref: c43bab2560a42c8ad880e13f7c32926b9cf9b0ef
           path: preview
           persist-credentials: false
-      - name: Install bounded public CPU media and Blender dependencies
+      - name: Diagnose and install bounded CPU dependencies without silent apt stalls
         run: |
           set -euo pipefail
+          mkdir -p qualification-evidence
+          echo "Host: $(uname -a)"
+          echo "Python: $(python3 --version)"
+          df -h /
+          ps -eo pid,ppid,stat,etime,args | grep -E '[a]pt|[d]pkg' || true
+          for pkg in ffmpeg blender python3-numpy xvfb; do
+            echo "-- ${pkg} --"
+            apt-cache policy "${pkg}" | head -n 12 || true
+          done
           export DEBIAN_FRONTEND=noninteractive
-          timeout 360s sudo apt-get install -y -qq ffmpeg blender python3-numpy xvfb libgl1 libegl1 libosmesa6
+          set +e
+          timeout --signal=TERM --kill-after=10s 180s sudo apt-get -o DPkg::Lock::Timeout=20 install -y --no-install-recommends ffmpeg blender python3-numpy xvfb libgl1 libegl1 libosmesa6
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "Dependency installation failed or timed out, exit=${rc}"
+            ps -eo pid,ppid,stat,etime,args | grep -E '[a]pt|[d]pkg' || true
+            printf '{"schema":"mechanica.dependency.v1","status":"FAIL","first_failure":"public-hosted-apt-install-exit-%s"}\n' "$rc" > qualification-evidence/dependency_report.json
+            exit "$rc"
+          fi
+          command -v blender
+          command -v ffmpeg
       - name: Verify playback utilities
         run: |
           set -euo pipefail
