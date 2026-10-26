@@ -42,3 +42,15 @@ Every output path must not already exist. No global state, downloads, network, s
 Canonical JSON is the source of truth for v1; revisions create new files and never overwrite. Reverse edits can reproduce original JSON and MIDI bytes; stem rendering depends on pinned **system Csound and FFmpeg builds**, and sample digests provide observations, not universal cross-environment bitwise proof. MIDI import handles only a strict monophonic type-0 subset and rejects nontrivial commercial DAW exports instead of losing notes silently. No material-dependent 3D acoustic model, real vehicle samples, studio-quality orchestra, natural voice generation, native Ardour session automation, or perceptually tested audio is claimed.
 
 Next qualified steps: import full MIDI/tempo/automation interop; actual Ardour session round-trip using supported Lua/OSC APIs in a disposable GUI host; Csound editable parameter-source reconciliation and source-control diffs; plugdata/Faust; full MusicXML import; creator accessibility/perceptual QA; model- and source-licensed sound library admission. Keep UI, operator lifecycle and agent semantics aligned. Owner has **not authorized any merge/release/deployment**.
+
+## Actual offline browser authoring UI (experimental)
+
+From the `audio-foundry/editable` directory, run:
+
+```sh
+go run ./cmd/serve -root ./browser -port 8787
+```
+
+Open `http://127.0.0.1:8787` **on that same computer**. The bundled browser editor does not call remote APIs. It reads the canonical JSON through the browser's local File API, lets users modify selected notes, velocity/timing, BPM and motor parameters, and saves a *new* revision JSON without overwriting the original. It deliberately does not regenerate audio in the browser; load a previously rendered stem for separate audition, and re-render from the revision with `authorctl`/Csound. Native audible preview of changed parameters inside the page is not yet supported.
+
+The local Go HTTP server binds only to loopback and serves only static editor files. It neither receives nor logs source project JSON. The reviewed browser source is a **public experimental interface** and rejects private-final character classifications; private final projects must use an approved private fork/workcell, not this page. Browser download and iPhone playback functionality are **not user-verified**. HTML control semantics, browser JS source edits and cross-language equivalence run under public CPU CI; real screen-reader/multi-browser acceptance requires additional automated and human checks. Do not expose the localhost server via an unreviewed tunnel.
