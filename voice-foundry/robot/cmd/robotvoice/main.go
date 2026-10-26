@@ -128,7 +128,7 @@ func render(sources,out,provider string) (receipt,error){
    wav:=filepath.Join(out,basename+".wav")
    // FFmpeg is the existing audio backend. Source is strictly located and
    // preset filters are immutable compile-time constants, never user code.
-   if _,e=execute(ctx,"ffmpeg","-hide_banner","-loglevel","error","-nostdin","-n","-i",source,"-af",p.Filter,"-ar","48000","-ac","2","-c:a","pcm_s16le",wav);e!=nil{return r,e}
+   if _,e=execute(ctx,"ffmpeg","-hide_banner","-loglevel","error","-nostdin","-n","-i",source,"-af",p.Filter+",apad,atrim=duration="+strconv.FormatFloat(duration,'f',3,64),"-ar","48000","-ac","2","-c:a","pcm_s16le",wav);e!=nil{return r,e}
    actual,e:=probeAudio(ctx,wav,"pcm_s16le",48000,2);if e!=nil{return r,e}
    if actual<duration-0.04 || actual>duration+0.04{return r,errors.New("unexpected output length "+basename)}
    mean,peak,e:=levels(ctx,wav);if e!=nil{return r,fmt.Errorf("%s %w",basename,e)}
