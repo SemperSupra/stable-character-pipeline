@@ -1,0 +1,189 @@
+name: Mechanical Systems - public articulated models
+
+on:
+  pull_request:
+    paths:
+      - 'mechanica/**'
+      - '.github/workflows/mechanica.yml'
+  push:
+    branches: [main, experiment/mechanical-articulation-public-v01]
+    paths:
+      - 'mechanica/**'
+      - '.github/workflows/mechanica.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mechanical-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: mechanica
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Go 1.23
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: mechanica/go.mod
+          cache: false
+      - name: Unit, race, static and reproducibility tests
+        run: |
+          set -euo pipefail
+          go test -count=1 ./...
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Build independently articulated 3D models
+        run: |
+          set -euo pipefail
+          go run . -out out
+          sha256sum out/mechanical_scene.glb out/rig_manifest.json
+      - name: Verify exported artifact structure
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, struct
+          p=pathlib.Path('out')
+          manifest=json.loads((p/'rig_manifest.json').read_text())
+          scene=json.loads((p/'mechanical_scene.gltf').read_text())
+          glb=(p/'mechanical_scene.glb').read_bytes()
+          assert manifest['Schema']=='mechanical.rig.v0'
+          assert len(manifest['Rigs'])==4
+          titan=next(r for r in manifest['Rigs'] if r['Name']=='titan/iron-atlas')
+          assert len(titan['Joints'])>=20
+          assert any(j['Name'].endswith('/maintenance-hatch') for j in titan['Joints'])
+          assert manifest['Tracks']==sum(len(r['Joints']) for r in manifest['Rigs'])
+          assert len(scene['animations'][0]['channels'])==manifest['Tracks']
+          assert len(scene['nodes'])==manifest['Parts']+1
+          assert len(glb)>1000 and struct.unpack_from('<III',glb)==(0x46546c67,2,len(glb))
+          assert struct.unpack_from('<I',glb,16)[0]==0x4e4f534a
+          assert all(a['count']>0 for a in scene['accessors'])
+          print('validated',len(scene['meshes']),'meshes;',manifest['Tracks'],'joint tracks')
+          PY
+      - name: Prepare Python and CPU offscreen renderer
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bounded CPU rendering dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: numpy==2.2.6 vtk==9.5.2
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1 libegl1 libosmesa6
+      - name: Render articulated glTF and encode demo video
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          xvfb-run -a python render_vtk.py --scene out/mechanical_scene.gltf --out out --frames 49 --width 960 --height 540
+          ffmpeg -hide_banner -loglevel error -y -framerate 6 -i out/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -movflags +faststart out/mechanical_articulation.mp4
+          ffmpeg -hide_banner -loglevel error -y -framerate 6 -i out/frame_%04d.png -vf "select='eq(n,0)+eq(n,12)+eq(n,24)+eq(n,36)',scale=480:270,tile=2x2" -frames:v 1 -update 1 out/mechanical_contact_sheet.png
+          mkdir -p out/titan
+          xvfb-run -a python render_vtk.py --focus titan --scene out/mechanical_scene.gltf --out out/titan --frames 49 --width 960 --height 540
+          ffmpeg -hide_banner -loglevel error -y -framerate 6 -i out/titan/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -movflags +faststart out/titan_articulation.mp4
+          ffmpeg -hide_banner -loglevel error -y -framerate 6 -i out/titan/frame_%04d.png -vf "select='eq(n,0)+eq(n,12)+eq(n,24)+eq(n,36)',scale=480:270,tile=2x2" -frames:v 1 -update 1 out/titan_contact_sheet.png
+      - name: Validate actual frame changes and video
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, pathlib, subprocess
+          p=pathlib.Path('out')
+          hashes=[hashlib.sha256((p/f'frame_{i:04}.png').read_bytes()).hexdigest() for i in (0,12,24,36,48)]
+          assert len(set(hashes)) >= 4, 'motion did not change rendered pixels'
+          movie=p/'mechanical_articulation.mp4'
+          assert movie.stat().st_size>2000
+          check=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration:stream=nb_frames,width,height','-of','json',str(movie)]))
+          assert int(check['streams'][0]['nb_frames'])==49
+          assert float(check['format']['duration'])>8
+          assert (p/'mechanical_contact_sheet.png').stat().st_size>1000
+          hashes2=[hashlib.sha256((p/'titan'/f'frame_{i:04}.png').read_bytes()).hexdigest() for i in (0,12,24,36,48)]
+          assert len(set(hashes2))>=4, 'titan animation failed to change pixels'
+          assert (p/'titan_contact_sheet.png').stat().st_size>1000
+          video=p/'titan_articulation.mp4'
+          assert video.stat().st_size>2000
+          detail=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration:stream=nb_frames,width,height','-of','json',str(video)]))
+          assert int(detail['streams'][0]['nb_frames'])==49
+          assert float(detail['format']['duration'])>8
+          print('validated overview and titan frame motion and MP4s',detail['format']['duration'])
+          PY
+      - name: Upload generated public GLB and evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mechanical-articulation
+          path: |
+            mechanica/out/mechanical_scene.glb
+            mechanica/out/mechanical_scene.gltf
+            mechanica/out/mechanical_scene.bin
+            mechanica/out/rig_manifest.json
+            mechanica/out/mechanical_articulation.mp4
+            mechanica/out/mechanical_contact_sheet.png
+            mechanica/out/titan_articulation.mp4
+            mechanica/out/titan_contact_sheet.png
+          retention-days: 7
+          if-no-files-found: error
+
+  publish-persistent-preview:
+    needs: build-validate
+    # No PR code runs with a write token. Only same-repo, exact experiment-branch pushes.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/experiment/mechanical-articulation-public-v01' && github.repository == 'SemperSupra/stable-character-pipeline' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout only for GitHub preview-branch publication
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Download verified outputs from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: mechanical-articulation
+          path: ${{ runner.temp }}/mechanica-publish
+      - name: Version and publish persistent original-model previews
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          stage="${RUNNER_TEMP}/mechanica-publish"
+          for file in mechanical_articulation.mp4 mechanical_contact_sheet.png titan_articulation.mp4 titan_contact_sheet.png mechanical_scene.glb rig_manifest.json; do
+            test -s "${stage}/${file}" || { echo "Missing ${file}"; exit 1; }
+          done
+          test "$(stat -c %s "${stage}/titan_articulation.mp4")" -lt 8000000
+          test "$(stat -c %s "${stage}/mechanical_scene.glb")" -lt 8000000
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin mechanica-previews >/dev/null 2>&1; then
+            git fetch --depth=1 origin mechanica-previews
+            git switch -C mechanica-previews FETCH_HEAD
+          else
+            git switch --orphan mechanica-previews
+            git rm -rf --ignore-unmatch . || true
+          fi
+          mkdir -p latest
+          cp "${stage}/mechanical_articulation.mp4" latest/
+          cp "${stage}/mechanical_contact_sheet.png" latest/
+          cp "${stage}/titan_articulation.mp4" latest/
+          cp "${stage}/titan_contact_sheet.png" latest/
+          cp "${stage}/mechanical_scene.glb" latest/
+          cp "${stage}/rig_manifest.json" latest/
+          printf '%s\n' "# Mechanical animation previews" "" "Public synthetic engineering blockouts; source SHA: ${SOURCE_SHA}" "" "[Iron Atlas mech video](latest/titan_articulation.mp4)" "" "[Iron Atlas contact sheet](latest/titan_contact_sheet.png)" "" "[All four rigs video](latest/mechanical_articulation.mp4)" "" "[All four rigs contact sheet](latest/mechanical_contact_sheet.png)" "" "[Animated GLB](latest/mechanical_scene.glb)" > README.md
+          printf '%s\n' "source_sha=${SOURCE_SHA}" "generated_by=public_GitHub_Actions" "rig_count=4" > latest/provenance.txt
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Previews unchanged"
+          else
+            git commit -m "preview: rendered four mechanical rigs from ${SOURCE_SHA}"
+            git push origin HEAD:refs/heads/mechanica-previews
+          fi
