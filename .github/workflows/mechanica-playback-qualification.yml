@@ -32,11 +32,11 @@ jobs:
           ref: c43bab2560a42c8ad880e13f7c32926b9cf9b0ef
           path: preview
           persist-credentials: false
-      - name: Install ffmpeg and ffprobe in public runner
+      - name: Install bounded public CPU media and Blender dependencies
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
+          export DEBIAN_FRONTEND=noninteractive
+          timeout 360s sudo apt-get install -y -qq ffmpeg blender python3-numpy xvfb libgl1 libegl1 libosmesa6
       - name: Verify playback utilities
         run: |
           set -euo pipefail
@@ -53,11 +53,8 @@ jobs:
           python3 mechanica/qualification/inspect_media.py \
             --preview-dir preview/latest \
             --output qualification-evidence/playback_report.json
-      - name: Install stock Blender CPU (no proprietary/hosted model)
-        run: |
-          set -euo pipefail
-          sudo apt-get install -y -qq blender python3-numpy xvfb libgl1 libegl1 libosmesa6
-          blender --version | head -n 2
+      - name: Record Blender version
+        run: blender --version | head -n 2
       - name: Import pinned GLB using actual Blender and render articulated samples
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
