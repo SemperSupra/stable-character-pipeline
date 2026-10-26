@@ -11,7 +11,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from openalea.lpy import Lsystem
-from openalea.plantgl.all import BBoxComputer, Color3, Cylinder, Material, Scene, Shape
+from openalea.plantgl.all import BBoxComputer, Color3, Cylinder, Discretizer, Material, Scene, Shape
 
 SOURCE = """Axiom: A
 derivation length: 3
@@ -38,7 +38,7 @@ def geometry():
     scene.add(Shape(Cylinder(.05, 1.0), material))
     if len(scene) != 2:
         raise AssertionError("missing PlantGL geometry")
-    bounding = BBoxComputer()
+    bounding = BBoxComputer(Discretizer())
     scene.apply(bounding)
     if bounding.result is None:
         raise AssertionError("cannot compute PlantGL bounding volume")
