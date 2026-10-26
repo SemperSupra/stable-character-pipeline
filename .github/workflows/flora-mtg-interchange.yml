@@ -34,7 +34,7 @@ jobs:
             python=3.11
             openalea.lpy=3.15.4
             openalea.plantgl=3.23.2
-            openalea.mtg
+            openalea.mtg=2.3.0
           cache-environment: false
           cache-downloads: false
       - name: Execute upstream MTG lineage and L-Py PlantGL OBJ tessellation
@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo timeout --signal=TERM --kill-after=10s 120s apt-get update -qq
-          sudo timeout --signal=TERM --kill-after=10s 220s apt-get install -y -qq --no-install-recommends blender xvfb
+          sudo timeout --signal=TERM --kill-after=10s 220s apt-get install -y -qq --no-install-recommends blender xvfb python3-numpy
           blender --version | head -n 2
       - name: Verify actual OBJ to GLB interchange and editable Blender readback
         env:
@@ -61,7 +61,19 @@ jobs:
           OMP_NUM_THREADS: '2'
         run: |
           set -euo pipefail
-          xvfb-run -a blender -b -t 2 --python .github/workcells/flora_blender_roundtrip.py -- --source out/flora-mtg-interchange/source --out out/flora-mtg-interchange/blender
+          xvfb-run -a blender -b -t 2 --python-exit-code 1 --python .github/workcells/flora_blender_roundtrip.py -- --source out/flora-mtg-interchange/source --out out/flora-mtg-interchange/blender
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("out/flora-mtg-interchange/blender")
+          receipt=json.loads((root/"roundtrip_receipt.json").read_text())
+          assert receipt["schema"]=="scp.flora.glb_roundtrip.v1"
+          assert receipt["status"]=="OBJ_GEOMETRY_AND_GLB_LINEAGE_BOUNDS_PASS"
+          assert receipt["glb_organs"]==15
+          assert (root/"synthetic_flora_lineage.glb").read_bytes()[:4]==b"glTF"
+          assert (root/"synthetic_flora_lineage.blend").read_bytes()[:7]==b"BLENDER"
+          print("F1C_ARTIFACTS_AND_RECEIPT_PRESENT")
+          PY
       - name: Upload bounded synthetic qualification receipts, no third-party assets
         if: success()
         uses: actions/upload-artifact@v4
