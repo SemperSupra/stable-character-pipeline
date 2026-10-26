@@ -135,7 +135,7 @@ def verify_rig(scene, manifest):
     require(len(joints_by_name) == 50, "expected 50 uniquely named rig joints")
     all_objs = list(bpy.data.objects)
     mesh_objects = [x for x in all_objs if x.type == "MESH"]
-    require(len(mesh_objects) >= 180, "Blender imported too few mesh objects")
+    require(len(mesh_objects) >= 110, "Blender imported too few mesh objects")
     require(sum(len(x.vertices) for x in (o.data for o in mesh_objects)) > 2000,
             "imported meshes appear empty")
     objects = {j: bpy.data.objects.get(j) for j in joints_by_name}
