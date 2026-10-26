@@ -27,5 +27,27 @@ ffmpeg -hide_banner -loglevel error -nostdin -y -i "$OUT/human_raw.wav"   -af 'a
 ffmpeg -hide_banner -loglevel error -nostdin -y -i "$OUT/robot_raw.wav"   -af 'aresample=48000,highpass=f=220,lowpass=f=2900,acrusher=bits=8:mode=lin:mix=0.35,volume=0.48,adelay=7600:all=1,apad,atrim=0:12'   -ar 48000 -ac 2 -c:a pcm_s16le "$OUT/robot_voice.wav"
 ffmpeg -hide_banner -loglevel error -nostdin -y   -i "$OUT/ambience_wind.wav" -i "$OUT/music_pad.wav" -i "$OUT/fauna_chirps.wav"   -i "$OUT/foley_texture.wav" -i "$OUT/human_voice.wav" -i "$OUT/robot_voice.wav"   -filter_complex '[0:a][1:a][2:a][3:a][4:a][5:a]amix=inputs=6:duration=longest:normalize=0,alimiter=limit=0.92[a]'   -map '[a]' -ar 48000 -ac 2 -c:a pcm_s16le "$OUT/full_mix.wav"
 
+# iOS delivery profiles: retain verified raw WAVs and generate small portable previews.
+# No synthesized final character identity or private inputs are admitted to this public demo.
+ffmpeg -hide_banner -loglevel error -nostdin -y -i "$OUT/full_mix.wav" \
+  -af 'loudnorm=I=-18:TP=-1.5:LRA=11' -ar 48000 -ac 2 \
+  -c:a aac -b:a 160k -movflags +faststart "$OUT/full_mix.m4a"
+ffmpeg -hide_banner -loglevel error -nostdin -y -i "$OUT/full_mix.m4a" \
+  -c:a libmp3lame -b:a 192k -id3v2_version 3 "$OUT/full_mix.mp3"
+ffmpeg -hide_banner -loglevel error -nostdin -y \
+  -f lavfi -i 'color=c=0x152436:s=960x540:r=30:d=12' -i "$OUT/full_mix.m4a" \
+  -map 0:v:0 -map 1:a:0 -c:v libx264 -preset veryfast \
+  -pix_fmt yuv420p -profile:v baseline -level:v 3.1 -r 30 \
+  -c:a aac -b:a 160k -movflags +faststart -shortest "$OUT/full_mix_iphone.mp4"
+
+for profile in 'full_mix.m4a:aac' 'full_mix.mp3:mp3' 'full_mix_iphone.mp4:aac'; do
+  name="${profile%%:*}"
+  codec="${profile#*:}"
+  actual="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=nokey=1:noprint_wrappers=1 "$OUT/$name")"
+  [[ "$actual" == "$codec" ]] || { echo "Invalid audio codec for $name: $actual" >&2; exit 1; }
+  test -s "$OUT/$name"
+done
+test "$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=nokey=1:noprint_wrappers=1 "$OUT/full_mix_iphone.mp4")" = h264
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 (cd "$SCRIPT_DIR" && go run ./cmd/verify "$OUT" "$TTS")
