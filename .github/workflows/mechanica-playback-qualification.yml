@@ -19,7 +19,7 @@ concurrency:
 jobs:
   independently-inspect-published-public-previews:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout independent qualification at exact candidate branch
         uses: actions/checkout@v4
@@ -53,11 +53,49 @@ jobs:
           python3 mechanica/qualification/inspect_media.py \
             --preview-dir preview/latest \
             --output qualification-evidence/playback_report.json
+      - name: Install stock Blender CPU (no proprietary/hosted model)
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq blender xvfb libgl1 libegl1 libosmesa6
+          blender --version | head -n 2
+      - name: Import pinned GLB using actual Blender and render articulated samples
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          OMP_NUM_THREADS: '2'
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-evidence/blender
+          xvfb-run -a blender -b -t 2 \
+            --python mechanica/qualification/inspect_blender.py -- \
+            --preview-dir preview/latest \
+            --output-dir qualification-evidence/blender
+      - name: Assemble contact sheets from independently rendered Blender frames
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, subprocess
+          out=pathlib.Path('qualification-evidence/blender')
+          report=json.loads((out/'blender_report.json').read_text())
+          assert report['status']=='PASS_BLENDER_IMPORT_MOTION_AND_RENDER'
+          for focus in ('scene','titan'):
+              files=[out / r['file'] for r in report['cpu_render_frames']
+                     if r['file'].startswith(focus+'_')]
+              assert len(files)==3
+              args=['ffmpeg','-hide_banner','-loglevel','error','-y']
+              for f in files: args += ['-i',str(f)]
+              args += ['-filter_complex','[0:v][1:v][2:v]hstack=inputs=3',
+                       '-frames:v','1','-update','1',str(out/focus+'_contact_sheet.png')]
+              subprocess.run(args,check=True)
+              assert (out/(focus+'_contact_sheet.png')).stat().st_size>3000
+          PY
       - name: Upload independent evidence including first failure if any
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mechanica-independent-playback-report
-          path: qualification-evidence/*.json
+          path: |
+            qualification-evidence/*.json
+            qualification-evidence/blender/*.json
+            qualification-evidence/blender/*.png
           retention-days: 7
           if-no-files-found: warn
