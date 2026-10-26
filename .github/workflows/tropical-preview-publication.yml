@@ -1,0 +1,103 @@
+name: Publish verified tropical preview to durable public branch
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tropical-preview-publication.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: tropical-public-preview
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.head.ref == 'experiment/tropical-fauna-flora-public-v01')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Checkout trusted public repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+      - name: Retrieve already qualified Blender outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: tropical-blender-40380567105
+          run-id: 40380567105
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/blender
+      - name: Retrieve already qualified iPhone and glTF outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: tropical-fauna-flora-40380566730
+          run-id: 40380566730
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/vtk
+      - name: Verify exact known synthetic artifacts, before publication
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          printf '%s  %s\n' \
+            67b503b6903de319739ea35a456dea270739f6fde30938e6c555de6451da972a blender/tropical_scene.glb \
+            0780795ad7bb5245dc0fe8b02e27d2e6c3eafd99901a6062dc74e2e2a611a9ab blender/blender/tropical_scene.blend \
+            0214dcb3c034d91626913ac7047dcb833bbb9989979f6b7ef128584e978360f9 blender/blender/tropical_scene_blender.mp4 \
+            859a60d1f4cadf1787275db3146ea2ba6fcb0a51976bcecc0ec22a352988d9e0 blender/blender/contact_sheet.png \
+            cba2e2e03a5a5196898604c14bdd2ff0d748903d7c0562b5cc7e70d9a0bbd8e1 vtk/tropical_scene_iphone.mp4 \
+            180696a73d4f7ae1a0cfebb332ab9be98d967a83eb4164d0d75296d90565c3d6 vtk/tropical_scene_preview.gif \
+          | sha256sum --check --strict
+      - name: Commit verified previews on isolated public asset branch
+        env:
+          BLENDER_RUN: '40380567105'
+          MODEL_RUN: '40380566730'
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin refs/heads/previews/tropical-fauna-flora
+          git checkout -B previews/tropical-fauna-flora FETCH_HEAD
+          asset_dir='public-previews/tropical-fauna-flora'
+          mkdir -p "$asset_dir"
+          cp "$RUNNER_TEMP/blender/blender/tropical_scene_blender.mp4" "$asset_dir/blender_scene.mp4"
+          cp "$RUNNER_TEMP/blender/blender/contact_sheet.png" "$asset_dir/blender_contact_sheet.png"
+          cp "$RUNNER_TEMP/blender/blender/tropical_scene.blend" "$asset_dir/scene.blend"
+          cp "$RUNNER_TEMP/vtk/tropical_scene_iphone.mp4" "$asset_dir/iphone_scene.mp4"
+          cp "$RUNNER_TEMP/vtk/tropical_scene_preview.gif" "$asset_dir/animated_preview.gif"
+          cp "$RUNNER_TEMP/vtk/tropical_scene.glb" "$asset_dir/scene.glb"
+          cat > "$asset_dir/README.md" <<'EOF'
+          # Tropical Fauna & Flora — public modeling preview v0.1
+
+          Synthetic, procedural, low-poly **modeling evidence**, not photoreal or ecologically validated wildlife.
+
+          - [iPhone H.264 Baseline + AAC video](iphone_scene.mp4) (8 sec)
+          - [Animated GIF fallback](animated_preview.gif)
+          - [Blender Cycles video](blender_scene.mp4) (4 sec)
+          - [Blender contact-sheet image](blender_contact_sheet.png)
+          - [Editable Blender scene](scene.blend)
+          - [Reusable animated model GLB](scene.glb)
+
+          Provenance: public GitHub Actions runs 40380566730 (model/VTK) and 40380567105 (Blender), both successful on 2026-10-26.
+          Source: https://github.com/SemperSupra/stable-character-pipeline/pull/4
+          Research: https://github.com/SemperSupra/stable-character-pipeline/issues/5
+
+          These files are committed to a public branch and therefore do **not** depend on ChatGPT attachment caching or ephemeral Actions artifact retention. They remain available while the repository and this public branch are retained.
+          EOF
+          git add -- "$asset_dir"
+          if git diff --cached --quiet; then
+            echo 'Identical preview already published.'
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'Publish verified public tropical modeling previews'
+          git push origin HEAD:refs/heads/previews/tropical-fauna-flora
+      - name: Report stable preview URLs
+        run: |
+          echo 'https://github.com/SemperSupra/stable-character-pipeline/tree/previews/tropical-fauna-flora/public-previews/tropical-fauna-flora' >> "$GITHUB_STEP_SUMMARY"
+          echo 'https://raw.githubusercontent.com/SemperSupra/stable-character-pipeline/previews/tropical-fauna-flora/public-previews/tropical-fauna-flora/iphone_scene.mp4' >> "$GITHUB_STEP_SUMMARY"
