@@ -54,6 +54,23 @@ jobs:
             cba2e2e03a5a5196898604c14bdd2ff0d748903d7c0562b5cc7e70d9a0bbd8e1 vtk/tropical_scene_iphone.mp4 \
             180696a73d4f7ae1a0cfebb332ab9be98d967a83eb4164d0d75296d90565c3d6 vtk/tropical_scene_preview.gif \
           | sha256sum --check --strict
+      - name: Produce and validate iPhone version of Blender animation
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
+          src="$RUNNER_TEMP/blender/blender/tropical_scene_blender.mp4"
+          dst="$RUNNER_TEMP/blender/blender/tropical_scene_blender_iphone.mp4"
+          ffmpeg -hide_banner -loglevel error -y -i "$src" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 \
+            -map 0:v:0 -map 1:a:0 -vf "fps=30,scale=640:360:flags=lanczos,format=yuv420p,setsar=1" \
+            -c:v libx264 -preset medium -crf 20 -profile:v baseline -level:v 3.0 \
+            -x264-params ref=1:bframes=0 -c:a aac -b:a 96k -ar 44100 -ac 2 \
+            -shortest -movflags +faststart -tag:v avc1 -video_track_timescale 30000 "$dst"
+          ffmpeg -v error -i "$dst" -f null - 2>&1
+          ffprobe -v error -show_entries stream=codec_name,profile,pix_fmt -of json "$dst" | \
+            python -c 'import sys,json; a=json.load(sys.stdin)["streams"]; assert any(s.get("profile")=="Constrained Baseline" and s.get("pix_fmt")=="yuv420p" for s in a); assert any(s.get("codec_name")=="aac" for s in a)'
       - name: Commit verified previews on isolated public asset branch
         env:
           BLENDER_RUN: '40380567105'
@@ -65,6 +82,7 @@ jobs:
           asset_dir='public-previews/tropical-fauna-flora'
           mkdir -p "$asset_dir"
           cp "$RUNNER_TEMP/blender/blender/tropical_scene_blender.mp4" "$asset_dir/blender_scene.mp4"
+          cp "$RUNNER_TEMP/blender/blender/tropical_scene_blender_iphone.mp4" "$asset_dir/blender_iphone.mp4"
           cp "$RUNNER_TEMP/blender/blender/contact_sheet.png" "$asset_dir/blender_contact_sheet.png"
           cp "$RUNNER_TEMP/blender/blender/tropical_scene.blend" "$asset_dir/scene.blend"
           cp "$RUNNER_TEMP/vtk/tropical_scene_iphone.mp4" "$asset_dir/iphone_scene.mp4"
@@ -78,6 +96,7 @@ jobs:
           - [iPhone H.264 Baseline + AAC video](iphone_scene.mp4) (8 sec)
           - [Animated GIF fallback](animated_preview.gif)
           - [Blender Cycles video](blender_scene.mp4) (4 sec)
+          - [iPhone-compatible Blender video](blender_iphone.mp4) (4 sec)
           - [Blender contact-sheet image](blender_contact_sheet.png)
           - [Editable Blender scene](scene.blend)
           - [Reusable animated model GLB](scene.glb)
