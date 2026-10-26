@@ -1,0 +1,56 @@
+name: MMD public synthetic PMX VMD VPD qualification
+
+on:
+  push:
+    branches: [qualification/mmd-public-20261027]
+    paths:
+      - 'mmd/**'
+      - '.github/workflows/mmd-public-qualification.yml'
+  pull_request:
+    paths:
+      - 'mmd/**'
+      - '.github/workflows/mmd-public-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-mmd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pinned-upstream-synthetic-parsers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout public qualification source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned MMD Tools 4.5.14 without copying third-party assets
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Run real upstream format parsers, positive and negative controls
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/probe.py
+          python3 mmd/qualification/probe.py --source vendor/mmd-tools --out mmd-output
+          python3 mmd/qualification/probe.py --source vendor/mmd-tools --out mmd-output-repeat
+          for f in synthetic_triangle.pmx synthetic_center_motion.vmd synthetic_center_pose.vpd; do
+            cmp "mmd-output/$f" "mmd-output-repeat/$f"
+          done
+      - name: Preserve evidence and independently inspectable fixture binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-native-format-evidence
+          path: |
+            mmd-output/*
+            mmd-output-repeat/qualification.json
+          retention-days: 14
+          if-no-files-found: warn
