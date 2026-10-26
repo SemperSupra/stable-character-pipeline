@@ -65,6 +65,11 @@ jobs:
           xvfb-run -a python render_vtk.py --scene out/tropical_scene.gltf --out out --frames 96 --fps 12 --width 640 --height 360
           ffmpeg -hide_banner -loglevel error -y -framerate 12 -i out/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -movflags +faststart out/tropical_scene_v0.mp4
           python tools/contact_sheet.py
+      - name: Encode iPhone-compatible MP4 and animated GIF preview
+        run: |
+          set -euo pipefail
+          ffmpeg -hide_banner -loglevel error -y -i out/tropical_scene_v0.mp4             -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100             -map 0:v:0 -map 1:a:0 -vf "fps=30,scale=640:360:flags=lanczos,format=yuv420p,setsar=1"             -c:v libx264 -preset medium -crf 20 -profile:v baseline -level:v 3.0             -x264-params ref=1:bframes=0 -c:a aac -b:a 96k -ar 44100 -ac 2             -shortest -movflags +faststart -tag:v avc1 -video_track_timescale 30000             out/tropical_scene_iphone.mp4
+          ffmpeg -hide_banner -loglevel error -y -i out/tropical_scene_v0.mp4             -vf "fps=8,scale=480:-1:flags=lanczos,split[x][y];[x]palettegen=stats_mode=diff[p];[y][p]paletteuse=dither=bayer:bayer_scale=4"             -loop 0 out/tropical_scene_preview.gif
       - name: Verify model animation and encoded video
         run: |
           set -euo pipefail
@@ -79,6 +84,8 @@ jobs:
             tropical-fauna-flora/out/tropical_scene.gltf
             tropical-fauna-flora/out/tropical_scene.bin
             tropical-fauna-flora/out/tropical_scene_v0.mp4
+            tropical-fauna-flora/out/tropical_scene_iphone.mp4
+            tropical-fauna-flora/out/tropical_scene_preview.gif
             tropical-fauna-flora/out/preview_4frame.png
             tropical-fauna-flora/out/receipt.json
           retention-days: 3
