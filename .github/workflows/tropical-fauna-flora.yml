@@ -1,0 +1,85 @@
+name: Tropical Fauna and Flora - free CPU model and render
+
+on:
+  pull_request:
+    paths:
+      - 'tropical-fauna-flora/**'
+      - '.github/workflows/tropical-fauna-flora.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tropical-fauna-flora/**'
+      - '.github/workflows/tropical-fauna-flora.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tropical-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-model-render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: tropical-fauna-flora
+    steps:
+      - name: Checkout (no persisted credentials)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Go 1.23
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tropical-fauna-flora/go.mod
+          cache: false
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test and audit original Go modeling code
+        run: |
+          set -euo pipefail
+          go test -count=1 ./...
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Build deterministic glTF and GLB from source
+        run: |
+          set -euo pipefail
+          go run . -config scene.json -out out
+          sha256sum out/tropical_scene.glb
+      - name: Install isolated renderer requirements
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir --only-binary=:all: numpy==2.2.6 vtk==9.5.2
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1 libegl1 libosmesa6
+      - name: Render model tracks from exported scene
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          xvfb-run -a python render_vtk.py --scene out/tropical_scene.gltf --out out --frames 96 --fps 12 --width 640 --height 360
+          ffmpeg -hide_banner -loglevel error -y -framerate 12 -i out/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -movflags +faststart out/tropical_scene_v0.mp4
+          python tools/contact_sheet.py
+      - name: Verify model animation and encoded video
+        run: |
+          set -euo pipefail
+          python tools/verify_ci.py out
+      - name: Upload only generated public artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tropical-fauna-flora-${{ github.run_id }}
+          path: |
+            tropical-fauna-flora/out/tropical_scene.glb
+            tropical-fauna-flora/out/tropical_scene.gltf
+            tropical-fauna-flora/out/tropical_scene.bin
+            tropical-fauna-flora/out/tropical_scene_v0.mp4
+            tropical-fauna-flora/out/preview_4frame.png
+            tropical-fauna-flora/out/receipt.json
+          retention-days: 3
+          if-no-files-found: error
