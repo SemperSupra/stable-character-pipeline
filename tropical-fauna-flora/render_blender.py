@@ -31,6 +31,7 @@ def arguments():
     p.add_argument('--height', type=int, default=360)
     p.add_argument('--seed', type=int, default=1337)
     p.add_argument('--samples', type=int, default=8)
+    p.add_argument('--ecology-binding', default=None, help='verified illustrative ecology trace binding')
     args = p.parse_args(cli)
     if not (12 <= args.frames <= 120 and 8 <= args.fps <= 30 and
             320 <= args.width <= 960 and 180 <= args.height <= 540 and
@@ -240,6 +241,9 @@ def main():
     except TypeError:
         pass
     metrics=preflight(imported,args.frames)
+    if args.ecology_binding:
+        from tools.ecology_blender import apply as apply_ecology
+        metrics.update(apply_ecology(imported, args.ecology_binding, source, args.frames, args.fps))
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'tropical_scene.blend'))
     for frame in range(1,args.frames+1):
         scene.frame_set(frame)
