@@ -1,0 +1,38 @@
+name: Public audio soundtrack fixture
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/**'
+      - '.github/workflows/audio-foundry.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audio-multistem:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/go.mod
+      - name: Install CPU audio engines
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y espeak-ng ffmpeg
+      - name: Test public Go verifier
+        working-directory: audio-foundry
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Render and verify disposable synthetic audio
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/audio-foundry-fixture"
+          trap 'rm -rf "$out"' EXIT
+          bash audio-foundry/demo.sh "$out"
+          test -s "$out/full_mix.wav"
+          test -s "$out/receipt.json"
+          echo 'audio_only_fixture_verified; no audio artifact uploaded'
