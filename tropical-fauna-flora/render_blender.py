@@ -221,6 +221,9 @@ def main():
     scene.render.engine='CYCLES'
     scene.cycles.device='CPU'
     scene.cycles.samples=args.samples
+    # Ubuntu's Blender 4.0 build can lack OpenImageDenoiser; avoid requiring it.
+    for layer in scene.view_layers:
+        layer.cycles.use_denoising=False
     scene.render.threads_mode='FIXED'
     scene.render.threads=2
     scene.render.resolution_x=args.width
