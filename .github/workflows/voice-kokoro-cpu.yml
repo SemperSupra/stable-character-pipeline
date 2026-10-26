@@ -21,7 +21,7 @@ jobs:
       - name: Install public CPU-only inference dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y espeak-ng
+          sudo apt-get install -y espeak-ng ffmpeg
           python -m pip install --disable-pip-version-check --no-cache-dir 'kokoro-onnx==0.6.1' 'soundfile==0.13.1'
       - name: Source-only static test
         run: |
@@ -42,7 +42,7 @@ jobs:
           set -euo pipefail
           models="$RUNNER_TEMP/kokoro-models"
           output="$RUNNER_TEMP/kokoro-voices"
-          trap 'rm -rf "$models" "$output"' EXIT
+          trap 'rm -rf "$models"' EXIT
           python voice-foundry/providers/kokoro-onnx/synth.py --models "$models" --out "$output"
           python3 - "$output/receipt.json" <<'PY'
           import json,sys
@@ -53,4 +53,21 @@ jobs:
           assert all(a['peak']<1.01 and a['rms']>0.0001 for a in r['voices'])
           print("neural_voice_receipt_verified")
           PY
-          echo 'No model weights or generated audio uploaded; no private data used.'
+          for name in human computer; do
+            ffmpeg -hide_banner -loglevel error -nostdin -y -i "$output/${name}_kokoro.wav" -ar 48000 -ac 2 -c:a aac -b:a 128k "$output/${name}_kokoro_iphone.m4a"
+          done
+          echo 'Generic, non-identity test voices generated; model weights remain ephemeral.'
+      - name: Preserve permitted public synthetic QA voices
+        uses: actions/upload-artifact@v4
+        with:
+          name: kokoro-public-synthetic-voice-candidates
+          path: |
+            ${{ runner.temp }}/kokoro-voices/*.m4a
+            ${{ runner.temp }}/kokoro-voices/receipt.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Remove transient public audio and model cache
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/kokoro-voices" "$RUNNER_TEMP/kokoro-models"
+
