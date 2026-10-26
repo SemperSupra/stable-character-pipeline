@@ -5,6 +5,7 @@ Synthetic, procedural, low-poly **modeling evidence**, not photoreal or ecologic
 - [iPhone H.264 Baseline + AAC video](iphone_scene.mp4) (8 sec)
 - [Animated GIF fallback](animated_preview.gif)
 - [Blender Cycles video](blender_scene.mp4) (4 sec)
+- [iPhone-compatible Blender video](blender_iphone.mp4) (4 sec)
 - [Blender contact-sheet image](blender_contact_sheet.png)
 - [Editable Blender scene](scene.blend)
 - [Reusable animated model GLB](scene.glb)
