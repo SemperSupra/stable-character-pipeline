@@ -23,9 +23,10 @@ jobs:
         with:
           environment-name: openalea-mtg-probe
           create-args: >-
+            -c openalea3
+            -c conda-forge
             python=3.11
             openalea.mtg
-          channels: openalea3,conda-forge
           cache-environment: false
           cache-downloads: false
       - name: Exercise actual upstream MTG API headlessly
