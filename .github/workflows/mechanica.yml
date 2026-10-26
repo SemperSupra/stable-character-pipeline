@@ -3,13 +3,13 @@ name: Mechanical Systems - public articulated models
 on:
   pull_request:
     paths:
-      - 'mechanical-systems/**'
-      - '.github/workflows/mechanical-systems.yml'
+      - 'mechanica/**'
+      - '.github/workflows/mechanica.yml'
   push:
     branches: [main]
     paths:
-      - 'mechanical-systems/**'
-      - '.github/workflows/mechanical-systems.yml'
+      - 'mechanica/**'
+      - '.github/workflows/mechanica.yml'
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 25
     defaults:
       run:
-        working-directory: mechanical-systems
+        working-directory: mechanica
     steps:
       - name: Checkout without persisted credentials
         uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
       - name: Go 1.23
         uses: actions/setup-go@v5
         with:
-          go-version-file: mechanical-systems/go.mod
+          go-version-file: mechanica/go.mod
           cache: false
       - name: Unit, race, static and reproducibility tests
         run: |
@@ -106,11 +106,11 @@ jobs:
         with:
           name: mechanical-articulation
           path: |
-            mechanical-systems/out/mechanical_scene.glb
-            mechanical-systems/out/mechanical_scene.gltf
-            mechanical-systems/out/mechanical_scene.bin
-            mechanical-systems/out/rig_manifest.json
-            mechanical-systems/out/mechanical_articulation.mp4
-            mechanical-systems/out/mechanical_contact_sheet.png
+            mechanica/out/mechanical_scene.glb
+            mechanica/out/mechanical_scene.gltf
+            mechanica/out/mechanical_scene.bin
+            mechanica/out/rig_manifest.json
+            mechanica/out/mechanical_articulation.mp4
+            mechanica/out/mechanical_contact_sheet.png
           retention-days: 7
           if-no-files-found: error

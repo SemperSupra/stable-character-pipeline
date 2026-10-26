@@ -10,7 +10,7 @@ The public standalone Go generator exports a real articulated glTF/GLB file, plu
 | Twin-prop aircraft | Propellers, port/starboard flaps, ailerons, retracting landing gear, elevator, rudder |
 | Orbital spacecraft | Two deploying solar-array yokes, gimballed RCS thrusters, docking hatch, antenna pan |
 
-Run from the mechanical-systems directory with Go 1.23+:
+Run from the mechanica directory with Go 1.23+:
 
 ~~~sh
 go test -count=1 ./...
