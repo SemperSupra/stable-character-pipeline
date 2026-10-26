@@ -1,0 +1,45 @@
+name: Synthetic rig conformance (public-only)
+on:
+  pull_request:
+    paths:
+      - "conformance/**"
+      - ".github/workflows/synthetic-rig-conformance.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-synthetic-rig-conformance
+  cancel-in-progress: true
+jobs:
+  synthetic-rig:
+    if: github.repository == 'SemperSupra/stable-character-pipeline'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: conformance/go.mod
+          cache: false
+      - name: No binary inputs or private corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find conformance -type f \( -iname '*.glb' -o -iname '*.fbx' -o -iname '*.stl' -o -iname '*.mp4' -o -iname '*.zip' -o -iname '*.pkl' -o -iname '*.pt' -o -iname '*.onnx' \) | grep .; then
+            echo 'Rejected binary or non-synthetic source content'
+            exit 1
+          fi
+          test ! -d data
+          test ! -d models
+      - name: Source-only race-enabled falsifiers
+        working-directory: conformance
+        run: go test -race -count=1 -v ./...
+      - name: Source-only static analysis
+        working-directory: conformance
+        run: go vet ./...
