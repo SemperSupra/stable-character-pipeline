@@ -1,0 +1,58 @@
+name: Mechanica - independent public playback qualification
+
+on:
+  push:
+    branches:
+      - qualification/mechanica-playback-20261027
+    paths:
+      - mechanica/qualification/**
+      - .github/workflows/mechanica-playback-qualification.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mechanica-independent-playback-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  independently-inspect-published-public-previews:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout independent qualification at exact candidate branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout original public previews at immutable published SHA
+        uses: actions/checkout@v4
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: c43bab2560a42c8ad880e13f7c32926b9cf9b0ef
+          path: preview
+          persist-credentials: false
+      - name: Verify playback utilities
+        run: |
+          set -euo pipefail
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+          python3 --version
+      - name: Assert independent media-probe negative controls
+        run: |
+          set -euo pipefail
+          python3 mechanica/qualification/inspect_media.py --self-test
+      - name: Decode public MP4s and qualify GLB and contact sheets
+        run: |
+          set -euo pipefail
+          python3 mechanica/qualification/inspect_media.py \
+            --preview-dir preview/latest \
+            --output qualification-evidence/playback_report.json
+      - name: Upload independent evidence including first failure if any
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mechanica-independent-playback-report
+          path: qualification-evidence/*.json
+          retention-days: 7
+          if-no-files-found: warn
