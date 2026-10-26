@@ -1,0 +1,63 @@
+name: Public audio scene manifest qualification
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/**'
+      - '.github/workflows/audio-scene-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  soundtrack-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/go.mod
+      - name: Install public CPU audio engines
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak-ng
+      - name: Go tests, red-team cases, vet
+        working-directory: audio-foundry
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Generate synthetic stems and render from pinned scene manifest
+        run: |
+          set -euo pipefail
+          input="$RUNNER_TEMP/audio-scene-source"
+          manifest="$RUNNER_TEMP/scene_audio.json"
+          rendered="$RUNNER_TEMP/scene_render.wav"
+          plan="$RUNNER_TEMP/scene_plan.json"
+          receipt="$RUNNER_TEMP/scene_receipt.json"
+          trap 'rm -rf "$input" "$manifest" "$rendered" "$plan" "$receipt" "$RUNNER_TEMP/private_scene.json"' EXIT
+          bash audio-foundry/demo.sh "$input"
+          cd audio-foundry
+          go run ./cmd/scene init -assets "$input" > "$manifest"
+          go run ./cmd/scene plan -assets "$input" -manifest "$manifest" > "$plan"
+          go run ./cmd/scene render -assets "$input" -manifest "$manifest" -out "$rendered" > "$receipt"
+          python3 - "$manifest" "$receipt" <<'PY'
+          import json,sys
+          m=json.load(open(sys.argv[1],encoding="utf-8"))
+          r=json.load(open(sys.argv[2],encoding="utf-8"))
+          assert m["schema"]=="scene_audio.v1"
+          assert m["classification"]=="PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL"
+          assert len(m["tracks"])==6 and len(m["events"])==2
+          assert len(r["assets"])==6 and r["output_bytes"]>2000000
+          assert -60 < r["mean_dbfs"] < 0
+          assert -60 < r["peak_dbfs"] < -0.2
+          print("scene_contract_PASS",r["output_sha256"],"mean_dBFS",r["mean_dbfs"],"peak_dBFS",r["peak_dbfs"])
+          m["classification"]="PRIVATE_FINAL_CHARACTER_VOICE"
+          with open("private_test.json","w",encoding="utf-8") as f:json.dump(m,f)
+          PY
+          if go run ./cmd/scene plan -assets "$input" -manifest private_test.json >/dev/null 2>&1; then
+            echo "FAIL: private final manifest allowed on public runner" >&2
+            exit 1
+          fi
+          rm -f private_test.json
+          echo 'No soundtrack media uploaded from public CI.'
