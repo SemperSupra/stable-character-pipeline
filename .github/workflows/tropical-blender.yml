@@ -48,11 +48,14 @@ jobs:
           sha256sum out/tropical_scene.glb
           go run ./cmd/ecologyprobe -config examples/earth.json -out out/earth_ecology.json
           python3 tools/ecology_binding.py --report out/earth_ecology.json --map examples/ecology_scene_map.json --model out/tropical_scene.glb --out out/ecology_binding.json --frames 48 --fps 12
-      - name: Install Blender and video encoder from Ubuntu system packages
+      - name: Install bounded minimal Blender and video encoder packages
+        timeout-minutes: 7
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq blender ffmpeg xvfb python3-numpy
+          sudo timeout --signal=TERM --kill-after=10s 120s apt-get update -qq
+          sudo timeout --signal=TERM --kill-after=10s 240s apt-get install -y -qq --no-install-recommends blender ffmpeg xvfb python3-numpy
           blender --version | head -n 2
       - name: Headless Blender CPU scene build, animation and frames
         env:
