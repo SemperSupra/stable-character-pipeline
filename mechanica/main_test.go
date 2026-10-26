@@ -10,8 +10,8 @@ import (
 )
 func TestIndependentRigCatalog(t *testing.T) {
  s:=makeScene()
- if len(s.Rigs)!=3 {t.Fatalf("rig count = %d",len(s.Rigs))}
- names:=[]string{"ground/suv","air/utility-twin","space/orbital-tug"}
+ if len(s.Rigs)!=4 {t.Fatalf("rig count = %d",len(s.Rigs))}
+ names:=[]string{"ground/suv","air/utility-twin","space/orbital-tug","titan/iron-atlas"}
  seen:=map[string]bool{}
  total:=0
  for i,r:=range s.Rigs {
@@ -26,8 +26,9 @@ func TestIndependentRigCatalog(t *testing.T) {
    if math.Hypot(math.Hypot(j.Axis[0],j.Axis[1]),j.Axis[2])<.99 {t.Error("invalid axis",j.Name)}
   }
  }
+ if len(s.Rigs[3].Joints)<20 {t.Fatalf("mech has too few articulated joints: %d",len(s.Rigs[3].Joints))}
  if total!=len(s.Tracks) {t.Fatalf("joints %d, tracks %d",total,len(s.Tracks))}
- for _,name:=range []string{"car/left/front-hinge","car/right/rear-hinge","car/tailgate-hinge","air/port/flap","air/starboard/propeller","air/elevator","air/rudder","air/port/landing-gear","space/port/solar-yoke","space/docking-hatch","space/antenna-pan"} {
+ for _,name:=range []string{"car/left/front-hinge","car/right/rear-hinge","car/tailgate-hinge","air/port/flap","air/starboard/propeller","air/elevator","air/rudder","air/port/landing-gear","space/port/solar-yoke","space/docking-hatch","space/antenna-pan","titan/iron-atlas/torso-yaw","titan/iron-atlas/cockpit-yaw","titan/iron-atlas/port/hip-pitch","titan/iron-atlas/starboard/knee-pitch","titan/iron-atlas/port/cannon-elevation","titan/iron-atlas/starboard/claw-finger-1","titan/iron-atlas/maintenance-hatch","titan/iron-atlas/port/pod-elevation"} {
   if !seen[name] {t.Error("missing articulated mechanism",name)}
  }
 }
