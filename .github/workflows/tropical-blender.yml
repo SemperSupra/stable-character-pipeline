@@ -43,6 +43,7 @@ jobs:
           go test -race -count=1 ./...
           go vet ./...
           python3 -m py_compile render_blender.py tools/verify_blender.py tools/ecology_binding.py tools/ecology_blender.py
+          python3 -I tools/test_blender_loader.py
           python3 -m unittest discover -s tools -p 'test_ecology_binding.py'
           go run . -config scene.json -out out
           sha256sum out/tropical_scene.glb
