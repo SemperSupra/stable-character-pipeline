@@ -56,6 +56,24 @@ jobs:
           cd voice-foundry
           go run ./robot/cmd/robotvoice -sources "$RUNNER_TEMP/robot-source" -out "$RUNNER_TEMP/robot-public-output" \
             -provider 'kokoro-onnx-0.6.1+espeak-ng' -classification PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL
+          # Independently decode every output; basic ffprobe metadata alone cannot establish a decodable file.
+          for audio in "$RUNNER_TEMP"/robot-public-output/*.m4a; do
+            ffmpeg -hide_banner -loglevel error -xerror -nostdin -i "$audio" -f null -
+          done
+          cp robot/review/index.html "$RUNNER_TEMP/robot-public-output/index.html"
+          python3 - "$RUNNER_TEMP/robot-public-output/index.html" <<'PY'
+          from html.parser import HTMLParser
+          import sys
+          class Count(HTMLParser):
+              n=0
+              def handle_starttag(self,tag,attrs):
+                  if tag == "audio":
+                      self.n+=1
+          h=Count()
+          h.feed(open(sys.argv[1],encoding='utf-8').read())
+          assert h.n==9
+          print("creator_review_nine_players_PASS")
+          PY
           python3 - "$RUNNER_TEMP/robot-public-output/receipt.json" <<'PY'
           import json, sys
           r = json.load(open(sys.argv[1],encoding="utf-8"))
@@ -73,6 +91,7 @@ jobs:
           path: |
             ${{ runner.temp }}/robot-public-output/*.m4a
             ${{ runner.temp }}/robot-public-output/receipt.json
+            ${{ runner.temp }}/robot-public-output/index.html
           retention-days: 7
           if-no-files-found: error
       - name: Clean model weights and ephemeral source recordings
