@@ -33,5 +33,18 @@ assert (stream['width'],stream['height'])==(640,360)
 assert stream['codec_name']=='h264'
 assert int(stream['nb_frames'])==48
 assert math.isclose(float(probe['format']['duration']),4.0,abs_tol=.05)
+if len(sys.argv)>2:
+    binding=json.loads(Path(sys.argv[2]).read_text())
+    assert binding['schema']=='scp.ecology.scene-binding.v1'
+    assert receipt['ecology_binding_sha256']==binding['binding_sha256']
+    assert receipt['ecology_report_sha256']==binding['source_report_sha256']
+    assert receipt['ecology_actor_drivers']==6
+    assert receipt['ecology_resource_proxies']==3
+    assert receipt['ecology_visualization'].startswith('SYNTHETIC_')
+    ratios=[[p['ratio'] for p in frame['patches']] for frame in binding['frames']]
+    assert ratios[0]!=ratios[-1], 'unanimated forage state'
+    changes=[a['offset'] for a in binding['frames'][-1]['actors']]
+    assert any(sum(abs(x) for x in pos)>.1 for pos in changes), 'unanimated animal ecology positions'
+    print('PASS: imported actor drivers and visible forage proxies bound to exact verified ecology trace')
 print('PASS: imported GLB animated roots, 48 distinct-frame sequence, Blender scene, H.264, and contact sheet')
 print(json.dumps(receipt,sort_keys=True))
