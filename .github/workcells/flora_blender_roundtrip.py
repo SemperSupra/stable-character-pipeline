@@ -83,6 +83,40 @@ def main():
             raise RuntimeError("GLB lineage/rights metadata not preserved: "+ident)
         if not same_bounds(bounds(obj), prior[ident]["bounds"]):
             raise RuntimeError("GLB reimport changed geometric bounds: "+ident)
+    # Workbench-only visual diagnostics; these are not species-accurate materials.
+    from mathutils import Vector
+    scene = bpy.context.scene
+    all_v = [ob.matrix_world @ v.co for ob in restored for v in ob.data.vertices]
+    low = Vector(tuple(min(v[i] for v in all_v) for i in range(3)))
+    high = Vector(tuple(max(v[i] for v in all_v) for i in range(3)))
+    center = (low + high) * .5
+    span = max(high[i]-low[i] for i in range(3))
+    if not .1 < span < 50:
+        raise RuntimeError("unbounded geometry in visual gate")
+    for ob in restored:
+        ob.color = (.20,.55,.20,1) if ob.get("scp_kind") == "leaf" else (.60,.33,.16,1)
+    camera_data = bpy.data.cameras.new("diagnostic")
+    camera_data.type, camera_data.ortho_scale = "ORTHO", span*2.0
+    camera = bpy.data.objects.new("diagnostic",camera_data)
+    scene.collection.objects.link(camera)
+    scene.camera = camera
+    scene.render.engine = "BLENDER_WORKBENCH"
+    scene.display.shading.color_type = "OBJECT"
+    scene.render.resolution_x, scene.render.resolution_y = 640,480
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.file_format = "PNG"
+    views = {}
+    for name,direction in (("front",(3,-5,2)),("side",(-5,-2,3))):
+        camera.location = center + Vector(direction).normalized()*span*3.5
+        camera.rotation_euler = (center-camera.location).to_track_quat("-Z","Y").to_euler()
+        target = out/("diagnostic_"+name+".png")
+        scene.render.filepath = str(target)
+        bpy.ops.render.render(write_still=True)
+        if target.stat().st_size < 4096 or target.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+            raise RuntimeError("invalid diagnostic PNG "+name)
+        views[name] = digest(target)
+    if views["front"] == views["side"]:
+        raise RuntimeError("identical different-camera diagnostic images")
     bpy.ops.wm.save_as_mainfile(filepath=str(out/"synthetic_flora_lineage.blend"))
     receipt = {
         "schema": "scp.flora.glb_roundtrip.v1",
@@ -91,6 +125,7 @@ def main():
         "glb_sha256": digest(glb), "blender_version": bpy.app.version_string,
         "organ_geometry": prior,
         "fidelity": "SYNTHETIC_INTERCHANGE_ONLY",
+        "diagnostic_views": views,
         "status": "OBJ_GEOMETRY_AND_GLB_LINEAGE_BOUNDS_PASS"
     }
     (out/"roundtrip_receipt.json").write_text(json.dumps(receipt, indent=2, sort_keys=True)+"\n")
