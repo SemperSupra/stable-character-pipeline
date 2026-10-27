@@ -1,0 +1,100 @@
+name: NASA R3 portable rig skin independent CPU smoke
+on:
+  pull_request:
+    paths:
+      - 'qualification/nasa_rig_r3/**'
+      - '.github/workflows/nasa-r3-portable.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: nasa-r3-portable-\${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable-rig:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      GO111MODULE: 'off'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download prior fixed-source R2 NASA pose data without model or media weights
+        uses: actions/download-artifact@v4
+        with:
+          name: nasa-independent-pair-r2
+          repository: SemperSupra/stable-character-pipeline
+          run-id: 40555220225
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          path: nasa-pair-output
+      - name: Pin exact prior native observations and run all fail-closed Go controls
+        run: |
+          echo 'a6b56e7d794a5b74701031a75d350a9b2163182950861c1d135ec18b748c9b53  nasa-pair-output/video_landmarks.json' | sha256sum -c -
+          echo '9a9d3c891ad34a78543bccf46a537528e1fc942701878c8ad0f4df131f43b2e7  nasa-pair-output/receipt.json' | sha256sum -c -
+          go test -v ./qualification/nasa_rig_r3
+          python -m py_compile qualification/nasa_rig_r3/portable_verify.py
+      - name: Build Go source-bound animated skin GLB from original NASA R2 observations
+        run: |
+          go run qualification/nasa_rig_r3/main.go \
+            -input nasa-pair-output/video_landmarks.json \
+            -receipt nasa-pair-output/receipt.json \
+            -out pose-rig-output
+      - name: Install small pinned software-raster and standalone video encoder wheels
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir 'pillow==11.3.0' 'imageio-ffmpeg==0.6.0'
+      - name: Independently read actual GLB skin, deformed geometry, and rasterize samples
+        run: |
+          python qualification/nasa_rig_r3/portable_verify.py \
+            --glb pose-rig-output/camera_plane_skinned_motion.glb \
+            --manifest pose-rig-output/rig_manifest.json \
+            --out pose-rig-output
+      - name: Encode verified iPhone-compatible MP4, fail if unavailable
+        run: |
+          python - <<'PY'
+          import imageio_ffmpeg
+          import subprocess
+          from pathlib import Path
+          ff=imageio_ffmpeg.get_ffmpeg_exe()
+          print('Ffmpeg wheel', ff)
+          subprocess.run([ff,'-hide_banner','-loglevel','error','-nostdin','-y',
+             '-framerate','1','-start_number','0',
+             '-i','pose-rig-output/rig_frame_%03d.png',
+             '-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',
+             'pose-rig-output/camera_plane_rig_demo.mp4'],check=True,timeout=45)
+          assert Path('pose-rig-output/camera_plane_rig_demo.mp4').stat().st_size>3000
+          PY
+      - name: Print bounded receipts and output-size proof
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for p in ['pose-rig-output/rig_manifest.json',
+                    'pose-rig-output/portable_glb_validation.json',
+                    'pose-rig-output/camera_plane_skinned_motion.glb',
+                    'pose-rig-output/camera_plane_rig_demo.mp4']:
+              f=Path(p)
+              print('R3_PORTABLE_RECEIPT',p,f.stat().st_size if f.exists() else 'NOT_PRODUCED')
+              if f.suffix=='.json' and f.exists():print(f.read_text()[:9000])
+          PY
+      - name: Archive iPhone preview, editable GLB and JSON proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nasa-r3-portable-glb-and-mp4
+          path: pose-rig-output/
+          retention-days: 3
+          if-no-files-found: warn
