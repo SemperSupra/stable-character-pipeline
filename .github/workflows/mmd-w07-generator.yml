@@ -1,0 +1,58 @@
+name: MMD W07 genuine Khronos generated glTF skin and invalid cases
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/w07_generator_validate.cjs'
+      - '.github/workflows/mmd-w07-generator.yml'
+permissions:
+  contents: read
+concurrency:
+  group: w07-genuine-generator-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actual-khronos-generated-assets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        lane: [skin,negative]
+    steps:
+      - name: Checkout source-only qualification logic
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pin exact upstream official MIT glTF Asset Generator output
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/glTF-Asset-Generator
+          ref: 3d99767e9a67fbfe109f0d298c1e8d909bcac9db
+          path: vendor/khronos-generated
+          sparse-checkout: |
+            LICENSE
+            Output/Positive/Animation_Skin
+            Output/Positive/Animation_SkinType
+            Output/Negative/Mesh_NoPosition
+          persist-credentials: false
+      - name: Native official glTF validator pinned version
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund 'gltf-validator@2.0.0-dev.3.10'
+      - name: Real upstream generated glTF and BIN model validator
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          mkdir -p w07-generator-output
+          node mmd/qualification/w07_generator_validate.cjs \
+            vendor/khronos-generated ${{ matrix.lane }} \
+            w07-generator-output/${{ matrix.lane }}.json
+      - name: Preserve exact source-native results including genuine red cases
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w07-real-khronos-generator-${{ matrix.lane }}
+          path: w07-generator-output/*.json
+          retention-days: 14
+          if-no-files-found: warn
