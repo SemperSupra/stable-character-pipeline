@@ -1,0 +1,112 @@
+name: NASA R5 originals-to-rig direct CPU source replay
+on:
+  pull_request:
+    paths:
+      - 'qualification/nasa_rig_r3/replay_source.py'
+      - 'qualification/nasa_rig_r3/test_replay.py'
+      - '.github/workflows/nasa-r5-direct-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: nasa-r5-replay-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-replay-and-skin:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    env:
+      GO111MODULE: 'off'
+      PYTHONUNBUFFERED: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      TF_CPP_MIN_LOG_LEVEL: '2'
+      PYTHONHASHSEED: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Print exact checked source revision and baseline fixture provenance
+        run: |
+          git rev-parse HEAD
+          echo 'R2 prior independent public CPU run: 40555220225; NO artifact retrieval permitted'
+          echo 'NASA video SHA1: dfc000088cfff728b57fe0c8ae38a7266410caeb'
+      - name: Offline Go and source-replay negative admission controls
+        run: |
+          go test -v ./qualification/nasa_rig_r3
+          python -m unittest discover -v -s qualification/nasa_rig_r3 -p 'test_replay.py'
+          python -m unittest discover -v -s qualification/nasa_pair -p 'test_*.py'
+          python -m py_compile qualification/nasa_rig_r3/portable_verify.py
+      - name: Install bounded fixed CPU inference and wheel-bundled encoder
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir \
+            'mediapipe==0.10.21' 'pillow==11.3.0' 'imageio-ffmpeg==0.6.0'
+      - name: DIRECT full NASA original photo/video and model replay without prior artifacts
+        run: |
+          python qualification/nasa_rig_r3/replay_source.py --out nasa-pair-output
+          test -s nasa-pair-output/direct_source_replay.json
+          test -s nasa-pair-output/video_landmarks.json
+          test -s nasa-pair-output/receipt.json
+      - name: Go source-checked animated skin from fresh original observations
+        run: |
+          go run qualification/nasa_rig_r3/main.go \
+            -input nasa-pair-output/video_landmarks.json \
+            -receipt nasa-pair-output/receipt.json \
+            -selection coverage \
+            -out pose-rig-output
+      - name: Independently decode and deform actual GLB, render CPU source frames
+        run: |
+          python qualification/nasa_rig_r3/portable_verify.py \
+            --glb pose-rig-output/camera_plane_skinned_motion.glb \
+            --manifest pose-rig-output/rig_manifest.json \
+            --out pose-rig-output
+      - name: Create iPhone H264 MP4 from evaluated skin preview
+        run: |
+          python - <<'PY'
+          import imageio_ffmpeg
+          import subprocess
+          from pathlib import Path
+          ff=imageio_ffmpeg.get_ffmpeg_exe()
+          subprocess.run([ff,'-hide_banner','-loglevel','error','-nostdin','-y',
+              '-framerate','1','-start_number','0','-i','pose-rig-output/rig_frame_%03d.png',
+              '-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',
+              'pose-rig-output/camera_plane_rig_demo.mp4'],check=True,timeout=60)
+          assert Path('pose-rig-output/camera_plane_rig_demo.mp4').stat().st_size > 3000
+          print('R5_H264_BYTES',Path('pose-rig-output/camera_plane_rig_demo.mp4').stat().st_size)
+          PY
+      - name: Inspect every reproducible receipt and output existence
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for name in ['nasa-pair-output/receipt.json','nasa-pair-output/direct_source_replay.json',
+                  'pose-rig-output/rig_manifest.json','pose-rig-output/portable_glb_validation.json',
+                  'pose-rig-output/camera_plane_rig_demo.mp4']:
+              p=Path(name)
+              print('R5_RECEIPT',name,p.stat().st_size if p.exists() else 'NOT_PRODUCED')
+              if p.exists() and p.suffix=='.json':print(p.read_text()[:9000])
+          PY
+      - name: Preserve source-to-rig evidence (not original media/model weights)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nasa-r5-originals-replay-and-rig
+          path: |
+            nasa-pair-output/receipt.json
+            nasa-pair-output/direct_source_replay.json
+            nasa-pair-output/video_landmarks.json
+            pose-rig-output/
+          if-no-files-found: warn
+          retention-days: 3
