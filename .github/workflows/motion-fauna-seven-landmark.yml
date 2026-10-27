@@ -118,6 +118,73 @@ jobs:
           grep -q 'SOURCE_HOLD' ../../horse-proof/rejected.stderr
           rm ../../horse-proof/deny-input.csv
           echo '{"result":"PASS_EXPECTED_REJECTION","attempt":"unmarked synthetic provenance"}' > ../../horse-proof/rejection.json
+      - name: Pinned real-header shape on original synthetic bytes — independent timestamp oracle
+        working-directory: motion_learning/fauna_csv
+        run: |
+          set -euo pipefail
+          native=testdata/original.synthetic-native-layout.csv
+          sha256sum "$native" > ../../horse-proof/native-shaped-original-synthetic.sha256
+          expected="$(sha256sum "$native" | cut -d' ' -f1)"
+          go run ./cmd/nativeprobe \
+             -source "$native" \
+             -expected-sha256 "$expected" \
+             -out ../../horse-proof/native-layout-shape.json
+          python3 - <<'PY'
+          import csv,hashlib,json,math
+          from pathlib import Path
+          b=Path('testdata/original.synthetic-native-layout.csv').read_bytes()
+          rows=list(csv.reader(b.decode('utf-8').splitlines()))
+          p=json.loads(Path('../../horse-proof/native-layout-shape.json').read_text())
+          names=['Frame#','Time']+[m+a for m in ['Head','Withers','Sacrum','HFL','HFR','HHL','HHR'] for a in 'XYZ']
+          assert rows[0]==names
+          assert all(len(row)==23 for row in rows)
+          assert p['bytes_sha256']==hashlib.sha256(b).hexdigest()
+          assert p['data_rows']==len(rows)-1==5
+          frames=[int(r[0]) for r in rows[1:]]
+          assert frames==[1,2,3,4,5] and p['first_frame']==1
+          ts=[float(r[1]) for r in rows[1:]]
+          deltas=[ts[i]-ts[i-1] for i in range(1,len(ts))]
+          assert math.isclose(p['min_time_delta_number'],min(deltas),abs_tol=1e-12)
+          assert math.isclose(p['max_time_delta_number'],max(deltas),abs_tol=1e-12)
+          assert min(deltas)<max(deltas) and p['native_fps']=='UNKNOWN'
+          assert p['physical_units']=='UNKNOWN' and p['source_time_unit']=='UNKNOWN'
+          assert p['relative_or_global']=='UNKNOWN' and p['dataset_admission']=='NOT_ADMITTED'
+          assert p['original_site_bytes_independently_authenticated'] is False
+          assert p['measurement_origin_independently_authenticated'] is False
+          assert p['true_physical_contact_established'] is False
+          receipt={'result':'PASS_SYNTHETIC_NATIVE_HEADER_LAYOUT_ONLY',
+                   'rows':len(rows)-1,'frame_origin':frames[0],
+                   'observed_time_deltas':[round(x,3) for x in deltas],
+                   'fps':'UNKNOWN','physical_units':'UNKNOWN',
+                   'external_original_vhdc_bytes_used':False}
+          Path('../../horse-proof/native-header-independent-oracle.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(receipt))
+          PY
+      - name: Negative cross-source header and immutable digest controls
+        working-directory: motion_learning/fauna_csv
+        run: |
+          set -euo pipefail
+          good=testdata/original.synthetic-native-layout.csv
+          digest="$(sha256sum "$good" | cut -d' ' -f1)"
+          if go run ./cmd/nativeprobe -source "$good" \
+             -expected-sha256 "$(printf '%064d' 0)" \
+             -out ../../horse-proof/forged-hash.json \
+             > ../../horse-proof/native-hash.stdout 2> ../../horse-proof/native-hash.stderr; then
+            echo 'FAIL: forged input digest accepted' >&2
+            exit 1
+          fi
+          test ! -e ../../horse-proof/forged-hash.json
+          grep -q 'LAYOUT_HOLD' ../../horse-proof/native-hash.stderr
+          if go run ./cmd/nativeprobe -source testdata/original.synthetic-horse.csv \
+             -expected-sha256 "$(sha256sum testdata/original.synthetic-horse.csv | cut -d' ' -f1)" \
+             -out ../../horse-proof/cross-source.json \
+             > ../../horse-proof/cross-source.stdout 2> ../../horse-proof/cross-source.stderr; then
+            echo 'FAIL: incompatible source layout accepted' >&2
+            exit 1
+          fi
+          test ! -e ../../horse-proof/cross-source.json
+          grep -q 'LAYOUT_HOLD' ../../horse-proof/cross-source.stderr
+          echo '{"status":"PASS_EXPECTED_REJECTIONS","cases":["forged_hash","incompatible_synthetic_header"],"rights":"NOT_ADMITTED"}' > ../../horse-proof/native-red-probes.json
       - name: Preserve diagnostic receipts, no third-party source blobs
         if: always()
         uses: actions/upload-artifact@v4
