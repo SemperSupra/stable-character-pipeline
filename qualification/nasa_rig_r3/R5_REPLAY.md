@@ -1,0 +1,19 @@
+# R5 — Durable original-source replay, no previous GitHub Actions artifact
+
+Public DLE: [R5 #51](https://github.com/SemperSupra/stable-character-pipeline/issues/51). Parent R3 #43 and W02 draft #49. Private product authority #2. **Research candidate only** and no merge, deployment, release, training, model-weight publication or CPE concept promotion.
+
+The prior R3 public standard-CPU workflow did prove an animated procedural skinned GLB with 33 landmark nodes, but depended on the **R2 Actions artifact 40555220225 expiring 2026-10-30**. This candidate eliminates that ephemeral input. It checks out the exact PR head, installs pinned wheels in a single standard public Ubuntu runner and directly repeats the original independently NASA-captioned source pair:
+
+- Original workout video: https://commons.wikimedia.org/wiki/File:Astronaut_Mike_Hopkins-_Workout_in_Space_2.webm , original SHA1 `dfc000088cfff728b57fe0c8ae38a7266410caeb` (10,680,037 bytes), U.S. public domain NASA. Verified prior SHA256 `afcc7cb94b6c52de74a3892e7f1bf042700da3c96fb7fbec83f295b05f32f76a`.
+- Separate official portrait: https://commons.wikimedia.org/wiki/File:Michael_S._Hopkins,_official_portrait.jpg , original SHA1 `e9e88122157dd60bc314d57754c02844954eaa00` (3,001,066 bytes), U.S. public domain NASA. Verified prior SHA256 `3c9f612dc86e2e496a8521b448ea58835d918343a8070aefb99de37410423c15`.
+- Official MediaPipe Lite pose task model SHA256 `59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a` (download in runner, **not** distributed).
+- Dependencies: `mediapipe==0.10.21`, `pillow==11.3.0`, `imageio-ffmpeg==0.6.0`, Go 1.23 and Python 3.11. No apt mirror download, GPU, private runner or prior GitHub artifact needed.
+
+The script `replay_source.py` chooses only the official bundled FFmpeg wheel executable via an ephemeral file-system symlink prepended to PATH for the existing R2 scientific adapter. The adapter still verifies source checksums/allowed domains, extracts the 30 frames at 1 Hz from 11–40 seconds, makes independent still and video pose observations, and checks the pretrained task model. R5 validates original file hashes **again** and emits `direct_source_replay.json` with recorded SHA256, detection counts, continuous run length and bit-exact comparison versus the previous R2 landmark SHA256 `a6b56e7d794a5b74701031a75d350a9b2163182950861c1d135ec18b748c9b53`.
+
+If the environment produces different model-estimated floats, the diff is **reported as a reproducibility variant**, never silently called bit-identical; fail on mutated file, model, source clock, incomplete or too-short pose. Go converts the freshly observed source to an explicit camera-plane proxy skin with animated translation nodes, retaining missingness/uncertainty. The independent Python glTF decoder evaluates skin and outputs PNG + H264 (for iPhone viewing). No biomechanical or metric-3D claim. Structural export, visual framing and native Blender deformation are different acceptance gates; Blender remains held from previous public apt-mirror timeout.
+
+## Three audiences
+Humans: this readme, actual MP4/GLB and source rights from GitHub run artifact; the uploaded artifact is short-lived, while exact files/manifest/workflow are project-native source authority. Automation: `replay_source.py --out`, deterministic Go selector, source receipts, negative unittest/Go tests, nonzero exit on violated invariants. Agents: R5 #51, exact head/workflow/run, source hash and first failure, status and next executable baton. Do not commit NASA original media or model files.
+
+**Falsifiers:** original media or model hash change, invisible/out-of-bounds pose used as observed anatomy, missing pose gap interpolated, R2 SHA difference labeled equivalent without comparison, animated skinned GLB confused with learned UniRig inference, unreviewed weight redistributions or publishing a photo subject's identity from video inference.
