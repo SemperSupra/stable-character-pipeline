@@ -1,0 +1,167 @@
+name: MMD W06 W07 W21 four independent public qualification runners
+on:
+  pull_request:
+    paths:
+      - 'mmd/parallel/**'
+      - '.github/workflows/mmd-parallel-public-lanes.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-parallel-public-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  independent-public-lane:
+    # Four separate GitHub-hosted CPU VMs, not four serial steps on one runner.
+    # All sources already rights-cleared, exact pinned, public synthetic.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - lane: W06
+            kind: w06
+          - lane: W07
+            kind: w07
+          - lane: W21-A
+            kind: w21
+          - lane: W21-B
+            kind: w21
+    steps:
+      - name: Checkout only public source from this isolated candidate PR
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: W06 read-only download of verified exact-native Babylon 124-joint samples
+        if: matrix.kind == 'w06'
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-w04-babylon-source-parser-evidence
+          run-id: 40592341175
+          github-token: ${{ github.token }}
+          path: inputs/w06
+      - name: W07 source genuine self-authored G7 skinned GLB
+        if: matrix.kind == 'w07'
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-articulation-evidence
+          run-id: 40451441477
+          github-token: ${{ github.token }}
+          path: inputs/g7
+      - name: W07 source genuine self-authored G9 skinned and morphed GLB
+        if: matrix.kind == 'w07'
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-face-morph-parity-evidence
+          run-id: 40455150395
+          github-token: ${{ github.token }}
+          path: inputs/g9
+      - name: W21 independent exact original iPhone H264 + PNG evidence download
+        if: matrix.kind == 'w21'
+        uses: actions/download-artifact@v4
+        with:
+          name: mmd-w21-iphone-viewable-original-media
+          run-id: 40555603257
+          github-token: ${{ github.token }}
+          path: inputs/w21
+      - name: Install pinned Go for W06 and independent W21 audits
+        if: matrix.kind != 'w07'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.12'
+          cache: false
+      - name: Execute real-source W06 metamorphic and five red controls
+        if: matrix.kind == 'w06'
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          go run mmd/parallel/w06/main.go \
+            inputs/w06/complete_31frame_world_joint_parity.json \
+            receipts/W06.json
+          grep -q PASS_REAL_124_SOURCE_SAMPLES_THREE_METAMORPHIC_AND_FIVE_RED_CONTROLS receipts/W06.json
+      - name: Install actual Khronos pinned glTF Validator on W07 only
+        if: matrix.kind == 'w07'
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund gltf-validator@2.0.0-dev.3.10
+          node -e "console.log('REAL_KHRONOS_VERSION', require('gltf-validator').version())"
+      - name: W07 original self-authored GLBs metadata metamorphism, six genuine validator red probes
+        if: matrix.kind == 'w07'
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          node mmd/parallel/w07/validate.cjs \
+            inputs/g7/mmd-articulation-output/articulated_ribbon.glb \
+            inputs/g9/synthetic_face_morph.glb \
+            receipts/W07.json
+          grep -q PASS_REAL_KHRONOS_METADATA_VARIANTS_SIX_NEGATIVE_CONTROLS receipts/W07.json
+      - name: W21 independent faststart and source custody auditor on separate identical VMs
+        if: matrix.kind == 'w21'
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          go run mmd/parallel/w21/main.go inputs/w21 ${{ matrix.lane }} receipts/${{ matrix.lane }}.json
+          grep -q PASS_INDEPENDENT_IPHONE_MEDIA_BYTES_FASTSTART_AND_PNG receipts/${{ matrix.lane }}.json
+      - name: Upload evidence or real first failure from this independent workcell
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mmd-parallel-${{ matrix.lane }}
+          path: receipts/*
+          retention-days: 14
+          if-no-files-found: warn
+
+  reconcile-independent-lanes:
+    # Do not promote or publish: bounded reporter verifies all four lanes independently passed.
+    needs: independent-public-lane
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Download all four separate machine receipts
+        if: needs.independent-public-lane.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mmd-parallel-*
+          path: independent
+          merge-multiple: false
+      - name: Fail closed on all four, compare independent W21-A/B source observations
+        run: |
+          set -euo pipefail
+          test "${{ needs.independent-public-lane.result }}" = success
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          p=pathlib.Path('independent')
+          paths=[p/f'mmd-parallel-{lane}'/f'{lane}.json' for lane in ('W06','W07','W21-A','W21-B')]
+          d=[json.loads(x.read_text()) for x in paths]
+          assert all(z.get('status','').startswith('PASS_') for z in d), d
+          assert d[0]['samples']==124 and d[0]['frames']==31
+          assert d[1]['original_assets']==2 and d[1]['intentionally_invalid_variants_rejected']==6
+          assert d[2]['lane_id']=='W21-A' and d[3]['lane_id']=='W21-B'
+          assert d[2]['receipt_sha256']==d[3]['receipt_sha256']
+          assert d[2]['exact_source_mp4_sha256']==d[3]['exact_source_mp4_sha256']
+          report={
+           'schema':'scp.mmd.parallel.reconciled.v1',
+           'status':'PASS_FOUR_SEPARATE_ZERO_COST_PUBLIC_RUNNERS_WITH_INDEPENDENT_RECEIPTS',
+           'jobs':{lane:{'status':x['status'],'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+              for lane,x,path in zip(('W06','W07','W21-A','W21-B'),d,paths)},
+           'w21_identical_independent_source_receipt_sha256':d[2]['receipt_sha256'],
+           'scope':'synthetic public artifacts only; no private models or sensitive concepts',
+           'not_authorized':['merge','release','deploy','promote CPE findings']
+          }
+          out=pathlib.Path('public-parallel-reconciliation.json')
+          out.write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+          print('PARALLEL_W06_W07_W21_RECONCILED',json.dumps(report,sort_keys=True))
+          PY
+      - name: Retain a bounded cross-run machine conclusion
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mmd-parallel-reconciliation
+          path: public-parallel-reconciliation.json
+          retention-days: 14
+          if-no-files-found: warn
