@@ -85,7 +85,21 @@ jobs:
           assert r['rendered_png_frames']==r['source_sampled_frames']==10
           assert r['evaluated_animated_vertex_max_displacement_camera_plane_units']>0.002
           assert r['camera_plane_not_true_3d'] is True
+          axes=r['native_blender_axis_validation']
+          assert axes['native_z_vertical_extent_at_first']>0.1
+          assert axes['projection_axes']=='Blender native XZ (glTF source XY), depth Blender Y'
+          assert r['blender_total_sampled_mesh_vertices']==192
           assert 'NOT Blender render engine' in r['raster_pipeline']
+          # Qualify human inspectability independently from merely written PNGs.
+          from PIL import Image
+          im=Image.open('r6-native-output/rig_frame_000.png').convert('RGB')
+          pts=[(x,y) for y in range(40,325) for x in range(640)
+               if (lambda v: v[2]>140 and v[1]>120 and v[0]<150)(im.getpixel((x,y)))]
+          assert pts, 'no visible Blender-evaluated skinned pixels'
+          w=max(x for x,y in pts)-min(x for x,y in pts)
+          h=max(y for x,y in pts)-min(y for x,y in pts)
+          print('R6_VISUAL_GEOMETRY_EXTENTS_PIXELS',w,h)
+          assert w>15 and h>25, 'flattened or tiny camera-plane rig preview'
           assert len(list(Path('r6-native-output').glob('rig_frame_*.png')))==10
           print('R6_BLENDER_NATIVE_DEFORMATION_PASS',json.dumps(r,sort_keys=True))
           PY
