@@ -4,6 +4,7 @@
 package g10bridge
 
 import (
+    "bytes"
     "encoding/json"
     "errors"
     "fmt"
@@ -82,6 +83,8 @@ func Build(paths Paths)(envelope.ProofBundle,error){
     var empty envelope.ProofBundle
     mb,err:=read(paths.Model,20<<20);if err!=nil{return empty,fmt.Errorf("PMX %w",err)}
     vb,err:=read(paths.Motion,20<<20);if err!=nil{return empty,fmt.Errorf("VMD %w",err)}
+    if !bytes.HasPrefix(mb,[]byte("PMX ")) || !bytes.HasPrefix(vb,[]byte("Vocaloid Motion Data")) ||
+       len(mb)<64 || len(vb)<64 {return empty,errors.New("native source format magic or size invalid")}
     pmxHash,vmdHash:=envelope.ContentDigest(mb),envelope.ContentDigest(vb)
     f,fb,err:=load[fixture](paths.FixtureReceipt);if err!=nil{return empty,err}
     if f.Schema!="scp.mmd.ik.fixture.v1"||f.Status!="PASS_ORIGINAL_TWO_LINK_IK_PMX_AND_SOURCE_VMD"||
@@ -95,6 +98,8 @@ func Build(paths Paths)(envelope.ProofBundle,error){
     }
     ib,err:=read(paths.IKGLB,20<<20);if err!=nil{return empty,err}
     nb,err:=read(paths.NoIKGLB,20<<20);if err!=nil{return empty,err}
+    if !bytes.HasPrefix(ib,[]byte("glTF")) || !bytes.HasPrefix(nb,[]byte("glTF")) ||
+       len(ib)<20 || len(nb)<20 {return empty,errors.New("actual IK/FK GLB magic or size invalid")}
     d,db,err:=load[direct](paths.DirectReceipt);if err!=nil{return empty,err}
     b,bb,err:=load[blender](paths.BlenderReceipt);if err!=nil{return empty,err}
     p,pb,err:=load[parity](paths.ParityReceipt);if err!=nil{return empty,err}
