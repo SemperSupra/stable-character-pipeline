@@ -108,13 +108,13 @@ def run(destination):
             if receipt["model"]["sha256"] != MODEL_SHA256:
                 raise ValueError("pose task model does not match previously observed SHA256")
             subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
-                            "-ss", "3", "-t", "6", "-i", str(t / "original.webm"),
-                            "-vf", "fps=2,scale=640:-2",
-                            "-frames:v", "12", str(t / "frame_%03d.png")],
+                            "-ss", "11", "-t", "30", "-i", str(t / "original.webm"),
+                            "-vf", "fps=1,scale=640:-2",
+                            "-frames:v", "30", str(t / "frame_%03d.png")],
                            check=True, timeout=60)
             frames = sorted(t.glob("frame_*.png"))
-            if len(frames) != 12:
-                raise ValueError("expected 12 decoded video frames; got %s" % len(frames))
+            if len(frames) != 30:
+                raise ValueError("expected 30 sampled workout frames; got %s" % len(frames))
             photo = cv2.imread(str(t / "portrait.jpg"))
             if photo is None:
                 raise ValueError("independent NASA portrait failed to decode")
@@ -144,22 +144,22 @@ def run(destination):
                         raise ValueError("missing extracted frame")
                     image = mp.Image(image_format=mp.ImageFormat.SRGB,
                                      data=cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-                    points = points_row(movie.detect_for_video(image, i * 500))
-                    temporal.append({"frame": i, "source_video_offset_ms": 3000 + i * 500,
+                    points = points_row(movie.detect_for_video(image, i * 1000))
+                    temporal.append({"frame": i, "source_video_offset_ms": 11000 + i * 1000,
                                      "landmarks2d": points})
-                    overlay = draw_overlay(bgr.copy(), points, "NASA workout / model estimated 2D / %0.1fs" % (3 + i * .5))
+                    overlay = draw_overlay(bgr.copy(), points, "NASA workout / model estimated 2D / %0.1fs" % (11 + i))
                     cv2.imwrite(str(output / ("frame_%03d.png" % (i + 1))), overlay)
-                    if i % 2 == 0:
+                    if i in (0, 5, 10, 15, 20, 25):
                         montages.append(cv2.resize(overlay, (320, 180)))
             (output / "video_landmarks.json").write_text(json.dumps(temporal, indent=2) + "\n")
             cv2.imwrite(str(output / "contact_sheet.jpg"),
                         np.vstack([np.hstack(montages[:3]), np.hstack(montages[3:6])]))
             subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-                            "-framerate", "2", "-start_number", "1",
+                            "-framerate", "1", "-start_number", "1",
                             "-i", str(output / "frame_%03d.png"), "-c:v", "libx264",
                             "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                             str(output / "video_pose_preview.mp4")], check=True, timeout=60)
-            receipt["video_frames"] = len(temporal)
+            receipt["sampling_window_seconds"] = [11, 41]\n            receipt["sampling_rate_hz"] = 1\n            receipt["video_frames"] = len(temporal)
             receipt["video_frames_33_points"] = sum(len(x["landmarks2d"]) == 33 for x in temporal)
             if receipt["video_frames_33_points"] == 0:
                 raise ValueError("NO_POSE_DETECTION_ON_NASA_WORKOUT_VIDEO")
