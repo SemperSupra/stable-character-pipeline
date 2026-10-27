@@ -6,6 +6,7 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Color3,Color4 } from "@babylonjs/core/Maths/math.color.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { PmxLoader } from "../../../vendor/babylon-mmd/src/Loader/pmxLoader.pure.ts";
 import { VmdLoader } from "../../../vendor/babylon-mmd/src/Loader/vmdLoader.ts";
 import { MmdRuntime } from "../../../vendor/babylon-mmd/src/Runtime/mmdRuntime.ts";
@@ -45,7 +46,16 @@ async function main(){
   throw Error("actual Babylon G9 original model not materialized");
  const mesh=built.meshes[0];
  mesh.setEnabled(true);mesh.isVisible=true;
- if(mesh.material){mesh.material.backFaceCulling=false;}
+ // Source-genuine geometry/material decoupling: original material builder may be
+ // absent in CPU-only loader; use a neutral two-sided diagnostic presentation.
+ // It must remain the SAME native PMX geometry and actual GPU morph targets.
+ const visibleMat=new StandardMaterial("original-g9-diagnostic-surface",scene);
+ visibleMat.diffuseColor=new Color3(.24,.68,.86);
+ visibleMat.emissiveColor=new Color3(.08,.15,.22);
+ visibleMat.specularColor=new Color3(.2,.2,.2);
+ visibleMat.backFaceCulling=false;
+ mesh.material=visibleMat;
+ mesh.visibility=1;mesh.showBoundingBox=false;
  const mgr=mesh.morphTargetManager;
  if(!mgr||mgr.numTargets!==2)throw Error("real original G9 missing exactly 2 morph targets");
  const baseVertexCount=mesh.getTotalVertices();
