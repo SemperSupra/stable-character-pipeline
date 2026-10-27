@@ -25,7 +25,11 @@ func TestRejectMalformedOutputs(t *testing.T) {
  {"unrecognized profile",func(r *Receipt){r.Profile="thx-spatial-licensed"}},
  }
  for _,item:=range items{t.Run(item.name,func(t *testing.T){
-   r:=valid("stereo",2);item.mutate(&r)
+   r:=valid("binaural",2);item.mutate(&r)
    if e:=checkReceipt(r);e==nil{t.Fatal("unsafe or unqualified output admitted")}
  })}
+}
+
+func TestKnownBadNativeStereoIsQuarantined(t *testing.T){
+ if e:=checkReceipt(valid("stereo",2));e==nil{t.Fatal("nonfinite native stereo path must remain unqualified")}
 }
