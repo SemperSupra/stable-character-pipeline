@@ -99,6 +99,12 @@ func AdmitSources(s Scene,root string,publicWorker bool)([]AssetReceipt,error){
 // WriteOriginalSine creates an intentionally synthetic, rights-clean, real
 // test file, and returns its actual SHA256. Never overwrite a previous source.
 func WriteOriginalSine(path string, durationMS int)(string,error){
+ return WriteOriginalTone(path,durationMS,410)
+}
+// WriteOriginalTone is a rights-clean bounded public fixture generator.
+// Same source controls as WriteOriginalSine; frequency must be explicit.
+func WriteOriginalTone(path string, durationMS int,frequencyHz float64)(string,error){
+ if math.IsNaN(frequencyHz)||math.IsInf(frequencyHz,0)||frequencyHz<40||frequencyHz>10000{return "",errors.New("invalid original-tone frequency")}
  if durationMS<=0 || durationMS>600000 {return "",errors.New("invalid fixture duration")}
  n:=durationMS*48
  total:=44+2*n
@@ -117,7 +123,7 @@ func WriteOriginalSine(path string, durationMS int)(string,error){
  copy(out[36:40],"data")
  binary.LittleEndian.PutUint32(out[40:44],uint32(2*n))
  for i:=0;i<n;i++ {
-  sample:=math.Sin(2*math.Pi*410*float64(i)/48000)
+  sample:=math.Sin(2*math.Pi*frequencyHz*float64(i)/48000)
   binary.LittleEndian.PutUint16(out[44+2*i:46+2*i],uint16(int16(math.Round(0.12*sample*32767))))
  }
  f,e:=os.OpenFile(path,os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{return "",e}
