@@ -280,7 +280,7 @@ def execute(args):
         "titan": [obj for obj in mesh_objects
                   if obj.name.startswith("titan/iron-atlas/")],
         "space": [obj for obj in mesh_objects
-                  if obj.name.startswith("space/orbital-tug/")],
+                  if obj.name.startswith("space/")],
     }
     require(all(focus_sets.values()), "missing rig geometry for close-up views")
     for focus, selected in focus_sets.items():
