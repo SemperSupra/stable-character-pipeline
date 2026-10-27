@@ -74,6 +74,13 @@ def main():
                 "bounds_min":[min(p[d] for p in positions) for d in range(3)],
                 "bounds_max":[max(p[d] for p in positions) for d in range(3)],
                 "checksum_sha256":sha(json.dumps(positions,sort_keys=True).encode())}
+        # A valid animation action and static mesh would be a false green.
+        # Require actual evaluated geometry displacement in both rig and morph
+        # fixtures, not just the presence of glTF animation channels.
+        for akey,bkey in (("0","15"),("15","30"),("0","30")):
+            if frames[akey]["checksum_sha256"]==frames[bkey]["checksum_sha256"]:
+                raise AssertionError(f"{kind}: evaluated geometry did not move between {akey} and {bkey}")
+        # Position hashes are diagnostic only: glTF import may split seam vertices.
         # Tight vertex-order registration may change across engines; report
         # observed positions/counters only, do not fake world-space equality.
         row={"kind":kind,"file":name,"source_sha256":sha(raw),
