@@ -1,0 +1,68 @@
+name: NASA independent photo-video pose R2 (public CPU)
+on:
+  pull_request:
+    paths:
+      - 'qualification/nasa_pair/**'
+      - '.github/workflows/nasa-independent-pair-r2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nasa-pair-r2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nasa-pair-research:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      TF_CPP_MIN_LOG_LEVEL: '2'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source provenance preflight negatives
+        run: python -m unittest discover -v -s qualification/nasa_pair -p 'test_*.py'
+      - name: Install pinned CPU inference adapter
+        run: python -m pip install --disable-pip-version-check --no-cache-dir 'mediapipe==0.10.21'
+      - name: Install FFmpeg explicitly
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg
+          command -v ffmpeg
+      - name: Run independent photo and original workout-video observations
+        run: python qualification/nasa_pair/r2_probe.py --out nasa-pair-output
+      - name: Print persisted native receipt status
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('nasa-pair-output/receipt.json')
+          if p.exists():
+              r = json.loads(p.read_text())
+              print(json.dumps({k:r.get(k) for k in
+                  ('status', 'media', 'independent_photo_landmarks',
+                   'video_frames_33_points', 'first_error')}, indent=2))
+          else:
+              print('BLOCKED_NO_RECEIPT')
+          PY
+      - name: Upload bounded iPhone MP4, stills and machine-readable evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nasa-independent-pair-r2
+          path: nasa-pair-output/
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 6
