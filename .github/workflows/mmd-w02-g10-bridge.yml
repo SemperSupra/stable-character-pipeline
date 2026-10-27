@@ -1,0 +1,135 @@
+name: MMD W02 actual G10a-G10d source and engine evidence bridge
+on:
+  pull_request:
+    paths:
+      - 'mmd/roadmap/envelope/**'
+      - 'mmd/roadmap/cmd/g10bridge/**'
+      - '.github/workflows/mmd-w02-g10-bridge.yml'
+  push:
+    branches: [qualification/mmd-w02-evidence-contract-20261027]
+    paths:
+      - 'mmd/roadmap/envelope/**'
+      - 'mmd/roadmap/cmd/g10bridge/**'
+      - '.github/workflows/mmd-w02-g10-bridge.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-w02-real-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-source-adapter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout W02 source only without persistent credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Go standard library toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Retrieve G10a original PMX VMD GLB and native-source receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-structural-evidence
+          run-id: 40455687379
+          github-token: ${{ github.token }}
+          path: source-g10a
+      - name: Retrieve G10b independent numerical contact receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-contact-falsification
+          run-id: 40456000406
+          github-token: ${{ github.token }}
+          path: source-g10b
+      - name: Retrieve G10c actual Blender IK runtime receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-blender-ik-evidence
+          run-id: 40456662219
+          github-token: ${{ github.token }}
+          path: source-g10c
+      - name: Retrieve G10d independent cross-engine parity result
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-two-engine-parity-evidence
+          run-id: 40456784554
+          github-token: ${{ github.token }}
+          path: source-g10d
+      - name: Bounded original-source receipt verification and W02 Go bridge
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          go test -race -count=1 ./...
+          go vet ./...
+          mkdir -p ../../w02-g10-proof
+          go run ./cmd/g10bridge \
+            -pmx ../../source-g10a/synthetic_two_link_ik.pmx \
+            -vmd ../../source-g10a/synthetic_foot_goal.vmd \
+            -fixture ../../source-g10a/ik_fixture_receipt.json \
+            -ik-glb ../../source-g10a/ik_enabled.glb \
+            -fk-glb ../../source-g10a/ik_disabled.glb \
+            -direct ../../source-g10b/ik_contact_receipt.json \
+            -blender ../../source-g10c/blender_ik_receipt.json \
+            -parity ../../source-g10d/ik_cross_engine_parity.json \
+            -out ../../w02-g10-proof/g10-typed-bundle.json
+          go run ./cmd/envelopecheck ../../w02-g10-proof/g10-typed-bundle.json > ../../w02-g10-proof/g10-validated.json
+          grep -q '"validation":"VALID_ENVELOPE_ONLY"' ../../w02-g10-proof/g10-validated.json
+          python3 - <<'PY'
+          import json, math
+          from pathlib import Path
+          p=Path('../../w02-g10-proof/g10-typed-bundle.json')
+          v=json.loads(p.read_text())
+          assert v['schema']=='scp.mmd.proof-bundle.v1'
+          assert v['fixture']['semantics']['meters_per_unit'] is None
+          assert v['fixture']['semantics']['units']=='source_unit'
+          assert v['fixture']['semantics']['axes']=='LH_Y_UP'
+          assert v['fixture']['semantics']['native_bone_labels']==['腰','ひざ','足首','足ＩＫ']
+          assert len(v['observations'])==6 and len(v['metrics'])==6
+          assert set(o['frame'] for o in v['observations'])=={0,15,30}
+          assert all(math.isfinite(m['value']) for m in v['metrics'])
+          assert all(o['declared_loss'] for o in v['observations'])
+          print('W02_REAL_G10_SOURCE_BYTES_AND_ENGINE_RECEIPTS_STRUCTURAL_PASS')
+          PY
+      - name: Independent fail-closed source tamper injection
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          mkdir -p ../../w02-g10-proof/tamper
+          cp ../../source-g10a/synthetic_two_link_ik.pmx ../../w02-g10-proof/tamper/corrupted.pmx
+          printf 'X' >> ../../w02-g10-proof/tamper/corrupted.pmx
+          if go run ./cmd/g10bridge \
+            -pmx ../../w02-g10-proof/tamper/corrupted.pmx \
+            -vmd ../../source-g10a/synthetic_foot_goal.vmd \
+            -fixture ../../source-g10a/ik_fixture_receipt.json \
+            -ik-glb ../../source-g10a/ik_enabled.glb \
+            -fk-glb ../../source-g10a/ik_disabled.glb \
+            -direct ../../source-g10b/ik_contact_receipt.json \
+            -blender ../../source-g10c/blender_ik_receipt.json \
+            -parity ../../source-g10d/ik_cross_engine_parity.json \
+            -out ../../w02-g10-proof/tamper/should-not-exist.json > ../../w02-g10-proof/tamper-stdout.txt 2> ../../w02-g10-proof/tamper-stderr.txt; then
+            echo 'FAIL: corrupted PMX bytes accepted' >&2
+            exit 1
+          fi
+          test ! -e ../../w02-g10-proof/tamper/should-not-exist.json
+          grep -q 'EVIDENCE_BINDING_FAILED' ../../w02-g10-proof/tamper-stderr.txt
+          rm -rf ../../w02-g10-proof/tamper
+          echo '{"status":"EXPECTED_REJECTION","mutation":"original PMX append byte","no_invalid_bundle_written":true}' > ../../w02-g10-proof/tamper-rejection.json
+      - name: Save SHA256 of real original source and cited engine receipts, without mirroring their bytes
+        run: |
+          set -euo pipefail
+          sha256sum source-g10a/synthetic_two_link_ik.pmx source-g10a/synthetic_foot_goal.vmd source-g10a/ik_fixture_receipt.json source-g10a/ik_enabled.glb source-g10a/ik_disabled.glb source-g10b/ik_contact_receipt.json source-g10c/blender_ik_receipt.json source-g10d/ik_cross_engine_parity.json > w02-g10-proof/source-and-receipt-digests.txt
+          sha256sum w02-g10-proof/g10-typed-bundle.json > w02-g10-proof/typed-bundle-digest.txt
+          grep -q '^' w02-g10-proof/source-and-receipt-digests.txt
+      - name: Preserve bounded machine/human/agent evidence; do not upload underlying source model
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mmd-w02-g10-source-bound-bridge-receipts
+          path: w02-g10-proof/*
+          retention-days: 14
+          if-no-files-found: warn
