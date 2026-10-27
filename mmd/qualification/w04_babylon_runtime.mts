@@ -13,7 +13,7 @@ import "../../vendor/babylon-mmd/src/Runtime/Animation/mmdRuntimeModelAnimation.
 
 function hex(b:Buffer){return crypto.createHash("sha256").update(b).digest("hex");}
 function arr(b:Buffer){return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);}
-async function execute(caseName:string,pmxPath:string,vmdPath:string){
+async function execute(caseName:string,pmxPath:string,vmdPath:string,all31=false){
   const pmx=fs.readFileSync(pmxPath),vmd=fs.readFileSync(vmdPath);
   if(pmx.length>1<<20||vmd.length>1<<20)throw Error("bounded self-authored G9/G10 only");
   const engine=new NullEngine({renderWidth:64,renderHeight:64});
@@ -33,7 +33,7 @@ async function execute(caseName:string,pmxPath:string,vmdPath:string){
     const handle=model.createRuntimeAnimation(animation);
     model.setRuntimeAnimation(handle);
     const snapshots=[];
-    for(const frame of [0,15,30]){
+    for(const frame of (all31 ? Array.from({length:31},(_,i)=>i) : [0,15,30])){
       model.beforePhysics(frame);
       model.afterPhysics();
       const bones=model.runtimeBones.map(b=>{
@@ -51,13 +51,14 @@ async function execute(caseName:string,pmxPath:string,vmdPath:string){
       snapshots.push({frame,bones,morphWeights});
     }
     if(caseName==="g10"){
-      const bone=(f:number)=>snapshots[f].bones.find(b=>b.name==="足ＩＫ")?.world_xyz;
-      const a=bone(0),b=bone(2);
+      const bone=(frame:number)=>snapshots.find(s=>s.frame===frame)?.bones.find(b=>b.name==="足ＩＫ")?.world_xyz;
+      const a=bone(0),b=bone(30);
       if(!a||!b||Math.hypot(...a.map((v,i)=>v-b[i]))<.15)
         throw Error("actual MMD runtime IK source-goal animation was stationary");
     }else{
-      const blink=snapshots.map(x=>x.morphWeights["まばたき"]);
-      const smile=snapshots.map(x=>x.morphWeights["笑い"]);
+      const keys=snapshots.filter(x=>[0,15,30].includes(x.frame));
+      const blink=keys.map(x=>x.morphWeights["まばたき"]);
+      const smile=keys.map(x=>x.morphWeights["笑い"]);
       if(!(Math.abs(blink[0])<.02&&Math.abs(blink[1]-1)<.02&&Math.abs(blink[2])<.02 &&
         Math.abs(smile[0])<.02&&Math.abs(smile[1]-.35)<.02&&Math.abs(smile[2]-1)<.02))
         throw Error("actual MmdRuntime G9 morphs disagree with original keyed 0/15/30 source motion");
@@ -70,13 +71,15 @@ async function execute(caseName:string,pmxPath:string,vmdPath:string){
   }finally{scene.dispose();engine.dispose();}
 }
 async function main(){
-  const [g10m,g10v,g9m,g9v,out]=process.argv.slice(2);
+  const [g10m,g10v,g9m,g9v,out,mode]=process.argv.slice(2);
+  const all31=mode==="--all31";
+  if(mode!==undefined && !all31)throw Error("invalid optional mode: "+mode);
   if(!out)throw Error("expected real G10 PMX/VMD G9 PMX/VMD output");
-  const cases=[await execute("g10",g10m,g10v),await execute("g9",g9m,g9v)];
+  const cases=[await execute("g10",g10m,g10v,all31),await execute("g9",g9m,g9v,all31)];
   const result={schema:"scp.mmd.w04-real-runtime.v1",
     upstream_commit:"ccb750db2998ed1067017eaf67f3fc987cfba6f8",
-    status:"PASS_BABYLON_MMD_ACTUAL_BOUND_RUNTIME_SELECTED_FRAMES_ONLY",
-    cases,not_tested:["31-sample bone/skin trajectory parity",
+    status:all31 ? "PASS_BABYLON_MMD_ACTUAL_BOUND_RUNTIME_31_FRAMES_ONLY" : "PASS_BABYLON_MMD_ACTUAL_BOUND_RUNTIME_SELECTED_FRAMES_ONLY",
+    cases,not_tested:["all-bone absolute pose parity with independently evaluated Blender source",
     "native MikuMikuDance IK engine solver parity","collision/foot contact","WebGL rendered video"]};
   fs.mkdirSync(out.substring(0,out.lastIndexOf("/"))||".",{recursive:true});
   fs.writeFileSync(out,JSON.stringify(result,null,2)+"\n");
