@@ -159,7 +159,9 @@ def run(destination):
                             "-i", str(output / "frame_%03d.png"), "-c:v", "libx264",
                             "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                             str(output / "video_pose_preview.mp4")], check=True, timeout=60)
-            receipt["sampling_window_seconds"] = [11, 41]\n            receipt["sampling_rate_hz"] = 1\n            receipt["video_frames"] = len(temporal)
+            receipt["sampling_window_seconds"] = [11, 41]
+            receipt["sampling_rate_hz"] = 1
+            receipt["video_frames"] = len(temporal)
             receipt["video_frames_33_points"] = sum(len(x["landmarks2d"]) == 33 for x in temporal)
             if receipt["video_frames_33_points"] == 0:
                 raise ValueError("NO_POSE_DETECTION_ON_NASA_WORKOUT_VIDEO")
