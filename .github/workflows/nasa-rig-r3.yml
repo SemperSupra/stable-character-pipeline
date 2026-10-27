@@ -58,10 +58,13 @@ jobs:
             -out pose-rig-output
       - name: Independently reimport, verify skin deformation and render in Blender
         run: |
-          blender --background --factory-startup --threads 2 \
+          export PYTHONPATH="$(python -c 'import site;print(site.getsitepackages()[0])')${PYTHONPATH:+:$PYTHONPATH}"
+          blender --background --factory-startup --threads 2 --python-exit-code 7 \
             --python qualification/nasa_rig_r3/blender_verify.py -- \
             pose-rig-output/camera_plane_skinned_motion.glb \
             pose-rig-output/rig_manifest.json pose-rig-output
+          test -s pose-rig-output/blender_independent_readback.json
+          test -s pose-rig-output/rig_frame_000.png
       - name: Encode iPhone H264 rig demonstration (faithful source sampling rate)
         run: |
           ffmpeg -hide_banner -loglevel error -nostdin -y \
