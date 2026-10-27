@@ -1,0 +1,117 @@
+name: MMD G9 independent face morph parity public CPU
+on:
+  push:
+    branches: [qualification/mmd-public-20261027]
+    paths:
+      - 'mmd/qualification/morph_*.py'
+      - 'mmd/qualification/verify_morph.py'
+      - '.github/workflows/mmd-morph-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mmd-g9-standalone-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actual-native-vmd-morph-and-independent-glb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout original morph test cases
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout genuine pinned MMD Tools
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Checkout independent MIT direct MMD to glTF CLI
+        uses: actions/checkout@v4
+        with:
+          repository: masaka1024/mmd2gltf-gui
+          ref: b86ef4c2b103dd01130f68ede625d35633b9e5ff
+          path: vendor/independent-converter
+          sparse-checkout: |
+            mmd2gltf
+            LICENSE
+          persist-credentials: false
+      - name: Set compatible Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Compile original source and generate face morph model/VMD
+        run: |
+          set -euo pipefail
+          python -m py_compile mmd/qualification/morph_fixture.py mmd/qualification/morph_blender.py mmd/qualification/verify_morph.py
+          python mmd/qualification/morph_fixture.py --source vendor/mmd-tools --out g9-output
+      - name: Run independent Blender-free upstream converter on original PMX and VMD
+        run: |
+          set -euo pipefail
+          PYTHONPATH=vendor/independent-converter python -m mmd2gltf \
+            g9-output/synthetic_face_grid.pmx \
+            --vmd g9-output/synthetic_face_motion.vmd \
+            --scale 1.0 --no-ik --morph-mode dense \
+            -o g9-output/direct_synthetic_face.glb
+          test -s g9-output/direct_synthetic_face.glb
+      - name: Install genuine Blender bpy 4.5 and minimal verifier dependencies
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'opencc-python-reimplemented==0.1.7' 'Pillow==11.3.0'
+      - name: Import both MMD vertex morphs and real VMD weight curves via Blender addon
+        timeout-minutes: 5
+        env:
+          OMP_NUM_THREADS: '2'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          python -u mmd/qualification/morph_blender.py \
+            --source vendor/mmd-tools \
+            --model g9-output/synthetic_face_grid.pmx \
+            --motion g9-output/synthetic_face_motion.vmd \
+            --out g9-output
+      - name: Independently falsify absence, frozen morphs and temporal cross-engine drift
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          python mmd/qualification/verify_morph.py --self-test
+          python mmd/qualification/verify_morph.py \
+            --blender g9-output/synthetic_face_morph.glb \
+            --direct g9-output/direct_synthetic_face.glb \
+            --out g9-output/morph_parity.json
+          python - <<'PY'
+          from PIL import Image, ImageChops
+          from pathlib import Path
+          path=Path('g9-output')
+          frames=[]
+          for n in (0,15,30):
+              with Image.open(path/f'morph_{n:04d}.png') as f:
+                  assert f.size==(300,300),f.size
+                  frames.append(f.convert('RGB'))
+          counts=[]
+          for img in frames[1:]:
+              diff=ImageChops.difference(frames[0],img)
+              changed=sum(1 for pix in diff.getdata() if max(pix)>20)
+              assert changed>=150,changed
+              counts.append(changed)
+          contact=Image.new('RGB',(900,300))
+          for i,img in enumerate(frames):
+              contact.paste(img,(i*300,0))
+          contact.save(path/'morph_contact_sheet.png')
+          print('PASS_IMPORTED_MORPH_PIXEL_DRIFT',counts)
+          PY
+      - name: Preserve generated original sources, GLBs, editable Blender, contact and receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-face-morph-parity-evidence
+          path: g9-output/*
+          retention-days: 14
+          if-no-files-found: warn
