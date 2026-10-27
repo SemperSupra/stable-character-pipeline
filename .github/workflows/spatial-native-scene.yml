@@ -111,6 +111,26 @@ jobs:
           test "$(sha256sum "$RUNNER_TEMP/scene-5.1.wav" | cut -d' ' -f1)" != \
                "$(sha256sum "$RUNNER_TEMP/modified-5.1.wav" | cut -d' ' -f1)"
           echo "native_scene_edited_geometry_changes_real_PCM_PASS"
+      - name: Prove deterministic replay, collision refusal and malformed-block fail-closed
+        run: |
+          set -euo pipefail
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/renderer-install/lib"
+          "$RUNNER_TEMP/native-scene" "$RUNNER_TEMP/actual-scene/synthetic.wav"             "$RUNNER_TEMP/blockplan.tsv" surround_5_1 "$RUNNER_TEMP/replayed-5.1.wav"
+          cmp -s "$RUNNER_TEMP/scene-5.1.wav" "$RUNNER_TEMP/replayed-5.1.wav"
+          echo "native_scene_replay_BYTE_IDENTICAL_PASS"
+          if "$RUNNER_TEMP/native-scene" "$RUNNER_TEMP/actual-scene/synthetic.wav"             "$RUNNER_TEMP/blockplan.tsv" surround_5_1 "$RUNNER_TEMP/replayed-5.1.wav"             >"$RUNNER_TEMP/clobber-stdout" 2>"$RUNNER_TEMP/clobber-stderr"; then
+            echo "existing output illegally overwritten" >&2
+            exit 1
+          fi
+          grep -q 'native output exists, is symlink or cannot be created' "$RUNNER_TEMP/clobber-stderr"
+          cmp -s "$RUNNER_TEMP/scene-5.1.wav" "$RUNNER_TEMP/replayed-5.1.wav"
+          tail -n +2 "$RUNNER_TEMP/blockplan.tsv" > "$RUNNER_TEMP/invalid-blockplan.tsv"
+          if "$RUNNER_TEMP/native-scene" "$RUNNER_TEMP/actual-scene/synthetic.wav"             "$RUNNER_TEMP/invalid-blockplan.tsv" surround_5_1 "$RUNNER_TEMP/invalid-render.wav"             >"$RUNNER_TEMP/badblock-stdout" 2>"$RUNNER_TEMP/badblock-stderr"; then
+            echo "discontinuous audio scene illegally accepted" >&2
+            exit 1
+          fi
+          grep -q 'invalid or discontinuous block metadata' "$RUNNER_TEMP/badblock-stderr"
+          echo "native_scene_redteam_collision_and_block_gap_PASS"
       - name: Erase ephemeral original synthetic files, renderer builds and outputs
         if: always()
         run: |
@@ -118,4 +138,6 @@ jobs:
             "$RUNNER_TEMP/renderer-install" "$RUNNER_TEMP/native-scene" "$RUNNER_TEMP/"*scene*.wav \
             "$RUNNER_TEMP/blockplan.tsv" "$RUNNER_TEMP/modified-blockplan.tsv" \
             "$RUNNER_TEMP/custody-receipt.json" "$RUNNER_TEMP/block-receipt.json" \
-            "$RUNNER_TEMP/modified-scene.json" "$RUNNER_TEMP/modified-receipt.json"
+            "$RUNNER_TEMP/modified-scene.json" "$RUNNER_TEMP/modified-receipt.json" \
+            "$RUNNER_TEMP/replayed-5.1.wav" "$RUNNER_TEMP/invalid-blockplan.tsv" "$RUNNER_TEMP/clobber-stdout" \
+            "$RUNNER_TEMP/clobber-stderr" "$RUNNER_TEMP/badblock-stdout" "$RUNNER_TEMP/badblock-stderr"
