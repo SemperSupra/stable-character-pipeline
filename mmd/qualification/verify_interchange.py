@@ -10,7 +10,6 @@ import math
 from pathlib import Path
 import struct
 
-from PIL import Image, ImageChops
 
 
 def parse_glb(path):
@@ -139,6 +138,8 @@ def self_test(out):
 
 
 def verify(directory):
+    # Pure GLB readers are reusable without installing visualization extras.
+    from PIL import Image, ImageChops
     model = directory / "animated_mmd.glb"
     scene, raw = parse_glb(model)
     motion = inspect_animations(scene, raw)
