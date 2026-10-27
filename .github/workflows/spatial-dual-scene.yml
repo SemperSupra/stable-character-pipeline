@@ -10,7 +10,7 @@ permissions:
 jobs:
   dual-source-native:
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 27
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,10 +18,25 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: spatial-contract/go.mod
-      - name: Install $0 public native build and audio validation dependencies
+      - name: Bound and minimize public Ubuntu audio dependency admission
+        timeout-minutes: 22
         run: |
+          set -euo pipefail
+          date -u '+dependency_start_utc=%Y-%m-%dT%H:%M:%SZ'
+          for executable in g++ git pkg-config python3; do
+            command -v "$executable" >/dev/null || { echo "PREINSTALLED_TOOL_MISSING $executable"; exit 1; }
+          done
           sudo apt-get update -qq
-          sudo apt-get install -y meson ninja-build pkg-config g++ ffmpeg git
+          # Previous exact-head CI spent 17m18s installing 101 packages (94.8 MB)
+          # and was cancelled at the 18m job deadline *after native steps passed*.
+          # Do not install g++/git/pkg-config already on the public runner.
+          timeout 1200s sudo DEBIAN_FRONTEND=noninteractive apt-get install -y             --no-install-recommends meson ninja-build ffmpeg
+          for executable in meson ninja ffmpeg ffprobe g++ git pkg-config; do
+            command -v "$executable" >/dev/null || { echo "DEPENDENCY_INSTALL_MISSING $executable"; exit 1; }
+          done
+          ffmpeg -version | head -n 1
+          date -u '+dependency_end_utc=%Y-%m-%dT%H:%M:%SZ'
+          echo "native_audio_dependency_bound_PASS within_20min=true"
       - name: Go strict source custody, regression, negative and race tests
         working-directory: spatial-contract
         run: |
