@@ -116,3 +116,57 @@ jobs:
             mmd-blender-output/*
           retention-days: 14
           if-no-files-found: warn
+
+  blender-native-motion:
+    if: github.event_name == 'push'
+    needs: blender-real-pmx
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout isolated public MMD motion qualification
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned genuine MMD Tools release
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Install Python compatible with Blender 4.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Generate clean native model, two-key motion and pose
+        run: |
+          set -euo pipefail
+          python -m py_compile mmd/qualification/motion_probe.py
+          python mmd/qualification/probe.py --source vendor/mmd-tools --out mmd-output
+      - name: Install actual Blender and MMD translation dependency
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'opencc-python-reimplemented==0.1.7'
+      - name: Verify real VMD motion at 0/15/30 and apply VPD pose in Blender
+        timeout-minutes: 4
+        env:
+          OMP_NUM_THREADS: '2'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          python -u mmd/qualification/motion_probe.py \
+            --source vendor/mmd-tools \
+            --model mmd-output/synthetic_triangle.pmx \
+            --motion mmd-output/synthetic_center_motion.vmd \
+            --pose mmd-output/synthetic_center_pose.vpd \
+            --out mmd-motion-output
+      - name: Preserve edit-ready animated Blender source and receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-native-motion-evidence
+          path: mmd-motion-output/*
+          retention-days: 14
+          if-no-files-found: warn
