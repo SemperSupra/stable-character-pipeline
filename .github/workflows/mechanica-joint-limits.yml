@@ -1,0 +1,69 @@
+name: Mechanica - public Go joint limits and axis falsifiers
+
+on:
+  push:
+    branches:
+      - qualification/mechanica-playback-20261027
+    paths:
+      - mechanica/cmd/jointverify/**
+      - .github/workflows/mechanica-joint-limits.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mechanica-joint-limits-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inspect-synthetic-animated-glb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout isolated qualification code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout immutable synthetic public preview
+        uses: actions/checkout@v4
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: c43bab2560a42c8ad880e13f7c32926b9cf9b0ef
+          path: preview
+          persist-credentials: false
+      - name: Go 1.23 from workcell module
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: mechanica/go.mod
+          cache: false
+      - name: Offline unit/race/vet falsifiers
+        working-directory: mechanica
+        env:
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go test -count=1 ./cmd/jointverify
+          go test -race -count=1 ./cmd/jointverify
+          go vet ./cmd/jointverify
+      - name: Check actual pinned GLB joint limits and animation axes
+        working-directory: mechanica
+        env:
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-evidence
+          go run ./cmd/jointverify \
+            --manifest ../preview/latest/rig_manifest.json \
+            --glb ../preview/latest/mechanical_scene.glb \
+            --output qualification-evidence/joint_limits.json
+      - name: Preserve evidence without write tokens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mechanica-joint-limit-falsifiers
+          path: mechanica/qualification-evidence/joint_limits.json
+          retention-days: 7
+          if-no-files-found: warn

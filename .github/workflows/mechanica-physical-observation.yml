@@ -1,0 +1,90 @@
+name: Mechanica - synthetic physical contact and AABB evidence
+
+on:
+  push:
+    branches:
+      - qualification/mechanica-playback-20261027
+    paths:
+      - mechanica/qualification/inspect_physical.py
+      - .github/workflows/mechanica-physical-observation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mechanica-physical-observation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inspect-pinned-physical-observations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout qualifier without persistent credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned public synthetic GLB
+        uses: actions/checkout@v4
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: c43bab2560a42c8ad880e13f7c32926b9cf9b0ef
+          path: preview
+          persist-credentials: false
+      - name: Test ground/contact and overlap positive and negative fixtures
+        run: |
+          set -euo pipefail
+          python3 mechanica/qualification/inspect_physical.py --self-test
+      - name: Install actual distro Blender with bounded official archive access
+        run: |
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          mkdir -p qualification-evidence
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'http://archive.ubuntu.com/ubuntu/' 'http://security.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
+          fi
+          set +e
+          timeout --signal=TERM --kill-after=10s 120s sudo apt-get \
+            -o Acquire::Retries=0 -o Acquire::http::Timeout=15 \
+            -o Acquire::https::Timeout=15 update
+          rc=$?
+          if [ "$rc" -eq 0 ]; then
+            timeout --signal=TERM --kill-after=10s 180s sudo apt-get \
+              -o DPkg::Lock::Timeout=20 install -y --no-install-recommends \
+              blender python3-numpy xvfb libgl1 libegl1
+            rc=$?
+          fi
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "APT/setup failed, exit=$rc"
+            printf '{"schema":"mechanica.physical_dependency.v1","status":"FAIL","exit":%s}\n' "$rc" > qualification-evidence/dependency_report.json
+            exit "$rc"
+          fi
+          blender --version | head -n 2
+      - name: Observe actual imported mesh contact and broadphase collisions
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          OMP_NUM_THREADS: '2'
+        run: |
+          set -euo pipefail
+          xvfb-run -a blender -b -t 2 \
+            --python mechanica/qualification/inspect_physical.py -- \
+            --preview-dir preview/latest \
+            --output qualification-evidence/physical_report.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('qualification-evidence/physical_report.json'))
+          assert p['inspection_status']=='PASS_MEASUREMENTS'
+          assert p['physical_acceptance']=='NOT_ESTABLISHED'
+          assert len(p['support']) == 30
+          print('Support and AABB measurements complete; physical quality deliberately not certified')
+          PY
+      - name: Preserve bounded public diagnostic evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mechanica-public-physical-observation
+          path: qualification-evidence/*.json
+          if-no-files-found: warn
+          retention-days: 7

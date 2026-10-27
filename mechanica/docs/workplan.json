@@ -1,0 +1,368 @@
+{
+  "schema": "mechanica.workplan.v0",
+  "revision": "MP-2026-10-27-r1",
+  "last_reconciled_date": "2026-10-27",
+  "status": "draft-plan-only",
+  "authority": {
+    "dle": "https://github.com/SemperSupra/stable-character-pipeline/pull/6",
+    "derived_markdown": "mechanica/docs/WORKPLAN.md",
+    "priority_rule": "reconcile latest GitHub DLE and active workcells before claiming a READY package; this JSON is a snapshot, not live status"
+  },
+  "baseline": {
+    "producer_commit": "ee3f027a2d1e05b9a1b44dd5c5569a19b35dd4d1",
+    "qualifier_before_plan_commit": "2fdd627f0cf895951695703cbda17ff259c64f99",
+    "preview_commit": "c43bab2560a42c8ad880e13f7c32926b9cf9b0ef",
+    "glb_sha256": "19573f420f8c089842a04ec15664afb35829d587ed87a81c45ee00752c3a1aa8",
+    "producer_pr": 6,
+    "qualifier_pr": 17,
+    "mode": "original synthetic public research"
+  },
+  "audience_contract": {
+    "human": "select actuator, direct manipulations, visible allowed ranges and faults, keyboard/touch/accessibility",
+    "automation": "offline Go CLI JSON outputs deterministic exit codes and receipts",
+    "agent": "versioned machine-readable capabilities, action preconditions, typed outcomes, revision/idempotency and source citations",
+    "invariant": "one evaluator, same state and negative fixtures; adapters not parallel controllers"
+  },
+  "proof_levels": [
+    {
+      "id": "E0",
+      "name": "structural integrity",
+      "independent": true
+    },
+    {
+      "id": "E1",
+      "name": "kinematics and control",
+      "independent": true
+    },
+    {
+      "id": "E2",
+      "name": "geometry and support",
+      "independent": true
+    },
+    {
+      "id": "E3",
+      "name": "actual dynamics",
+      "independent": true
+    },
+    {
+      "id": "E4",
+      "name": "three-audience and device interaction",
+      "independent": true
+    }
+  ],
+  "global_holds": [
+    "no merge",
+    "no release",
+    "no deployment",
+    "no rights or policy promotion",
+    "no private runner minutes",
+    "no paid execution",
+    "no private character data",
+    "do not rewrite original producer or preview without separate authority"
+  ],
+  "first_ready_action": "M01",
+  "concurrent_research": [
+    "M02",
+    "M05",
+    "M13",
+    "M07",
+    "M08"
+  ],
+  "packages": [
+    {
+      "id": "M00",
+      "title": "Reconcile authoritative source and qualification evidence",
+      "status_at_snapshot": "DONE",
+      "depends_on": [],
+      "acceptance_oracles": [
+        "verified producer/qualifier SHA and baseline Go/Blender/physical test evidence"
+      ],
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "execution_mode": "public-read-only",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M01",
+      "title": "Rig and metadata parity red-green falsification",
+      "status_at_snapshot": "READY",
+      "depends_on": [
+        "M00"
+      ],
+      "acceptance_oracles": [
+        "observed initial extras.rigs 3 vs 4 model rigs reported RED",
+        "independent positive, malformed-GLB and count/axis/hierarchy negative controls pass",
+        "producer remediation isolated and owner-gated"
+      ],
+      "audiences": [
+        "automation",
+        "agent",
+        "human"
+      ],
+      "execution_mode": "public-candidate-read-only-producer",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M02",
+      "title": "Provisional Go actuator and state contract",
+      "status_at_snapshot": "READY",
+      "depends_on": [
+        "M00"
+      ],
+      "acceptance_oracles": [
+        "door valid/boundary/out-of-range and wrong-unit cases",
+        "reject-by-default, revision compare-and-swap, idempotency, cancellation, observed state"
+      ],
+      "audiences": [
+        "automation",
+        "agent",
+        "human"
+      ],
+      "execution_mode": "public-candidate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M03",
+      "title": "Human, CLI and agent actuator parity",
+      "status_at_snapshot": "WAIT",
+      "depends_on": [
+        "M02"
+      ],
+      "acceptance_oracles": [
+        "identical command vectors, transitions and error taxonomy across all adapters",
+        "accessible GUI and deterministic offline JSON, schemas and evidence"
+      ],
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "execution_mode": "public-candidate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M04",
+      "title": "KHR interactivity runtime qualification and fallback",
+      "status_at_snapshot": "WAIT",
+      "depends_on": [
+        "M02",
+        "M03"
+      ],
+      "acceptance_oracles": [
+        "pinned Khronos prerequisites and invalid-graph controls in actual runtime",
+        "hover/select tests where supported, explicit unsupported/skipped",
+        "fallback viewer produces identical logical state"
+      ],
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "execution_mode": "public-candidate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M05",
+      "title": "Substitutable component qualification and DoE catalog",
+      "status_at_snapshot": "READY",
+      "depends_on": [
+        "M00"
+      ],
+      "acceptance_oracles": [
+        "candidate versions/rights/provenance and fixed-baseline experiments schema",
+        "unsupported and rights-unknown options cannot be silently promoted"
+      ],
+      "audiences": [
+        "automation",
+        "agent",
+        "human"
+      ],
+      "execution_mode": "public-candidate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M06",
+      "title": "Loss-aware format interchange",
+      "status_at_snapshot": "WAIT",
+      "depends_on": [
+        "M01",
+        "M02"
+      ],
+      "acceptance_oracles": [
+        "door FK/joint limits match across glTF and first target format",
+        "units, frames, unsupported semantics loss report",
+        "later steer/wheel, space-yoke and walker checks"
+      ],
+      "audiences": [
+        "automation",
+        "agent",
+        "human"
+      ],
+      "execution_mode": "public-candidate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M07",
+      "title": "Iron Atlas stance-aware IK/corrective candidate",
+      "status_at_snapshot": "READY",
+      "depends_on": [
+        "M00"
+      ],
+      "acceptance_oracles": [
+        "counterexample 0.535m initial foot gap and -0.13441m naive shift reproduced",
+        "stance support and intermediate pose/penetration regression independent"
+      ],
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "execution_mode": "public-isolated-candidate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M08",
+      "title": "SUV geometric collision candidate qualification",
+      "status_at_snapshot": "READY",
+      "depends_on": [
+        "M00"
+      ],
+      "acceptance_oracles": [
+        "tire/chassis and tailgate/chassis known intersection receipt reproduced",
+        "narrowphase and clearance plus per-pair exclusion reason, no blanket suppression"
+      ],
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "execution_mode": "public-isolated-candidate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M09",
+      "title": "MuJoCo CPU measured dynamics baseline",
+      "status_at_snapshot": "WAIT",
+      "depends_on": [
+        "M06",
+        "M07",
+        "M08"
+      ],
+      "acceptance_oracles": [
+        "valid masses/inertia/ground and solver model",
+        "dynamic contact and stability positive/negative control",
+        "E3 evidence separate from geometry results"
+      ],
+      "audiences": [
+        "automation",
+        "agent",
+        "human"
+      ],
+      "execution_mode": "public-candidate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M10",
+      "title": "Specialist simulator admission benchmarks",
+      "status_at_snapshot": "HOLD",
+      "depends_on": [
+        "M09"
+      ],
+      "acceptance_oracles": [
+        "domain-specific fidelity gap quantified",
+        "cost/rights/dependencies justified against MuJoCo baseline"
+      ],
+      "audiences": [
+        "automation",
+        "agent",
+        "human"
+      ],
+      "execution_mode": "requires-new-owner-gate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M11",
+      "title": "CUDA/TPU learned control experiments",
+      "status_at_snapshot": "HOLD",
+      "depends_on": [
+        "M09"
+      ],
+      "acceptance_oracles": [
+        "physics-grounded CPU reference and dataset rights validated",
+        "matched seed/input/platform benchmarks and quota approval"
+      ],
+      "audiences": [
+        "automation",
+        "agent",
+        "human"
+      ],
+      "execution_mode": "requires-new-owner-gate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M12",
+      "title": "True CPE/SearXNG multilingual dual-track experiment",
+      "status_at_snapshot": "BLOCKED",
+      "depends_on": [],
+      "acceptance_oracles": [
+        "authorized two native search engines available",
+        "equal-budget held-out multilingual queries, blind comparisons and provenance"
+      ],
+      "audiences": [
+        "automation",
+        "agent",
+        "human"
+      ],
+      "execution_mode": "requires-authorized-connector",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M13",
+      "title": "CI/O&M and provenance efficiency improvements",
+      "status_at_snapshot": "READY",
+      "depends_on": [
+        "M00"
+      ],
+      "acceptance_oracles": [
+        "public SHA-pinned sources, offline-fast-first dependency routing",
+        "no hidden private/paid fallback, DLE job receipts, bounded evidence TTL"
+      ],
+      "audiences": [
+        "automation",
+        "agent",
+        "human"
+      ],
+      "execution_mode": "public-candidate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    },
+    {
+      "id": "M14",
+      "title": "Device, human and owner acceptance",
+      "status_at_snapshot": "WAIT",
+      "depends_on": [
+        "M01",
+        "M02",
+        "M03",
+        "M04",
+        "M06",
+        "M07",
+        "M08",
+        "M09"
+      ],
+      "acceptance_oracles": [
+        "human visual/accessibility review and actual iPhone Safari device evidence",
+        "source-rights and release/deploy explicit approval; separate physics acceptance"
+      ],
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "execution_mode": "explicit-owner-gate",
+      "live_state_source": "https://github.com/SemperSupra/stable-character-pipeline/pull/6"
+    }
+  ]
+}
