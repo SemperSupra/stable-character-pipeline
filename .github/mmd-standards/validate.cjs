@@ -46,7 +46,10 @@ async function main() {
         uri:"g11-deliberately-truncated.glb",writeTimestamp:false,maxIssues:0
       });
       detected=(bad.issues?.numErrors || 0)>0;
-      why=String(bad.issues?.messages?.[0]?.code || "none");
+      // First message can be a benign hint; report the code of an actual error.
+      const errorMessage=bad.issues?.messages?.find(m=>m.severity===0);
+      why=String(errorMessage?.code || "none");
+      if(detected && why==="none")throw new Error("validator said errors>0 but no error-level issue");
     } catch(e) {
       detected=true;
       why="rejected_exception:"+String(e).slice(0,160);
