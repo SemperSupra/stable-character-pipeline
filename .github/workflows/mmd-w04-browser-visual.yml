@@ -1,0 +1,111 @@
+name: MMD W04 real Babylon Chromium WebGL original G10 iPhone video
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/w04-browser/**'
+      - '.github/workflows/mmd-w04-browser-visual.yml'
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-w04-actual-webgl-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actual-browser-render-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Checkout bounded original source HTML and browser scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned actual MIT Babylon MMD engine, no third-party demo/model assets
+        uses: actions/checkout@v4
+        with:
+          repository: noname0310/babylon-mmd
+          ref: ccb750db2998ed1067017eaf67f3fc987cfba6f8
+          path: vendor/babylon-mmd
+          sparse-checkout: |
+            src/Loader
+            src/Runtime
+            LICENSE
+          persist-credentials: false
+      - name: Download original rights-clean G10a model-motion bytes from immutable source runner
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-structural-evidence
+          run-id: 40455687379
+          github-token: ${{ github.token }}
+          path: original/g10
+      - name: Verify exact original G10 source SHA before browser resource admission
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' \
+            fadfc3cb3d365cdb4b0c4cc26652c2e831a02ec7da518caae9142dd711468583 original/g10/synthetic_two_link_ik.pmx \
+            e61ae2953c6cd34904fec2c59ae95fe64ed043ce0cde93e1c3d5db3d12ed149c original/g10/synthetic_foot_goal.vmd | sha256sum --check
+      - name: Bundle actual pinned Babylon MMD and WebGL core for browser using pinned esbuild
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund \
+            '@babylonjs/core@9.18.0' 'esbuild@0.25.12' 'playwright@1.56.1'
+          mkdir -p browser-public/original/g10 w04-browser-output
+          cp mmd/qualification/w04-browser/index.html browser-public/index.html
+          cp original/g10/synthetic_two_link_ik.pmx original/g10/synthetic_foot_goal.vmd browser-public/original/g10/
+          ./node_modules/.bin/esbuild mmd/qualification/w04-browser/viewer.ts \
+            --bundle --format=iife --platform=browser --target=es2022 \
+            --tsconfig=mmd/qualification/w04_tsconfig.json \
+            --outfile=browser-public/viewer.js
+          test -s browser-public/viewer.js
+          npm ls @babylonjs/core esbuild playwright --json > w04-browser-output/bundle-dependencies.json
+      - name: Use system Chrome if available; otherwise provision genuine Chromium in disposable runner
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          chrome="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          if test -n "$chrome"; then
+            echo "SCP_CHROME_BIN=$chrome" >> "$GITHUB_ENV"
+            "$chrome" --version
+          else
+            ./node_modules/.bin/playwright install chromium
+          fi
+      - name: Really render 31 original moving G10 frames via Babylon WebGL in Chromium
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8877 --bind 127.0.0.1 --directory browser-public > w04-browser-output/http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          node mmd/qualification/w04-browser/capture.cjs w04-browser-output
+          test -s w04-browser-output/webgl_browser_captures.json
+          test -s w04-browser-output/babylon_actual_frame_0015.png
+          grep -q 'PASS_GENUINE_BABYLON_WEBGL_NATIVE_PMXSOURCE_31_FRAME_VISUAL_CAPTURE' w04-browser-output/webgl_browser_captures.json
+      - name: Install Pillow and ffmpeg for independent non-freeze and iPhone MP4 proof
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check 'Pillow==11.3.0'
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            timeout --signal=TERM --kill-after=10s 220s sudo apt-get update -qq
+            timeout --signal=TERM --kill-after=10s 180s sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          command -v ffmpeg
+          command -v ffprobe
+      - name: Verify real browser screenshot pixel drift and iPhone H264 exact decoded frames
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/w04-browser/verify_mobile.py
+          python3 mmd/qualification/w04-browser/verify_mobile.py --dir w04-browser-output
+          grep -q 'PASS_TRUE_BABYLON_WEBGL_BROWSER_SCREENSHOTS_AND_PHONE_H264' w04-browser-output/mobile_webgl_validation.json
+      - name: Preserve genuine Babylon browser MP4, PNG and source-bound receipts or first failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-w04-actual-babylon-browser-iphone
+          path: |
+            w04-browser-output/*
+          retention-days: 14
+          if-no-files-found: warn
