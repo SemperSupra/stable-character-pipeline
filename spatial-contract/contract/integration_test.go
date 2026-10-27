@@ -91,7 +91,7 @@ func TestMovingAndSampleAccurate(t *testing.T){
  s:=SyntheticFixture()
  s.Emitters[0].Motion=[]Key{{TimeMS:0,Position:Vec3{-10,10,0}},{TimeMS:500,Position:Vec3{10,10,0}}}
  for _,item:=range []struct{frame int;x,az float64}{
-  {0,-10,-45},{12000,-5,-26.56505117707799},{24000,10,45},{47999,10,45},
+  {0,-10,-45},{6000,-5,-26.56505117707799},{12000,0,0},{18000,5,26.56505117707799},{24000,10,45},{47999,10,45},
  } {
   got,e:=PoseAtFrame(s,s.Emitters[0].ID,item.frame);if e!=nil{t.Fatal(e)}
   if math.Abs(got.Relative.X-item.x)>1e-7||math.Abs(got.AzimuthDeg-item.az)>1e-7{t.Fatalf("frame %d pose %+v expected x %.6f az %.6f",item.frame,got,item.x,item.az)}
