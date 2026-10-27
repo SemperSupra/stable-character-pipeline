@@ -39,6 +39,7 @@ jobs:
           go test -count=1 ./...
           go test -race -count=1 ./cmd/floratraits
           go vet ./cmd/floratraits
+          mkdir -p ../out/flora-mtg-interchange
           go run ./cmd/floratraits -input examples/flora_traits_synthetic.json > ../out/flora-mtg-interchange/flora_trait_receipt.json
           test -s ../out/flora-mtg-interchange/flora_trait_receipt.json
           go run . -config scene.json -out ../out/flora-mtg-interchange/go-source
