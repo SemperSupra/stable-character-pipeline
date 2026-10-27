@@ -21,7 +21,8 @@ def main():
     mmd_tools.register()
     result=bpy.ops.mmd_tools.import_model(
       filepath=str(a.model.resolve()),types={"MESH","ARMATURE","PHYSICS"},
-      scale=1.0,rename_bones=False,fix_bone_order=False)
+      scale=1.0,rename_bones=False,fix_bone_order=False,
+      fix_ik_links=True)
     assert "FINISHED" in result,result
     rigs=[o for o in bpy.data.objects if o.type=="ARMATURE"]
     assert len(rigs)==1,[o.name for o in rigs]
