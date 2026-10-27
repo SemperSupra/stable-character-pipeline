@@ -44,7 +44,7 @@ func TestCSVAndProvenanceMutationKill(t *testing.T){
   {"unknown timestamp type",func(s string)string{return strings.Replace(s,"timestamp_s","timestamp_ms",1)}},
   {"wrong marker",func(s string)string{return strings.Replace(s,"hfl_x","unknown_x",1)}},
   {"duplicate column",func(s string)string{return strings.Replace(s,"hfr_y","hfl_y",1)}},
-  {"unbounded source position",func(s string)string{return strings.Replace(s,"0.8,0,0.95","1000001,0,0.95",1)}},
+  {"unbounded source position",func(s string)string{return strings.Replace(s,"1,0,0.8","1000001,0,0.8",1)}},
   {"negative timestamp",func(s string)string{return strings.Replace(s,"1,0.025,","1,-0.025,",1)}},
   {"duplicate timestamp",func(s string)string{return strings.Replace(s,"1,0.025,","1,0,",1)}},
   {"duplicate frame",func(s string)string{return strings.Replace(s,"1,0.025,","0,0.025,",1)}},
@@ -69,6 +69,9 @@ func TestFailClosedSensitivityInputs(t *testing.T){
  for i,x:=range cases{if _,err:=Falsify(o,raw,x);err==nil{t.Fatalf("invalid threshold %d accepted",i)}}
  mutated:=append(bytes.Clone(raw),byte('X'))
  if _,err:=Falsify(o,mutated,[]float64{.1,.2});err==nil {t.Fatal("changed source hash accepted")}
+ o.Frames[0].Landmarks[3][2]=999
+ if _,err:=Falsify(o,raw,[]float64{.1,.2});err==nil {t.Fatal("forged observation hidden behind matching source hash")}
+ o,err=Parse(raw,"synthetic:horse1","synthetic:session1");if err!=nil{t.Fatal(err)}
  o.MeasuredPhysicalContact=true
  if _,err:=Falsify(o,raw,[]float64{.1,.2});err==nil {t.Fatal("heuristic promoted to measured")}
 }
