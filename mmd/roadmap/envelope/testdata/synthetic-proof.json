@@ -25,7 +25,8 @@
         "cloud_allowed": true,
         "redistribute_allowed": true
       }
-    }
+    },
+    "inputs": []
   },
   "observations": [
     {
