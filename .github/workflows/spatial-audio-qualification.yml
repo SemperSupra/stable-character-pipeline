@@ -50,7 +50,7 @@ jobs:
           meson compile -C "$RUNNER_TEMP/spatial-build"
           meson test -C "$RUNNER_TEMP/spatial-build" --print-errorlogs --num-processes=2
           meson install -C "$RUNNER_TEMP/spatial-build"
-          test -f "$install/lib/pkgconfig/libspatialaudio.pc"
+          test -f "$install/lib/pkgconfig/spatialaudio.pc"
           echo "native_upstream_renderer_tests_PASS"
       - name: Render original moving-source signal for headphone, stereo, surround and height layouts
         run: |
@@ -59,8 +59,8 @@ jobs:
           export PKG_CONFIG_PATH="$install/lib/pkgconfig"
           export LD_LIBRARY_PATH="$install/lib"
           mkdir -p "$RUNNER_TEMP/spatial-test-output"
-          g++ -std=c++14 -O2 -Wall -Wextra spatial-audio/qualification/renderer_smoke.cpp \
-            -o "$RUNNER_TEMP/spatial-qual" $(pkg-config --cflags --libs libspatialaudio)
+          g++ -std=c++14 -O2 -Wall -Wextra -I"$install/include/spatialaudio" spatial-audio/qualification/renderer_smoke.cpp \
+            -o "$RUNNER_TEMP/spatial-qual" $(pkg-config --cflags --libs spatialaudio)
           "$RUNNER_TEMP/spatial-qual" "$RUNNER_TEMP/spatial-test-output" \
             | tee "$RUNNER_TEMP/spatial-test-output/renderer-receipts.jsonl"
           (cd spatial-audio && go run ./cmd/verify "$RUNNER_TEMP/spatial-test-output")
