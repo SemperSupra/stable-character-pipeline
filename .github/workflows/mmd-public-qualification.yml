@@ -4,11 +4,33 @@ on:
   push:
     branches: [qualification/mmd-public-20261027]
     paths:
-      - 'mmd/**'
+      # Only legacy G1-G7 source changes run the expensive full Blender chain.
+      # G8 and G9 have separate, scoped $0 CPU workflows.
+      - 'mmd/catalog/**'
+      - 'mmd/qualification/probe.py'
+      - 'mmd/qualification/blender_probe.py'
+      - 'mmd/qualification/motion_probe.py'
+      - 'mmd/qualification/interchange_probe.py'
+      - 'mmd/qualification/verify_interchange.py'
+      - 'mmd/qualification/compare_converter.py'
+      - 'mmd/qualification/articulation_fixture.py'
+      - 'mmd/qualification/articulation_blender.py'
+      - 'mmd/qualification/verify_articulation.py'
       - '.github/workflows/mmd-public-qualification.yml'
   pull_request:
     paths:
-      - 'mmd/**'
+      # Only legacy G1-G7 source changes run the expensive full Blender chain.
+      # G8 and G9 have separate, scoped $0 CPU workflows.
+      - 'mmd/catalog/**'
+      - 'mmd/qualification/probe.py'
+      - 'mmd/qualification/blender_probe.py'
+      - 'mmd/qualification/motion_probe.py'
+      - 'mmd/qualification/interchange_probe.py'
+      - 'mmd/qualification/verify_interchange.py'
+      - 'mmd/qualification/compare_converter.py'
+      - 'mmd/qualification/articulation_fixture.py'
+      - 'mmd/qualification/articulation_blender.py'
+      - 'mmd/qualification/verify_articulation.py'
       - '.github/workflows/mmd-public-qualification.yml'
   workflow_dispatch:
 
