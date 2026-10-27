@@ -1,0 +1,69 @@
+name: CC0 photo-and-video human pose R1 (public CPU)
+on:
+  pull_request:
+    paths:
+      - 'qualification/cc0_human_pose/**'
+      - '.github/workflows/cc0-human-pose-r1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cc0-human-r1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pose-research-only:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      TF_CPP_MIN_LOG_LEVEL: '2'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify stdlib admission negatives
+        run: python -m unittest discover -v -s qualification/cc0_human_pose -p 'test_*.py'
+      - name: Install CPU pose inference adapter
+        run: python -m pip install --disable-pip-version-check --no-cache-dir 'mediapipe==0.10.21'
+      - name: Native CC0 source-bound original video and image pose inference
+        run: python qualification/cc0_human_pose/probe.py --out pose-probe-output
+      - name: Confirm receipt classifications without laundering inference
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('pose-probe-output/receipt.json')
+          if not p.exists():
+              print('BLOCKED: no native receipt was produced')
+          else:
+              r = json.loads(p.read_text())
+              print(json.dumps({
+                  'status': r['status'],
+                  'media': r.get('media'),
+                  'model': r.get('model'),
+                  'frames_with_33_landmarks': r.get('frames_with_33_landmarks'),
+                  'first_error': r.get('first_error'),
+                  'rigging': r['rigging'],
+                  'pairing': r['pairing']}, indent=2))
+          PY
+      - name: Preserve bounded research observations and iPhone-readable video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc0-photo-video-pose-r1
+          path: pose-probe-output/
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 6
