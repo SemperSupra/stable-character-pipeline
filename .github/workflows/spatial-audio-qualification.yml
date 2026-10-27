@@ -71,9 +71,20 @@ jobs:
           fi
           grep -q "spatial_native_FIRST_FAILURE stereo NaN/Inf" "$RUNNER_TEMP/stereo-negative/diagnostic.log"
           echo "stereo_quarantined_red_test_PASS: native NaN is reproduced, no stereo deliverable admitted"
+          mkdir -p "$RUNNER_TEMP/stereo-hoa0"
+          if "$RUNNER_TEMP/spatial-qual" stereo-hoa0 "$RUNNER_TEMP/stereo-hoa0" \
+              >"$RUNNER_TEMP/stereo-hoa0/diagnostic.stdout" 2>"$RUNNER_TEMP/stereo-hoa0/diagnostic.stderr"; then
+            ffprobe -v error -select_streams a:0 -show_entries stream=channels,sample_rate,codec_name \
+              -of json "$RUNNER_TEMP/stereo-hoa0/stereo.wav" \
+              | python3 -c 'import sys,json; s=json.load(sys.stdin)["streams"]; assert len(s)==1 and s[0]["channels"]==2 and s[0]["sample_rate"]=="48000" and s[0]["codec_name"]=="pcm_f32le"'
+            echo "stereo_hoa0_CONTROL_FINITE_NOT_ADMITTED"
+          else
+            grep -E "stereo_hoa0_FIRST_FAILURE" "$RUNNER_TEMP/stereo-hoa0/diagnostic.stderr" >&2 || true
+            echo "stereo_hoa0_CONTROL_FAILED_NOT_ADMITTED"
+          fi
           echo "No spatial media uploaded from public CI."
       - name: Clean temporary upstream source and synthetic audio
         if: always()
         run: |
-          rm -rf "$RUNNER_TEMP/stereo-negative" "$RUNNER_TEMP/libspatialaudio" "$RUNNER_TEMP/libspatialaudio-install" \
+          rm -rf "$RUNNER_TEMP/stereo-hoa0" "$RUNNER_TEMP/stereo-negative" "$RUNNER_TEMP/libspatialaudio" "$RUNNER_TEMP/libspatialaudio-install" \
             "$RUNNER_TEMP/spatial-build" "$RUNNER_TEMP/spatial-test-output" "$RUNNER_TEMP/spatial-qual"
