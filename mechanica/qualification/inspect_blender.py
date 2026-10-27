@@ -302,7 +302,7 @@ def execute(args):
                 "tight_camera_negative_control_detected": True,
             })
             bpy.data.objects.remove(cam, do_unlink=True)
-    require(len({s["sha256"] for s in reports["cpu_render_frames"]}) == len(samples),
+    require(len({s["sha256"] for s in reports["cpu_render_frames"]}) == sum(3 for _ in focus_sets),
             "Blender rendered identical PNGs across different articulation samples")
     reports["status"] = "PASS_BLENDER_IMPORT_MOTION_AND_RENDER"
     return reports
