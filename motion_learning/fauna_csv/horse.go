@@ -11,6 +11,7 @@ import (
  "fmt"
  "io"
  "math"
+ "reflect"
  "strconv"
  "strings"
 )
@@ -131,6 +132,9 @@ func Falsify(o Observation,raw []byte,thresholds []float64)(Sensitivity,error){
   o.PhysicalMetersPerUnit!=nil||o.InferredGlobalRoot||o.IndependentlyObservedFloor {
   return empty,errors.New("source ancestry or source/inference boundary violated")
  }
+ // Reject forged observation rows even when an attacker reuses a genuine source SHA.
+ canonical,err:=Parse(raw,o.SourceID,o.CaptureFamily)
+ if err!=nil || !reflect.DeepEqual(canonical,o){return empty,errors.New("observation differs from independently reparsed immutable source bytes")}
  if len(thresholds)<2||len(thresholds)>12{return empty,errors.New("threshold count invalid")}
  result:=Sensitivity{Schema:"scp.fauna.threshold-falsification.v1",
   ObservationSHA256:o.SourceSHA256,Status:"PASS_SYNTHETIC_HEURISTIC_SENSITIVITY_ONLY",
