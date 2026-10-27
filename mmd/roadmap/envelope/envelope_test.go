@@ -13,7 +13,7 @@ func fixture() ProofBundle {
 	return ProofBundle{
 		Schema:Schema,
 		Fixture: FixtureSpec{
-			ID:"mmd-g7-synthetic",SourceURI:"urn:synthetic:mmd-g7",SourceSHA256:h,FrameCount:31,
+			ID:"mmd-g7-synthetic",SourceURI:"urn:synthetic:mmd-g7",SourceSHA256:h,Inputs:[]SourceInput{},FrameCount:31,
 			Semantics: SourceSemantics{NativeFormat:"PMX",NativeBoneLabels:[]string{"腰","ひざ","足首"},
 				NativeMorphLabels:[]string{},Units:"source_unit",MetersPerUnit:pfloat(0.08),Axes:"RH_Y_UP",
 				FPSNumerator:30,FPSDenominator:1,FrameOrigin:pint(0),
@@ -108,4 +108,25 @@ func TestRejectDuplicateEvidenceKeysAtAnyDepth(t *testing.T) {
          }
       })
    }
+}
+
+func TestAssociatedMotionSourceProvenance(t *testing.T) {
+    v:=fixture()
+    rights:=v.Fixture.Semantics.Rights
+    motion:=SourceInput{
+       Role:"motion",NativeFormat:"VMD",SourceURI:"urn:synthetic:original-motion",
+       SourceSHA256:ContentDigest([]byte("distinct original vmd bytes")),Rights:rights,
+    }
+    v.Fixture.Inputs=[]SourceInput{motion}
+    if err:=Validate(v);err!=nil{t.Fatalf("valid distinct motion source rejected: %v",err)}
+    v.Fixture.Inputs[0].SourceSHA256=v.Fixture.SourceSHA256
+    if err:=Validate(v);err==nil{t.Fatal("model digest reused as motion source")}
+    v.Fixture.Inputs[0]=motion
+    v.Fixture.Inputs[0].Rights.CloudAllowed=false
+    if err:=Validate(v);err==nil{t.Fatal("motion rights gate bypassed despite source model rights")}
+    v.Fixture.Inputs[0]=motion
+    v.Fixture.Inputs[0].SourceSHA256=""
+    if err:=Validate(v);err==nil{t.Fatal("missing motion source digest admitted")}
+    v.Fixture.Inputs=nil
+    if err:=Validate(v);err==nil{t.Fatal("associated source inventory silently omitted")}
 }
