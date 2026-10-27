@@ -50,6 +50,9 @@ type blender struct {
     MMDTools string `json:"mmd_tools"`
     RealIKConstraintCount int `json:"real_ik_constraint_count"`
     Samples map[string]sample `json:"samples"`
+    InputSourceDigests map[string]string `json:"input_source_digests"`
+    InputSourceReceiptSHA256 string `json:"input_source_receipt_sha256"`
+    NativeInputDigestsRecheckedAfterImport bool `json:"native_input_digests_rechecked_after_import"`
 }
 type frame struct {
     BlenderError float64 `json:"blender_error"`
@@ -110,6 +113,10 @@ func Build(paths Paths)(envelope.ProofBundle,error){
        d.SourceIKSHA!=envelope.ContentDigest(ib)||d.SourceFKSHA!=envelope.ContentDigest(nb)||
        b.Schema!="scp.mmd.ik.blender.v1"||b.Status!="PASS_REAL_BLENDER_MMD_IK_CONSTRAINT_AND_GOAL_MOTION"||
        b.RealIKConstraintCount<1||b.Blender==""||b.MMDTools==""||
+       b.InputSourceDigests["pmx_sha256"]!=pmxHash||
+       b.InputSourceDigests["vmd_sha256"]!=vmdHash||
+       b.InputSourceReceiptSHA256!=envelope.ContentDigest(fb)||
+       !b.NativeInputDigestsRecheckedAfterImport||
        p.Schema!="scp.mmd.ik.two-engine-contact.v1"||p.Status!="PASS_BLENDER_VS_DIRECT_IK_CONTACT_PARITY"||
        !p.Passes||!near(p.AcceptanceMaxError,.05)||!near(p.AcceptanceMaxDelta,.05) {
         return empty,errors.New("source-linked engine receipt versions, status, thresholds or GLB bytes mismatch")
@@ -164,7 +171,7 @@ func Build(paths Paths)(envelope.ProofBundle,error){
             value float64
         }{
             {id:"blender-"+key,engine:"blender-mmd-tools",version:b.Blender+" mmd-tools "+b.MMDTools,
-                uri:blenderRun+"/artifacts/12712981080/blender_ik_receipt.json",
+                uri:"https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40543463185/artifacts/12751671406/blender_ik_receipt.json",
                 hash:envelope.ContentDigest(bb),metric:"ankle_to_ik_goal",value:bv.Error},
             {id:"direct-"+key,engine:"mmd2gltf",version:"b86ef4c2b103dd01130f68ede625d35633b9e5ff",
                 uri:directRun+"/artifacts/12712169140/ik_contact_receipt.json",
@@ -188,7 +195,8 @@ func Build(paths Paths)(envelope.ProofBundle,error){
         }
     }
     if err:=envelope.Validate(result);err!=nil{return empty,fmt.Errorf("W02 typed envelope: %w",err)}
-    _=fb // read and authenticated through source hashes & metadata, not version promotion
+    // G10c now independently reports PMX/VMD bytes and the source receipt
+    // hash from inside the genuine Blender importer; validated above.
     _=vb // VMD original bytes are independently matched to the fixture's VMD hash
     return result,nil
 }
