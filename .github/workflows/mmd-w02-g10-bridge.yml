@@ -157,6 +157,37 @@ jobs:
           attempt "forged-source-rights" ../../w02-g10-proof/temp-red/forged-rights.json ../../source-g10b/ik_contact_receipt.json
           rm -rf ../../w02-g10-proof/temp-red
           echo '{"status":"PASS_EXPECTED_REJECTIONS","cases":["corrupted-PMX","source-observation-mismatch","forged-source-rights"],"scope":"source/receipt structural negatives only"}' > ../../w02-g10-proof/red-3-experiment-summary.json
+      - name: Falsify duplicate-key poisoned authentic upstream observation receipt
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          mkdir -p ../../w02-g10-proof/duplicate-red
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('../../source-g10b/ik_contact_receipt.json')
+          text=source.read_text()
+          assert text.count('"status"')>=1
+          forged=text.replace('"status"', '"status":"FORGED_FIRST_VALUE","status"', 1)
+          Path('../../w02-g10-proof/duplicate-red/forged.json').write_text(forged)
+          PY
+          if go run ./cmd/g10bridge \
+            -pmx ../../source-g10a/synthetic_two_link_ik.pmx \
+            -vmd ../../source-g10a/synthetic_foot_goal.vmd \
+            -fixture ../../source-g10a/ik_fixture_receipt.json \
+            -ik-glb ../../source-g10a/ik_enabled.glb \
+            -fk-glb ../../source-g10a/ik_disabled.glb \
+            -direct ../../w02-g10-proof/duplicate-red/forged.json \
+            -blender ../../source-g10c/blender_ik_receipt.json \
+            -parity ../../source-g10d/ik_cross_engine_parity.json \
+            -out ../../w02-g10-proof/duplicate-red/cannot-issue-bundle.json \
+            > ../../w02-g10-proof/duplicate-red/stdout.txt 2> ../../w02-g10-proof/duplicate-red/stderr.txt; then
+            echo 'FAIL: contradictory duplicate upstream status keys admitted' >&2
+            exit 1
+          fi
+          grep -q 'duplicate JSON key' ../../w02-g10-proof/duplicate-red/stderr.txt
+          test ! -e ../../w02-g10-proof/duplicate-red/cannot-issue-bundle.json
+          rm -rf ../../w02-g10-proof/duplicate-red
+          echo '{"status":"EXPECTED_REJECTION","mutation":"duplicate upstream status key","invalid_bundle_created":false}' > ../../w02-g10-proof/duplicate-json-negative.json
       - name: Save SHA256 of real original source and cited engine receipts, without mirroring their bytes
         run: |
           set -euo pipefail
