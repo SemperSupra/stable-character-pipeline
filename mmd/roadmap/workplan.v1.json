@@ -1,0 +1,517 @@
+{
+  "schema": "scp.mmd.workplan.v1",
+  "updated": "2026-10-27",
+  "authority": {
+    "repository": "SemperSupra/stable-character-pipeline",
+    "issue": 19,
+    "draft_pr": 20,
+    "working_branch": "qualification/mmd-public-20261027",
+    "mode": "research-only-public-synthetic",
+    "promotion": "owner-authorization-required"
+  },
+  "rules": {
+    "method": "Discover->Observe->Plan->Apply->Verify",
+    "budget_usd_ceiling": 0,
+    "executor_scope": "public GitHub-hosted CPU except explicitly authorized sealed private research lane",
+    "source_rights": "separate software code license from data and derivative rights",
+    "privacy": "no identities, private data, third-party model/motion mirrors or CPE sealed state in public",
+    "no_merge": true,
+    "no_release": true,
+    "no_deploy": true,
+    "no_automatic_cpe_promotion": true,
+    "audiences": [
+      "human",
+      "automation",
+      "agent"
+    ],
+    "pass_is_scope_limited": true,
+    "results": [
+      "PASS",
+      "FAIL",
+      "NOT_TESTED",
+      "UNKNOWN",
+      "BLOCKED"
+    ]
+  },
+  "reference_gates": [
+    {
+      "id": "G10D",
+      "status": "DONE",
+      "evidence": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40456784554",
+      "scope": "original synthetic two-engine IK goal-distance gate only"
+    },
+    {
+      "id": "G11A",
+      "status": "DONE",
+      "evidence": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40458065375",
+      "scope": "official glTF Validator on five original GLBs; warnings remain actionable"
+    }
+  ],
+  "phases": [
+    {
+      "id": "P0",
+      "name": "Authority, contracts and rights",
+      "exit": "Machine-checked WBS, evidence schema, source-rights gate, 3-audience contract"
+    },
+    {
+      "id": "P1",
+      "name": "Independent standards and engine qualification",
+      "exit": "Independent specs gate and 3 MMD-capable engine observations; no assumed native MMD truth"
+    },
+    {
+      "id": "P2",
+      "name": "Invariant, kinematic and physical qualification",
+      "exit": "Mathematics/trajectory/metamorphic/contact/physics measured separately with negative controls"
+    },
+    {
+      "id": "P3",
+      "name": "Interchange, rigging and composition",
+      "exit": "Morphs, multi-species retarget, USD, time-varying source states and synthetic interactive scene"
+    },
+    {
+      "id": "P4",
+      "name": "Experiment design, evidence and three-audience operations",
+      "exit": "Go-driven experiment matrix, provenance, human reports, automation CLI, agent-readable state"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "W01",
+      "phase": "P0",
+      "title": "Machine-readable workplan, DAG and readiness validator",
+      "status": "DONE",
+      "depends_on": [
+        "G11A"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Version the roadmap JSON, Go validator, dependency-cycle checks, status semantics and CLI workflow.",
+      "acceptance": "Go tests + public $0 GHA clean checkout both pass; malformed DAG/status cases rejected; -json output stable.",
+      "evidence": "git path + exact workflow run and native logs; no task DONE without verified run.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium",
+      "completion_evidence": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40467605178"
+    },
+    {
+      "id": "W02",
+      "phase": "P0",
+      "title": "Go Evidence/Fixture/SourceSemantics typed v1 contract",
+      "status": "READY",
+      "depends_on": [
+        "W01"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Reuse JSON Schema, PROV-O and RO-Crate primitives for source time/axes/units/kinematics/rights; minimal Go envelopes; never rewrite glTF.",
+      "acceptance": "Go roundtrip + property tests reject missing units/time origin/rights/sources, unknown status not promoted.",
+      "evidence": "Schema version, golden JSON, negative tests, data dictionary.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W03",
+      "phase": "P1",
+      "title": "Khronos skinned-mesh-root warning interoperability experiment",
+      "status": "READY",
+      "depends_on": [
+        "G11A"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Open exact original G7/G9 Blender GLBs in separate glTF viewers and roundtrip through Blender; compare scene hierarchy, actual mesh deformation and warning semantics.",
+      "acceptance": "Demonstrate either observable independent-reader defect or classify no-impact with explicit caveats; retain validator warnings; no auto-suppress.",
+      "evidence": "Two readers + binary/source receipts + exact warning codes/frames.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W04",
+      "phase": "P1",
+      "title": "Pin and smoke-test babylon-mmd genuine third engine",
+      "status": "READY",
+      "depends_on": [
+        "G10D"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Source/licence audit, determine Node/headless/Canvas/WASM requirements, smoke with original PMX/VMD only. No packaged demo characters.",
+      "acceptance": "Pinned commit and license, real public runner execution with source rig data, capabilities UNKNOWN where unsupported.",
+      "evidence": "Native action log, exact SHA, run, tool/source rights ledger.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W05",
+      "phase": "P1",
+      "title": "Three-engine evaluation of G7/G9/G10",
+      "status": "PLANNED",
+      "depends_on": [
+        "W02",
+        "W04"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Compare full source VMD time, hierarchy, morph channels and goal transforms among Blender, direct MMD converter and Babylon.",
+      "acceptance": "All three independently observed or NOT_TESTED with exact reason; no inferred native MMD equality; diagnostics at 0/15/30 and whole 31 frames.",
+      "evidence": "Per-engine samples, failure matrix, sources, SHA and objective tolerances.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W06",
+      "phase": "P2",
+      "title": "Metamorphic and adversarial invariants",
+      "status": "READY",
+      "depends_on": [
+        "G10D"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Original seed fixtures with transform equivariance, scale-normalized errors, bone/root rename, temporal shifts, IK toggle and deliberate broken weights/targets.",
+      "acceptance": "Positive invariants pass and each injected semantic defect is detected with a mutation-kill score; no false PASS for NOT_TESTED.",
+      "evidence": "Seed/fixture hash, pre/post states, failures, mutation score and independent reference.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W07",
+      "phase": "P1",
+      "title": "Khronos generated validation corpus for glTF",
+      "status": "READY",
+      "depends_on": [
+        "G11A"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Pin glTF-Asset-Generator fixtures; catalog rights and use Khronos Validator as standards oracle, not custom spec duplication.",
+      "acceptance": "Positive and invalid generated cases handled as expected; warnings reported separately; no external character assets.",
+      "evidence": "Validator raw JSON and source corpus manifest/hash.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W08",
+      "phase": "P2",
+      "title": "Canonical EngineObservation + FK/IK math oracle",
+      "status": "PLANNED",
+      "depends_on": [
+        "W02",
+        "W05"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Define coordinate-frame graph, quaternion convention, sample clock, actual evaluated skin geometry; compare against Pinocchio or trusted independent math implementation.",
+      "acceptance": "Full 31-sample source time and world joint/skin trajectories reproducible; discrepancy tests expose conjugation/axis bugs.",
+      "evidence": "Typed Go engine observation, FK unit tests, exact transform basis, independent check.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W09",
+      "phase": "P2",
+      "title": "Cross-engine full-trajectory parity and solver stability",
+      "status": "PLANNED",
+      "depends_on": [
+        "W08",
+        "W06"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Measure joint angles/velocity/acceleration, skin drift, IK solver iterations and timeout/stability with aligned source samples.",
+      "acceptance": "Pairwise trajectories checked with predeclared tolerances across normal/extreme cases; goal accuracy not substituted for pose parity.",
+      "evidence": "Time-series report and failure heat map per segment/engine.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W10",
+      "phase": "P2",
+      "title": "Foot planting/contact semantics and motion-quality metrics",
+      "status": "PLANNED",
+      "depends_on": [
+        "W09"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Original stance/swing/landing/stair cases; Kimodo-like foot skating, penetration, support polygon, constraint error and provenance of contact labels.",
+      "acceptance": "Explicit contact ground truth, slip speed, penetration, and target error measured individually in SI/source units; threshold justified.",
+      "evidence": "Contact interval labels, movement traces, ground coordinates, adversarial control.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W11",
+      "phase": "P2",
+      "title": "Physics/cloth/hair and solver-integrator matrix",
+      "status": "PLANNED",
+      "depends_on": [
+        "W10"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Pin step rate, substeps, Bullet/Ammo or MMD physics oracle, original spring/rigidbody/cloth samples. Never conflate visual match with dynamics.",
+      "acceptance": "Determinism/repeatability under fixed seed, quantified energy/contact errors or NOT_TESTED; no license-uncleared demo.",
+      "evidence": "Solver inputs/versions/timestep + numeric trajectories/render evidence.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W12",
+      "phase": "P3",
+      "title": "MMD morph and material semantic loss matrix",
+      "status": "PLANNED",
+      "depends_on": [
+        "W05",
+        "W07"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Original PMX group/bone/UV/material morphs, alpha/toon/texture edge cases, VMD face sequences, test glTF/USD representability.",
+      "acceptance": "Every morph kind classed preserved/approximated/lost and visual vs editable action tested independently.",
+      "evidence": "Raw PMX offsets, evaluated mesh/material samples, comparison receipts.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W13",
+      "phase": "P3",
+      "title": "Rig retarget and species/mechanical joint archetypes",
+      "status": "PLANNED",
+      "depends_on": [
+        "W09",
+        "W12"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Prior-art MMD VMD Sizing and Rigify/BVH/VRM adapters; source semantics for human, quadruped, articulated vehicle/robot; no real identities in public.",
+      "acceptance": "Distinct rig graphs and mapped joints with motion/ground/contact checks; source-to-target map and loss metrics.",
+      "evidence": "Source/target rig map, model/time state rights, comparator traces.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W14",
+      "phase": "P3",
+      "title": "OpenUSD/UsdSkel editability and interchange",
+      "status": "PLANNED",
+      "depends_on": [
+        "W02",
+        "W09"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Export/import original skeletal joint and blend shape into USD and glTF, preserve native PMX semantic extras separately.",
+      "acceptance": "USD and glTF roundtrips compare hierarchy, weight/morph, editable state and animations with declared missing semantics.",
+      "evidence": "USD/GLB/BLEND files, validator and loss manifest.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W15",
+      "phase": "P0",
+      "title": "Rights gate, provenance and long-lived proof bundles",
+      "status": "PLANNED",
+      "depends_on": [
+        "W02"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Extend existing Go catalog rights dimensions separately for tools, datasets, model, motion, music, derivative and publish; RO-Crate/PROV-O evidence; 14-day artifact expiry handled via regeneration.",
+      "acceptance": "Missing view/train/modify/redistribute rights fail closed for public outputs; proofs link SHA+runner+input; no uploaded third-party asset.",
+      "evidence": "Go catalog tests, policy decision receipts, provenance manifest and artifact regen recipe.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W16",
+      "phase": "P4",
+      "title": "Design-of-experiments and model/actor interview qualification",
+      "status": "PLANNED",
+      "depends_on": [
+        "W06",
+        "W08",
+        "W15"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Factorized engine x fixture x feature x platform x seed, substitution matrix, fixed compute budgets, randomized/paired comparisons, coverage and ablation.",
+      "acceptance": "No cherry-picking; every model/tool decision has sample size, held-out split, variance, cost and counterexamples; CPU/GPU/TPU/MLX roles distinct.",
+      "evidence": "Machine-readable run matrix, model version, score distribution and ablation.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W17",
+      "phase": "P4",
+      "title": "Three-audience UI / UX / DX and control-plane state",
+      "status": "PLANNED",
+      "depends_on": [
+        "W01",
+        "W15"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Keep one Go JSON canonical state, Markdown/human artifact report, CLI and agent APIs; explicit admissions/assignments/targets; discover/observe/plan/apply/verify.",
+      "acceptance": "Human can see why an item passed/failed/blocked; CLI reproduces it; agent can inspect and request candidate only; no audience bypasses gates.",
+      "evidence": "Snapshot/report, CLI tests, accessibility and idempotent state transitions.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W18",
+      "phase": "P3",
+      "title": "Rights-clean end-to-end interactive synthetic scene",
+      "status": "PLANNED",
+      "depends_on": [
+        "W11",
+        "W12",
+        "W13",
+        "W14",
+        "W16",
+        "W17"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Compose original motion/rig/morph/physics/tested interchange into scene with controllable joints and editable output; external identities handled by distinct private workcell.",
+      "acceptance": "At least two animation categories and two controllable modalities, reproducible source + GLB/USD/BLEND + iOS-readable preview; no unsupported realism claims.",
+      "evidence": "Scenario manifest, portable scene, source, video, time-series and proof.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    },
+    {
+      "id": "W19",
+      "phase": "P4",
+      "title": "Blinded Track B CPE/concept-search-adapters/SearXNG run",
+      "status": "BLOCKED",
+      "depends_on": [
+        "G11A"
+      ],
+      "executor": "cpe-authorized-private",
+      "budget_usd_ceiling": 0,
+      "action": "Verify authorized CPE snapshot/access and launch two independent, blinded queries from frozen native-language seeds; no Track A leakage.",
+      "acceptance": "Actual 12-question budgeted independent raw result sets sealed with provenance; zero findings not interpreted as concepts absent.",
+      "evidence": "CPE snapshot SHA and SearXNG engine configs/raw traces.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "high",
+      "blocker": "Authorized connected CPE/search-adapters executor and pre-sweep snapshot not available; do not call a direct web sweep Track B."
+    },
+    {
+      "id": "W20",
+      "phase": "P4",
+      "title": "Independent bilingual evidence reconciliation and CPE proposals",
+      "status": "BLOCKED",
+      "depends_on": [
+        "W19",
+        "W15"
+      ],
+      "executor": "cpe-authorized-private",
+      "budget_usd_ceiling": 0,
+      "action": "Compare tracks with source ancestry dedupe, false friend detection, negative controls, independent adjudication and policy separation.",
+      "acceptance": "Coverage/precision/disagreement per language and concept, proposals remain candidates pending authorized CPE policy decision.",
+      "evidence": "Signed comparison report and candidate-only change proposal.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "high",
+      "blocker": "Requires completed sealed W19 and authorized CPE proposal workflow."
+    },
+    {
+      "id": "W21",
+      "phase": "P0",
+      "title": "Bounded repeatability and no-cost runner qualification",
+      "status": "READY",
+      "depends_on": [
+        "G11A"
+      ],
+      "executor": "gha-public-cpu",
+      "budget_usd_ceiling": 0,
+      "action": "Refine workflow triggers, dependency pins, SHA verification, cache diagnostics, job timeouts, artifact expiry and admission budgets; maintain public/private isolation.",
+      "acceptance": "Public checkout produces consistent baseline, bounded CPU minutes and no credential/third-party content leakage.",
+      "evidence": "Exact run/commit/runtimes plus cost and provenance receipts.",
+      "audiences": [
+        "human",
+        "automation",
+        "agent"
+      ],
+      "risk": "medium"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+name: MMD G11A Khronos standards conformance reuse
+on:
+  push:
+    branches: [qualification/mmd-public-20261027]
+    paths:
+      - '.github/mmd-standards/**'
+      - '.github/workflows/mmd-khronos-conformance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-g11a-khronos-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate-source-rights-clean-existing-gltf:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout source-only official validator adapter
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download immutable G7 skinned articulation evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-articulation-evidence
+          run-id: 40451441477
+          github-token: ${{ github.token }}
+          path: reference/g7
+      - name: Download immutable successful G9 morph Blender and direct GLBs
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-face-morph-parity-evidence
+          run-id: 40455150395
+          github-token: ${{ github.token }}
+          path: reference/g9
+      - name: Download exact G10a independent IK and FK GLBs
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-structural-evidence
+          run-id: 40455687379
+          github-token: ${{ github.token }}
+          path: reference/g10a
+      - name: Install pinned official Khronos glTF validator JS release
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund gltf-validator@2.0.0-dev.3.10
+          node -e "console.log('KHRONOS_VALIDATOR_VERSION',require('gltf-validator').version())"
+      - name: Validate original MMD GLBs using Khronos, plus intentionally truncated negative GLB
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          node .github/mmd-standards/validate.cjs \
+            reference/g7/mmd-articulation-output/articulated_ribbon.glb \
+            reference/g9/synthetic_face_morph.glb \
+            reference/g9/direct_synthetic_face.glb \
+            reference/g10a/ik_enabled.glb \
+            reference/g10a/ik_disabled.glb
+      - name: Preserve standard-level warnings, negative controls and first failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-khronos-conformance-evidence
+          path: standards-output/*
+          retention-days: 14
+          if-no-files-found: warn

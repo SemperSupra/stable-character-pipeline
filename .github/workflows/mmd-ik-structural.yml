@@ -1,0 +1,76 @@
+name: MMD G10a standalone source IK chain preservation
+on:
+  push:
+    branches: [qualification/mmd-public-20261027]
+    paths:
+      - 'mmd/qualification/ik_*.py'
+      - 'mmd/qualification/verify_ik.py'
+      - '.github/workflows/mmd-ik-structural.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: mmd-g10a-ik-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  original-ik-vmd-and-independent-source-structure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - name: Checkout original synthetic IK source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned MMD Tools source format parsers
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Checkout independent MIT mmd2gltf CLI without external model assets
+        uses: actions/checkout@v4
+        with:
+          repository: masaka1024/mmd2gltf-gui
+          ref: b86ef4c2b103dd01130f68ede625d35633b9e5ff
+          path: vendor/independent-converter
+          sparse-checkout: |
+            mmd2gltf
+            LICENSE
+          persist-credentials: false
+      - name: Real upstream PMX IK and VMD generator with source rights
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/ik_fixture.py mmd/qualification/verify_ik.py
+          python3 mmd/qualification/ik_fixture.py --source vendor/mmd-tools --out g10a-output
+      - name: Independent two-mode source IK versus no IK conversion
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          PYTHONPATH=vendor/independent-converter python3 -m mmd2gltf \
+            g10a-output/synthetic_two_link_ik.pmx \
+            --vmd g10a-output/synthetic_foot_goal.vmd \
+            --scale 1.0 --step 1 \
+            -o g10a-output/ik_enabled.glb
+          PYTHONPATH=vendor/independent-converter python3 -m mmd2gltf \
+            g10a-output/synthetic_two_link_ik.pmx \
+            --vmd g10a-output/synthetic_foot_goal.vmd \
+            --scale 1.0 --step 1 --no-ik \
+            -o g10a-output/ik_disabled.glb
+      - name: Independently inspect actual GLB IK bones and source topology
+        run: |
+          set -euo pipefail
+          python3 mmd/qualification/verify_ik.py \
+            --ik g10a-output/ik_enabled.glb \
+            --no-ik g10a-output/ik_disabled.glb \
+            --out g10a-output/ik_structural_receipt.json
+      - name: Preserve PMX VMD two GLBs and first failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-ik-structural-evidence
+          path: g10a-output/*
+          retention-days: 14
+          if-no-files-found: warn

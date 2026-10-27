@@ -1,0 +1,58 @@
+name: MMD qualification workplan Go validation
+on:
+  push:
+    branches: [qualification/mmd-public-20261027]
+    paths:
+      - 'mmd/roadmap/**'
+      - '.github/workflows/mmd-workplan-validation.yml'
+  pull_request:
+    paths:
+      - 'mmd/roadmap/**'
+      - '.github/workflows/mmd-workplan-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: mmd-workplan-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-readonly-dle-workplan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Checkout public candidate without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Go toolchain without paid services
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Validate authority, 21-item dependency DAG, admissibility and negative controls
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          go test -count=1 ./...
+          go vet ./...
+      - name: Render canonical machine and human projections from same source
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          mkdir -p ../../workplan-output
+          go run ./cmd/plancheck -input workplan.v1.json -format=json > ../../workplan-output/readiness.json
+          go run ./cmd/plancheck -input workplan.v1.json -format=markdown > ../../workplan-output/readiness.md
+          sha256sum workplan.v1.json > ../../workplan-output/workplan-source.sha256
+          test -s ../../workplan-output/readiness.json
+          test -s ../../workplan-output/readiness.md
+          head -n 8 ../../workplan-output/readiness.md
+      - name: Preserve candidate plan proof and first failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-workplan-readiness-evidence
+          path: workplan-output/*
+          retention-days: 14
+          if-no-files-found: warn

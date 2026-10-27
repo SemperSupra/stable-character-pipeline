@@ -1,0 +1,49 @@
+name: MMD G10b independent IK foot-goal tracking falsifier
+on:
+  push:
+    branches: [qualification/mmd-public-20261027]
+    paths:
+      - '.github/mmd-ik/**'
+      - '.github/workflows/mmd-ik-contact.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: mmd-g10b-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-ik-foot-contact-numerical-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Read exact committed independent contact evaluator
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download real original IK and FK comparator outputs from successful source gate
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-structural-evidence
+          run-id: 40455687379
+          github-token: ${{ github.token }}
+          path: reference
+      - name: Fail closed on inadequate goal tracking; preserve numerical receipt
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/mmd-ik/verify_contact.py
+          python3 .github/mmd-ik/verify_contact.py \
+            --ik reference/ik_enabled.glb \
+            --no-ik reference/ik_disabled.glb \
+            --out output/ik_contact_receipt.json
+      - name: Preserve source evidence and red first-failure receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-ik-contact-falsification
+          path: output/*
+          retention-days: 14
+          if-no-files-found: warn

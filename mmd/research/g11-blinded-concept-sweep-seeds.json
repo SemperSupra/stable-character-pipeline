@@ -1,0 +1,127 @@
+{
+  "schema": "scp.motion.prior-art.seeds.v1",
+  "date": "2026-10-27",
+  "scope": "public synthetic MMD and motion QA",
+  "authority": "https://github.com/SemperSupra/stable-character-pipeline/issues/19",
+  "status": "TRACK_A_COMPLETED_TRACK_B_BLIND_EXECUTION_PENDING",
+  "lanes": {
+    "A": {
+      "backend": "direct ChatGPT public web and upstream source inspection",
+      "evidence": "mmd/research/2026-10-27-dual-track-motion-qa-prior-art.md",
+      "status": "completed"
+    },
+    "B": {
+      "backend": "authorized pre-sweep CPE projection -> concept-search-adapters -> SearXNG with recorded independent indices",
+      "status": "not-executed-no-authorized-connector",
+      "visibility_rule": "blind to Track A until both sealed",
+      "same_q_budget": 12,
+      "max_leads_per_engine": 5,
+      "min_independent_engines": 2,
+      "frozen_evidence_required": [
+        "engine_url_or_id",
+        "timestamp",
+        "locale",
+        "original_native_query",
+        "raw_result_url",
+        "source_hash",
+        "upstream_ancestry",
+        "concept_mapping_snapshot_sha",
+        "disagreement_or_missing_reason"
+      ]
+    }
+  },
+  "search_topics": [
+    {
+      "id": "mmd-ik",
+      "concept": "MikuMikuDance PMX/VMD IK / append / interpolation semantics",
+      "hard_negative": "maximum mean discrepancy (MMD) statistics",
+      "labels": {
+        "ja": "MikuMikuDance モーション VMD IK 足滑り 骨",
+        "zh": "MikuMikuDance PMX VMD 动作 反向运动学 脚滑",
+        "ko": "MikuMikuDance 모션 역운동학 발 미끄러짐",
+        "en": "MikuMikuDance IK VMD ankle contact motion",
+        "de": "MikuMikuDance inverse Kinematik Fußrutschen",
+        "fr": "MikuMikuDance cinématique inverse glissement des pieds",
+        "es": "MikuMikuDance cinemática inversa deslizamiento de pies",
+        "pt": "MikuMikuDance cinemática inversa deslizamento dos pés",
+        "ru": "MikuMikuDance обратная кинематика скольжение стопы",
+        "th": "MikuMikuDance การเคลื่อนไหว จลนศาสตร์ผกผัน การลื่นของเท้า"
+      }
+    },
+    {
+      "id": "format-morph",
+      "concept": "glTF 2.0 morph-target animation skinning and MMD vertex morph preservation",
+      "hard_negative": "PKU-MMD human action benchmark (not MikuMikuDance)",
+      "labels": {
+        "ja": "PMX 頂点モーフ VMD 表情 glTF 変換 検証",
+        "zh": "PMX 顶点变形 VMD 表情 glTF 验证",
+        "ko": "PMX 버텍스 모프 VMD 표정 glTF 검증",
+        "en": "PMX vertex morph VMD glTF conformant animation skinning",
+        "de": "PMX Vertex Morph Mimik glTF Validierung",
+        "fr": "PMX morph cible animation glTF conformité",
+        "es": "PMX animación morph glTF validación",
+        "pt": "PMX morph animação glTF validação",
+        "ru": "PMX морфинг вершин анимация glTF валидация",
+        "th": "PMX มอร์ฟใบหน้า glTF ตรวจสอบ"
+      }
+    },
+    {
+      "id": "motion-quality",
+      "concept": "contact-state measurement foot sliding ground penetration IK goal error",
+      "hard_negative": "framewise IK goal match does not guarantee physically plausible ground contact",
+      "labels": {
+        "ja": "モーション 接地 滑り 物理 IK 誤差 評価",
+        "zh": "动作 脚滑 接地 穿模 IK 误差 评测",
+        "ko": "모션 발 미끄러짐 지면 관통 IK 오차 평가",
+        "en": "motion foot skate support interval constraint following contact quality metrics",
+        "de": "Bewegung Fußrutschen Bodenkontakt IK Fehler Metrik",
+        "fr": "animation glissement pied contact sol métriques",
+        "es": "animación deslizamiento pie contacto suelo métricas",
+        "pt": "animação contato do pé no solo métricas",
+        "ru": "анимация скольжение стопы контакт с землей метрики",
+        "th": "การเคลื่อนไหว เท้าลื่น การสัมผัสพื้น ตัวชี้วัด"
+      }
+    },
+    {
+      "id": "rights",
+      "concept": "MikuMikuDance source asset model motion rights vs tool software license",
+      "hard_negative": "MIT converter does not grant model redistribution rights",
+      "labels": {
+        "ja": "MMD モデル モーション 利用規約 再配布 禁止",
+        "zh": "MMD 模型 动作 许可 禁止二次配布",
+        "ko": "MMD 모델 모션 라이선스 재배포",
+        "en": "MikuMikuDance assets motion model redistribution training license",
+        "de": "MMD Modell Bewegungsdatei Lizenz Weitergabe",
+        "fr": "MMD modèle animation licence redistribution",
+        "es": "MMD modelo movimiento licencia redistribución",
+        "pt": "MMD modelo movimento licença redistribuição",
+        "ru": "MMD модель движение лицензия распространение",
+        "th": "MMD โมเดล การเคลื่อนไหว ใบอนุญาต แจกจ่ายซ้ำ"
+      }
+    }
+  ],
+  "language_labels_status": {
+    "en": "verified-primary",
+    "ja": "verified-primary",
+    "zh": "verified-primary",
+    "ko": "community-lead-only",
+    "de": "low-source-yield",
+    "fr": "low-source-yield",
+    "es": "low-source-yield",
+    "pt": "low-source-yield",
+    "ru": "low-source-yield",
+    "th": "community-lead-only"
+  },
+  "proposal_types": [
+    "CONCEPT",
+    "LEXICALIZATION",
+    "MAPPING",
+    "CAPABILITY_GAP",
+    "DEFECT",
+    "SOURCE_COVERAGE_GAP",
+    "UNKNOWN",
+    "HARD_NEGATIVE"
+  ],
+  "adjudication": "proposal-only; CPE ontology/policy authority must approve; do not mutate from public research",
+  "research_separation": "lane A includes source discoveries; B may read only question intent, localized query seeds and pre-frozen concept snapshot until both outputs sealed"
+}

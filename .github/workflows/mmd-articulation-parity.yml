@@ -1,0 +1,88 @@
+name: MMD G8 independent articulated converter parity
+
+on:
+  push:
+    branches: [qualification/mmd-public-20261027]
+    paths:
+      - '.github/mmd-parity/**'
+      - '.github/workflows/mmd-articulation-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: mmd-g8-standalone-parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  independent-multibone-comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - name: Checkout G7 original fixture and cross-engine comparator without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned upstream MMD Tools native serializers
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Checkout independent MIT Python MMD to glTF converter
+        uses: actions/checkout@v4
+        with:
+          repository: masaka1024/mmd2gltf-gui
+          ref: b86ef4c2b103dd01130f68ede625d35633b9e5ff
+          path: vendor/independent-converter
+          sparse-checkout: |
+            mmd2gltf
+            LICENSE
+          persist-credentials: false
+      - name: Use Python 3.11 with stdlib-only fixture and converter
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Generate genuine three-bone BDEF2 rig and original dual VMD rotations
+        run: |
+          set -euo pipefail
+          python -m py_compile mmd/qualification/articulation_fixture.py .github/mmd-parity/compare.py
+          mkdir -p g8-independent
+          python mmd/qualification/articulation_fixture.py --source vendor/mmd-tools --out g8-independent
+          PYTHONPATH=vendor/independent-converter python -m mmd2gltf \
+            g8-independent/articulated_ribbon.pmx \
+            --vmd g8-independent/articulated_ribbon.vmd \
+            --scale 1.0 --no-ik \
+            -o g8-independent/independent_multibone.glb
+          test -s g8-independent/independent_multibone.glb
+      - name: Download same-source known G7 reference artifact from successful public Actions
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-articulation-evidence
+          run-id: 40451441477
+          github-token: ${{ github.token }}
+          path: g8-reference
+      - name: Run negative controls and independently compare weights, joints and rotations
+        run: |
+          set -euo pipefail
+          python .github/mmd-parity/compare.py --self-test
+          python .github/mmd-parity/compare.py \
+            --direct g8-independent/independent_multibone.glb \
+            --blender g8-reference/mmd-articulation-output/articulated_ribbon.glb \
+            --out g8-independent/parity.json
+      - name: Preserve independent output, first failures and machine-readable results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-articulated-cross-engine-evidence
+          path: |
+            g8-independent/articulated_ribbon.pmx
+            g8-independent/articulated_ribbon.vmd
+            g8-independent/independent_multibone.glb
+            g8-independent/parity.json
+          retention-days: 14
+          if-no-files-found: warn
