@@ -55,10 +55,10 @@
         "blend"
       ],
       "status": "UNTRIED",
-      "license": "UNVERIFIED",
+      "license": "GPL-3.0",
       "redistribution": "UNASSESSED",
       "publication": "METADATA_ONLY",
-      "notes": "Rigify bridge candidate; inspect version/license/CLI."
+      "notes": "Blender/Rigify addon according to multilingual upstream README; GitHub declared GPL-3.0. No public runner headless rep yet."
     },
     {
       "id": "mmd.tools-append",
@@ -68,10 +68,10 @@
         "blend"
       ],
       "status": "UNTRIED",
-      "license": "UNVERIFIED",
+      "license": "GPL-3.0",
       "redistribution": "UNASSESSED",
       "publication": "METADATA_ONLY",
-      "notes": "Extension candidate, unqualified."
+      "notes": "MMD Tools companion Blender extension, 4.2-5.2 according to README; GitHub declared GPL-3.0. No executable rep yet."
     },
     {
       "id": "mmd.mmd2gltf",
@@ -84,10 +84,10 @@
         "glb"
       ],
       "status": "UNTRIED",
-      "license": "UNVERIFIED",
+      "license": "MIT",
       "redistribution": "UNASSESSED",
       "publication": "METADATA_ONLY",
-      "notes": "extras.mmd preservation layer candidate, converted file can still carry restricted source data."
+      "notes": "Source checked: real Python stdlib CLI `python -m mmd2gltf PMX --vmd VMD --scale 1.0 -o GLB`, preserves MMD-only metadata in glTF extras.mmd. Pin b86ef4c2b103dd01130f68ede625d35633b9e5ff for new independent rep. Software MIT does not authorize redistribution of converted third-party MMD assets."
     },
     {
       "id": "mmd.mmd-anim",
@@ -98,10 +98,10 @@
         "vmd"
       ],
       "status": "UNTRIED",
-      "license": "UNVERIFIED",
+      "license": "MIT",
       "redistribution": "UNASSESSED",
       "publication": "METADATA_ONLY",
-      "notes": "Rust IK/physics animation evaluator oracle candidate."
+      "notes": "Maintainer marks Rust runtime early-stage; exposes CLI/C ABI/WASM; do not adopt Rust as orchestrator. Independently qualify only as optional oracle."
     },
     {
       "id": "mmd.vmd-physics-bake",
@@ -112,10 +112,10 @@
         "vmd"
       ],
       "status": "UNTRIED",
-      "license": "REPOSITORY_CLAIMS_MIT",
+      "license": "MIT",
       "redistribution": "UNASSESSED",
       "publication": "METADATA_ONLY",
-      "notes": "Physics bake candidate; demo assets separately licensed."
+      "notes": "Node CLI + Ammo.js VMD physics-bake research candidate; avoid bundled third-party demo assets; requires rights-clean physics fixtures."
     },
     {
       "id": "cmu.motion-capture",

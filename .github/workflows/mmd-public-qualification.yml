@@ -217,46 +217,35 @@ jobs:
           set -euo pipefail
           python mmd/qualification/verify_interchange.py --out mmd-interchange-output --self-test
           python mmd/qualification/verify_interchange.py --out mmd-interchange-output
-      - name: Produce and independently decode H264 MP4 without slow apt dependencies
-        timeout-minutes: 4
+      - name: Produce iPhone-compatible MP4 with real consecutive frames
+        timeout-minutes: 7
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           set -euo pipefail
-          python -m pip install --disable-pip-version-check --no-cache-dir 'imageio-ffmpeg==0.6.0'
+          # Ubuntu hosted runner does not preinstall ffmpeg: native first failure in 40448661430.
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            timeout --signal=TERM --kill-after=10s 120s sudo apt-get update -qq
+            timeout --signal=TERM --kill-after=10s 240s sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -hide_banner -loglevel error -y -framerate 30 \
+            -i mmd-interchange-output/frame_%04d.png -frames:v 31 \
+            -c:v libx264 -pix_fmt yuv420p -movflags +faststart \
+            mmd-interchange-output/mmd_animated_interchange.mp4
           python - <<'PY'
-          import imageio_ffmpeg
-          import json
-          from pathlib import Path
-          import subprocess
-          ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-          output = Path('mmd-interchange-output/mmd_animated_interchange.mp4')
-          encode = [
-            ffmpeg, '-hide_banner', '-loglevel', 'error', '-y',
-            '-framerate', '30', '-i', 'mmd-interchange-output/frame_%04d.png',
-            '-frames:v', '31', '-c:v', 'libx264',
-            '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
-            str(output)
-          ]
-          subprocess.run(encode,check=True,timeout=90)
-          b=output.read_bytes()
-          assert len(b)>1000 and b'ftyp' in b[:64] and b'moov' in b, 'invalid MP4 container'
-          assert b'avc1' in b and b'avcC' in b, 'expected H264 AVC sample entry'
-          decode=[ffmpeg,'-hide_banner','-loglevel','error','-i',str(output),
-                  '-f','rawvideo','-pix_fmt','yuv420p','-']
-          result=subprocess.run(decode,check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=90)
-          expected=320*240*3//2*31
-          assert len(result.stdout)==expected, f'decoded byte length {len(result.stdout)} != {expected}'
-          report={
-            'schema':'scp.mmd.mobile-video.v1',
-            'result':'PASS_MOBILE_H264_CONTAINER_AND_31_FRAME_DECODE',
-            'codec_tag':'avc1',
-            'pixel_output_format':'yuv420p',
-            'frame_count':31,'width':320,'height':240,
-            'mp4_bytes':len(b),
-            'ffmpeg_binary':ffmpeg,
-            'verification':'independently decode produced MP4 to exact 31 raw yuv420p frame bytes'
-          }
-          (output.parent/'mobile_video_verified.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\\n')
-          print(json.dumps(report,sort_keys=True))
+          import json, subprocess
+          path = 'mmd-interchange-output/mmd_animated_interchange.mp4'
+          args = ['ffprobe','-v','error','-count_frames','-select_streams','v:0',
+                  '-show_entries','stream=codec_name,nb_read_frames,width,height,pix_fmt',
+                  '-of','json',path]
+          x = json.loads(subprocess.check_output(args))
+          stream = x['streams'][0]
+          assert stream['codec_name']=='h264' and stream['pix_fmt']=='yuv420p', stream
+          assert (stream['width'],stream['height']) == (320,240),stream
+          assert int(stream['nb_read_frames']) == 31, stream
+          print(json.dumps({'result':'PASS_MOBILE_COMPATIBLE_H264','stream':stream}, sort_keys=True))
           PY
       - name: Upload inspectable motion, video, full frames and source on any outcome
         if: always()
@@ -264,5 +253,72 @@ jobs:
         with:
           name: public-mmd-animated-interchange-evidence
           path: mmd-interchange-output/*
+          retention-days: 14
+          if-no-files-found: warn
+
+  independent-headless-mmd2gltf:
+    if: github.event_name == 'push'
+    needs: blender-animated-interchange
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout original public fixtures and independent validator
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned MMD Tools format parsers
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Checkout independent MIT mmd2gltf Python CLI at immutable source
+        uses: actions/checkout@v4
+        with:
+          repository: masaka1024/mmd2gltf-gui
+          ref: b86ef4c2b103dd01130f68ede625d35633b9e5ff
+          path: vendor/independent-converter
+          sparse-checkout: |
+            mmd2gltf
+            LICENSE
+          persist-credentials: false
+      - name: Python 3.11 only (independent converter no Blender or GPU)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Generate rights-clean PMX/VMD and invoke second real upstream conversion engine
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          mkdir -p mmd-independent-output
+          python mmd/qualification/probe.py --source vendor/mmd-tools --out mmd-independent-output
+          PYTHONPATH=vendor/independent-converter python -m mmd2gltf \
+            mmd-independent-output/synthetic_triangle.pmx \
+            --vmd mmd-independent-output/synthetic_center_motion.vmd \
+            --scale 1.0 --no-ik \
+            -o mmd-independent-output/independent_mmd2gltf.glb
+          test -s mmd-independent-output/independent_mmd2gltf.glb
+      - name: Download verified Blender GLB from exact same public Actions run
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-animated-interchange-evidence
+          path: blender-evidence
+      - name: Independently inspect glTF motion and preserved MMD extras against Blender
+        run: |
+          set -euo pipefail
+          python mmd/qualification/compare_converter.py \
+            --direct mmd-independent-output/independent_mmd2gltf.glb \
+            --blender blender-evidence/animated_mmd.glb \
+            --out mmd-independent-output/converter_comparison.json
+      - name: Preserve both source-specific native comparison receipts and independent GLB
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-independent-converter-evidence
+          path: |
+            mmd-independent-output/independent_mmd2gltf.glb
+            mmd-independent-output/converter_comparison.json
           retention-days: 14
           if-no-files-found: warn
