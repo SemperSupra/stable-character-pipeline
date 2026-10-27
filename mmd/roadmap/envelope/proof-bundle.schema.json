@@ -247,6 +247,7 @@
         "required": [
           "id",
           "observation_id",
+          "measured_key",
           "oracle",
           "status",
           "units",
@@ -284,6 +285,11 @@
               "number",
               "null"
             ]
+          },
+          "measured_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Key in the corresponding EngineObservation.measured map; independent oracle MUST agree with witnessed value for scoped PASS."
           }
         }
       }
