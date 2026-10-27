@@ -25,10 +25,10 @@ GLB_SHA256 = "19573f420f8c089842a04ec15664afb35829d587ed87a81c45ee00752c3a1aa8"
 GENERATOR_SHA = "ee3f027a2d1e05b9a1b44dd5c5569a19b35dd4d1"
 
 SUPPORTS = {
-    "car/port/front-tire": "suv",
-    "car/starboard/front-tire": "suv",
-    "car/port/rear-tire": "suv",
-    "car/starboard/rear-tire": "suv",
+    "car/left/front-tire": "suv",
+    "car/right/front-tire": "suv",
+    "car/left/rear-tire": "suv",
+    "car/right/rear-tire": "suv",
     "titan/iron-atlas/port/foot": "walker",
     "titan/iron-atlas/starboard/foot": "walker",
 }
@@ -40,10 +40,10 @@ PAIRS = (
     ("titan/iron-atlas/starboard/foot", "titan/iron-atlas/port/lower-leg"),
     ("titan/iron-atlas/port/foot", "titan/iron-atlas/pelvis"),
     ("titan/iron-atlas/starboard/foot", "titan/iron-atlas/pelvis"),
-    ("car/port/front-tire", "car/chassis"),
-    ("car/starboard/front-tire", "car/chassis"),
-    ("car/port/rear-tire", "car/chassis"),
-    ("car/starboard/rear-tire", "car/chassis"),
+    ("car/left/front-tire", "car/chassis"),
+    ("car/right/front-tire", "car/chassis"),
+    ("car/left/rear-tire", "car/chassis"),
+    ("car/right/rear-tire", "car/chassis"),
     ("space/port/solar-panel", "space/pressure-hull"),
     ("space/starboard/solar-panel", "space/pressure-hull"),
     ("car/tailgate", "car/chassis"),
