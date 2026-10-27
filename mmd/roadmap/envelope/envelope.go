@@ -66,6 +66,7 @@ type EngineObservation struct {
 type MetricEvidence struct {
 	ID            string   `json:"id"`
 	ObservationID string   `json:"observation_id"`
+	MeasuredKey   string   `json:"measured_key"`
 	Oracle        string   `json:"oracle"`
 	Status        string   `json:"status"`
 	Units         string   `json:"units"`
@@ -84,6 +85,7 @@ type ProofBundle struct {
 // are applied AFTER syntax/schema checks; this is NOT a file-hash attestation.
 func DecodeStrict(data []byte) (ProofBundle, error) {
 	var b ProofBundle
+	if err:=RejectDuplicateJSONKeys(data);err!=nil{return b,fmt.Errorf("ambiguous proof JSON: %w",err)}
 	d := json.NewDecoder(bytes.NewReader(data))
 	d.DisallowUnknownFields()
 	if err := d.Decode(&b); err != nil { return b, fmt.Errorf("proof JSON: %w", err) }
@@ -171,20 +173,26 @@ func Validate(b ProofBundle) error {
 		obs[o.ID]=o
 	}
 	metrics:=map[string]bool{}
+	covered:=map[string]bool{}
 	for _, m:=range b.Metrics {
 		o,exists:=obs[m.ObservationID]
 		if !safeID.MatchString(m.ID) || metrics[m.ID] || !exists || strings.TrimSpace(m.Oracle)=="" ||
-			strings.TrimSpace(m.Units)=="" || !result(m.Status) {
+			strings.TrimSpace(m.Units)=="" || strings.TrimSpace(m.MeasuredKey)=="" || !result(m.Status) {
 			return errors.New("invalid/duplicate metric, oracle or observation reference")
 		}
 		if m.Value!=nil && (math.IsNaN(*m.Value) || math.IsInf(*m.Value,0)) { return errors.New("nonfinite metric") }
-		if m.Status=="PASS" && (m.Value==nil || o.Status!="PASS") {
-			return errors.New("metric PASS requires measured value and PASS source observation")
-		}
-		if m.Status!="PASS" { allPass=false }
+		if m.Status=="PASS" {
+			measured,exists:=o.Measured[m.MeasuredKey]
+			if m.Value==nil || o.Status!="PASS" || !exists ||
+				math.Abs(*m.Value-measured)>1e-8 {
+				return errors.New("metric PASS must match named source observation measured value")
+			}
+			covered[m.ObservationID]=true
+		} else { allPass=false }
 		metrics[m.ID]=true
 	}
 	if b.Verdict=="PASS" {
+		for id:=range obs {if !covered[id] {return fmt.Errorf("PASS missing measured metric for observation %s",id)}}
 		if !allPass || !r.CloudAllowed || !r.RedistributeAllowed ||
 			(r.AssetRights!="ORIGINAL_SYNTHETIC" && r.AssetRights!="RIGHTS_CLEARED_EXTERNAL") {
 			return errors.New("premature PASS: inconclusive observations, metrics or source rights")
