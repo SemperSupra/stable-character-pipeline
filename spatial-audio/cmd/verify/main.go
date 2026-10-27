@@ -69,10 +69,11 @@ func checkWAV(path string,channels int)(string,error){
 func verify(root string)error{
  f,e:=os.Open(filepath.Join(root,"renderer-receipts.jsonl"));if e!=nil{return e};defer f.Close()
  read:=bufio.NewScanner(f);read.Buffer(make([]byte,2048),1024*1024)
- seen:=map[string]bool{};finish:=false
+ seen:=map[string]bool{};finish:=false;upstreamDiagnosticCount:=0
  for read.Scan(){
   line:=strings.TrimSpace(read.Text())
   if line=="spatial_native_PASS profiles=5 stereo=UNQUALIFIED"{finish=true;continue}
+  if line=="Getting first order cube"{upstreamDiagnosticCount++;if upstreamDiagnosticCount>1{return errors.New("duplicate upstream diagnostic")};continue}
   if !strings.HasPrefix(line,"{"){return fmt.Errorf("unexpected diagnostic line %q",line)}
   var r Receipt
   if e=json.Unmarshal([]byte(line),&r);e!=nil{return e}
@@ -83,7 +84,7 @@ func verify(root string)error{
   fmt.Printf("spatial_profile_PASS %s channels=%d peak=%.6f sha256=%s\n",r.Profile,r.Channels,r.Peak,digest)
  }
  if e=read.Err();e!=nil{return e}
- if !finish || len(seen)!=len(expected){return fmt.Errorf("incomplete renderer admission %d/%d",len(seen),len(expected))}
+ if !finish || len(seen)!=len(expected) || upstreamDiagnosticCount!=1{return fmt.Errorf("incomplete renderer admission %d/%d upstream_diag=%d",len(seen),len(expected),upstreamDiagnosticCount)}
  fmt.Println("spatial_qualification_PARTIAL_PASS profiles=5 stereo_UNQUALIFIED=true 48000Hz float32 native layout; speaker identity and perceptual localization remain unqualified")
  return nil
 }
