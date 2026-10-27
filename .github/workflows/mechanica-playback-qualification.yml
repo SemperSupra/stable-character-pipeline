@@ -113,7 +113,7 @@ jobs:
           out=pathlib.Path('qualification-evidence/blender')
           report=json.loads((out/'blender_report.json').read_text())
           assert report['status']=='PASS_BLENDER_IMPORT_MOTION_AND_RENDER'
-          for focus in ('scene','titan'):
+          for focus in ('scene','titan','space'):
               files=[out / r['file'] for r in report['cpu_render_frames']
                      if r['file'].startswith(focus+'_')]
               assert len(files)==3
