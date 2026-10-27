@@ -52,7 +52,7 @@ jobs:
           meson install -C "$RUNNER_TEMP/spatial-build"
           test -f "$install/lib/pkgconfig/spatialaudio.pc"
           echo "native_upstream_renderer_tests_PASS"
-      - name: Render original moving-source signal for headphone, stereo, surround and height layouts
+      - name: Render qualified-native headphone/surround/height controls; red-test broken stereo
         run: |
           set -euo pipefail
           install="$RUNNER_TEMP/libspatialaudio-install"
@@ -61,12 +61,19 @@ jobs:
           mkdir -p "$RUNNER_TEMP/spatial-test-output"
           g++ -std=c++14 -O2 -Wall -Wextra -I"$install/include/spatialaudio" spatial-audio/qualification/renderer_smoke.cpp \
             -o "$RUNNER_TEMP/spatial-qual" $(pkg-config --cflags --libs spatialaudio)
-          "$RUNNER_TEMP/spatial-qual" "$RUNNER_TEMP/spatial-test-output" \
+          "$RUNNER_TEMP/spatial-qual" supported "$RUNNER_TEMP/spatial-test-output" \
             | tee "$RUNNER_TEMP/spatial-test-output/renderer-receipts.jsonl"
           (cd spatial-audio && go run ./cmd/verify "$RUNNER_TEMP/spatial-test-output")
+          mkdir -p "$RUNNER_TEMP/stereo-negative"
+          if "$RUNNER_TEMP/spatial-qual" stereo-negative "$RUNNER_TEMP/stereo-negative" 2>"$RUNNER_TEMP/stereo-negative/diagnostic.log"; then
+            echo "STEREO_ADMISSION_FAIL unexpected native stereo success; requalify with full channel and perceptual tests" >&2
+            exit 1
+          fi
+          grep -q "spatial_native_FIRST_FAILURE stereo NaN/Inf" "$RUNNER_TEMP/stereo-negative/diagnostic.log"
+          echo "stereo_quarantined_red_test_PASS: native NaN is reproduced, no stereo deliverable admitted"
           echo "No spatial media uploaded from public CI."
       - name: Clean temporary upstream source and synthetic audio
         if: always()
         run: |
-          rm -rf "$RUNNER_TEMP/libspatialaudio" "$RUNNER_TEMP/libspatialaudio-install" \
+          rm -rf "$RUNNER_TEMP/stereo-negative" "$RUNNER_TEMP/libspatialaudio" "$RUNNER_TEMP/libspatialaudio-install" \
             "$RUNNER_TEMP/spatial-build" "$RUNNER_TEMP/spatial-test-output" "$RUNNER_TEMP/spatial-qual"
