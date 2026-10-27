@@ -25,10 +25,10 @@ func inventory(raw []byte)(map[string]any,error){
  var doc scene
  if err:=json.Unmarshal(raw,&doc);err!=nil{return nil,err}
  if doc.Asset.Version!="2.0"||len(doc.Nodes)<30||len(doc.Animations)!=1{return nil,errors.New("unexpected glTF schema or animation count")}
- names:=map[string]int{}
+ names:=map[string][]int{}
  parent:=map[int]int{}
  for i,n:=range doc.Nodes{
-  if n.Name!=""{if _,ok:=names[n.Name];ok{return nil,fmt.Errorf("duplicate source node %q",n.Name)};names[n.Name]=i}
+  if n.Name!=""{names[n.Name]=append(names[n.Name],i)}
   for _,c:=range n.Children{
    if c<0||c>=len(doc.Nodes)||c==i{return nil,errors.New("invalid child index")}
    if _,ok:=parent[c];ok{return nil,errors.New("multiple node parents")}
@@ -52,8 +52,13 @@ func inventory(raw []byte)(map[string]any,error){
   animated[key]=true
  }
  require:=func(name,expectedParent,path string)error{
-  id,ok:=names[name];if !ok{return fmt.Errorf("missing node %q",name)}
-  if expectedParent!=""{p,ok:=names[expectedParent];if !ok||parent[id]!=p{return fmt.Errorf("wrong parent for %q",name)}}
+  ids:=names[name];if len(ids)!=1{return fmt.Errorf("required semantic joint %q has %d matches",name,len(ids))}
+  id:=ids[0]
+  if expectedParent!=""{
+   idsParent:=names[expectedParent]
+   if len(idsParent)!=1{return fmt.Errorf("required parent %q has %d matches",expectedParent,len(idsParent))}
+   p,ok:=parent[id];if !ok||p!=idsParent[0]{return fmt.Errorf("wrong parent for %q",name)}
+  }
   if path!=""&&!animated[fmt.Sprintf("%d:%s",id,path)]{return fmt.Errorf("missing %s animation for %q",path,name)}
   return nil
  }
