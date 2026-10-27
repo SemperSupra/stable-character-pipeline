@@ -6,7 +6,8 @@ import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
-import { Vector3, Color3, Color4 } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { PmxLoader } from "../../../vendor/babylon-mmd/src/Loader/pmxLoader.pure.ts";
@@ -67,7 +68,7 @@ async function start(){
     return mat;
   });
   const markers=names.map((n,i)=>{
-    const marker=MeshBuilder.CreateSphere("diagnostic_original_bone_"+n,{diameter:i===3?.12:.085,segments:12},scene);
+    const marker=MeshBuilder.CreateSphere("diagnostic_original_bone_"+n,{diameter:(i === 3 ? 0.12 : 0.085),segments:12},scene);
     marker.material=markerMaterial[i];
     return marker;
   });
