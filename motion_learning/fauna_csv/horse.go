@@ -14,6 +14,7 @@ import (
  "reflect"
  "strconv"
  "strings"
+ "unicode"
 )
 
 const (
@@ -81,12 +82,12 @@ func number(s string)(float64,error){
 func Parse(original []byte,sourceID,captureFamily string)(Observation,error){
  var zero Observation
  if len(original)==0||len(original)>MaxBytes{return zero,errors.New("source exceeds bounded original fixture size")}
- if sourceID==""||captureFamily==""||strings.ContainsAny(sourceID," 	
-")||strings.ContainsAny(captureFamily," 	
-"){
-  return zero,errors.New("source identity or capture group missing/ambiguous")
- }
- reader:=csv.NewReader(bytes.NewReader(original))
+ if sourceID==""||captureFamily==""||
+    strings.IndexFunc(sourceID,unicode.IsSpace)>=0||
+    strings.IndexFunc(captureFamily,unicode.IsSpace)>=0{
+    return zero,errors.New("source identity or capture group missing/ambiguous")
+  }
+  reader:=csv.NewReader(bytes.NewReader(original))
  reader.FieldsPerRecord=2+Markers*3
  reader.ReuseRecord=false
  reader.TrimLeadingSpace=false
