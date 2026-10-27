@@ -36,6 +36,7 @@ jobs:
           path: vendor/babylon-mmd
           sparse-checkout: |
             src/Loader
+            src/Runtime
             LICENSE
           persist-credentials: false
       - name: Retrieve actual original author-cleared G10a PMX and VMD
@@ -101,6 +102,19 @@ jobs:
             w04-output/babylon_nullengine_pmx_scene.json
           test -s w04-output/babylon_nullengine_pmx_scene.json
           grep -q 'PASS_REAL_BABYLON_PMX_MODEL_SCENE_ONLY' w04-output/babylon_nullengine_pmx_scene.json
+      - name: Attempt actual source-native Babylon MMD bound runtime morph/IK evaluation
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsx --tsconfig mmd/qualification/w04_tsconfig.json \
+            mmd/qualification/w04_babylon_runtime.mts \
+            original/g10/synthetic_two_link_ik.pmx \
+            original/g10/synthetic_foot_goal.vmd \
+            original/g9/synthetic_face_grid.pmx \
+            original/g9/synthetic_face_motion.vmd \
+            w04-output/babylon_evaluated_native_runtime.json
+          test -s w04-output/babylon_evaluated_native_runtime.json
+          grep -q 'PASS_BABYLON_MMD_ACTUAL_BOUND_RUNTIME_SELECTED_FRAMES_ONLY' w04-output/babylon_evaluated_native_runtime.json
       - name: Preserve actual third-engine source-parser positive and negative receipts
         if: always()
         uses: actions/upload-artifact@v4
