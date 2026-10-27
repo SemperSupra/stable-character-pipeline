@@ -119,6 +119,44 @@ jobs:
           grep -q 'EVIDENCE_BINDING_FAILED' ../../w02-g10-proof/tamper-stderr.txt
           rm -rf ../../w02-g10-proof/tamper
           echo '{"status":"EXPECTED_REJECTION","mutation":"original PMX append byte","no_invalid_bundle_written":true}' > ../../w02-g10-proof/tamper-rejection.json
+      - name: Red team tampered independent observation and forged rights claim
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          mkdir -p ../../w02-g10-proof/temp-red
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          base=Path('../../source-g10b/ik_contact_receipt.json')
+          d=json.loads(base.read_text())
+          d['ik_enabled']['15']['error']+=0.5
+          Path('../../w02-g10-proof/temp-red/tampered-g10b.json').write_text(json.dumps(d))
+          f=json.loads(Path('../../source-g10a/ik_fixture_receipt.json').read_text())
+          f['rights']='unlicensed external artist content'
+          Path('../../w02-g10-proof/temp-red/forged-rights.json').write_text(json.dumps(f))
+          PY
+          attempt() {
+            local name="$1" fixture="$2" direct="$3"
+            if go run ./cmd/g10bridge \
+              -pmx ../../source-g10a/synthetic_two_link_ik.pmx \
+              -vmd ../../source-g10a/synthetic_foot_goal.vmd \
+              -fixture "$fixture" \
+              -ik-glb ../../source-g10a/ik_enabled.glb \
+              -fk-glb ../../source-g10a/ik_disabled.glb \
+              -direct "$direct" \
+              -blender ../../source-g10c/blender_ik_receipt.json \
+              -parity ../../source-g10d/ik_cross_engine_parity.json \
+              -out "../../w02-g10-proof/temp-red/$name.json" > "../../w02-g10-proof/temp-red/$name.stdout" 2> "../../w02-g10-proof/temp-red/$name.stderr"; then
+              echo "FAIL: $name evidence fraud accepted" >&2
+              exit 1
+            fi
+            test ! -e "../../w02-g10-proof/temp-red/$name.json"
+            grep -q 'EVIDENCE_BINDING_FAILED' "../../w02-g10-proof/temp-red/$name.stderr"
+          }
+          attempt "source-observation-mismatch" ../../source-g10a/ik_fixture_receipt.json ../../w02-g10-proof/temp-red/tampered-g10b.json
+          attempt "forged-source-rights" ../../w02-g10-proof/temp-red/forged-rights.json ../../source-g10b/ik_contact_receipt.json
+          rm -rf ../../w02-g10-proof/temp-red
+          echo '{"status":"PASS_EXPECTED_REJECTIONS","cases":["corrupted-PMX","source-observation-mismatch","forged-source-rights"],"scope":"source/receipt structural negatives only"}' > ../../w02-g10-proof/red-3-experiment-summary.json
       - name: Save SHA256 of real original source and cited engine receipts, without mirroring their bytes
         run: |
           set -euo pipefail
