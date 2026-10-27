@@ -48,6 +48,76 @@ jobs:
           test -s ../../workplan-output/readiness.json
           test -s ../../workplan-output/readiness.md
           head -n 8 ../../workplan-output/readiness.md
+      - name: Independently execute W02 typed envelope race tests and end-to-end JSON CLI
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/envelopecheck envelope/testdata/synthetic-proof.json > ../../workplan-output/w02-structural-pass.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          doc=json.loads(Path('envelope/testdata/synthetic-proof.json').read_text())
+          doc['fixture']['semantics']['units']='UNSPECIFIED'
+          Path('../../workplan-output/w02-intentional-invalid.json').write_text(json.dumps(doc))
+          PY
+          if go run ./cmd/envelopecheck ../../workplan-output/w02-intentional-invalid.json > ../../workplan-output/w02-rejection.json 2> ../../workplan-output/w02-rejection-stderr.txt; then
+            echo 'FAIL: invalid native source unit unexpectedly accepted' >&2
+            exit 1
+          fi
+          grep -q '"validation":"VALID_ENVELOPE_ONLY"' ../../workplan-output/w02-structural-pass.json
+          grep -q '"validation":"INVALID"' ../../workplan-output/w02-rejection.json
+          grep -q 'exit status 4' ../../workplan-output/w02-rejection-stderr.txt
+          sha256sum envelope/envelope.go envelope/proof-bundle.schema.json envelope/testdata/synthetic-proof.json > ../../workplan-output/w02-source-pins.sha256
+      - name: Independently qualify JSON Schema 2020-12 against golden and red cases
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/mmd-w02-schema-venv
+          /tmp/mmd-w02-schema-venv/bin/python -m pip install --disable-pip-version-check 'jsonschema==4.25.1'
+          /tmp/mmd-w02-schema-venv/bin/python - <<'PY'
+          import copy, hashlib, importlib.metadata, json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+          src=Path('envelope/proof-bundle.schema.json').read_bytes()
+          sample_bytes=Path('envelope/testdata/synthetic-proof.json').read_bytes()
+          schema=json.loads(src)
+          sample=json.loads(sample_bytes)
+          Draft202012Validator.check_schema(schema)
+          validator=Draft202012Validator(schema)
+          validator.validate(sample)
+          def fail_case(name, mutator):
+              candidate=copy.deepcopy(sample)
+              mutator(candidate)
+              if validator.is_valid(candidate):
+                  raise AssertionError('JSON Schema failed to reject: '+name)
+          fail_case('unknown root',lambda b:b.update({'shadow_authority':True}))
+          fail_case('bad units',lambda b:b['fixture']['semantics'].update({'units':'UNSPECIFIED'}))
+          fail_case('missing frame origin',lambda b:b['fixture']['semantics'].pop('frame_origin'))
+          fail_case('wrong axes',lambda b:b['fixture']['semantics'].update({'axes':'UNKNOWN'}))
+          fail_case('duplicate unicode labels',lambda b:b['fixture']['semantics'].update({'native_bone_labels':['腰','腰']}))
+          fail_case('wrong result',lambda b:b.update({'verdict':'ACCEPTED'}))
+          fail_case('missing rights',lambda b:b['fixture']['semantics'].pop('rights'))
+          fail_case('missing evidence',lambda b:b['metrics'][0].pop('oracle'))
+          fail_case('bad source digest',lambda b:b['fixture'].update({'source_sha256':'abc'}))
+          fail_case('missing associated source inventory',lambda b:b['fixture'].pop('inputs'))
+          fail_case('missing observation measured-key',lambda b:b['metrics'][0].pop('measured_key'))
+          evidence={
+              'status':'PASS_SCHEMA_STRUCTURAL_ONLY',
+              'validator':'jsonschema',
+              'validator_version':importlib.metadata.version('jsonschema'),
+              'schema_sha256':hashlib.sha256(src).hexdigest(),
+              'sample_sha256':hashlib.sha256(sample_bytes).hexdigest(),
+              'positive':1,
+              'deliberately_rejected':11,
+              'cross_record_or_rights_acceptance':'NOT_ATTESTED_BY_JSON_SCHEMA',
+              'source_bytes_attested':False,
+          }
+          Path('../../workplan-output/w02-independent-jsonschema.json').write_text(json.dumps(evidence,sort_keys=True,indent=2)+'\n')
+          print(json.dumps(evidence,sort_keys=True))
+          PY
+          /tmp/mmd-w02-schema-venv/bin/python -m pip freeze > ../../workplan-output/w02-jsonschema-dependency-lock-observed.txt
       - name: Preserve candidate plan proof and first failures
         if: always()
         uses: actions/upload-artifact@v4

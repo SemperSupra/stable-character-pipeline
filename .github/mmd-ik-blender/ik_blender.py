@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """G10c genuine MMD Tools Blender IK import: measure goal tracking separately."""
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -11,8 +12,26 @@ def main():
     ap=argparse.ArgumentParser()
     for k in ("source","model","motion","out"):
         ap.add_argument("--"+k,type=Path,required=True)
+    ap.add_argument("--source-receipt",type=Path,required=False,
+        help="optional source-native G10a fixture hash receipt (W02 independently witnessed input binding)")
     a=ap.parse_args()
     a.out.mkdir(parents=True,exist_ok=True)
+    # Compute source hashes IN the actual Blender MMD Tools process, before
+    # invoking the real native import operators; never infer them from a
+    # workflow label or retroactively rewrite historical G10c receipts.
+    source_digests={}
+    for role,source in (("pmx",a.model),("vmd",a.motion)):
+        assert source.is_file(),(role,source)
+        source_digests[role+"_sha256"]=hashlib.sha256(source.read_bytes()).hexdigest()
+    source_receipt_sha256=None
+    if a.source_receipt is not None:
+        raw=a.source_receipt.read_bytes()
+        source_receipt_sha256=hashlib.sha256(raw).hexdigest()
+        original=json.loads(raw)
+        assert original["schema"]=="scp.mmd.ik.fixture.v1"
+        assert original["hashes"]["synthetic_two_link_ik.pmx"]==source_digests["pmx_sha256"]
+        assert original["hashes"]["synthetic_foot_goal.vmd"]==source_digests["vmd_sha256"]
+        assert original["rights"]=="synthetic self-authored IK rig, no third-party dancers or scans"
     import bpy
     assert bpy.app.version >= (4,2,0),bpy.app.version_string
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -86,7 +105,14 @@ def main():
     assert path.stat().st_size>1000
     # No target-tracking threshold here: this gate measures real Blender solver,
     # with separate follow-on parity against source converter and native MMD.
+    # Re-read inputs after BOTH actual importer invocations. SHA agreement
+    # is a checked custody observation, not an assertion about native MMD CCD.
+    assert hashlib.sha256(a.model.read_bytes()).hexdigest()==source_digests["pmx_sha256"]
+    assert hashlib.sha256(a.motion.read_bytes()).hexdigest()==source_digests["vmd_sha256"]
     report={
+      "input_source_digests":source_digests,
+      "input_source_receipt_sha256":source_receipt_sha256,
+      "native_input_digests_rechecked_after_import":True,
       "schema":"scp.mmd.ik.blender.v1",
       "status":"PASS_REAL_BLENDER_MMD_IK_CONSTRAINT_AND_GOAL_MOTION",
       "blender":bpy.app.version_string,

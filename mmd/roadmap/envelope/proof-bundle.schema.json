@@ -1,0 +1,380 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SemperSupra/stable-character-pipeline/blob/qualification/mmd-w02-evidence-contract-20261027/mmd/roadmap/envelope/proof-bundle.schema.json",
+  "title": "Research-only MMD source/engine evidence envelope",
+  "description": "Structural schema only. Go Validate enforces cross-record source, timing, rights and no false-PASS invariants. Does not prove source bytes, external rights or motion semantics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "fixture",
+    "observations",
+    "metrics",
+    "verdict"
+  ],
+  "properties": {
+    "schema": {
+      "const": "scp.mmd.proof-bundle.v1"
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source_uri",
+        "source_sha256",
+        "inputs",
+        "frame_count",
+        "semantics"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+        },
+        "source_uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "frame_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "semantics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "native_format",
+            "native_bone_labels",
+            "native_morph_labels",
+            "units",
+            "meters_per_unit",
+            "axes",
+            "fps_numerator",
+            "fps_denominator",
+            "frame_origin",
+            "rights"
+          ],
+          "properties": {
+            "native_format": {
+              "type": "string",
+              "enum": [
+                "PMX",
+                "VMD",
+                "VPD",
+                "GLTF"
+              ]
+            },
+            "native_bone_labels": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "native_morph_labels": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "units": {
+              "type": "string",
+              "enum": [
+                "m",
+                "cm",
+                "mm",
+                "source_unit"
+              ]
+            },
+            "meters_per_unit": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Null = physical scale UNKNOWN; allowed only when units=source_unit, enforced by Go."
+            },
+            "axes": {
+              "type": "string",
+              "enum": [
+                "RH_Y_UP",
+                "RH_Z_UP",
+                "LH_Y_UP",
+                "LH_Z_UP"
+              ]
+            },
+            "fps_numerator": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fps_denominator": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "frame_origin": {
+              "type": "integer"
+            },
+            "rights": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "asset_rights",
+                "evidence_uri",
+                "cloud_allowed",
+                "redistribute_allowed"
+              ],
+              "properties": {
+                "asset_rights": {
+                  "type": "string",
+                  "enum": [
+                    "ORIGINAL_SYNTHETIC",
+                    "RIGHTS_CLEARED_EXTERNAL",
+                    "UNKNOWN",
+                    "RESTRICTED"
+                  ]
+                },
+                "evidence_uri": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "cloud_allowed": {
+                  "type": "boolean"
+                },
+                "redistribute_allowed": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Explicit empty collection allowed; each additional motion, pose, audio or other source must carry separate SHA/rights.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "native_format",
+              "source_uri",
+              "source_sha256",
+              "rights"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "motion",
+                  "pose",
+                  "texture",
+                  "material",
+                  "audio",
+                  "aux_model"
+                ]
+              },
+              "native_format": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "rights": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset_rights",
+                  "evidence_uri",
+                  "cloud_allowed",
+                  "redistribute_allowed"
+                ],
+                "properties": {
+                  "asset_rights": {
+                    "type": "string",
+                    "enum": [
+                      "ORIGINAL_SYNTHETIC",
+                      "RIGHTS_CLEARED_EXTERNAL",
+                      "UNKNOWN",
+                      "RESTRICTED"
+                    ]
+                  },
+                  "evidence_uri": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cloud_allowed": {
+                    "type": "boolean"
+                  },
+                  "redistribute_allowed": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "engine",
+          "engine_version",
+          "evidence_uri",
+          "evidence_sha256",
+          "fixture_sha256",
+          "frame",
+          "time_seconds",
+          "status",
+          "measured",
+          "declared_loss"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+          },
+          "engine": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+          },
+          "engine_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fixture_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "frame": {
+            "type": "integer"
+          },
+          "time_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "NOT_TESTED",
+              "UNKNOWN",
+              "BLOCKED"
+            ]
+          },
+          "measured": {
+            "type": "object",
+            "propertyNames": {
+              "minLength": 1
+            },
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "declared_loss": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "evidence_uri": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "observation_id",
+          "measured_key",
+          "oracle",
+          "status",
+          "units",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+          },
+          "observation_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$"
+          },
+          "oracle": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "NOT_TESTED",
+              "UNKNOWN",
+              "BLOCKED"
+            ]
+          },
+          "units": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "measured_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Key in the corresponding EngineObservation.measured map; independent oracle MUST agree with witnessed value for scoped PASS."
+          }
+        }
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_TESTED",
+        "UNKNOWN",
+        "BLOCKED"
+      ]
+    }
+  }
+}
