@@ -38,10 +38,38 @@ jobs:
               --output "$RUNNER_TEMP/lmms-out" --format wav --samplerate 48000
           python3 audio-headless/verify.py wav "$RUNNER_TEMP/lmms-out"
           echo 'LMMS_REAL_HEADLESS_TRACKS_PASS'
+      - name: Change a note in the native editable LMMS project and prove sound changed
+        run: |
+          set -euo pipefail
+          original="$RUNNER_TEMP/editing_note_volumes.mmp"
+          edited="$RUNNER_TEMP/editing_note_volumes_edited.mmp"
+          python3 - "$original" "$edited" <<'PY'
+          import pathlib,sys
+          src=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+          target='<note key="72" vol="100" pos="0" pan="0" len="12"/>'
+          assert src.count(target)==1, "source fixture changed; do not apply an ambiguous edit"
+          modified=src.replace(target,'<note key="74" vol="100" pos="0" pan="0" len="12"/>',1)
+          pathlib.Path(sys.argv[2]).write_text(modified,encoding='utf-8')
+          print("lmms_native_note_source_edit_PASS")
+          PY
+          mkdir -p "$RUNNER_TEMP/lmms-edited"
+          QT_QPA_PLATFORM=offscreen timeout 240s             lmms rendertracks "$edited" --output "$RUNNER_TEMP/lmms-edited"               --format wav --samplerate 48000
+          python3 audio-headless/verify.py wav "$RUNNER_TEMP/lmms-edited"
+          python3 - "$RUNNER_TEMP/lmms-out" "$RUNNER_TEMP/lmms-edited" <<'PY'
+          import hashlib,pathlib,sys
+          base,edit=(pathlib.Path(x) for x in sys.argv[1:])
+          a={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in base.glob("*.wav")}
+          b={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in edit.glob("*.wav")}
+          assert a and a.keys()==b.keys()
+          assert any(a[k]!=b[k] for k in a), "editing native score did not alter audible stem bytes"
+          print("lmms_edit_changes_render_PASS tracks",len(a))
+          PY
+
       - name: Cleanup synthetic output and copyrighted tutorial file
         if: always()
         run: |
-          rm -rf "$RUNNER_TEMP/lmms-out" "$RUNNER_TEMP/editing_note_volumes.mmp"
+          rm -rf "$RUNNER_TEMP/lmms-out" "$RUNNER_TEMP/lmms-edited" \
+            "$RUNNER_TEMP/editing_note_volumes.mmp" "$RUNNER_TEMP/editing_note_volumes_edited.mmp"
   musescore-score:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
