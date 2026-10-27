@@ -103,6 +103,25 @@ jobs:
           assert len(list(Path('r6-native-output').glob('rig_frame_*.png')))==10
           print('R6_BLENDER_NATIVE_DEFORMATION_PASS',json.dumps(r,sort_keys=True))
           PY
+      - name: Quantify two-reader source-raster overlap (not a 3D oracle)
+        run: |
+          python -m py_compile qualification/nasa_rig_r3/compare_raster.py
+          python qualification/nasa_rig_r3/compare_raster.py \
+            --reference r5-evidence/pose-rig-output \
+            --blender r6-native-output \
+            --out r6-native-output/cross_reader_raster_observation.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('r6-native-output/cross_reader_raster_observation.json')
+          r=json.loads(p.read_text())
+          assert r['frame_count']==10
+          assert r['actual_anatomical_3d_accuracy']=='NOT_TESTED'
+          assert r['actual_model_inference'] is False
+          assert r['source_identity_inference'] is False
+          assert r['camera_plane_axis_mapping']=='glTF XY, Blender native XZ'
+          print('R6_TWO_READER_RASTER_IOU_OBSERVED',r['min_overlap'],r['mean_overlap'],r['max_overlap'])
+          PY
       - name: Encode iPhone H264 from Blender-evaluated polygons, no Blender GPU renderer
         run: |
           python - <<'PY'
