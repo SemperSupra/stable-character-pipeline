@@ -35,9 +35,7 @@ jobs:
           ref: ccb750db2998ed1067017eaf67f3fc987cfba6f8
           path: vendor/babylon-mmd
           sparse-checkout: |
-            src/Loader/Parser
-            src/Loader/Animation
-            src/Loader/vmdLoader.ts
+            src/Loader
             LICENSE
           persist-credentials: false
       - name: Retrieve actual original author-cleared G10a PMX and VMD
@@ -93,6 +91,16 @@ jobs:
             w04-output/babylon_nullengine_vmdloader.json
           test -s w04-output/babylon_nullengine_vmdloader.json
           grep -q 'PASS_GENUINE_NULLENGINE_AND_BABYLON_MMD_VMD_ANIMATION_OBJECTS' w04-output/babylon_nullengine_vmdloader.json
+      - name: Materialize genuine PMX models into BabylonJS NullEngine skin and morph nodes
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsx mmd/qualification/w04_babylon_scene.mts \
+            original/g10/synthetic_two_link_ik.pmx \
+            original/g9/synthetic_face_grid.pmx \
+            w04-output/babylon_nullengine_pmx_scene.json
+          test -s w04-output/babylon_nullengine_pmx_scene.json
+          grep -q 'PASS_REAL_BABYLON_PMX_MODEL_SCENE_ONLY' w04-output/babylon_nullengine_pmx_scene.json
       - name: Preserve actual third-engine source-parser positive and negative receipts
         if: always()
         uses: actions/upload-artifact@v4
