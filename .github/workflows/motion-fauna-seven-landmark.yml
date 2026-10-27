@@ -1,0 +1,128 @@
+name: Fauna W1 seven-landmark CSV synthetic source qualifier
+on:
+  pull_request:
+    paths:
+      - 'motion_learning/fauna_csv/**'
+      - '.github/workflows/motion-fauna-seven-landmark.yml'
+  push:
+    branches: [research/fauna-seven-landmark-csv-go-20261027]
+    paths:
+      - 'motion_learning/fauna_csv/**'
+      - '.github/workflows/motion-fauna-seven-landmark.yml'
+permissions:
+  contents: read
+concurrency:
+  group: fauna-seven-landmark-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-synthetic-csv-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Checkout original synthetic fixture without persisted token
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Race tests, source structural and source-vs-inferred negative controls
+        working-directory: motion_learning/fauna_csv
+        run: |
+          set -euo pipefail
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Observe original fixture through headless Go adapter
+        working-directory: motion_learning/fauna_csv
+        run: |
+          set -euo pipefail
+          mkdir -p ../../horse-proof
+          go run ./cmd/inspect \
+            -source testdata/original.synthetic-horse.csv \
+            -source-id synthetic:horse1:walk1 \
+            -capture-family synthetic:horse1:sessionA \
+            -out ../../horse-proof/source-and-heuristic.json
+          sha256sum testdata/original.synthetic-horse.csv > ../../horse-proof/synthetic-source.sha256
+          sha256sum horse.go horse_test.go > ../../horse-proof/source-code.sha256
+      - name: Independent stdlib CSV numeric/readback oracle
+        working-directory: motion_learning/fauna_csv
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import csv, hashlib, json, math
+          from pathlib import Path
+          raw=Path('testdata/original.synthetic-horse.csv').read_bytes()
+          rows=list(csv.reader(raw.decode('utf-8').splitlines()))
+          assert len(rows)==5 and all(len(x)==23 for x in rows)
+          assert rows[0][:2]==['SCP_ORIGINAL_SYNTHETIC_HORSE_CSV_V1','timestamp_s']
+          p=json.loads(Path('../../horse-proof/source-and-heuristic.json').read_text())
+          obs,sens=p['observation'],p['sensitivity']
+          assert obs['source_sha256']==hashlib.sha256(raw).hexdigest()
+          assert obs['admission']=='NOT_ADMITTED'
+          assert obs['source_state']=='ORIGINAL_SYNTHETIC'
+          assert obs['physical_meters_per_unit'] is None
+          assert obs['relative_or_global']=='UNKNOWN'
+          assert obs['native_fps']=='UNKNOWN'
+          assert obs['measured_physical_contact'] is False and obs['independently_observed_floor'] is False
+          assert sens['ground_truth_established'] is False
+          assert sens['contact_source']=='HEURISTIC_FROM_SYNTHETIC_HOOF_Z'
+          counts=[]
+          differences=0
+          prev=None
+          for trial in sens['trials']:
+            threshold=trial['threshold_source_units']
+            expected=[]
+            for n,row in enumerate(rows[1:]):
+              assert int(row[0])==n
+              assert math.isclose(float(row[1]),obs['frames'][n]['time_source_seconds'])
+              points=[[float(x) for x in row[2+i*3:5+i*3]] for i in range(7)]
+              assert points==obs['frames'][n]['landmarks_source_units']
+              expected.append([points[i][2]<threshold for i in (3,4,5,6)])
+            assert expected==trial['heuristic_below_threshold']
+            count=sum(sum(state) for state in expected)
+            assert count==trial['assigned_count']
+            counts.append(count)
+            if prev is not None:
+              differences+=sum(x!=y for current,past in zip(expected,prev) for x,y in zip(current,past))
+            prev=expected
+          assert counts==sorted(counts) and differences==sens['changed_decisions'] and differences>0
+          receipt={'result':'PASS_INDEPENDENT_SYNTHETIC_CSV_ORACLE',
+                   'frames':len(rows)-1,'threshold_counts':counts,
+                   'changed_heuristic_decisions':differences,
+                   'source_digest':obs['source_sha256'],
+                   'rights':'NOT_ADMITTED','physical_contact':'NOT_OBSERVED',
+                   'external_horse_file_used':False}
+          Path('../../horse-proof/independent-oracle.json').write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n')
+          print(json.dumps(receipt))
+          PY
+      - name: Deny unmarked original data, do not write false receipt
+        working-directory: motion_learning/fauna_csv
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('testdata/original.synthetic-horse.csv')
+          raw=p.read_text()
+          Path('../../horse-proof/deny-input.csv').write_text(raw.replace('SCP_ORIGINAL_SYNTHETIC_HORSE_CSV_V1','UNKNOWN_EXTERNAL_SOURCE',1))
+          PY
+          if go run ./cmd/inspect -source ../../horse-proof/deny-input.csv \
+            -source-id denied:source -capture-family denied:family \
+            -out ../../horse-proof/must-not-exist.json \
+            > ../../horse-proof/rejected.stdout 2> ../../horse-proof/rejected.stderr; then
+            echo 'FAIL: unadmitted source accepted' >&2
+            exit 1
+          fi
+          test ! -e ../../horse-proof/must-not-exist.json
+          grep -q 'SOURCE_HOLD' ../../horse-proof/rejected.stderr
+          rm ../../horse-proof/deny-input.csv
+          echo '{"result":"PASS_EXPECTED_REJECTION","attempt":"unmarked synthetic provenance"}' > ../../horse-proof/rejection.json
+      - name: Preserve diagnostic receipts, no third-party source blobs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fauna-seven-landmark-synthetic-proof
+          path: horse-proof/*
+          retention-days: 14
+          if-no-files-found: warn
