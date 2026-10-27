@@ -21,7 +21,7 @@ import (
 const frames=24576
 const rate=48000
 
-var expected=map[string]int{"stereo":2,"binaural":2,"surround_5_1":6,"surround_7_1":8,"immersive_5_1_4":10,"immersive_7_1_4":12}
+var expected=map[string]int{"binaural":2,"surround_5_1":6,"surround_7_1":8,"immersive_5_1_4":10,"immersive_7_1_4":12}
 
 type Receipt struct {
  Profile string `json:"profile"`
@@ -72,7 +72,7 @@ func verify(root string)error{
  seen:=map[string]bool{};finish:=false
  for read.Scan(){
   line:=strings.TrimSpace(read.Text())
-  if line=="spatial_native_PASS profiles=6"{finish=true;continue}
+  if line=="spatial_native_PASS profiles=5 stereo=UNQUALIFIED"{finish=true;continue}
   if !strings.HasPrefix(line,"{"){return fmt.Errorf("unexpected diagnostic line %q",line)}
   var r Receipt
   if e=json.Unmarshal([]byte(line),&r);e!=nil{return e}
@@ -84,7 +84,7 @@ func verify(root string)error{
  }
  if e=read.Err();e!=nil{return e}
  if !finish || len(seen)!=len(expected){return fmt.Errorf("incomplete renderer admission %d/%d",len(seen),len(expected))}
- fmt.Println("spatial_qualification_PASS profiles=6 48000Hz float32 native layout: channel identity separately qualified")
+ fmt.Println("spatial_qualification_PARTIAL_PASS profiles=5 stereo_UNQUALIFIED=true 48000Hz float32 native layout; speaker identity and perceptual localization remain unqualified")
  return nil
 }
 func main(){
