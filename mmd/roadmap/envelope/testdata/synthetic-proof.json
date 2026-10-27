@@ -14,7 +14,7 @@
       ],
       "native_morph_labels": [],
       "units": "source_unit",
-      "meters_per_unit": 0.08,
+      "meters_per_unit": null,
       "axes": "RH_Y_UP",
       "fps_numerator": 30,
       "fps_denominator": 1,
@@ -39,7 +39,9 @@
       "measured": {
         "ankle_goal_error": 0.012
       },
-      "declared_loss": []
+      "declared_loss": [],
+      "evidence_uri": "urn:synthetic:mock",
+      "evidence_sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
     }
   ],
   "metrics": [
