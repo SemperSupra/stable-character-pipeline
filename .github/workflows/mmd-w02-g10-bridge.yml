@@ -80,7 +80,7 @@ jobs:
           go run ./cmd/envelopecheck ../../w02-g10-proof/g10-typed-bundle.json > ../../w02-g10-proof/g10-validated.json
           grep -q '"validation":"VALID_ENVELOPE_ONLY"' ../../w02-g10-proof/g10-validated.json
           python3 - <<'PY'
-          import json, math
+          import json, math, hashlib
           from pathlib import Path
           p=Path('../../w02-g10-proof/g10-typed-bundle.json')
           v=json.loads(p.read_text())
@@ -88,6 +88,14 @@ jobs:
           assert v['fixture']['semantics']['meters_per_unit'] is None
           assert v['fixture']['semantics']['units']=='source_unit'
           assert v['fixture']['semantics']['axes']=='LH_Y_UP'
+          # Real G10 PMX and its VMD source are separate independently hashed
+          # inputs. Never export PMX digest as if it covered the VMD.
+          assert len(v['fixture']['inputs'])==1
+          motion=v['fixture']['inputs'][0]
+          assert motion['role']=='motion' and motion['native_format']=='VMD'
+          assert motion['rights']['asset_rights']=='ORIGINAL_SYNTHETIC'
+          assert motion['source_sha256']==hashlib.sha256(
+              Path('../../source-g10a/synthetic_foot_goal.vmd').read_bytes()).hexdigest()
           assert v['fixture']['semantics']['native_bone_labels']==['腰','ひざ','足首','足ＩＫ']
           assert len(v['observations'])==6 and len(v['metrics'])==6
           assert set(o['frame'] for o in v['observations'])=={0,15,30}
@@ -188,6 +196,31 @@ jobs:
           test ! -e ../../w02-g10-proof/duplicate-red/cannot-issue-bundle.json
           rm -rf ../../w02-g10-proof/duplicate-red
           echo '{"status":"EXPECTED_REJECTION","mutation":"duplicate upstream status key","invalid_bundle_created":false}' > ../../w02-g10-proof/duplicate-json-negative.json
+      - name: Falsify original VMD motion-byte substitution in source graph
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          mkdir -p ../../w02-g10-proof/motion-red
+          cp ../../source-g10a/synthetic_foot_goal.vmd ../../w02-g10-proof/motion-red/changed.vmd
+          printf 'X' >> ../../w02-g10-proof/motion-red/changed.vmd
+          if go run ./cmd/g10bridge \
+            -pmx ../../source-g10a/synthetic_two_link_ik.pmx \
+            -vmd ../../w02-g10-proof/motion-red/changed.vmd \
+            -fixture ../../source-g10a/ik_fixture_receipt.json \
+            -ik-glb ../../source-g10a/ik_enabled.glb \
+            -fk-glb ../../source-g10a/ik_disabled.glb \
+            -direct ../../source-g10b/ik_contact_receipt.json \
+            -blender ../../source-g10c/blender_ik_receipt.json \
+            -parity ../../source-g10d/ik_cross_engine_parity.json \
+            -out ../../w02-g10-proof/motion-red/no-valid-bundle.json \
+            > ../../w02-g10-proof/motion-red/stdout.txt 2> ../../w02-g10-proof/motion-red/stderr.txt; then
+            echo 'FAIL: corrupted original motion source accepted' >&2
+            exit 1
+          fi
+          grep -q 'EVIDENCE_BINDING_FAILED' ../../w02-g10-proof/motion-red/stderr.txt
+          test ! -e ../../w02-g10-proof/motion-red/no-valid-bundle.json
+          rm -rf ../../w02-g10-proof/motion-red
+          echo '{"status":"EXPECTED_REJECTION","mutation":"original VMD append byte","invalid_bundle_created":false}' > ../../w02-g10-proof/motion-source-negative.json
       - name: Save SHA256 of real original source and cited engine receipts, without mirroring their bytes
         run: |
           set -euo pipefail
