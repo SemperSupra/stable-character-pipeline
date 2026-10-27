@@ -12,6 +12,7 @@ import (
  "math"
  "strconv"
  "strings"
+ "unicode"
 )
 
 const MaxBytes=1<<20
@@ -191,10 +192,11 @@ func ParseAMC(raw []byte,s Skeleton)([]Frame,error){
 }
 func Qualify(asf,amc []byte,sourceID,captureGroup string)(Receipt,error){
  var empty Receipt
- if sourceID==""||captureGroup==""||strings.ContainsAny(sourceID," 	
-")||strings.ContainsAny(captureGroup," 	
-"){
-  return empty,errors.New("missing/ambiguous source id or family group")}
+ if sourceID==""||captureGroup==""||
+  strings.IndexFunc(sourceID,unicode.IsSpace)>=0||
+  strings.IndexFunc(captureGroup,unicode.IsSpace)>=0 {
+  return empty,errors.New("missing/ambiguous source id or family group")
+ }
  sk,err:=ParseASF(asf);if err!=nil{return empty,err}
  fr,err:=ParseAMC(amc,sk);if err!=nil{return empty,err}
  return Receipt{
