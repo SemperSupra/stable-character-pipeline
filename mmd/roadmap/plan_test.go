@@ -46,11 +46,14 @@ func TestAcceptScopedCompletionEvidence(t *testing.T){
 }
 func TestRejectCycles(t *testing.T){
     w:=baseline(t)
-    for i:=range w.Tasks {if w.Tasks[i].ID=="W01" {
-        w.Tasks[i].Status="PLANNED"
-        w.Tasks[i].CompletionEvidence=""
-        w.Tasks[i].DependsOn=[]string{"W02"}
-    }}
+    for i:=range w.Tasks {
+        if w.Tasks[i].ID=="W01" {
+            w.Tasks[i].Status="PLANNED"
+            w.Tasks[i].CompletionEvidence=""
+            w.Tasks[i].DependsOn=[]string{"W02"}
+        }
+        if w.Tasks[i].ID=="W02" {w.Tasks[i].Status="PLANNED"}
+    }
     if err:=Validate(w);err==nil || !strings.Contains(err.Error(),"cycle") {
         t.Fatalf("failed to reject hidden dependency cycle: %v",err)
     }
