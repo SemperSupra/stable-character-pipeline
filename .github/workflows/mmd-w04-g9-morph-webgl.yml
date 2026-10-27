@@ -1,0 +1,111 @@
+name: MMD W04 true G9 two-morph Chromium WebGL iPhone video
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/w04-browser/g9_*'
+      - '.github/workflows/mmd-w04-g9-morph-webgl.yml'
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-w04-g9-real-webgl-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actual-browser-render-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Checkout bounded original source HTML and browser scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned actual MIT Babylon MMD engine, no third-party demo/model assets
+        uses: actions/checkout@v4
+        with:
+          repository: noname0310/babylon-mmd
+          ref: ccb750db2998ed1067017eaf67f3fc987cfba6f8
+          path: vendor/babylon-mmd
+          sparse-checkout: |
+            src/Loader
+            src/Runtime
+            LICENSE
+          persist-credentials: false
+      - name: Download original rights-clean G9 PMX/VMD and morph geometry evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-face-morph-parity-evidence
+          run-id: 40455150395
+          github-token: ${{ github.token }}
+          path: original/g9
+      - name: Verify original G9 16-vertex two-morph PMX and VMD exact source rights and SHA
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' \
+            311e8da1c17d924ac40ed84a543a162c79b5ad7a19d5718a62072f8908757d42 original/g9/synthetic_face_grid.pmx \
+            b69a57beeffe067cf7a100cb45ac83259c05004ffda5c599da54b5fb5b60b663 original/g9/synthetic_face_motion.vmd | sha256sum --check
+      - name: Bundle actual pinned Babylon MMD and WebGL core for browser using pinned esbuild
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund \
+            '@babylonjs/core@9.18.0' 'esbuild@0.25.12' 'playwright@1.56.1'
+          mkdir -p browser-public/original/g9 w04-browser-output
+          cp mmd/qualification/w04-browser/g9_index.html browser-public/index.html
+          cp original/g9/synthetic_face_grid.pmx original/g9/synthetic_face_motion.vmd browser-public/original/g9/
+          ./node_modules/.bin/esbuild mmd/qualification/w04-browser/g9_viewer.ts \
+            --bundle --format=iife --platform=browser --target=es2022 \
+            --tsconfig=mmd/qualification/w04_tsconfig.json \
+            --outfile=browser-public/viewer.js
+          test -s browser-public/viewer.js
+          npm ls @babylonjs/core esbuild playwright --json > w04-browser-output/bundle-dependencies.json
+      - name: Use system Chrome if available; otherwise provision genuine Chromium in disposable runner
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          chrome="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          if test -n "$chrome"; then
+            echo "SCP_CHROME_BIN=$chrome" >> "$GITHUB_ENV"
+            "$chrome" --version
+          else
+            ./node_modules/.bin/playwright install chromium
+          fi
+      - name: Really render 31 native G9 source morph frames through Babylon WebGL in Chromium
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8877 --bind 127.0.0.1 --directory browser-public > w04-browser-output/http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          node mmd/qualification/w04-browser/g9_capture.cjs w04-browser-output
+          test -s w04-browser-output/webgl_browser_captures.json
+          test -s w04-browser-output/babylon_actual_frame_0015.png
+          grep -q 'PASS_G9_ACTUAL_WEBGL_NATIVE_MORPH_31_FRAME_VISUAL_CAPTURE' w04-browser-output/webgl_browser_captures.json
+      - name: Install Pillow and ffmpeg for independent non-freeze and iPhone MP4 proof
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check 'Pillow==11.3.0'
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            timeout --signal=TERM --kill-after=10s 220s sudo apt-get update -qq
+            timeout --signal=TERM --kill-after=10s 180s sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          command -v ffmpeg
+          command -v ffprobe
+      - name: Verify real browser screenshot pixel drift and iPhone H264 exact decoded frames
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/w04-browser/g9_verify_mobile.py
+          python3 mmd/qualification/w04-browser/g9_verify_mobile.py --dir w04-browser-output
+          grep -q 'PASS_REAL_BABYLON_G9_MORPH_BROWSER_SCREENSHOTS_AND_PHONE_H264' w04-browser-output/mobile_webgl_validation.json
+      - name: Preserve genuine Babylon browser MP4, PNG and source-bound receipts or first failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-w04-actual-g9-morph-browser-iphone
+          path: |
+            w04-browser-output/*
+          retention-days: 14
+          if-no-files-found: warn
