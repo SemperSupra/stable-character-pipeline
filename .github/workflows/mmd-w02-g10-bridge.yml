@@ -46,11 +46,11 @@ jobs:
           run-id: 40456000406
           github-token: ${{ github.token }}
           path: source-g10b
-      - name: Retrieve G10c actual Blender IK runtime receipt
+      - name: Retrieve newly in-process SHA-attested Blender G10c runtime source receipt
         uses: actions/download-artifact@v4
         with:
-          name: public-mmd-blender-ik-evidence
-          run-id: 40456662219
+          name: mmd-w02-blender-input-sha-runtime-evidence
+          run-id: 40543463185
           github-token: ${{ github.token }}
           path: source-g10c
       - name: Retrieve G10d independent cross-engine parity result
@@ -221,6 +221,37 @@ jobs:
           test ! -e ../../w02-g10-proof/motion-red/no-valid-bundle.json
           rm -rf ../../w02-g10-proof/motion-red
           echo '{"status":"EXPECTED_REJECTION","mutation":"original VMD append byte","invalid_bundle_created":false}' > ../../w02-g10-proof/motion-source-negative.json
+      - name: Falsify Blender's in-process original source SHA attestation
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          mkdir -p ../../w02-g10-proof/blender-hash-red
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('../../source-g10c/blender_ik_receipt.json')
+          r=json.loads(p.read_text())
+          r['input_source_digests']['vmd_sha256']='0'*64
+          Path('../../w02-g10-proof/blender-hash-red/forged-blender.json').write_text(json.dumps(r))
+          PY
+          if go run ./cmd/g10bridge \
+            -pmx ../../source-g10a/synthetic_two_link_ik.pmx \
+            -vmd ../../source-g10a/synthetic_foot_goal.vmd \
+            -fixture ../../source-g10a/ik_fixture_receipt.json \
+            -ik-glb ../../source-g10a/ik_enabled.glb \
+            -fk-glb ../../source-g10a/ik_disabled.glb \
+            -direct ../../source-g10b/ik_contact_receipt.json \
+            -blender ../../w02-g10-proof/blender-hash-red/forged-blender.json \
+            -parity ../../source-g10d/ik_cross_engine_parity.json \
+            -out ../../w02-g10-proof/blender-hash-red/no-valid-bundle.json \
+            > ../../w02-g10-proof/blender-hash-red/stdout.txt 2> ../../w02-g10-proof/blender-hash-red/stderr.txt; then
+            echo 'FAIL: forged native Blender input digest admitted as source-custody proof' >&2
+            exit 1
+          fi
+          grep -q 'EVIDENCE_BINDING_FAILED' ../../w02-g10-proof/blender-hash-red/stderr.txt
+          test ! -e ../../w02-g10-proof/blender-hash-red/no-valid-bundle.json
+          rm -rf ../../w02-g10-proof/blender-hash-red
+          echo '{"status":"EXPECTED_REJECTION","mutation":"forged in-process Blender VMD digest","invalid_bundle_created":false}' > ../../w02-g10-proof/blender-custody-negative.json
       - name: Save SHA256 of real original source and cited engine receipts, without mirroring their bytes
         run: |
           set -euo pipefail
