@@ -3,7 +3,6 @@ package main
 import(
  "strings"
  "testing"
- "example.invalid/spatial-contract/contract"
 )
 func TestSampleWindowsCross1024Boundaries(t *testing.T){
  s,_,r:=admitted(t)
