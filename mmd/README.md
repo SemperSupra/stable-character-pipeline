@@ -59,3 +59,18 @@ requires a 0.0–1.0 s animation for this exact 30-frame fixture; G5's
 independent comparison requires exact time-origin and endpoint agreement.
 A different duration requires its own fixture-specific schedule; these
 checks are not a general-purpose motion normalizer.
+
+## G7 articulated weighted rig — research-only workcell
+
+Original synthetic three-bone PMX ribbon (center, arm, wrist), eight vertices
+over three connected segments, four BDEF1 + four BDEF2 weighted vertices.
+Two original VMD bone quaternion rotations at frames 0 and 30, verified with
+the actual MMD Tools serializer and Blender importer. Independent geometry
+acceptance requires roots stay anchored, tip skin actually moves, and *both*
+arm/wrist quaternions rotate. Native glTF export is inspected for two
+independently animated skinned-joint rotation channels, bounded accessors,
+0.0–1.0 s origin and normalized quaternion keys. Three genuine CPU-rendered
+diagnostic frames are visually checked and assembled into a contact sheet.
+The original .blend, .glb, .pmx and .vmd are retained with machine-readable
+receipts; no third-party character/model/motion assets, no claim of MMD toon,
+IK, Bullet physics, human anatomy or soft-body fidelity.

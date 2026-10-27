@@ -322,3 +322,64 @@ jobs:
             mmd-independent-output/converter_comparison.json
           retention-days: 14
           if-no-files-found: warn
+
+  blender-multibone-articulation:
+    if: github.event_name == 'push'
+    needs: independent-headless-mmd2gltf
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout original G7 articulation and independent validators
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned MMD Tools upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Select compatible Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Generate original multi-bone PMX and dual-rotation VMD with upstream serializer
+        run: |
+          set -euo pipefail
+          python -m py_compile mmd/qualification/articulation_fixture.py mmd/qualification/articulation_blender.py mmd/qualification/verify_articulation.py
+          python mmd/qualification/articulation_fixture.py --source vendor/mmd-tools --out mmd-articulation-fixture
+          python mmd/qualification/verify_articulation.py --out mmd-articulation-output --self-test
+      - name: Install Blender 4.5 with image inspection support on free CPU
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'opencc-python-reimplemented==0.1.7' 'Pillow==11.3.0'
+      - name: Import weighted PMX rig and VMD into actual Blender, evaluate two rotating joints and export GLB
+        timeout-minutes: 4
+        env:
+          OMP_NUM_THREADS: '2'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          python -u mmd/qualification/articulation_blender.py \
+            --source vendor/mmd-tools \
+            --model mmd-articulation-fixture/articulated_ribbon.pmx \
+            --motion mmd-articulation-fixture/articulated_ribbon.vmd \
+            --out mmd-articulation-output
+      - name: Independently assert actual glTF quaternion tracks, anchored skin and visual frames
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          python mmd/qualification/verify_articulation.py --out mmd-articulation-output
+      - name: Preserve original multi-bone native files and independent evidence on first failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-articulation-evidence
+          path: |
+            mmd-articulation-fixture/*
+            mmd-articulation-output/*
+          retention-days: 14
+          if-no-files-found: warn
