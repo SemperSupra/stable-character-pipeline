@@ -15,6 +15,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <sstream>
 #include <vector>
 
 namespace{
@@ -151,7 +152,13 @@ void runDual(const std::string&srcA,const std::string&srcB,const std::string&pla
  int start=0,n=0;
  std::string idA,idB;
  double azA=0,elA=0,distA=0,gainA=0,azB=0,elB=0,distB=0,gainB=0;
- while(in>>start>>n>>idA>>azA>>elA>>distA>>gainA>>idB>>azB>>elB>>distB>>gainB){
+ std::string line;
+ while(std::getline(in,line)){
+  std::istringstream parse(line);
+  if(!(parse>>start>>n>>idA>>azA>>elA>>distA>>gainA>>idB>>azB>>elB>>distB>>gainB))
+    throw std::runtime_error("incomplete dual source instruction");
+  parse>>std::ws;
+  if(!parse.eof())throw std::runtime_error("extra dual source instruction field");
   if(start<0 || (size_t)start!=consumed || n<=0 || n>(int)kFrame ||
      consumed+(size_t)n>a.size() || idA!="robot_a" || idB!="robot_b")
    throw std::runtime_error("dual-track id/time/frame discontinuity");
