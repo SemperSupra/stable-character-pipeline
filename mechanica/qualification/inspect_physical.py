@@ -131,9 +131,12 @@ def world_bvh(obj):
     verts = [tuple(obj.matrix_world @ vertex.co)
              for vertex in obj.data.vertices]
     polys = [tuple(poly.vertices) for poly in obj.data.polygons]
-    require(bool(polys) and all(len(poly) == 3 for poly in polys),
-            "NARROWPHASE_NONTRIANGULAR_MESH:" + obj.name)
-    return BVHTree.FromPolygons(verts, polys, all_triangles=True)
+    require(bool(polys) and all(len(poly) >= 3 for poly in polys),
+            "NARROWPHASE_INVALID_FACES:" + obj.name)
+    # Synthetic Blender cube controls have quads; imported glTF meshes have
+    # triangles. The BVH constructor triangulates non-triangle polygons.
+    return BVHTree.FromPolygons(
+        verts, polys, all_triangles=all(len(poly) == 3 for poly in polys))
 
 
 def narrowphase_self_test(bpy):
