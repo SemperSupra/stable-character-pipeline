@@ -1,0 +1,55 @@
+name: Spatial P0 real-source custody and coordinate preflight
+on:
+  pull_request:
+    paths:
+      - 'spatial-contract/**'
+      - '.github/workflows/spatial-source-admission.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-source-admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+      - name: Go static / race and adversarial contract tests
+        working-directory: spatial-contract
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Produce public original PCM bytes; independently admit hash, WAV and sample-clock poses
+        working-directory: spatial-contract
+        run: |
+          set -euo pipefail
+          scene_dir="$RUNNER_TEMP/spatial-original"
+          receipt="$RUNNER_TEMP/spatial-source-receipt.json"
+          trap 'rm -rf "$scene_dir" "$receipt"' EXIT
+          go run ./cmd/spatial-admit fixture "$scene_dir"
+          go run ./cmd/spatial-admit verify "$scene_dir/scene.json" "$scene_dir" > "$receipt"
+          python3 - "$scene_dir" "$receipt" <<'PY'
+          import hashlib,json,math,pathlib,sys,wave
+          root=pathlib.Path(sys.argv[1]);receipt=json.loads(pathlib.Path(sys.argv[2]).read_text())
+          scene=json.loads((root/'scene.json').read_text())
+          binary=(root/'synthetic.wav').read_bytes()
+          assert scene['classification']=='PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL'
+          assert len(scene['emitters'])==1
+          assert scene['emitters'][0]['asset_sha256']==hashlib.sha256(binary).hexdigest()
+          assert receipt['sources'][0]['sha256']==hashlib.sha256(binary).hexdigest()
+          assert receipt['sources'][0]['frames']==48000
+          assert receipt['status']=='REAL_WAV_CUSTODY_AND_GEOMETRY_PASS_RENDERER_NOT_YET_CONNECTED'
+          with wave.open(str(root/'synthetic.wav'),'rb') as f:
+            assert (f.getframerate(),f.getnchannels(),f.getsampwidth(),f.getnframes())==(48000,1,2,48000)
+          start=receipt['pose_start'];mid=receipt['pose_mid']
+          assert start['frame']==0 and mid['frame']==24000
+          assert start['azimuth_deg']<0 and mid['azimuth_deg']>0
+          assert math.isfinite(start['distance_m'])
+          print('spatial_real_source_PASS verified_sha='+receipt['sources'][0]['sha256'])
+          print('spatial_geometry_PASS ENU right-handed 48000fps az_start='+str(start['azimuth_deg'])+' az_mid='+str(mid['azimuth_deg']))
+          print('spatial_renderer_NOT_YET_CONNECTED true')
+          PY
