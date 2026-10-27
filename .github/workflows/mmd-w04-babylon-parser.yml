@@ -1,0 +1,178 @@
+name: MMD W04 pinned Babylon native PMX VMD source parser real public CPU
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/w04_*'
+      - 'mmd/research/2026-10-27-w04-babylon-native-parser.md'
+      - '.github/workflows/mmd-w04-babylon-parser.yml'
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-w04-babylon-parser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  genuine-upstream-pmx-vmd-reader:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout only public synthetic qualification source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact upstream Babylon MMD parser source MIT, no demo assets
+        uses: actions/checkout@v4
+        with:
+          repository: noname0310/babylon-mmd
+          ref: ccb750db2998ed1067017eaf67f3fc987cfba6f8
+          path: vendor/babylon-mmd
+          sparse-checkout: |
+            src/Loader
+            src/Runtime
+            LICENSE
+          persist-credentials: false
+      - name: Retrieve actual original author-cleared G10a PMX and VMD
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-structural-evidence
+          run-id: 40455687379
+          github-token: ${{ github.token }}
+          path: original/g10
+      - name: Retrieve actual original author-cleared G9 morph PMX and VMD
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-face-morph-parity-evidence
+          run-id: 40455150395
+          github-token: ${{ github.token }}
+          path: original/g9
+      - name: Retrieve G10b independently executed original converter IK numeric oracle
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-contact-falsification
+          run-id: 40456000406
+          github-token: ${{ github.token }}
+          path: original/g10b
+      - name: Verify exact original fixture SHA not a community model or a guessed file
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' \
+            fadfc3cb3d365cdb4b0c4cc26652c2e831a02ec7da518caae9142dd711468583 original/g10/synthetic_two_link_ik.pmx \
+            e61ae2953c6cd34904fec2c59ae95fe64ed043ce0cde93e1c3d5db3d12ed149c original/g10/synthetic_foot_goal.vmd \
+            311e8da1c17d924ac40ed84a543a162c79b5ad7a19d5718a62072f8908757d42 original/g9/synthetic_face_grid.pmx \
+            b69a57beeffe067cf7a100cb45ac83259c05004ffda5c599da54b5fb5b60b663 original/g9/synthetic_face_motion.vmd | sha256sum --check
+      - name: Install thin pinned TS source launcher; avoid building Babylons huge Rust WASM
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund tsx@4.20.6
+          npm ls tsx --json > w04-dependencies.json
+      - name: Execute genuine pinned Babylon MMD PMX and VMD parsers and falsify signatures
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          mkdir -p w04-output
+          ./node_modules/.bin/tsx mmd/qualification/w04_babylon_parse.mts \
+            original/g10/synthetic_two_link_ik.pmx \
+            original/g10/synthetic_foot_goal.vmd \
+            original/g9/synthetic_face_grid.pmx \
+            original/g9/synthetic_face_motion.vmd \
+            w04-output/babylon_native_reader.json
+          cp w04-dependencies.json w04-output/observed-launcher-dependencies.json
+          sha256sum original/g10/synthetic_two_link_ik.pmx original/g10/synthetic_foot_goal.vmd original/g9/synthetic_face_grid.pmx original/g9/synthetic_face_motion.vmd > w04-output/input-digests.txt
+          grep -q 'PARTIAL_PARSER_PASS_FULL_RUNTIME_HEADLESS_NOT_TESTED' w04-output/babylon_native_reader.json
+      - name: Install pinned BabylonJS peer API and rerun real VmdLoader under NullEngine
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund 'tsx@4.20.6' '@babylonjs/core@9.18.0'
+          npm ls tsx @babylonjs/core --json > w04-output/observed-babylon-peer-dependencies.json
+          ./node_modules/.bin/tsx mmd/qualification/w04_babylon_animation.mts \
+            original/g10/synthetic_foot_goal.vmd \
+            original/g9/synthetic_face_motion.vmd \
+            w04-output/babylon_nullengine_vmdloader.json
+          test -s w04-output/babylon_nullengine_vmdloader.json
+          grep -q 'PASS_GENUINE_NULLENGINE_AND_BABYLON_MMD_VMD_ANIMATION_OBJECTS' w04-output/babylon_nullengine_vmdloader.json
+      - name: Materialize genuine PMX models into BabylonJS NullEngine skin and morph nodes
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsx mmd/qualification/w04_babylon_scene.mts \
+            original/g10/synthetic_two_link_ik.pmx \
+            original/g9/synthetic_face_grid.pmx \
+            w04-output/babylon_nullengine_pmx_scene.json
+          test -s w04-output/babylon_nullengine_pmx_scene.json
+          grep -q 'PASS_REAL_BABYLON_PMX_MODEL_SCENE_ONLY' w04-output/babylon_nullengine_pmx_scene.json
+      - name: Attempt actual source-native Babylon MMD bound runtime morph/IK evaluation
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsx --tsconfig mmd/qualification/w04_tsconfig.json \
+            mmd/qualification/w04_babylon_runtime.mts \
+            original/g10/synthetic_two_link_ik.pmx \
+            original/g10/synthetic_foot_goal.vmd \
+            original/g9/synthetic_face_grid.pmx \
+            original/g9/synthetic_face_motion.vmd \
+            w04-output/babylon_evaluated_native_runtime.json
+          test -s w04-output/babylon_evaluated_native_runtime.json
+          grep -q 'PASS_BABYLON_MMD_ACTUAL_BOUND_RUNTIME_SELECTED_FRAMES_ONLY' w04-output/babylon_evaluated_native_runtime.json
+      - name: Fail-closed compare real Babylon evaluated ankle/goal vs independent prior G10b and morph source
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/w04_runtime_oracle.py
+          python3 mmd/qualification/w04_runtime_oracle.py \
+            --runtime w04-output/babylon_evaluated_native_runtime.json \
+            --direct original/g10b/ik_contact_receipt.json \
+            --tracks w04-output/babylon_nullengine_vmdloader.json \
+            --out w04-output/third_engine_numeric_pairwise.json
+          test -s w04-output/third_engine_numeric_pairwise.json
+          grep -q 'PASS_INDEPENDENT_DIRECT_VS_REAL_BABYLON_G10_SELECTED_IK_AND_G9_MORPH' w04-output/third_engine_numeric_pairwise.json
+      - name: Evaluate complete 31-frame genuine Babylon MmdRuntime on G10 and G9
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsx --tsconfig mmd/qualification/w04_tsconfig.json \
+            mmd/qualification/w04_babylon_runtime.mts \
+            original/g10/synthetic_two_link_ik.pmx \
+            original/g10/synthetic_foot_goal.vmd \
+            original/g9/synthetic_face_grid.pmx \
+            original/g9/synthetic_face_motion.vmd \
+            w04-output/babylon_31frames_native_runtime.json \
+            --all31
+          test -s w04-output/babylon_31frames_native_runtime.json
+          grep -q 'PASS_BABYLON_MMD_ACTUAL_BOUND_RUNTIME_31_FRAMES_ONLY' w04-output/babylon_31frames_native_runtime.json
+      - name: Reuse independent actual G10b GLB 31 frame samples and red-test G9 intermediates
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/w04_31frame_crosscheck.py
+          python3 mmd/qualification/w04_31frame_crosscheck.py \
+            --runtime w04-output/babylon_31frames_native_runtime.json \
+            --direct-glb original/g10/ik_enabled.glb \
+            --prior original/g10b/ik_contact_receipt.json \
+            --original-glb-verifier .github/mmd-ik/verify_contact.py \
+            --out w04-output/complete_31frame_comparison.json
+          test -s w04-output/complete_31frame_comparison.json
+          grep -q 'PASS_REAL_BABYLON_VS_DIRECT_G10_31_FRAME_GOAL_ERROR_AND_G9_INTERMEDIATE_MORPHS' w04-output/complete_31frame_comparison.json
+      - name: Independently compare all G10 four-bone world translations at 31 real source frames
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/w04_31frame_pose.py
+          python3 mmd/qualification/w04_31frame_pose.py \
+            --runtime w04-output/babylon_31frames_native_runtime.json \
+            --glb original/g10/ik_enabled.glb \
+            --prior original/g10b/ik_contact_receipt.json \
+            --original-glb-verifier .github/mmd-ik/verify_contact.py \
+            --crosscheck mmd/qualification/w04_31frame_crosscheck.py \
+            --out w04-output/complete_31frame_world_joint_parity.json
+          grep -q 'PASS_REAL_BABYLON_VS_DIRECT_31FRAME_WORLD_POSE' w04-output/complete_31frame_world_joint_parity.json
+      - name: Preserve actual third-engine source-parser positive and negative receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-w04-babylon-source-parser-evidence
+          path: w04-output/*
+          retention-days: 14
+          if-no-files-found: warn
