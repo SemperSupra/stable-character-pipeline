@@ -51,7 +51,8 @@
       "oracle": "independent-glb-transform",
       "status": "PASS",
       "units": "source_unit",
-      "value": 0.012
+      "value": 0.012,
+      "measured_key": "ankle_goal_error"
     }
   ],
   "verdict": "PASS"
