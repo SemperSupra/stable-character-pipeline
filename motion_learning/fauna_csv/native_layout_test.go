@@ -19,7 +19,7 @@ func TestNativeLayoutOriginalSyntheticOnly(t *testing.T){
     p,e:=ProbeNativeLayout(raw,Digest(raw))
     if e!=nil{t.Fatal(e)}
     if p.Schema!=NativeCSVSchema||p.Status!="PASS_NATIVE_LAYOUT_SHAPE_ONLY"||
-       p.DatasetAdmission!="NOT_ADMITTED"||p.SourceAuthority!="PINNED_PUBLIC_THIRD_PARTY_COPY_NOT_ORIGINAL_VHDC_BYTES" ||
+       p.DatasetAdmission!="NOT_ADMITTED"||p.SourceAuthority!="NOT_ATTESTED_LAYOUT_REFERENCE_ONLY" ||
        p.DataRows!=5||p.FirstFrame!=1||p.LastFrame!=5 ||
        !p.LandmarkXYZChannelsPresent {
         t.Fatalf("invalid structural receipt: %+v",p)
