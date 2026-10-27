@@ -2,7 +2,10 @@ name: MMD W04 real Babylon Chromium WebGL original G10 iPhone video
 on:
   pull_request:
     paths:
-      - 'mmd/qualification/w04-browser/**'
+      - 'mmd/qualification/w04-browser/viewer.ts'
+      - 'mmd/qualification/w04-browser/index.html'
+      - 'mmd/qualification/w04-browser/capture.cjs'
+      - 'mmd/qualification/w04-browser/verify_mobile.py'
       - '.github/workflows/mmd-w04-browser-visual.yml'
 
 permissions:
@@ -14,6 +17,8 @@ concurrency:
 
 jobs:
   actual-browser-render-provenance:
+    # G9 derived draft has its own separate real WebGL job. Do not rerun unchanged G10.
+    if: github.head_ref != 'qualification/mmd-w04-g9-morph-webgl-20261027'
     runs-on: ubuntu-24.04
     timeout-minutes: 18
     steps:
