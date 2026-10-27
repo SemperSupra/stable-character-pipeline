@@ -52,6 +52,7 @@ jobs:
           go run qualification/nasa_rig_r3/main.go \
             -input nasa-pair-output/video_landmarks.json \
             -receipt nasa-pair-output/receipt.json \
+            -selection coverage \
             -out pose-rig-output
       - name: Install small pinned software-raster and standalone video encoder wheels
         run: |
@@ -94,7 +95,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nasa-r3-portable-glb-and-mp4
+          name: nasa-r3-coverage-framed-glb-and-mp4
           path: pose-rig-output/
           retention-days: 3
           if-no-files-found: warn
