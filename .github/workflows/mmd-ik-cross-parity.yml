@@ -33,7 +33,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: public-mmd-blender-ik-evidence
-          run-id: 40456318062
+          run-id: 40456662219
           github-token: ${{ github.token }}
           path: blender-reference
       - name: Independently compare original ankle-to-goal errors and reject failed parity
