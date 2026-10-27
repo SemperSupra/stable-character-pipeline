@@ -23,6 +23,7 @@
         "id",
         "source_uri",
         "source_sha256",
+        "inputs",
         "frame_count",
         "semantics"
       ],
@@ -153,6 +154,77 @@
                 },
                 "redistribute_allowed": {
                   "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Explicit empty collection allowed; each additional motion, pose, audio or other source must carry separate SHA/rights.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "native_format",
+              "source_uri",
+              "source_sha256",
+              "rights"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "motion",
+                  "pose",
+                  "texture",
+                  "material",
+                  "audio",
+                  "aux_model"
+                ]
+              },
+              "native_format": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_uri": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "rights": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "asset_rights",
+                  "evidence_uri",
+                  "cloud_allowed",
+                  "redistribute_allowed"
+                ],
+                "properties": {
+                  "asset_rights": {
+                    "type": "string",
+                    "enum": [
+                      "ORIGINAL_SYNTHETIC",
+                      "RIGHTS_CLEARED_EXTERNAL",
+                      "UNKNOWN",
+                      "RESTRICTED"
+                    ]
+                  },
+                  "evidence_uri": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "cloud_allowed": {
+                    "type": "boolean"
+                  },
+                  "redistribute_allowed": {
+                    "type": "boolean"
+                  }
                 }
               }
             }
