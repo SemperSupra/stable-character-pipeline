@@ -6,6 +6,12 @@ import json
 import sys
 from pathlib import Path
 
+# Blender --python does not guarantee the script directory is importable.
+WORKCELL_ROOT = Path(__file__).resolve().parent
+if str(WORKCELL_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKCELL_ROOT))
+from flora_png_pixels import pixel_receipt
+
 import bpy
 
 
@@ -106,6 +112,7 @@ def main():
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     views = {}
+    views_rgba8 = {}
     for name,direction in (("front",(3,-5,2)),("side",(-5,-2,3))):
         camera.location = center + Vector(direction).normalized()*span*3.5
         camera.rotation_euler = (center-camera.location).to_track_quat("-Z","Y").to_euler()
@@ -115,6 +122,7 @@ def main():
         if target.stat().st_size < 4096 or target.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
             raise RuntimeError("invalid diagnostic PNG "+name)
         views[name] = digest(target)
+        views_rgba8[name] = pixel_receipt(target)
     if views["front"] == views["side"]:
         raise RuntimeError("identical different-camera diagnostic images")
     bpy.ops.wm.save_as_mainfile(filepath=str(out/"synthetic_flora_lineage.blend"))
@@ -126,6 +134,7 @@ def main():
         "organ_geometry": prior,
         "fidelity": "SYNTHETIC_INTERCHANGE_ONLY",
         "diagnostic_views": views,
+        "diagnostic_rgba8": views_rgba8,
         "status": "OBJ_GEOMETRY_AND_GLB_LINEAGE_BOUNDS_PASS"
     }
     (out/"roundtrip_receipt.json").write_text(json.dumps(receipt, indent=2, sort_keys=True)+"\n")
