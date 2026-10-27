@@ -23,7 +23,7 @@ func fixture() ProofBundle {
 		Observations:[]EngineObservation{{ID:"blender-f15",Engine:"blender",EngineVersion:"4.5",EvidenceURI:"urn:synthetic:mock",EvidenceSHA256:ContentDigest([]byte("synthetic mock receipt")),
 			FixtureSHA256:h,Frame:15,TimeSeconds:pfloat(0.5),Status:"PASS",
 			Measured:map[string]float64{"ankle_goal_error":0.012},DeclaredLoss:[]string{}}},
-		Metrics:[]MetricEvidence{{ID:"goal-f15",ObservationID:"blender-f15",Oracle:"independent-glb-transform",
+		Metrics:[]MetricEvidence{{ID:"goal-f15",ObservationID:"blender-f15",MeasuredKey:"ankle_goal_error",Oracle:"independent-glb-transform",
 			Status:"PASS",Units:"source_unit",Value:pfloat(0.012)}},
 		Verdict:"PASS",
 	}
@@ -57,6 +57,10 @@ func TestRejectInadmissibleSourcesAndFalseProofs(t *testing.T) {
 		{"unknown engine pass",func(b *ProofBundle){b.Observations[0].Status="UNKNOWN"}},
 		{"unmeasured pass",func(b *ProofBundle){b.Observations[0].Measured=map[string]float64{}}},
 		{"missing oracle",func(b *ProofBundle){b.Metrics[0].Oracle=""}},
+		{"missing observation measurement key",func(b *ProofBundle){b.Metrics[0].MeasuredKey=""}},
+		{"nonexistent observation measurement key",func(b *ProofBundle){b.Metrics[0].MeasuredKey="unmeasured_physics"}},
+		{"metric value disagrees with engine observation",func(b *ProofBundle){b.Metrics[0].Value=pfloat(0.013)}},
+		{"unmeasured extra observation",func(b *ProofBundle){x:=b.Observations[0];x.ID="blender-f16";x.Frame=16;x.TimeSeconds=pfloat(16.0/30.0);b.Observations=append(b.Observations,x)}},
 		{"unmeasured metric",func(b *ProofBundle){b.Metrics[0].Value=nil}},
 		{"missing observation",func(b *ProofBundle){b.Metrics[0].ObservationID="phantom"}},
 		{"unknown metric marked bundle pass",func(b *ProofBundle){b.Metrics[0].Status="NOT_TESTED"}},
@@ -86,4 +90,22 @@ func TestExplicitUnknownPhysicalScale(t *testing.T) {
 	if err:=Validate(p);err!=nil { t.Fatalf("rejected explicitly unknown physical scale: %v",err) }
 	p.Fixture.Semantics.Units="m"
 	if err:=Validate(p);err==nil {t.Fatal("physical meters silently inferred from unknown source scale")}
+}
+
+func TestRejectDuplicateEvidenceKeysAtAnyDepth(t *testing.T) {
+   good,err:=json.Marshal(fixture());if err!=nil{t.Fatal(err)}
+   for _,tc:=range []struct{name,needle,replace string}{
+     {"root verdict",`"verdict":"PASS"`,`"verdict":"FAIL","verdict":"PASS"`},
+     {"nested source rights",`"cloud_allowed":true`,`"cloud_allowed":false,"cloud_allowed":true`},
+     {"nested observed value",`"ankle_goal_error":0.012`,`"ankle_goal_error":999,"ankle_goal_error":0.012`},
+     {"nested metric status",`"status":"PASS","units":"source_unit"`,`"status":"FAIL","status":"PASS","units":"source_unit"`},
+   } {
+      t.Run(tc.name,func(t *testing.T){
+         b:=strings.Replace(string(good),tc.needle,tc.replace,1)
+         if b==string(good){t.Fatalf("test fixture missing %s",tc.needle)}
+         if _,err:=DecodeStrict([]byte(b));err==nil || !strings.Contains(err.Error(),"duplicate JSON key") {
+            t.Fatalf("failed to reject ambiguous duplicate: %v",err)
+         }
+      })
+   }
 }
