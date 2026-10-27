@@ -41,10 +41,20 @@ type SourceSemantics struct {
 	Rights            SourceRights `json:"rights"`
 }
 
+// SourceInput records all additional model-associated motion, pose or media
+// inputs rather than silently treating a PMX model hash as a VMD motion hash.
+type SourceInput struct {
+	Role       string       `json:"role"`
+	NativeFormat string     `json:"native_format"`
+	SourceURI string        `json:"source_uri"`
+	SourceSHA256 string     `json:"source_sha256"`
+	Rights SourceRights     `json:"rights"`
+}
 type FixtureSpec struct {
 	ID          string          `json:"id"`
 	SourceURI   string          `json:"source_uri"`
 	SourceSHA256 string         `json:"source_sha256"`
+	Inputs      []SourceInput   `json:"inputs"`
 	FrameCount  int             `json:"frame_count"`
 	Semantics   SourceSemantics `json:"semantics"`
 }
@@ -117,6 +127,7 @@ func Validate(b ProofBundle) error {
 	if !safeID.MatchString(f.ID) || strings.TrimSpace(f.SourceURI)=="" || !lowerHash.MatchString(f.SourceSHA256) || f.FrameCount<1 {
 		return errors.New("fixture id, source, digest or frame count invalid")
 	}
+	if f.Inputs==nil {return errors.New("missing explicit associated-source inventory") }
 	if s.FrameOrigin==nil || s.FPSNumerator<=0 || s.FPSDenominator<=0 {
 		return errors.New("missing source frame origin or timebase")
 	}
@@ -149,6 +160,24 @@ func Validate(b ProofBundle) error {
 	}
 	if r.AssetRights=="UNKNOWN" || r.AssetRights=="RESTRICTED" {
 		if r.CloudAllowed || r.RedistributeAllowed { return errors.New("unadmitted source rights claimed") }
+	}
+	// The fixture's primary hash does not attest any secondary source,
+	// especially a VMD motion. Capture its rights and digest independently.
+	seenSources:=map[string]bool{f.SourceSHA256:true}
+	for _,input:=range f.Inputs {
+		if input.Role!="motion" && input.Role!="pose" && input.Role!="texture" &&
+			input.Role!="material" && input.Role!="audio" && input.Role!="aux_model" ||
+			input.NativeFormat=="" || strings.TrimSpace(input.SourceURI)=="" ||
+			!lowerHash.MatchString(input.SourceSHA256) || seenSources[input.SourceSHA256] {
+			return errors.New("missing, duplicate or invalid associated source provenance")
+		}
+		seenSources[input.SourceSHA256]=true
+		ir:=input.Rights
+		if ir.AssetRights!="ORIGINAL_SYNTHETIC" && ir.AssetRights!="RIGHTS_CLEARED_EXTERNAL" &&
+			ir.AssetRights!="UNKNOWN" && ir.AssetRights!="RESTRICTED" || strings.TrimSpace(ir.EvidenceURI)=="" ||
+			(ir.AssetRights=="UNKNOWN" || ir.AssetRights=="RESTRICTED") && (ir.CloudAllowed || ir.RedistributeAllowed) {
+			return errors.New("associated source rights are unknown, inconsistent or unreferenced")
+		}
 	}
 	if b.Observations==nil || b.Metrics==nil { return errors.New("missing evidence collections") }
 	if !result(b.Verdict) { return errors.New("invalid bundle verdict") }
@@ -192,6 +221,12 @@ func Validate(b ProofBundle) error {
 		metrics[m.ID]=true
 	}
 	if b.Verdict=="PASS" {
+		for _,input:=range f.Inputs {
+			if !input.Rights.CloudAllowed || !input.Rights.RedistributeAllowed ||
+				(input.Rights.AssetRights!="ORIGINAL_SYNTHETIC" && input.Rights.AssetRights!="RIGHTS_CLEARED_EXTERNAL") {
+				return errors.New("premature PASS: associated source rights not admitted")
+			}
+		}
 		for id:=range obs {if !covered[id] {return fmt.Errorf("PASS missing measured metric for observation %s",id)}}
 		if !allPass || !r.CloudAllowed || !r.RedistributeAllowed ||
 			(r.AssetRights!="ORIGINAL_SYNTHETIC" && r.AssetRights!="RIGHTS_CLEARED_EXTERNAL") {
