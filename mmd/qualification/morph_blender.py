@@ -31,6 +31,9 @@ def main():
     assert mesh.data.shape_keys is not None,"upstream PMX import lost morph shape keys"
     keys=mesh.data.shape_keys.key_blocks
     assert "まばたき" in keys and "笑い" in keys,[k.name for k in keys]
+    # Upstream VMDImporter uses bpy.context.scene.frame_current as frame origin.
+    # Map original VMD frame 0 to Blender frame 0 rather than default frame 1.
+    bpy.context.scene.frame_set(0)
     bpy.ops.object.select_all(action="DESELECT")
     # Upstream ImportVmd explicitly says root => armature and morph, mesh => morph;
     # armature-only selection silently skips all VMD morph frames.
@@ -58,6 +61,7 @@ def main():
           "weights":{"まばたき":float(keys["まばたき"].value),"笑い":float(keys["笑い"].value)},
           "vertices":pts
         }
+    print("G9_MORPH_TIMELINE_SAMPLES",json.dumps({frame:item["weights"] for frame,item in samples.items()},sort_keys=True),flush=True)
     a0,a15,a30=[samples[str(x)] for x in (0,15,30)]
     assert a0["weights"]["まばたき"]<.01
     assert a15["weights"]["まばたき"]>.95
@@ -132,7 +136,16 @@ def main():
     print(json.dumps({k:v for k,v in report.items() if k!="samples"}),flush=True)
 
 if __name__=="__main__":
-    main()
+    # Embedded Blender can hang during Python teardown even after an assertion failure.
+    # Preserve nonzero failure status and flush the complete traceback first.
+    try:
+        main()
+    except BaseException:
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(1)
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(0)
