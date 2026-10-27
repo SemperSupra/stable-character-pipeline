@@ -33,3 +33,17 @@ This **independent** public workcell produces an original synthetic PMX triangle
 5. For candidate external MMD models and motions, catalog author, source, URL, exact hash, redistribution license, commercial-use restrictions, attribution, model/motion pairing and audience access. No public redistribution until separately authorized.
 
 Every element must be reproducible using $0 public CPU GitHub Actions, with bounded jobs and no credentials or third-party assets. Do not merge, deploy or release without explicit authorization.
+
+## G4 animated interchange workcell (candidate)
+
+The independent Go-compatible admission receipt is separate from Blender output.
+\`mmd/qualification/interchange_probe.py\` uses the real MMD Tools Blender
+importer and original PMX/VMD fixture to generate 31 consecutive CPU-rendered
+PNG frames, animated GLB and an editable BLEND. \`verify_interchange.py\` parses
+the GLB independently without importing Blender, verifies a moving skinned
+joint with finite timestamps and valid binary offsets, compares rendered PNG
+pixels and tests negative-control malformed GLBs. GitHub Actions encodes a
+yuv420p H.264 MP4 with \`+faststart\` and verifies it with ffprobe.
+Only a completely green independent job qualifies this workcell. Motion quality,
+native MMD physical fidelity, retargeting, expressive morphs and rights for
+external MMD assets remain separate qualification gates.

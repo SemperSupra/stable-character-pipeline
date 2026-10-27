@@ -170,3 +170,81 @@ jobs:
           path: mmd-motion-output/*
           retention-days: 14
           if-no-files-found: warn
+
+  blender-animated-interchange:
+    if: github.event_name == 'push'
+    needs: blender-native-motion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Checkout original public MMD interchange source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact MMD Tools upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Select compatible Python for genuine Blender 4.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Generate original synthetic input model and motion
+        run: |
+          set -euo pipefail
+          python -m py_compile mmd/qualification/interchange_probe.py mmd/qualification/verify_interchange.py
+          python mmd/qualification/probe.py --source vendor/mmd-tools --out mmd-output
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'opencc-python-reimplemented==0.1.7' 'Pillow==11.3.0'
+      - name: Render 31 skinned animation frames and export animated GLB and BLEND
+        timeout-minutes: 7
+        env:
+          OMP_NUM_THREADS: '2'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          python -u mmd/qualification/interchange_probe.py \
+            --source vendor/mmd-tools \
+            --model mmd-output/synthetic_triangle.pmx \
+            --motion mmd-output/synthetic_center_motion.vmd \
+            --out mmd-interchange-output
+      - name: Independent glTF skin, animation and visual non-freeze falsifiers
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          python mmd/qualification/verify_interchange.py --out mmd-interchange-output --self-test
+          python mmd/qualification/verify_interchange.py --out mmd-interchange-output
+      - name: Produce iPhone-compatible MP4 with real consecutive frames
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -hide_banner -loglevel error -y -framerate 30 \
+            -i mmd-interchange-output/frame_%04d.png -frames:v 31 \
+            -c:v libx264 -pix_fmt yuv420p -movflags +faststart \
+            mmd-interchange-output/mmd_animated_interchange.mp4
+          python - <<'PY'
+          import json, subprocess
+          path = 'mmd-interchange-output/mmd_animated_interchange.mp4'
+          args = ['ffprobe','-v','error','-count_frames','-select_streams','v:0',
+                  '-show_entries','stream=codec_name,nb_read_frames,width,height,pix_fmt',
+                  '-of','json',path]
+          x = json.loads(subprocess.check_output(args))
+          stream = x['streams'][0]
+          assert stream['codec_name']=='h264' and stream['pix_fmt']=='yuv420p', stream
+          assert (stream['width'],stream['height']) == (320,240),stream
+          assert int(stream['nb_read_frames']) == 31, stream
+          print(json.dumps({'result':'PASS_MOBILE_COMPATIBLE_H264','stream':stream}, sort_keys=True))
+          PY
+      - name: Upload inspectable motion, video, full frames and source on any outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-animated-interchange-evidence
+          path: mmd-interchange-output/*
+          retention-days: 14
+          if-no-files-found: warn

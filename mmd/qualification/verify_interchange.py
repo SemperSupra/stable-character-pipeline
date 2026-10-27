@@ -33,10 +33,10 @@ def parse_glb(path):
             raise ValueError("duplicate GLB chunk type")
         chunks[typ] = data[position:position + size]
         position += size
-    if b"JSON" not in chunks or b"BIN\\0" not in chunks:
+    if b"JSON" not in chunks or bytes((66, 73, 78, 0)) not in chunks:
         raise ValueError("GLB requires JSON and BIN chunks")
     payload = json.loads(chunks[b"JSON"].decode("utf-8").rstrip(" \t\n\r"))
-    return payload, chunks[b"BIN\\0"]
+    return payload, chunks[bytes((66, 73, 78, 0))]
 
 
 def accessor_samples(gltf, blob, index):
@@ -110,7 +110,7 @@ def fake_glb(json_obj):
     payload += b" " * ((-len(payload)) % 4)
     binary = bytes(4)
     size = 12 + 8 + len(payload) + 8 + len(binary)
-    return struct.pack("<4sII", b"glTF", 2, size) + struct.pack("<I4s", len(payload), b"JSON") + payload + struct.pack("<I4s", len(binary), b"BIN\\0") + binary
+    return struct.pack("<4sII", b"glTF", 2, size) + struct.pack("<I4s", len(payload), b"JSON") + payload + struct.pack("<I4s", len(binary), bytes((66, 73, 78, 0))) + binary
 
 
 def self_test(out):
