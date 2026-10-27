@@ -41,7 +41,26 @@ void writeWAV(const std::string& path,unsigned n,const std::vector<float>& inter
  for(float x:interleaved){uint32_t bits;std::memcpy(&bits,&x,4);put32(f,bits);}
  if(!f)throw std::runtime_error("WAV I/O failure");
 }
+// Do not infer channel order from channel count: interrogate native pinned layout.
+void checkNativeOrder(const Target& t){
+ if(t.layout==spaudio::OutputLayout::Binaural)return; // two ears, not two speakers
+ std::vector<std::string> expected;
+ switch(t.layout){
+  case spaudio::OutputLayout::Stereo: expected={"M+030","M-030"};break;
+  case spaudio::OutputLayout::FivePointOne: expected={"M+030","M-030","M+000","LFE1","M+110","M-110"};break;
+  case spaudio::OutputLayout::SevenPointOne: expected={"M+030","M-030","M+000","LFE1","M+090","M-090","M+135","M-135"};break;
+  case spaudio::OutputLayout::FivePointOnePointFour: expected={"M+030","M-030","M+000","LFE1","M+110","M-110","U+030","U-030","U+110","U-110"};break;
+  case spaudio::OutputLayout::SevenPointOnePointFour: expected={"M+030","M-030","M+000","LFE1","M+090","M-090","M+135","M-135","U+045","U-045","U+135","U-135"};break;
+  default:throw std::runtime_error("unsupported native layout");
+ }
+ const auto actual=spaudio::Layout::getMatchingLayout(t.layout).channelNames();
+ if(actual!=expected)throw std::runtime_error(std::string(t.name)+" native speaker order drift/mismatch");
+ std::cerr<<"native_layout_order_PASS profile="<<t.name<<" channels="<<actual.size()<<" labels=";
+ for(size_t i=0;i<actual.size();i++){if(i)std::cerr<<",";std::cerr<<actual[i];}
+ std::cerr<<'\n';
+}
 void one(const Target& t,const std::string& dir,unsigned hoaOrder=1){
+ checkNativeOrder(t);
  spaudio::StreamInformation in;
  in.nChannels=1;
  in.typeDefinition={spaudio::TypeDefinition::Objects};
