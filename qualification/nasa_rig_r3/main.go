@@ -146,7 +146,7 @@ func createGLB(frames []Frame)([]byte,map[string]any,error){
   sceneRoots:=[]int{33,34}
   for j,p:=range parent{
     if p>=0{children[p]=append(children[p],j)}
-    else {/* hips attach to common rig root 34 */}
+    // Hip nodes without parents are children of virtual root 34.
   }
   for j,p:=range parent {
     t:=absolute[0][j]
@@ -290,8 +290,7 @@ func execute(in,receipt,out string)error{
   gsum:=sha256.Sum256(glb)
   manifest["glb_sha256"]=fmt.Sprintf("%x",gsum)
   outJ,err:=json.MarshalIndent(manifest,"","  ");if err!=nil{return err}
-  if err:=os.WriteFile(filepath.Join(out,"rig_manifest.json"),append(outJ,'
-'),0644);err!=nil{return err}
+  if err:=os.WriteFile(filepath.Join(out,"rig_manifest.json"),append(outJ,byte(10)),0644);err!=nil{return err}
   fmt.Println(string(outJ))
   return nil
 }
