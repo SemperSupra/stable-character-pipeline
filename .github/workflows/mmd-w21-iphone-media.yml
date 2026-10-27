@@ -1,0 +1,98 @@
+name: MMD W21 iPhone H264 MP4 and honest Blender keyframe gallery
+on:
+  push:
+    branches: [qualification/mmd-w21-iphone-evidence-20261027]
+    paths:
+      - 'mmd/mobile/**'
+      - '.github/workflows/mmd-w21-iphone-media.yml'
+  pull_request:
+    paths:
+      - 'mmd/mobile/**'
+      - '.github/workflows/mmd-w21-iphone-media.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-w21-phone-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  original-render-mobile-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout public text-only video-production script
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Retrieve G4 original 31 consecutive Blender-rendered animation frames and H264
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-animated-interchange-evidence
+          run-id: 40451441477
+          github-token: ${{ github.token }}
+          path: input/g4
+      - name: Retrieve G7 original 3-bone articulated animation genuine Blender PNG
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-articulation-evidence
+          run-id: 40451441477
+          github-token: ${{ github.token }}
+          path: input/g7
+      - name: Retrieve G9 real Blender two-morph PNG evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-face-morph-parity-evidence
+          run-id: 40455150395
+          github-token: ${{ github.token }}
+          path: input/g9
+      - name: Pin exact source-render bytes and reject accidental demo/model substitution
+        run: |
+          set -euo pipefail
+          cat > /tmp/original-source-shasums <<'EOF'
+          1d32ff154c56ae1eb018f609117bde57176da5c4c72efc0e52c276735d0af3e1  input/g4/mmd_animated_interchange.mp4
+          ef93cbe6eb99412e50142dfb9a52d796fe1c90051b64a7b440b4c0c1846a89f0  input/g7/mmd-articulation-output/articulation_0000.png
+          dfa514d98f75db4aac179856b205d53041c628e34241c1ae2439870ad43a22bc  input/g7/mmd-articulation-output/articulation_0015.png
+          0b47888a5da293c45c8bbbf7b7eeb18f82c09f12aa201517b1218d6cfd1d5e1e  input/g7/mmd-articulation-output/articulation_0030.png
+          77cab5c7e45df736b1af16d6abeca886f5d0df89caaf6478cd8d5b85b04d91b0  input/g9/morph_0000.png
+          eec7dcd6bf9d62ad4df88d3bb4c80f1133f0b80483d87c285e734efdd57fc26e  input/g9/morph_0015.png
+          f9f2b2e51e15661468946b5f1a9ab91868c585d1086321218c746ec11650517c  input/g9/morph_0030.png
+          EOF
+          sha256sum --check /tmp/original-source-shasums
+      - name: Select Python 3.11 for portable frame composition
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Install lightweight Pillow and system ffmpeg on free-tier hosted CPU
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'Pillow==11.3.0'
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            timeout --signal=TERM --kill-after=10s 100s sudo apt-get update -qq
+            timeout --signal=TERM --kill-after=10s 130s sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version | head -n 1
+      - name: Produce actual video loops and legible 1080x1920 true-frame phone samples
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          python -m py_compile mmd/mobile/make_preview.py
+          python mmd/mobile/make_preview.py \
+            --g4 input/g4 \
+            --g7 input/g7/mmd-articulation-output \
+            --g9 input/g9 \
+            --out w21-phone
+          test -s w21-phone/original_31frames_looped_iphone.mp4
+          test -s w21-phone/g7_g9_real_keyframe_slideshow_iphone.mp4
+          test -s w21-phone/phoneframe_001.png
+          grep -q 'PASS_PHONE_COMPATIBLE_H264_FROM_GENUINE_SOURCE_RENDER_BYTES' w21-phone/mobile_capture_receipt.json
+      - name: Preserve portable verified real H264/PNG and exact-source receipt, 14d
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mmd-w21-iphone-viewable-original-media
+          path: w21-phone/*
+          retention-days: 14
+          if-no-files-found: warn
