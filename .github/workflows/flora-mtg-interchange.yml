@@ -88,10 +88,14 @@ jobs:
             echo "F1_APT_PHASE_BEGIN update elapsed=$((SECONDS-started))s"
             sudo timeout --signal=TERM --kill-after=10s 120s apt-get update -qq
             echo "F1_APT_PHASE_END update elapsed=$((SECONDS-started))s"
-            phase=install
-            echo "F1_APT_PHASE_BEGIN install elapsed=$((SECONDS-started))s"
-            sudo timeout --signal=TERM --kill-after=10s 220s apt-get install -y -qq --no-install-recommends blender xvfb python3-numpy
-            echo "F1_APT_PHASE_END install elapsed=$((SECONDS-started))s"
+            phase=download
+            echo "F1_APT_PHASE_BEGIN download elapsed=$((SECONDS-started))s"
+            sudo timeout --signal=TERM --kill-after=10s 120s apt-get install --download-only -y -q --no-install-recommends blender xvfb python3-numpy
+            echo "F1_APT_PHASE_END download elapsed=$((SECONDS-started))s"
+            phase=configure
+            echo "F1_APT_PHASE_BEGIN configure elapsed=$((SECONDS-started))s"
+            sudo timeout --signal=TERM --kill-after=10s 100s apt-get install --no-download -y -q --no-install-recommends blender xvfb python3-numpy
+            echo "F1_APT_PHASE_END configure elapsed=$((SECONDS-started))s"
           fi
           phase=validate
           echo "F1_APT_PHASE_BEGIN validate elapsed=$((SECONDS-started))s"
