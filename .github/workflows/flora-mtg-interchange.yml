@@ -108,7 +108,7 @@ jobs:
           assert [d["metrics"][x]["mesh_count"] for x in ("go_banana","openalea_fixture","go_palm")]==[8,15,10]
           for name,expected in d["views_sha256"].items():
               p=root/("ab_"+name+".png")
-              assert p.stat().st_size>4096 and p.read_bytes()[:8]==b"\\x89PNG\\r\\n\\x1a\\n"
+              assert p.stat().st_size>4096 and p.read_bytes()[:8]==bytes((137,80,78,71,13,10,26,10))
               assert hashlib.sha256(p.read_bytes()).hexdigest()==expected
           print("F1E_THREE_SYNTHETIC_SOURCE_IMAGES_AND_METRICS_PRESENT")
           PY
