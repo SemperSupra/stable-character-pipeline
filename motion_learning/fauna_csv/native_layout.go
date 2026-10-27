@@ -116,7 +116,7 @@ func ProbeNativeLayout(raw []byte, expectedSHA256 string)(NativeLayoutProbe,erro
         DatasetAdmission:"NOT_ADMITTED",
         BytesSHA256:Digest(raw),
         ReferenceURL:copiedReference,
-        SourceAuthority:"PINNED_PUBLIC_THIRD_PARTY_COPY_NOT_ORIGINAL_VHDC_BYTES",
+        SourceAuthority:"NOT_ATTESTED_LAYOUT_REFERENCE_ONLY",
         Columns:NativeColumns,
         DataRows:rows,FirstFrame:firstFrame,LastFrame:lastFrame,
         FirstTimeNumber:firstTime,LastTimeNumber:lastTime,
