@@ -64,7 +64,8 @@ void one(const Target& t,const std::string& dir){
    spaudio::ObjectMetadata md;
    md.blockLength=kFrames;
    md.trackInd=0;
-   md.position=spaudio::PolarPosition<double>{block < kBlocks/2 ? 70.0 : -70.0, 0.0, 1.0};
+   const double span=(t.layout==spaudio::OutputLayout::Stereo) ? 20.0 : 70.0;
+   md.position=spaudio::PolarPosition<double>{block < kBlocks/2 ? span : -span, 0.0, 1.0};
    md.jumpPosition.flag=false; // control experiment: gain interpolation rather than zero-length jumps
    renderer.AddObject(inSignal.data(),kFrames,md);
    for(auto &c:bufs)std::fill(c.begin(),c.end(),0.f);
@@ -72,7 +73,7 @@ void one(const Target& t,const std::string& dir){
    for(unsigned i=0;i<kFrames;i++){
      for(unsigned ch=0;ch<channels;ch++){
        const float s=bufs[ch][i];
-       if(!std::isfinite(s))throw std::runtime_error(std::string(t.name)+" NaN/Inf block="+std::to_string(block)+" sample="+std::to_string(i)+" channel="+std::to_string(ch)+" azimuth="+std::to_string(block < kBlocks/2 ? 70 : -70));
+       if(!std::isfinite(s))throw std::runtime_error(std::string(t.name)+" NaN/Inf block="+std::to_string(block)+" sample="+std::to_string(i)+" channel="+std::to_string(ch)+" azimuth="+std::to_string(block < kBlocks/2 ? span : -span));
        absMax=std::max(absMax,std::abs((double)s));
        energy[ch]+=(double)s*s;
        if(s!=0.f)positive=true;
