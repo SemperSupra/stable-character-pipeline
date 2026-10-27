@@ -42,3 +42,10 @@ jobs:
               assert manifest['observed'] is False
           print('SYNTHETIC_HUMAN_FAUNA_SOURCE_DIGEST_PASS')
           PY
+
+      - name: Dataset-source catalog and admission-gate negative controls
+        working-directory: motion_learning/data_admission
+        run: |
+          set -euo pipefail
+          python3 -m json.tool catalog.v1.json > /dev/null
+          python3 -m unittest test_prepare_splits -v
