@@ -86,9 +86,12 @@ def main():
     for label,change in cases:
         clone=copy.deepcopy(run)
         change(clone)
-        test=assess(clone,source)
+        try:
+            test=assess(clone,source)
+        except ValueError:
+            rejected.append(label)
+            continue
         if test["status"]!="FAIL_REAL_BABYLON_VS_DIRECT_31FRAME_WORLD_POSE":
-            # A missing frame/duplicate bone is rejected as a raised exception instead.
             raise AssertionError(f"adversarial world-joint mutation accepted: {label}")
         rejected.append(label)
     report["negative_controls_rejected"]=rejected
