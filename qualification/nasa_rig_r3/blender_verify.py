@@ -1,4 +1,4 @@
-"""Independent headless Blender readback and minimal workbench media proof.
+"""Independent headless Blender readback and CPU raster media proof.
 
 Run after the Go exporter: Blender is an independent consumer of generated GLB;
 it does not establish source-camera 3D accuracy or human anatomical realism.
@@ -41,7 +41,7 @@ def sample_vertices(frame):
     for ob in skinned:
         ev = ob.evaluated_get(deps)
         mesh = ev.to_mesh()
-        for v in list(mesh.vertices)[:50]:
+        for v in mesh.vertices:
             p = ev.matrix_world @ v.co
             points.append((p.x, p.y, p.z))
         ev.to_mesh_clear()
@@ -58,13 +58,33 @@ max_displacement = max(math.dist(a, b) for a,b in zip(first,last))
 if max_displacement < 0.002:
     raise RuntimeError("imported animation is static or disconnected from skin")
 
+# Assert geometry is represented in Blender XZ after import, not blindly
+# projected through the wrong plane. Covers *all* skinned vertices, not just 50.
+def extent(points, coordinate):
+    return max(p[coordinate] for p in points)-min(p[coordinate] for p in points)
+blender_axes = {
+    "native_x_horizontal_extent_at_first": extent(first,0),
+    "native_y_depth_extent_at_first": extent(first,1),
+    "native_z_vertical_extent_at_first": extent(first,2),
+    "projection_axes": "Blender native XZ (glTF source XY), depth Blender Y",
+}
+if blender_axes["native_z_vertical_extent_at_first"] < 0.10:
+    raise RuntimeError("GLB camera-plane vertical collapsed during Blender glTF import")
+if blender_axes["native_z_vertical_extent_at_first"] <= 4*blender_axes["native_y_depth_extent_at_first"]:
+    raise RuntimeError("camera-plane axis unexpectedly oriented; Blender XZ projection not justified")
+
+
 # Evaluate skin with Blender, but rasterize from evaluated polygons on CPU.
 # Ubuntu public Actions has no EGL; a Blender workbench engine would require a
 # graphics context. A dependency-free Pillow raster is explicitly NOT Blender
 # workbench rendering or a photorealistic/source-image comparison.
 from PIL import Image, ImageDraw
+# Imported glTF is Y-up; bpy maps that source Y vertical to Blender Z-up.
+# The source rig is glTF camera plane XY with authored Z=0. After import it is
+# native Blender XZ, with Y used only for source depth (approximately zero).
+# Project X/Z for human previews. Never call this recovered metric 3D.
 def project(p):
-    return (int(round(320+160*p.x)), int(round(180-160*p.y)))
+    return (int(round(320+160*p.x)), int(round(180-160*p.z)))
 
 def cpu_preview(frame_number, output_png, source_second):
     scene.frame_set(frame_number)
@@ -109,6 +129,8 @@ receipt = {
     "native_animation_fps": fps,
     "evaluated_animated_vertex_max_displacement_camera_plane_units": max_displacement,
     "rendered_png_frames": len(frames),
+    "native_blender_axis_validation": blender_axes,
+    "blender_total_sampled_mesh_vertices": len(first),
     "raster_pipeline": "Blender evaluated skin geometry -> Pillow CPU polygons; NOT Blender render engine",
     "camera_plane_not_true_3d": True,
     "skin_import_and_cpu_preview_pass": True,
