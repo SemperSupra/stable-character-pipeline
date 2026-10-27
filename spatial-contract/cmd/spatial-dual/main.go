@@ -10,6 +10,7 @@ import (
  "math"
  "os"
  "path/filepath"
+ "strconv"
  "example.invalid/spatial-contract/contract"
 )
 
@@ -131,8 +132,11 @@ func main(){
  var e error
  switch{
  case len(os.Args)==3&&os.Args[1]=="fixture":e=fixture(os.Args[2])
+ case len(os.Args)==4&&os.Args[1]=="tone":
+  var hz float64;hz,e=strconv.ParseFloat(os.Args[3],64)
+  if e==nil{_,e=contract.WriteOriginalTone(os.Args[2],durationMS,hz)}
  case len(os.Args)==5&&os.Args[1]=="plan":e=plan(os.Args[2],os.Args[3],os.Args[4])
- default:fmt.Fprintln(os.Stderr,"usage: spatial-dual fixture NEW_DIR | plan SCENE AUDIO_DIR NEW_PLAN");os.Exit(2)
+ default:fmt.Fprintln(os.Stderr,"usage: spatial-dual fixture NEW_DIR | plan SCENE AUDIO_DIR NEW_PLAN | tone NEW_WAV FREQUENCY_HZ");os.Exit(2)
  }
  if e!=nil{fmt.Fprintln(os.Stderr,"SPATIAL_DUAL_FIRST_FAILURE:",e);os.Exit(1)}
 }
