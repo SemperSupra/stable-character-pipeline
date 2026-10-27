@@ -53,6 +53,13 @@ jobs:
           run-id: 40455150395
           github-token: ${{ github.token }}
           path: original/g9
+      - name: Retrieve G10b independently executed original converter IK numeric oracle
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-contact-falsification
+          run-id: 40456000406
+          github-token: ${{ github.token }}
+          path: original/g10b
       - name: Verify exact original fixture SHA not a community model or a guessed file
         run: |
           set -euo pipefail
@@ -115,6 +122,18 @@ jobs:
             w04-output/babylon_evaluated_native_runtime.json
           test -s w04-output/babylon_evaluated_native_runtime.json
           grep -q 'PASS_BABYLON_MMD_ACTUAL_BOUND_RUNTIME_SELECTED_FRAMES_ONLY' w04-output/babylon_evaluated_native_runtime.json
+      - name: Fail-closed compare real Babylon evaluated ankle/goal vs independent prior G10b and morph source
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/w04_runtime_oracle.py
+          python3 mmd/qualification/w04_runtime_oracle.py \
+            --runtime w04-output/babylon_evaluated_native_runtime.json \
+            --direct original/g10b/ik_contact_receipt.json \
+            --tracks w04-output/babylon_nullengine_vmdloader.json \
+            --out w04-output/third_engine_numeric_pairwise.json
+          test -s w04-output/third_engine_numeric_pairwise.json
+          grep -q 'PASS_INDEPENDENT_DIRECT_VS_REAL_BABYLON_G10_SELECTED_IK_AND_G9_MORPH' w04-output/third_engine_numeric_pairwise.json
       - name: Preserve actual third-engine source-parser positive and negative receipts
         if: always()
         uses: actions/upload-artifact@v4
