@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <fcntl.h>
+#include <unistd.h>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -45,15 +47,29 @@ std::vector<float> readSource(const std::string&path){
 }
 void writeFloatWav(const std::string&path,const std::vector<float>&data,unsigned channels){
  if(data.size()>std::numeric_limits<uint32_t>::max()/4)throw std::runtime_error("oversized output");
- std::ofstream f(path,std::ios::binary|std::ios::trunc);
- if(!f)throw std::runtime_error("cannot create output");
- uint32_t bytes=(uint32_t)data.size()*4;
- f.write("RIFF",4);put32(f,36+bytes);f.write("WAVEfmt ",8);
- put32(f,16);put16(f,3);put16(f,(uint16_t)channels);
- put32(f,kRate);put32(f,kRate*channels*4);put16(f,(uint16_t)(channels*4));put16(f,32);
- f.write("data",4);put32(f,bytes);
- for(float sample:data){uint32_t bits;std::memcpy(&bits,&sample,4);put32(f,bits);}
- if(!f)throw std::runtime_error("native output write failed");
+ const uint32_t bytes=(uint32_t)data.size()*4;
+ std::vector<unsigned char>wav((size_t)44+bytes,0);
+ std::memcpy(wav.data(),"RIFF",4);
+ auto u16=[&](size_t pos,uint16_t v){wav[pos]=(unsigned char)v;wav[pos+1]=(unsigned char)(v>>8);};
+ auto u32=[&](size_t pos,uint32_t v){for(int i=0;i<4;i++)wav[pos+i]=(unsigned char)(v>>(8*i));};
+ u32(4,36+bytes);std::memcpy(wav.data()+8,"WAVEfmt ",8);
+ u32(16,16);u16(20,3);u16(22,(uint16_t)channels);
+ u32(24,kRate);u32(28,kRate*channels*4);u16(32,(uint16_t)(channels*4));u16(34,32);
+ std::memcpy(wav.data()+36,"data",4);u32(40,bytes);
+ for(size_t i=0;i<data.size();i++){
+  uint32_t bits;std::memcpy(&bits,&data[i],4);u32(44+i*4,bits);
+ }
+ // O_EXCL/no-follow prevents clobbering an earlier render or a symlink.
+ const int fd=::open(path.c_str(),O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW,0600);
+ if(fd<0)throw std::runtime_error("native output exists, is symlink or cannot be created");
+ size_t offset=0;bool ok=true;
+ while(offset<wav.size()){
+  const ssize_t n=::write(fd,wav.data()+offset,wav.size()-offset);
+  if(n<=0){ok=false;break}
+  offset+=(size_t)n;
+ }
+ if(::close(fd)!=0)ok=false;
+ if(!ok){::unlink(path.c_str());throw std::runtime_error("native output write failed");}
 }
 void run(const std::string&source,const std::string&plan,const std::string&profile,const std::string&dest){
  const bool binaural=profile=="binaural";
