@@ -1,0 +1,47 @@
+name: Spatial W3c source-identical off-axis geometry DOE preflight
+on:
+  pull_request:
+    paths:
+      - 'spatial-contract/doe/**'
+      - 'spatial-contract/cmd/spatial-doe/**'
+      - '.github/workflows/spatial-w3c-doe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  doe-geometric-admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+      - name: Go canonical scene and geometric oracle with race detector
+        working-directory: spatial-contract
+        run: |
+          go test -race -count=1 ./doe ./cmd/spatial-doe
+          go vet ./doe ./cmd/spatial-doe
+      - name: Verify reproducible 42-case source positions and honest unqualified provider status
+        working-directory: spatial-contract
+        run: |
+          set -euo pipefail
+          f="$RUNNER_TEMP/spatial-offaxis-DOE.json"
+          trap 'rm -f "$f"' EXIT
+          go run ./cmd/spatial-doe plan > "$f"
+          python3 - "$f" <<'PY'
+          import json,math,sys
+          r=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert r['schema']=='spatial_audio.offaxis_doe.v1'
+          assert r['classification']=='PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL'
+          assert r['sample_rate_hz']==48000
+          assert len(r['cases'])==42
+          assert {x['listener_yaw_deg'] for x in r['cases']}=={0,90,180}
+          assert {x['elevation_deg'] for x in r['cases']}=={0,30}
+          assert {x['relative_azimuth_deg'] for x in r['cases']}=={-180,-70,-45,0,45,70,120}
+          assert all(x['ebu_gain_status']=='NOT_MEASURED' and x['videolan_pcm_status']=='NOT_MEASURED' for x in r['cases'])
+          assert all(math.isclose(x['distance_m'],10,abs_tol=1e-9) for x in r['cases'])
+          print('spatial_w3c_DOE_GEOMETRY_PASS cases=42 source_frame=ENU_yaw_labeled EBU_and_VideoLAN_native_NOT_MEASURED')
+          PY
