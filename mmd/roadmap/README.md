@@ -88,6 +88,12 @@ The isolated workflow `.github/workflows/mmd-workplan-validation.yml` runs these
 - **Cost:** No billed GPU, secret/private runner or contingent services; no unbounded workflow fanout. Preserve failed evidence and do not rewrite historical statuses.
 - **Audience fidelity:** The same task should be legible and controllable through the human presentation, automation CLI and agent-visible JSON. All share the same underlying DLE authority.
 
-## Subsequent baton
+## Verified execution state and next baton (2026-10-27)
 
-After W01 passes, set `W01.status=DONE`, record the precise verified Actions run URL in `completion_evidence`, change W02 to `READY`, revalidate, and log next READY selection to DLE #19. No merge, release, deploy or private data move.
+**W01 DONE:** the machine-readable plan and read-only Go DAG readiness checker passed in [public run 40467605178](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40467605178). A deliberate regression surfaced after updating the plan to W01 DONE/W02 READY: [run 40467719885](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40467719885) failed because the *cycle negative test* had temporarily changed W01 to PLANNED while leaving W02 READY. The test was isolated by setting W02 PLANNED during that intentional cycle mutation, without relaxing any production readiness rule. Full Go tests/vet and identical machine-readable JSON + human Markdown projections then [passed in run 40467817048](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40467817048); proof artifact 12717685547, ZIP SHA256 `e60e30995e92390e3d4452fd26b2f3787f7eadc94b140e6fddaa3ad3c809dfb2`.
+
+**Canonical status:** 21 tasks; **1 DONE, 6 READY, 12 PLANNED, 2 BLOCKED**. Verified READY tasks: W02 Go typed fixture/evidence/source semantics contract; W03 Khronos non-root skinned-mesh warning reproduction; W04 babylon-mmd source-pin/headless execution; W06 original metamorphic tests; W07 glTF Asset Generator corpus; W21 $0 runner/privacy/source SHA hardening.
+
+**Highest READY next baton: W02**, supported by completed W01. Build Go typed v1 `FixtureSpec/SourceSemantics/EngineObservation/MetricEvidence/ProofBundle` contracts, golden JSON, unknown-rights/time/axis failure cases, and an isolated $0 public CPU proof. Rely on Khronos for general glTF, established robotics for mathematics and existing MMD engines for runtime, rather than rewriting each. W03/W04/W06/W07/W21 can run independently if files/workcells do not conflict.
+
+W19/W20 remain BLOCKED on verified authorized blinded CPE/SearXNG access and approval conditions. Do not leak private source or present Track A as an independent dual-track comparison. Continue Discover → Observe → Plan → Apply → Verify with true failures and DLE baton, and **no merge, release or deployment**.
