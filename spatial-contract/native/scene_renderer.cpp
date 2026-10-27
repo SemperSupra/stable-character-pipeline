@@ -21,8 +21,6 @@ namespace{
 constexpr unsigned kRate=48000,kFrame=1024;
 uint16_t get16(const unsigned char*b){return uint16_t(b[0])|(uint16_t(b[1])<<8);}
 uint32_t get32(const unsigned char*b){return uint32_t(b[0])|(uint32_t(b[1])<<8)|(uint32_t(b[2])<<16)|(uint32_t(b[3])<<24);}
-void put16(std::ofstream&f,uint16_t x){char b[2]={(char)x,(char)(x>>8)};f.write(b,2);}
-void put32(std::ofstream&f,uint32_t x){char b[4]={(char)x,(char)(x>>8),(char)(x>>16),(char)(x>>24)};f.write(b,4);}
 std::vector<float> readSource(const std::string&path){
  std::ifstream f(path,std::ios::binary|std::ios::ate);
  if(!f)throw std::runtime_error("cannot read admitted source");
@@ -65,7 +63,7 @@ void writeFloatWav(const std::string&path,const std::vector<float>&data,unsigned
  size_t offset=0;bool ok=true;
  while(offset<wav.size()){
   const ssize_t n=::write(fd,wav.data()+offset,wav.size()-offset);
-  if(n<=0){ok=false;break}
+  if(n<=0){ok=false;break;}
   offset+=(size_t)n;
  }
  if(::close(fd)!=0)ok=false;
