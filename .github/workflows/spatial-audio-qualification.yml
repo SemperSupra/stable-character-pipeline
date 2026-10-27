@@ -1,0 +1,96 @@
+name: Spatial Audio public CPU source qualification
+on:
+  pull_request:
+    paths:
+      - 'spatial-audio/**'
+      - '.github/workflows/spatial-audio-qualification.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  libspatialaudio:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-audio/go.mod
+      - name: Install public compiler and audio tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y meson ninja-build pkg-config g++ ffmpeg git
+      - name: Go validation, race tests and vet
+        working-directory: spatial-audio
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Fetch exact upstream LGPL source revision
+        run: |
+          set -euo pipefail
+          repo="$RUNNER_TEMP/libspatialaudio"
+          git init -q "$repo"
+          git -C "$repo" remote add origin https://github.com/videolan/libspatialaudio.git
+          git -C "$repo" fetch -q --depth=1 origin d149ed9744fd399b835c6f2920511f8cbcfce5ea
+          git -C "$repo" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          actual="$(git -C "$repo" rev-parse HEAD)"
+          test "$actual" = "d149ed9744fd399b835c6f2920511f8cbcfce5ea"
+          grep -q 'LGPLv2.1' "$repo/LICENSE"
+          echo "upstream_revision_verified=$actual"
+      - name: Build native renderer and run upstream tests
+        run: |
+          set -euo pipefail
+          repo="$RUNNER_TEMP/libspatialaudio"
+          install="$RUNNER_TEMP/libspatialaudio-install"
+          meson setup "$RUNNER_TEMP/spatial-build" "$repo" \
+            -Dlibmysofa=disabled -Dmit_hrtf=enabled \
+            --prefix="$install" --libdir=lib --buildtype=release
+          meson compile -C "$RUNNER_TEMP/spatial-build"
+          meson test -C "$RUNNER_TEMP/spatial-build" --print-errorlogs --num-processes=2
+          meson install -C "$RUNNER_TEMP/spatial-build"
+          test -f "$install/lib/pkgconfig/spatialaudio.pc"
+          echo "native_upstream_renderer_tests_PASS"
+      - name: Render qualified-native headphone/surround/height controls; red-test broken stereo
+        run: |
+          set -euo pipefail
+          install="$RUNNER_TEMP/libspatialaudio-install"
+          export PKG_CONFIG_PATH="$install/lib/pkgconfig"
+          export LD_LIBRARY_PATH="$install/lib"
+          mkdir -p "$RUNNER_TEMP/spatial-test-output"
+          g++ -std=c++14 -O2 -Wall -Wextra -I"$install/include/spatialaudio" spatial-audio/qualification/renderer_smoke.cpp \
+            -o "$RUNNER_TEMP/spatial-qual" $(pkg-config --cflags --libs spatialaudio)
+          "$RUNNER_TEMP/spatial-qual" supported "$RUNNER_TEMP/spatial-test-output" \
+            | tee "$RUNNER_TEMP/spatial-test-output/renderer-receipts.jsonl"
+          (cd spatial-audio && go run ./cmd/verify "$RUNNER_TEMP/spatial-test-output")
+          mkdir -p "$RUNNER_TEMP/stereo-negative"
+          if "$RUNNER_TEMP/spatial-qual" stereo-negative "$RUNNER_TEMP/stereo-negative" 2>"$RUNNER_TEMP/stereo-negative/diagnostic.log"; then
+            echo "STEREO_ADMISSION_FAIL unexpected native stereo success; requalify with full channel and perceptual tests" >&2
+            exit 1
+          fi
+          grep -q "spatial_native_FIRST_FAILURE stereo NaN/Inf" "$RUNNER_TEMP/stereo-negative/diagnostic.log"
+          echo "stereo_quarantined_red_test_PASS: native NaN is reproduced, no stereo deliverable admitted"
+          mkdir -p "$RUNNER_TEMP/stereo-hoa0"
+          if "$RUNNER_TEMP/spatial-qual" stereo-hoa0 "$RUNNER_TEMP/stereo-hoa0" \
+              >"$RUNNER_TEMP/stereo-hoa0/diagnostic.stdout" 2>"$RUNNER_TEMP/stereo-hoa0/diagnostic.stderr"; then
+            ffprobe -v error -select_streams a:0 -show_entries stream=channels,sample_rate,codec_name \
+              -of json "$RUNNER_TEMP/stereo-hoa0/stereo.wav" \
+              | python3 -c 'import sys,json; s=json.load(sys.stdin)["streams"]; assert len(s)==1 and s[0]["channels"]==2 and s[0]["sample_rate"]=="48000" and s[0]["codec_name"]=="pcm_f32le"'
+            echo "stereo_hoa0_CONTROL_FINITE_NOT_ADMITTED"
+          else
+            grep -E "stereo_hoa0_FIRST_FAILURE" "$RUNNER_TEMP/stereo-hoa0/diagnostic.stderr" >&2 || true
+            echo "stereo_hoa0_CONTROL_FAILED_NOT_ADMITTED"
+          fi
+          echo "Native 5.1 speaker order was checked in C++: FL FR FC LFE SurroundL SurroundR."
+          ffmpeg -hide_banner -nostdin -loglevel error -xerror -y \
+            -i "$RUNNER_TEMP/spatial-test-output/surround_5_1.wav" \
+            -af 'pan=stereo|c0=c0+0.7071067811865476*c2+0.7071067811865476*c4|c1=c1+0.7071067811865476*c2+0.7071067811865476*c5' \
+            -c:a pcm_f32le "$RUNNER_TEMP/spatial-test-output/stereo_from_5_1.wav"
+          (cd spatial-audio && go run ./cmd/check-stereo "$RUNNER_TEMP/spatial-test-output/stereo_from_5_1.wav")
+          echo "No spatial media uploaded from public CI."
+      - name: Clean temporary upstream source and synthetic audio
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/stereo-hoa0" "$RUNNER_TEMP/stereo-negative" "$RUNNER_TEMP/libspatialaudio" "$RUNNER_TEMP/libspatialaudio-install" \
+            "$RUNNER_TEMP/spatial-build" "$RUNNER_TEMP/spatial-test-output" "$RUNNER_TEMP/spatial-qual"
