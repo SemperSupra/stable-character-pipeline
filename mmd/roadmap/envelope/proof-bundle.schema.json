@@ -94,8 +94,16 @@
               ]
             },
             "meters_per_unit": {
-              "type": "number",
-              "exclusiveMinimum": 0
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Null = physical scale UNKNOWN; allowed only when units=source_unit, enforced by Go."
             },
             "axes": {
               "type": "string",
@@ -161,6 +169,8 @@
           "id",
           "engine",
           "engine_version",
+          "evidence_uri",
+          "evidence_sha256",
           "fixture_sha256",
           "frame",
           "time_seconds",
@@ -217,6 +227,14 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "evidence_uri": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         }
       }
