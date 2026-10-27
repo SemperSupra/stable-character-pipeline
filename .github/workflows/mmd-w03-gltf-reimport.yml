@@ -4,10 +4,12 @@ on:
     branches: [qualification/mmd-w03-gltf-reimport-20261027]
     paths:
       - 'mmd/qualification/w03_*'
+      - 'mmd/research/2026-10-27-w03-gltf-warning-reimport.md'
       - '.github/workflows/mmd-w03-gltf-reimport.yml'
   pull_request:
     paths:
       - 'mmd/qualification/w03_*'
+      - 'mmd/research/2026-10-27-w03-gltf-warning-reimport.md'
       - '.github/workflows/mmd-w03-gltf-reimport.yml'
 
 permissions:
