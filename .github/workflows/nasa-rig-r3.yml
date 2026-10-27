@@ -45,7 +45,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check --no-cache-dir 'mediapipe==0.10.21'
           sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg blender python3-numpy
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg blender python3-numpy python3-pil
           ffmpeg -version | head -n 1
           blender --version | head -n 1
       - name: Reproduce original NASA R2 source and landmark observations on this runner
@@ -56,7 +56,7 @@ jobs:
             -input nasa-pair-output/video_landmarks.json \
             -receipt nasa-pair-output/receipt.json \
             -out pose-rig-output
-      - name: Independently reimport, verify skin deformation and render in Blender
+      - name: Independently reimport, evaluate deforming skin and CPU-rasterize via Blender/Pillow
         run: |
           unset PYTHONPATH
           blender --background --factory-startup --python-exit-code 7 --python-expr 'import numpy as np; print("BLENDER_NUMPY",np.__version__,np.__file__)'
