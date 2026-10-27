@@ -1,0 +1,44 @@
+name: Synthetic Motion TPU RDT&E CPU preflight
+on:
+  pull_request:
+    paths:
+      - 'motion_learning/**'
+      - '.github/workflows/motion-learning-cpu-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-motion:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == true || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install pinned CPU-only experimental dependencies
+        run: |
+          python3 -m venv /tmp/scp-motion-env
+          /tmp/scp-motion-env/bin/python -m pip install --disable-pip-version-check numpy==2.3.5 jax==0.9.0.1
+      - name: Exact source CPU training and synthetic tests
+        working-directory: motion_learning
+        run: |
+          set -euo pipefail
+          /tmp/scp-motion-env/bin/python -m unittest test_motion -v
+      - name: Generate both datasets and independently check pinned digests
+        working-directory: motion_learning
+        run: |
+          set -euo pipefail
+          /tmp/scp-motion-env/bin/python synthetic.py human --output /tmp/motion-human --nseq 128
+          /tmp/scp-motion-env/bin/python synthetic.py fauna --output /tmp/motion-fauna --nseq 128
+          /tmp/scp-motion-env/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          expected={'human':'9af4d9679255fa604d471fcf5e415a6d5bd69ed141eead6da1ef085db8a86e5c',
+                    'fauna':'2fb6c34380dabcc176a66c735a3aedbbddf2a9381240cd379614d10c45a5cca3'}
+          for name,digest in expected.items():
+              manifest=json.loads(Path('/tmp/motion-'+name+'/manifest.json').read_text())
+              assert manifest['data_float32_sha256']==digest, name
+              assert manifest['observed'] is False
+          print('SYNTHETIC_HUMAN_FAUNA_SOURCE_DIGEST_PASS')
+          PY
