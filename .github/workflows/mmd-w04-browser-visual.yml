@@ -2,7 +2,10 @@ name: MMD W04 real Babylon Chromium WebGL original G10 iPhone video
 on:
   pull_request:
     paths:
-      - 'mmd/qualification/w04-browser/**'
+      - 'mmd/qualification/w04-browser/viewer.ts'
+      - 'mmd/qualification/w04-browser/index.html'
+      - 'mmd/qualification/w04-browser/capture.cjs'
+      - 'mmd/qualification/w04-browser/verify_mobile.py'
       - '.github/workflows/mmd-w04-browser-visual.yml'
 
 permissions:
