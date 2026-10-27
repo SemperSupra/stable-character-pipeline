@@ -69,7 +69,7 @@ def accessor_samples(gltf, blob, index):
     return values
 
 
-def inspect_animations(gltf, binary):
+def inspect_animations(gltf, binary, require_zero_origin=False):
     skin_nodes = {i for skin in gltf.get("skins", []) for i in skin.get("joints", [])}
     if not skin_nodes:
         raise AssertionError("export omitted skinned rig metadata")
@@ -99,6 +99,9 @@ def inspect_animations(gltf, binary):
             })
     accepted = [v for v in verdicts if v["last_second"] - v["first_second"] >= .8
                 and v["translation_displacement"] > .1]
+    if require_zero_origin:
+        accepted = [v for v in accepted if abs(v["first_second"]) < 1e-4
+                    and abs(v["last_second"] - 1.0) < 1e-3]
     if not accepted:
         raise AssertionError("no animated skinned joint with >=.8 second duration and >.1 translation; candidates=" + str(verdicts))
     return {"skins": len(gltf["skins"]), "joint_nodes": len(skin_nodes), "moving_channels": accepted}
@@ -142,7 +145,7 @@ def verify(directory):
     from PIL import Image, ImageChops
     model = directory / "animated_mmd.glb"
     scene, raw = parse_glb(model)
-    motion = inspect_animations(scene, raw)
+    motion = inspect_animations(scene, raw, require_zero_origin=True)
     images = [directory / f"frame_{n:04d}.png" for n in range(31)]
     for f in images:
         if not f.exists() or f.stat().st_size < 500:

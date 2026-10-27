@@ -20,6 +20,13 @@ def compare(direct, blender, output):
     b, bbin = parse_glb(blender)
     ctrack = inspect_animations(c, cbin)
     btrack = inspect_animations(b, bbin)
+    # Zero-based glTF time is an interchange invariant, not simply distance.
+    c_time = ctrack["moving_channels"][0]
+    b_time = btrack["moving_channels"][0]
+    if abs(c_time["first_second"] - b_time["first_second"]) > 1e-4 or (
+       abs(c_time["last_second"] - b_time["last_second"]) > 1e-4):
+        raise AssertionError("cross-engine time-origin/endpoint mismatch: "
+                             + str({"direct": c_time, "blender": b_time}))
     extras = c.get("extras", {}).get("mmd", {})
     if extras.get("format") != "pmx":
         raise AssertionError("direct exporter did not preserve native PMX metadata")

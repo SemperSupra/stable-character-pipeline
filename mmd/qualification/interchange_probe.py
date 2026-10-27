@@ -76,7 +76,8 @@ def main():
     bpy.ops.export_scene.gltf(
         filepath=str(glb.resolve()), export_format="GLB",
         export_animations=True, export_skins=True,
-        export_force_sampling=True)
+        export_force_sampling=True,
+        export_anim_slide_to_zero=True)
     assert glb.stat().st_size > 1000, "GLB not exported"
 
     # Render *the imported and evaluated mesh*, not a substitute/proxy.

@@ -47,3 +47,15 @@ yuv420p H.264 MP4 with \`+faststart\` and verifies it with ffprobe.
 Only a completely green independent job qualifies this workcell. Motion quality,
 native MMD physical fidelity, retargeting, expressive morphs and rights for
 external MMD assets remain separate qualification gates.
+
+## Timing alignment gate
+
+Blender's native MMD Tools VMD import uses scene frames 1–31 for source
+VMD 0–30; our first glTF export consequently ran 0.033333–1.033333 s,
+while the independent headless mmd2gltf converter exported 0.0–1.0 s.
+Rather than author a bespoke timestamp patcher, use the upstream Blender
+glTF option \`export_anim_slide_to_zero=True\`. G4's binary inspector
+requires a 0.0–1.0 s animation for this exact 30-frame fixture; G5's
+independent comparison requires exact time-origin and endpoint agreement.
+A different duration requires its own fixture-specific schedule; these
+checks are not a general-purpose motion normalizer.
