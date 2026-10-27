@@ -1,0 +1,123 @@
+name: MMD W03 independent GLB warning interoperability and genuine Blender reimport
+on:
+  push:
+    branches: [qualification/mmd-w03-gltf-reimport-20261027]
+    paths:
+      - 'mmd/qualification/w03_*'
+      - '.github/workflows/mmd-w03-gltf-reimport.yml'
+  pull_request:
+    paths:
+      - 'mmd/qualification/w03_*'
+      - '.github/workflows/mmd-w03-gltf-reimport.yml'
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-w03-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  two-upstream-glb-readers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout candidate-only public script
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download exact original G7 synthetic articulated skin artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-articulation-evidence
+          run-id: 40451441477
+          github-token: ${{ github.token }}
+          path: original/g7
+      - name: Download exact original G9 synthetic vertex morph artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-face-morph-parity-evidence
+          run-id: 40455150395
+          github-token: ${{ github.token }}
+          path: original/g9
+      - name: Download official Khronos 5-GLB evidence for SHA and original warning code
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-khronos-conformance-evidence
+          run-id: 40458065375
+          github-token: ${{ github.token }}
+          path: original/g11
+      - name: Pin independent glTF Transform NodeIO instead of writing another parser
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund '@gltf-transform/core@4.2.1'
+          node -e "console.log('W03_READER_PIN',require('@gltf-transform/core').NodeIO.name,require('@gltf-transform/core/package.json').version)" || npm ls @gltf-transform/core
+          npm ls @gltf-transform/core --json > w03-reader-dependencies.json
+      - name: Independent native GLB reader, structure and adversarial syntax/skin checks
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          mkdir -p w03-proof
+          node mmd/qualification/w03_gltf_reader.cjs \
+            original/g7/mmd-articulation-output/articulated_ribbon.glb \
+            original/g9/synthetic_face_morph.glb \
+            original/g11/khronos_conformance.json \
+            w03-proof/gltf_transform_reader.json
+          test -s w03-proof/gltf_transform_reader.json
+          cp w03-reader-dependencies.json w03-proof/gltf-transform-dependencies.json
+      - name: Use Python 3.11 and genuine Blender glTF importer on hosted CPU
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Install native Blender bpy 4.5.0 without model external assets
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+      - name: Import actual G7 and G9 GLBs with independent bpy glTF importer
+        timeout-minutes: 4
+        env:
+          OMP_NUM_THREADS: '2'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          python -m py_compile mmd/qualification/w03_blender_reimport.py
+          python -u mmd/qualification/w03_blender_reimport.py \
+            --g7 original/g7/mmd-articulation-output/articulated_ribbon.glb \
+            --g9 original/g9/synthetic_face_morph.glb \
+            --reference original/g11/khronos_conformance.json \
+            --out w03-proof
+      - name: Fail closed on disagreement between two upstream reader inventories
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          js=json.loads(Path('w03-proof/gltf_transform_reader.json').read_text())
+          bl=json.loads(Path('w03-proof/blender_reimport.json').read_text())
+          assert js['status']=='PASS_INDEPENDENT_READER_STRUCTURAL_ONLY'
+          assert bl['status']=='PASS_BLENDER_REIMPORT_ONLY'
+          assert len(js['assets'])==len(bl['inputs'])==2
+          for a,b in zip(js['assets'],bl['inputs']):
+            assert a['sha256']==b['source_sha256'] and a['kind']==b['kind']
+            assert a['skin_count']>0 and a['skinned_mesh_nodes']>0
+            assert b['skinned_mesh_objects']>0 and b['actions']>0
+            if a['kind']=='g9':
+              assert a['morph_target_count']>=2 and b['morph_targets']>=2
+          Path('w03-proof/reconcile.json').write_text(json.dumps({
+            'schema':'scp.mmd.w03-two-reader-reconciliation.v1',
+            'status':'PASS_TWO_INDEPENDENT_STRUCTURE_READERS',
+            'warnings_not_suppressed':['NODE_SKINNED_MESH_NON_ROOT'],
+            'actual_browser_renderer_playback':'NOT_TESTED',
+            'native_mmd_semantic_ik_or_physics':'NOT_TESTED'},sort_keys=True,indent=2)+'\n')
+          PY
+          sha256sum original/g7/mmd-articulation-output/articulated_ribbon.glb original/g9/synthetic_face_morph.glb original/g11/khronos_conformance.json > w03-proof/input-sha256.txt
+      - name: Preserve actual loss evidence, editable reimport and reader receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-w03-two-reader-reimport-evidence
+          path: w03-proof/*
+          retention-days: 14
+          if-no-files-found: warn
