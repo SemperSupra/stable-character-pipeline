@@ -120,6 +120,14 @@ func Build(paths Paths)(envelope.ProofBundle,error){
         Fixture: envelope.FixtureSpec{
             ID:"g10a-original-source-ik",SourceURI:fixtureRun+"/artifacts/12711259553",
             SourceSHA256:pmxHash,FrameCount:31,
+            Inputs:[]envelope.SourceInput{{
+                Role:"motion",NativeFormat:"VMD",
+                SourceURI:fixtureRun+"/artifacts/12711259553/synthetic_foot_goal.vmd",
+                SourceSHA256:vmdHash,
+                Rights:envelope.SourceRights{AssetRights:"ORIGINAL_SYNTHETIC",
+                    EvidenceURI:"https://github.com/SemperSupra/stable-character-pipeline/blob/15eb289cd7079f8d789f5b19537827dfd635068b/mmd/qualification/ik_fixture.py",
+                    CloudAllowed:true,RedistributeAllowed:true},
+            }},
             Semantics:envelope.SourceSemantics{
                 NativeFormat:"PMX",NativeBoneLabels:append([]string(nil),f.BoneNames...),
                 NativeMorphLabels:[]string{},Units:"source_unit",MetersPerUnit:nil,
