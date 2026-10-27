@@ -1,0 +1,62 @@
+name: R4 upstream learned-rigger source rights admission (public CPU)
+on:
+  pull_request:
+    paths:
+      - 'qualification/r4_admission/**'
+      - '.github/workflows/r4-source-admission.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r4-source-only-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  metadata-only:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Confirm exact source and that inference tools are not installed
+        run: |
+          git rev-parse HEAD
+          echo 'SOURCE_METADATA_ONLY: no model weights, no source media, no private asset, no GPU'
+      - name: Run Go static admission negatives, including forged PASS and license clearance
+        run: go test -v ./qualification/r4_admission
+      - name: Produce three-audience source rights admission JSON
+        run: |
+          go run qualification/r4_admission/main.go \
+            -manifest qualification/r4_admission/candidates.json \
+            -out r4-admission-receipt.json
+      - name: Verify zero actual inference and four separate rights ledgers
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('r4-admission-receipt.json').read_text())
+          assert r['status']=='SOURCE_RIGHTS_REVIEW_ONLY_NOT_MODEL_INFERENCE'
+          assert r['candidate_count']==5
+          assert r['weight_downloads']==r['model_inferences']==r['gpu_executions']==0
+          assert all(x['admission']=='METADATA_ONLY_NO_WEIGHTS_NO_PRIVATE_RUNNERS' for x in r['results'])
+          print('R4_EVIDENCE_CANDIDATES', [(x['id'],x['code_license'],x['weights_access']) for x in r['results']])
+          PY
+      - name: Preserve compact human/agent/automation admission ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r4-upstream-source-admission-only
+          path: r4-admission-receipt.json
+          retention-days: 3
+          if-no-files-found: warn
