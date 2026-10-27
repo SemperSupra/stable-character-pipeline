@@ -7,6 +7,8 @@ on:
       - '.github/workcells/flora_mtg_interchange.py'
       - '.github/workcells/flora_blender_roundtrip.py'
       - '.github/workcells/flora_ab_compare.py'
+      - 'tropical-fauna-flora/cmd/floratraits/**'
+      - 'tropical-fauna-flora/examples/flora_traits_synthetic.json'
   workflow_dispatch:
 
 permissions:
@@ -35,6 +37,10 @@ jobs:
           set -euo pipefail
           cd tropical-fauna-flora
           go test -count=1 ./...
+          go test -race -count=1 ./cmd/floratraits
+          go vet ./cmd/floratraits
+          go run ./cmd/floratraits -input examples/flora_traits_synthetic.json > ../out/flora-mtg-interchange/flora_trait_receipt.json
+          test -s ../out/flora-mtg-interchange/flora_trait_receipt.json
           go run . -config scene.json -out ../out/flora-mtg-interchange/go-source
           sha256sum ../out/flora-mtg-interchange/go-source/tropical_scene.glb
       - name: Install exact previously proven L-Py and PlantGL plus upstream MTG
@@ -128,5 +134,6 @@ jobs:
             out/flora-mtg-interchange/ab/ab_go_banana.png
             out/flora-mtg-interchange/ab/ab_openalea_fixture.png
             out/flora-mtg-interchange/ab/ab_go_palm.png
+            out/flora-mtg-interchange/flora_trait_receipt.json
           retention-days: 3
           if-no-files-found: error
