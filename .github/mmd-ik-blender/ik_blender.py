@@ -28,11 +28,23 @@ def main():
     rig=rigs[0]
     names=["腰","ひざ","足首","足ＩＫ"]
     assert all(n in rig.pose.bones for n in names),list(rig.pose.bones.keys())
-    constraint_info={b.name:[{"type":c.type,"name":c.name,"muted":bool(c.mute)}
-        for c in b.constraints] for b in rig.pose.bones}
+    constraint_info={}
+    for b in rig.pose.bones:
+        cs=[]
+        for c in b.constraints:
+            target=getattr(c,"target",None)
+            cs.append({"type":c.type,"name":c.name,"muted":bool(c.mute),
+              "target_object":target.name if target is not None else None,
+              "subtarget":getattr(c,"subtarget",None),
+              "chain_count":getattr(c,"chain_count",None),
+              "iterations":getattr(c,"iterations",None)})
+        constraint_info[b.name]=cs
+    rest_heads={n:[float(v) for v in rig.data.bones[n].head_local] for n in names}
+    rest_tails={n:[float(v) for v in rig.data.bones[n].tail_local] for n in names}
     ik_constraints=[(n,c) for n,p in [(n,rig.pose.bones[n]) for n in names]
         for c in p.constraints if c.type=="IK"]
     print("G10C_IMPORT_CONSTRAINTS",json.dumps(constraint_info,sort_keys=True),flush=True)
+    print("G10C_BONE_REST",json.dumps({"heads":rest_heads,"tails":rest_tails},sort_keys=True),flush=True)
     # PMX source frame zero must remain zero in Blender, not shifted to scene frame1.
     bpy.context.scene.frame_set(0)
     bpy.ops.object.select_all(action="DESELECT")
@@ -79,6 +91,8 @@ def main():
       "blender":bpy.app.version_string,
       "mmd_tools":mmd_tools.MMD_TOOLS_VERSION,
       "constraint_info":constraint_info,
+      "rest_heads":rest_heads,
+      "rest_tails":rest_tails,
       "real_ik_constraint_count":len(ik_constraints),
       "samples":samples,
       "scope":"true imported Blender IK + native VMD goal, not MMD CCD equivalence or collision",
