@@ -1,0 +1,35 @@
+# SCP_ORIGINAL_SYNTHETIC_FIXTURE_V1
+# Self-authored compact ASF source for parser falsification, NOT CMU capture.
+:version 1.10
+:name SCP_SYNTHETIC_TWOBONE
+:units
+mass 1.0
+length 0.45
+angle deg
+:root
+order TX TY TZ RX RY RZ
+axis XYZ
+position 0 0 0
+orientation 0 0 0
+:bonedata
+begin
+id 1
+name lhip
+direction 0 -1 0
+length 2
+axis 0 0 0 XYZ
+dof rx ry rz
+end
+begin
+id 2
+name lknee
+direction 0 -1 0
+length 2
+axis 0 0 0 XYZ
+dof rx
+end
+:hierarchy
+begin
+root lhip
+lhip lknee
+end
