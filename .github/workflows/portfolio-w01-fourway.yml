@@ -134,7 +134,10 @@ jobs:
               assert header['true_physical_contact_established'] is False
           elif lane == 'mmd':
               assert data['validation'] == 'VALID_ENVELOPE_ONLY'
-              assert data.get('verdict') != 'PASS'
+              assert data['source_rights'] == 'ORIGINAL_SYNTHETIC'
+              assert data['observations'] >= 1 and data['metrics'] >= 1
+              # Internal envelope verdict PASS is synthetic structural evidence,
+              # never actual MMD engine/Blender-model admission or release.
           elif lane == 'spatial':
               assert data['schema'] == 'spatial_audio.offaxis_doe.v1'
               assert len(data['cases']) == 42
