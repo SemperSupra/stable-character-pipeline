@@ -78,7 +78,7 @@ def main():
       "schema":"scp.mmd.w04-g9-browser-iphone-verified.v1",
       "status":"PASS_REAL_BABYLON_G9_MORPH_BROWSER_SCREENSHOTS_AND_PHONE_H264",
       "source_capture_receipt_sha256":sha(a.dir/"webgl_browser_captures.json"),
-      "iPhone_file":"babylon_original_31frame_iphone.mp4","iPhone_sha256":sha(dest),
+      "iPhone_file":"babylon_g9_real_morph_iphone.mp4","iPhone_sha256":sha(dest),
       "codec":"h264","pixel_format":"yuv420p","width":720,"height":960,
       "captured_original_frames":31,"output_decoded_frames":93,
       "duration_seconds":float(probe["format"]["duration"]),
