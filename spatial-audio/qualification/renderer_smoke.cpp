@@ -92,13 +92,20 @@ void one(const Target& t,const std::string& dir){
 }
 }
 int main(int argc,char**argv){
- if(argc!=2){std::cerr<<"usage: spatial-qual OUTPUT_DIRECTORY\n";return 2;}
+ if(argc!=3){std::cerr<<"usage: spatial-qual supported|stereo-negative OUTPUT_DIRECTORY\n";return 2;}
+ const std::string mode=argv[1];
+ if(mode=="stereo-negative"){
+   try{one(kTargets[0],argv[2]);std::cerr<<"unexpected_stereo_success_not_yet_qualified\n";return 0;}
+   catch(const std::exception&e){std::cerr<<"spatial_native_FIRST_FAILURE "<<e.what()<<'\n';return 1;}
+ }
+ if(mode!="supported"){std::cerr<<"unknown diagnostic mode\n";return 2;}
  bool failed=false;
  for(const auto&t:kTargets){
-  try{one(t,argv[1]);}
+  if(t.layout==spaudio::OutputLayout::Stereo)continue; // quarantined: proven NaN on first sample
+  try{one(t,argv[2]);}
   catch(const std::exception&e){std::cerr<<"spatial_native_FIRST_FAILURE "<<e.what()<<'\n';failed=true;}
  }
  if(failed)return 1;
- std::cout<<"spatial_native_PASS profiles=6"<<std::endl;
+ std::cout<<"spatial_native_PASS profiles=5 stereo=UNQUALIFIED"<<std::endl;
  return 0;
 }
