@@ -92,17 +92,33 @@ def self_test():
             "AABB_SEPARATED_NEGATIVE_CONTROL_FAILED")
     require(intersection_depth(aa, ((2, 0, 0), (4, 2, 2))) is None,
             "AABB_TOUCH_NOT_PENETRATION_CONTROL_FAILED")
+    # A spinning circular tire should NOT inherit the excess radius of a
+    # rotated cubic bounding box: this synthetic red-team example proves why
+    # imported vertices, not obj.bound_box, must define support extremes.
+    angle = math.pi / 4
+    radius = 0.46
+    xs = [radius * math.cos(2 * math.pi * i / 20) for i in range(20)]
+    zs = [radius * math.sin(2 * math.pi * i / 20) for i in range(20)]
+    actual_min = min(-math.sin(angle) * x + math.cos(angle) * z
+                     for x, z in zip(xs, zs))
+    rotated_box_min = -radius * (abs(math.sin(angle)) +
+                                 abs(math.cos(angle)))
+    require(actual_min > rotated_box_min + 0.13,
+            "ROTATING_TIRE_AABB_OVERHANG_CONTROL_FAILED")
     try:
         classify_support(float("nan"), 0)
     except ValueError:
         pass
     else:
         raise ValueError("CONTACT_NONFINITE_CONTROL_FAILED")
-    print("MECHANICA_CONTACT_SELFTEST=PASS (7 synthetic positive/negative assertions)")
+    print("MECHANICA_CONTACT_SELFTEST=PASS (8 synthetic positive/negative assertions)")
 
 def world_bounds(obj):
-    from mathutils import Vector
-    vertices = [obj.matrix_world @ Vector(v) for v in obj.bound_box]
+    # A transformed local AABB overstates the extremal radius of rotating
+    # cylinders. Use actual imported vertices for a tight *world* broadphase
+    # (still not triangle intersection / physical penetration).
+    vertices = [obj.matrix_world @ v.co for v in obj.data.vertices]
+    require(bool(vertices), "EMPTY_MESH:" + obj.name)
     lo = tuple(min(v[k] for v in vertices) for k in range(3))
     hi = tuple(max(v[k] for v in vertices) for k in range(3))
     require(all(math.isfinite(v) for v in (*lo, *hi)),
@@ -131,6 +147,7 @@ def extract(args):
         "source_sha": GENERATOR_SHA,
         "glb_sha256": GLB_SHA256,
         "coordinate_system": "Blender-world Z-up after glTF import",
+        "bounds_method": "tight world AABB of actual imported mesh vertices",
         "reference": "Initial SUV four tire AABB bottoms; inferred support plane, no explicit terrain or physics",
         "thresholds_m": {"contact": CONTACT_TOL,
                          "candidate_overlap": OVERLAP_TOL},
