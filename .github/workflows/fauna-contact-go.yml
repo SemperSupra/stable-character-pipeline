@@ -1,0 +1,65 @@
+name: Fauna source rig and synthetic foot-contact qualification - public Go CPU
+
+on:
+  pull_request:
+    paths:
+      - 'tropical-fauna-flora/cmd/faunacontact/**'
+      - '.github/workflows/fauna-contact-go.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fauna-source-contact-pr
+  cancel-in-progress: true
+
+jobs:
+  source-rig:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout original public source without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Go from existing source module
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tropical-fauna-flora/go.mod
+          cache: false
+      - name: Test contact fixture invariants and independently regenerate source rig
+        working-directory: tropical-fauna-flora
+        run: |
+          set -euo pipefail
+          go test -count=1 ./...
+          go test -race -count=1 ./cmd/faunacontact
+          go vet ./cmd/faunacontact
+          go run . -config scene.json -out out/fauna-contact
+          go run ./cmd/faunacontact -input out/fauna-contact/tropical_scene.gltf > out/fauna-contact/rig_receipt.json
+          python3 - <<'PY'
+          import json, hashlib
+          from pathlib import Path
+          folder=Path("out/fauna-contact")
+          r=json.loads((folder/"rig_receipt.json").read_text())
+          source=json.loads((folder/"receipt.json").read_text())
+          assert r["schema"]=="scp.fauna.source-rig-inventory.v1"
+          assert r["qualification"]=="RIG_GRAPH_AND_ANIMATION_CHANNELS_ONLY"
+          assert [r["buffalo"],r["egrets"],r["buffalo_leg_pivots"],r["buffalo_hooves"],r["egret_leg_pivots"],r["egret_toes"]]==[2,4,8,8,8,8]
+          assert [r["animated_leg_joints"],r["animated_roots"]]==[16,6]
+          assert r["source_gltf_json_sha256"]==hashlib.sha256((folder/"tropical_scene.gltf").read_bytes()).hexdigest()
+          assert r["source_gltf_json_sha256"]==source["gltf_json_sha256"]
+          assert hashlib.sha256((folder/"tropical_scene.glb").read_bytes()).hexdigest()=="67b503b6903de319739ea35a456dea270739f6fde30938e6c555de6451da972a"
+          print("F2A_REAL_GLTF_RIG_AND_ANIMATION_CHANNELS_PASS")
+          print("F2A_SYNTHETIC_FOOT_CONTACT_SLIP_RED_TEAM_PASS")
+          PY
+      - name: Upload only bounded synthetic machine qualification receipts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fauna-rig-contact-receipt
+          path: |
+            tropical-fauna-flora/out/fauna-contact/rig_receipt.json
+            tropical-fauna-flora/out/fauna-contact/receipt.json
+          retention-days: 3
+          if-no-files-found: error
