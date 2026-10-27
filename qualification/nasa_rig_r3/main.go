@@ -69,19 +69,49 @@ func validate(frames []Frame) error {
   }
   return nil
 }
-func longestRun(frames []Frame) (int,int,error) {
+// Coverage is a visual framing heuristic, never an identity or pose-accuracy score.
+// It uses bounded, visible normalized 2D landmark occupancy, not model-estimated depth.
+func sampleCoverage(points []Landmark) float64 {
+  loX,loY,hiX,hiY:=1.0,1.0,0.0,0.0
+  n:=0
+  for _,p:=range points{
+    if p.Visibility < 0.5 || p.X<0 || p.X>1 || p.Y<0 || p.Y>1{continue}
+    if p.X<loX{loX=p.X};if p.X>hiX{hiX=p.X}
+    if p.Y<loY{loY=p.Y};if p.Y>hiY{hiY=p.Y}
+    n++
+  }
+  if n<8{return 0}
+  return (hiX-loX)*(hiY-loY)
+}
+func selectRun(frames []Frame,mode string)(int,int,error){
   if err:=validate(frames);err!=nil{return 0,0,err}
+  if mode!="longest" && mode!="coverage" {return 0,0,errors.New("unknown explicit frame selection policy")}
   bestStart,bestLen:=0,0
+  bestScore:=-1.0
   for i:=0;i<len(frames);{
-    if len(frames[i].Landmarks)!=33 {i++;continue}
+    if len(frames[i].Landmarks)!=33{i++;continue}
     j:=i+1
-    for j<len(frames)&&len(frames[j].Landmarks)==33 {j++}
-    if j-i>bestLen{bestStart,bestLen=i,j-i}
+    for j<len(frames)&&len(frames[j].Landmarks)==33{j++}
+    n:=j-i
+    if n>=2{
+      score:=float64(n)
+      if mode=="coverage" {
+        if n<5 {i=j;continue} // Reject fleeting detections for motion demos.
+        samples:=make([]float64,0,n)
+        for k:=i;k<j;k++{samples=append(samples,sampleCoverage(frames[k].Landmarks))}
+        sort.Float64s(samples)
+        score=samples[len(samples)/2]
+      }
+      if score>bestScore || (score==bestScore && n>bestLen) {
+        bestStart,bestLen,bestScore=i,n,score
+      }
+    }
     i=j
   }
-  if bestLen<2{return 0,0,errors.New("no two-frame continuous observed pose interval")}
+  if bestLen<2{return 0,0,errors.New("no valid continuous observed pose segment")}
   return bestStart,bestLen,nil
 }
+func longestRun(frames []Frame)(int,int,error){return selectRun(frames,"longest")}
 func xy(p Landmark) [3]float32 {
   // 16:9 reference image, arbitrary display units, Z intentionally fixed to ZERO.
   return [3]float32{float32((p.X-.5)*3.55555556),float32((.5-p.Y)*2),0}
@@ -132,8 +162,9 @@ func verifyReceipt(data []byte)error{
   if r.Model.SHA256!=officialTaskSHA256{return errors.New("pinned task model checksum mismatch")}
   return nil
 }
-func createGLB(frames []Frame)([]byte,map[string]any,error){
-  start,n,err:=longestRun(frames);if err!=nil{return nil,nil,err}
+func createGLB(frames []Frame)([]byte,map[string]any,error){return createGLBWithSelection(frames,"longest")}
+func createGLBWithSelection(frames []Frame,mode string)([]byte,map[string]any,error){
+  start,n,err:=selectRun(frames,mode);if err!=nil{return nil,nil,err}
   b:=&binBuilder{}
   nodes:=make([]map[string]any,35)
   // Root-pose global coordinates and per-frame relative translations.
@@ -261,6 +292,8 @@ func createGLB(frames []Frame)([]byte,map[string]any,error){
     "glb_frame_start_source_ms":frames[start].SourceTimeMS,
     "glb_frame_end_source_ms":frames[start+n-1].SourceTimeMS,
     "glb_sample_count":n,"glb_frame_rate_hz":1,
+    "frame_selection_method":mode,
+    "frame_selection_not_accuracy":"framing-only, no ground-truth metric",
     "all_30_frame_coverage":coverage,
     "full_source_detected_frames":countDetected(frames),
     "joints":33,"skin_vertices":len(positions)/3,
@@ -276,13 +309,13 @@ func createGLB(frames []Frame)([]byte,map[string]any,error){
   return buf,manifest,nil
 }
 func countDetected(a []Frame)int{n:=0;for _,f:=range a{if len(f.Landmarks)==33{n++}};return n}
-func execute(in,receipt,out string)error{
+func execute(in,receipt,out,mode string)error{
   raw,err:=os.ReadFile(in);if err!=nil{return err}
   proof,err:=os.ReadFile(receipt);if err!=nil{return err}
   if err:=verifyReceipt(proof);err!=nil{return err}
   var frames []Frame
   if err:=json.Unmarshal(raw,&frames);err!=nil{return err}
-  glb,manifest,err:=createGLB(frames);if err!=nil{return err}
+  glb,manifest,err:=createGLBWithSelection(frames,mode);if err!=nil{return err}
   digest:=sha256.Sum256(raw)
   manifest["input_landmarks_sha256"]=fmt.Sprintf("%x",digest)
   os.MkdirAll(out,0755)
@@ -298,8 +331,9 @@ func main(){
   in:=flag.String("input","nasa-pair-output/video_landmarks.json","source-bound R2 observation JSON")
   receipt:=flag.String("receipt","nasa-pair-output/receipt.json","R2 source provenance receipt")
   out:=flag.String("out","pose-rig-output","derived candidate output dir")
+  selector:=flag.String("selection","longest","longest or coverage framing; not pose accuracy")
   flag.Parse()
-  if err:=execute(*in,*receipt,*out);err!=nil{
+  if err:=execute(*in,*receipt,*out,*selector);err!=nil{
     fmt.Fprintln(os.Stderr,"R3 FAIL:",err);os.Exit(4)
   }
 }
