@@ -2,6 +2,7 @@
 """Real Blender 4.5+ MMD Tools PMX import, CPU render, blend and GLB inspection."""
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -73,4 +74,11 @@ def main():
     print(json.dumps(report, sort_keys=True))
 
 if __name__ == "__main__":
+    # Only bypass Python/blender shared-library teardown after all validation,
+    # source exports, receipt writes and output checks have completed.
+    # Public GHA rep 40423130061 finished those in <1s, but embedded bpy 4.5
+    # hung during interpreter teardown until the job's 7-minute hard timeout.
     main()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
