@@ -49,6 +49,7 @@ void one(const Target& t,const std::string& dir){
  if(!renderer.Configure(t.layout,1,kRate,kFrames,in,"",true))throw std::runtime_error(std::string(t.name)+" configure failed");
  const unsigned channels=renderer.GetSpeakerCount();
  if(channels!=t.count)throw std::runtime_error(std::string(t.name)+" unexpected channel count "+std::to_string(channels));
+ renderer.Reset(); // control: explicitly clear configured buffers, filters and interpolators
  std::vector<std::vector<float>> bufs(channels,std::vector<float>(kFrames,0.f));
  std::vector<float*> pointers;for(auto& c:bufs)pointers.push_back(c.data());
  std::vector<float> inSignal(kFrames);
