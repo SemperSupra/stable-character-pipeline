@@ -82,6 +82,12 @@ jobs:
             grep -E "stereo_hoa0_FIRST_FAILURE" "$RUNNER_TEMP/stereo-hoa0/diagnostic.stderr" >&2 || true
             echo "stereo_hoa0_CONTROL_FAILED_NOT_ADMITTED"
           fi
+          echo "Native 5.1 speaker order was checked in C++: FL FR FC LFE SurroundL SurroundR."
+          ffmpeg -hide_banner -nostdin -loglevel error -xerror -y \
+            -i "$RUNNER_TEMP/spatial-test-output/surround_5_1.wav" \
+            -af 'pan=stereo|c0=c0+0.7071067811865476*c2+0.7071067811865476*c4|c1=c1+0.7071067811865476*c2+0.7071067811865476*c5' \
+            -c:a pcm_f32le "$RUNNER_TEMP/spatial-test-output/stereo_from_5_1.wav"
+          (cd spatial-audio && go run ./cmd/check-stereo "$RUNNER_TEMP/spatial-test-output/stereo_from_5_1.wav")
           echo "No spatial media uploaded from public CI."
       - name: Clean temporary upstream source and synthetic audio
         if: always()
