@@ -73,6 +73,9 @@ func read(path string,max int64)([]byte,error){
 func load[T any](p string)(T,[]byte,error){
     var v T
     b,err:=read(p,2<<20);if err!=nil{return v,nil,err}
+    // Upstream receipts can have additional fields not consumed here; reject
+    // duplicate keys, but do not discard legitimate unrelated source metadata.
+    if err:=envelope.RejectDuplicateJSONKeys(b);err!=nil{return v,nil,fmt.Errorf("ambiguous source receipt %s: %w",filepath.Base(p),err)}
     if err=json.Unmarshal(b,&v);err!=nil{return v,nil,err}
     return v,b,nil
 }
@@ -170,7 +173,7 @@ func Build(paths Paths)(envelope.ProofBundle,error){
                      "native-MMD-CCD-NOT_TESTED","foot-ground-physics-NOT_TESTED"},
             })
             result.Metrics=append(result.Metrics,envelope.MetricEvidence{
-                ID:"goal-error-"+e.id,ObservationID:e.id,
+                ID:"goal-error-"+e.id,ObservationID:e.id,MeasuredKey:e.metric,
                 Oracle:parityRun+"/artifacts/12712661688;parity_sha256="+envelope.ContentDigest(pb),
                 Status:"PASS",Units:"source_unit",Value:&x,
             })
