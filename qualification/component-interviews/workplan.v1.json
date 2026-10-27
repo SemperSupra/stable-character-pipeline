@@ -1,0 +1,238 @@
+{
+  "schema": "scp.component-interview-workplan.v1",
+  "date": "2026-10-27",
+  "disposition": "OWNER_ENDORSED_PLAN_IMPLEMENTATION_NOT_STARTED",
+  "authoritative_dle": "https://github.com/SemperSupra/stable-character-pipeline/issues/5",
+  "review_context": [
+    "https://github.com/SemperSupra/model-spelunker/issues/54",
+    "https://github.com/SemperSupra/agent-dispatch-private/issues/104",
+    "https://github.com/SemperSupra/stable-character-pipeline/issues/5#issuecomment-6436027698"
+  ],
+  "scope": "PUBLIC_SAFE_SYNTHETIC_ONLY",
+  "privacy_boundary": "NO_PRIVATE_HUMAN_ASSETS_OR_SECRET_EXECUTOR_CONTEXT",
+  "budget_rule": "STANDARD_PUBLIC_GITHUB_ACTIONS_CPU_ONLY_0USD_BY_DEFAULT",
+  "release_rule": "NO_MERGE_RELEASE_DEPLOY_OR_PREVIEW_PROMOTION",
+  "semantic_audiences": [
+    "human",
+    "automation",
+    "agent"
+  ],
+  "actions": [
+    "discover",
+    "describe",
+    "propose",
+    "validate",
+    "plan",
+    "execute",
+    "observe",
+    "compare",
+    "challenge",
+    "review",
+    "export"
+  ],
+  "prohibition": [
+    "no_second_scheduler",
+    "no_second_authority_database",
+    "no_global_leaderboard",
+    "no_self_qualification",
+    "no_expanded_runner_authority"
+  ],
+  "steps": [
+    {
+      "id": "P0",
+      "title": "Authority and contract crosswalk",
+      "status": "READY",
+      "depends_on": [],
+      "owner_lane": "public-product-dle",
+      "kind": "contract-research",
+      "deliverables": [
+        "task-experiment-receipt crosswalk",
+        "typed-port taxonomy",
+        "three-audience operation/authority matrix",
+        "baseline SHA and rights inventory"
+      ],
+      "acceptance": [
+        "same normalized proposal semantics across three audiences",
+        "known-bad type mismatch and unauthorized action rejected in planned contract",
+        "no private data projected into public branch"
+      ]
+    },
+    {
+      "id": "P1",
+      "title": "Go-first semantic contract and DAG validator",
+      "status": "BLOCKED_DEPENDENCY",
+      "depends_on": [
+        "P0"
+      ],
+      "owner_lane": "public-go-qualification",
+      "kind": "software",
+      "deliverables": [
+        "versioned schema",
+        "Go CLI core",
+        "good/bad adversarial tests",
+        "canonical digests"
+      ],
+      "acceptance": [
+        "DAG acyclic and typed semantic ports",
+        "strict units axes timebase provenance budget and rights gates",
+        "go test -race and vet native public CPU"
+      ]
+    },
+    {
+      "id": "P2",
+      "title": "Upstream primitive and candidate provider interviews",
+      "status": "BLOCKED_DEPENDENCY",
+      "depends_on": [
+        "P0",
+        "P1"
+      ],
+      "owner_lane": "public-science-interviews",
+      "kind": "source-and-contract-qualification",
+      "deliverables": [
+        "version/tag/source algorithm audit",
+        "candidate provider bindings",
+        "native/synthetic acceptance reports"
+      ],
+      "acceptance": [
+        "at least two pinned candidate bindings",
+        "no synthetic-to-real species promotion",
+        "source rights and capability unknowns explicit"
+      ]
+    },
+    {
+      "id": "P3",
+      "title": "Sparse interview DOE planner",
+      "status": "BLOCKED_DEPENDENCY",
+      "depends_on": [
+        "P1",
+        "P2"
+      ],
+      "owner_lane": "public-go-qualification",
+      "kind": "experimental-science",
+      "deliverables": [
+        "frozen-factor crossover planner",
+        "independent replicates",
+        "stop rules and controls",
+        "derived conditional envelope"
+      ],
+      "acceptance": [
+        "one valid paired crossover or explicit incompatible result",
+        "independent oracle known-good and bad",
+        "no Cartesian sweep and no global winner"
+      ]
+    },
+    {
+      "id": "P4",
+      "title": "Authorized free-tier workcell execution adapter",
+      "status": "BLOCKED_DEPENDENCY",
+      "depends_on": [
+        "P1",
+        "P3"
+      ],
+      "owner_lane": "existing-agent-dispatch-placement",
+      "kind": "execution-integration",
+      "deliverables": [
+        "bounded public CPU workcell packet",
+        "observability and first-failure classification",
+        "independent artifact readback"
+      ],
+      "acceptance": [
+        "public-safe source only and $0 standard CPU",
+        "idempotent request with distinct immutable attempt observations",
+        "no false-green absent artifacts"
+      ]
+    },
+    {
+      "id": "P5",
+      "title": "Human automation agent authoring and review parity",
+      "status": "BLOCKED_DEPENDENCY",
+      "depends_on": [
+        "P1",
+        "P3",
+        "P4"
+      ],
+      "owner_lane": "three-audience-interface",
+      "kind": "ui-ux-dx",
+      "deliverables": [
+        "interactive accessible human pipeline and DOE authoring UI",
+        "Go CLI and JSON API",
+        "discoverable authorized agent tool descriptors",
+        "append-only attributable participation events"
+      ],
+      "acceptance": [
+        "each audience submits same meaningful experiment and challenge",
+        "identical canonical digest authority and validation failures",
+        "human keyboard screen-reader responsive proposal and review journey",
+        "agent cannot self-promote or bypass human gate"
+      ]
+    },
+    {
+      "id": "P6",
+      "title": "Flora Fauna Mechanica and ecology composition interviews",
+      "status": "BLOCKED_DEPENDENCY",
+      "depends_on": [
+        "P2",
+        "P3",
+        "P4",
+        "P5"
+      ],
+      "owner_lane": "domain-product-dle",
+      "kind": "qualification",
+      "deliverables": [
+        "cross-domain typed adapters",
+        "per-domain negative composition case",
+        "native source artifact and evidence"
+      ],
+      "acceptance": [
+        "one compatible composed graph and known bad mismatch per participating domain",
+        "reported source and numeric fidelity limits",
+        "human assets remain separate private lane"
+      ]
+    },
+    {
+      "id": "P7",
+      "title": "Adaptive optimization and architecture/platform DOE",
+      "status": "BLOCKED_DEPENDENCY",
+      "depends_on": [
+        "P3",
+        "P6"
+      ],
+      "owner_lane": "science-optimization",
+      "kind": "optional-qualification",
+      "deliverables": [
+        "sparse screening model",
+        "uncertainty and Pareto report",
+        "optional admitted third-party optimizer adapters"
+      ],
+      "acceptance": [
+        "need for expensive search justified by prior evidence",
+        "CUDA MLX TPU treated as isolated conditional factors",
+        "no unsupported execution billed or portrayed as tested"
+      ]
+    },
+    {
+      "id": "P8",
+      "title": "Hardening schema migration and federated O&M",
+      "status": "BLOCKED_DEPENDENCY",
+      "depends_on": [
+        "P4",
+        "P5",
+        "P6"
+      ],
+      "owner_lane": "existing-dle-and-infrastructure",
+      "kind": "operations",
+      "deliverables": [
+        "schema migration and replay",
+        "supply chain drift sentinels",
+        "rights revocation and first failure trails",
+        "reusable SDK adapters"
+      ],
+      "acceptance": [
+        "forged receipts and authority bypass rejected",
+        "requalification on relevant code data toolchain or rights drift",
+        "three audience parity retained",
+        "no merge release deploy without owner authorization"
+      ]
+    }
+  ]
+}
