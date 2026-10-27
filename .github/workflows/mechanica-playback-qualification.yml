@@ -120,7 +120,7 @@ jobs:
               args=['ffmpeg','-hide_banner','-loglevel','error','-y']
               for f in files: args += ['-i',str(f)]
               args += ['-filter_complex','[0:v][1:v][2:v]hstack=inputs=3',
-                       '-frames:v','1','-update','1',str(out/focus+'_contact_sheet.png')]
+                       '-frames:v','1','-update','1',str(out/(focus+'_contact_sheet.png'))]
               subprocess.run(args,check=True)
               assert (out/(focus+'_contact_sheet.png')).stat().st_size>3000
           PY
