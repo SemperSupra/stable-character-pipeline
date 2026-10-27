@@ -1,0 +1,100 @@
+name: R4 parallel three-lane public CPU qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/r4_parallel/**'
+      - '.github/workflows/r4-parallel-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r4-parallel-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpu-qualification:
+    name: "R4 public CPU / ${{ matrix.lane }}"
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        lane: [rights, adapters, synthetic]
+    env:
+      GO111MODULE: 'off'
+      LANE: ${{ matrix.lane }}
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Prove independent public source HEAD and research-only provenance
+        run: |
+          git rev-parse HEAD
+          echo "R4_MATRIX_LANE=$LANE"
+          sha256sum qualification/r4_admission/candidates.json qualification/r4_parallel/main.go
+          echo 'NO_PRIVATE_ASSETS_NO_GPU_NO_MODEL_WEIGHTS_NO_EXTERNAL_RIG_DOWNLOADS'
+      - name: Execute lane-specific Go tests and adversarial falsifiers
+        run: |
+          set -euo pipefail
+          case "$LANE" in
+            rights)
+              go test -v -count=1 ./qualification/r4_admission
+              go test -v -count=1 -run '^TestRights' ./qualification/r4_parallel
+              ;;
+            adapters)
+              go test -v -count=1 -run '^(TestAdapters|TestUnknownParallelLane)' ./qualification/r4_parallel
+              ;;
+            synthetic)
+              go vet ./qualification/r4_parallel
+              go test -v -count=1 -run '^TestSynthetic' ./qualification/r4_parallel
+              ;;
+            *) echo "unadmitted matrix lane" >&2; exit 41;;
+          esac
+      - name: Produce immutable source-bound lane receipt (not model inference)
+        run: |
+          mkdir -p receipts
+          go run qualification/r4_parallel/main.go             -lane "$LANE"             -manifest qualification/r4_admission/candidates.json             -out "receipts/r4-$LANE.json"
+      - name: Verify receipt and denial-of-model-execution proof
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          lane=os.environ['LANE']
+          p=Path(f'receipts/r4-{lane}.json')
+          r=json.loads(p.read_text())
+          assert r['schema']=='stable-character/r4-parallel-lane/1'
+          assert r['lane']==lane and r['status']=='PASS_SOURCE_ONLY_NO_MODEL_INFERENCE'
+          assert r['source_only'] is True
+          assert r['actual_model_inferences']==r['weights_downloaded']==r['gpu_runs']==0
+          expected=hashlib.sha256(Path('qualification/r4_admission/candidates.json').read_bytes()).hexdigest()
+          assert r['registry_sha256']==expected
+          if lane=='rights':assert r['candidates']==5
+          if lane=='adapters':
+              assert r['candidates']==5 and len(r['contracts'])==5
+              assert all(x['tested']=='CONTRACT_ONLY_NO_MODEL_INFERENCE' for x in r['contracts'])
+          if lane=='synthetic':
+              s=r['synthetic']
+              assert s['frames']==3 and s['joint_count']==3 and s['max_vertex_displacement_arbitrary_units']>0.01
+              assert s['actual_blender_import'] is False and s['metric_3d_recovered'] is False
+          print('R4_PARALLEL_RECEIPT',lane,expected,p.stat().st_size)
+          PY
+      - name: Preserve isolated native lane evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r4-parallel-${{ matrix.lane }}
+          path: receipts/r4-${{ matrix.lane }}.json
+          if-no-files-found: warn
+          retention-days: 3
+          compression-level: 6
