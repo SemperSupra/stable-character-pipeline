@@ -111,7 +111,7 @@ jobs:
           test "$(sha256sum "$RUNNER_TEMP/dual-original-5.1.wav" | cut -d' ' -f1)" != \
                "$(sha256sum "$RUNNER_TEMP/dual-altered-5.1.wav" | cut -d' ' -f1)"
           echo "spatial_w3_independent_B_trajectory_edit_PCM_DELTA_PASS"
-      - name: Negative controls: missing block, output collision, tampered second source
+      - name: "Negative controls: missing block, output collision, tampered second source"
         run: |
           set -euo pipefail
           export LD_LIBRARY_PATH="$RUNNER_TEMP/install/lib"
