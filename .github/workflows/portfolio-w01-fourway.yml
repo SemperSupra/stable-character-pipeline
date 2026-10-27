@@ -1,0 +1,179 @@
+name: Portfolio W01 four-way pinned-source public CPU qualification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/portfolio-w01-fourway.yml'
+      - 'qualification/portfolio_w01/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portfolio-w01-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portfolio-cpu:
+    name: "W01 public CPU / ${{ matrix.lane }}"
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      max-parallel: 4
+      fail-fast: false
+      matrix:
+        include:
+          - lane: motion
+            source_pr: 31
+            source_commit: 278fdf54c0938dd508c0361fd0dc80e72a3fe2f0
+          - lane: fauna
+            source_pr: 32
+            source_commit: 6c6f1a368d96e059a6689cae8fc7c73900a0bbcb
+          - lane: mmd
+            source_pr: 30
+            source_commit: 4d7a125574e9328c925745875fd1bdb9eee70c4f
+          - lane: spatial
+            source_pr: 50
+            source_commit: 8b5b02ab9575475efb6a963ead7302c0cec414dd
+    env:
+      SOURCE_COMMIT: ${{ matrix.source_commit }}
+      SOURCE_PR: ${{ matrix.source_pr }}
+      LANE: ${{ matrix.lane }}
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '1'
+    steps:
+      - name: Checkout exact verified public workstream source revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ matrix.source_commit }}
+          persist-credentials: false
+
+      - name: Go 1.23 no-cache public toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+
+      - name: Fail closed on wrong SHA, record immutable source scope
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          echo "W01_SOURCE_PR=$SOURCE_PR"
+          echo "W01_SOURCE_COMMIT=$SOURCE_COMMIT"
+          echo "W01_LANE=$LANE"
+          mkdir -p receipts
+          printf '%s\n' "$SOURCE_COMMIT" > receipts/checked-source-commit.txt
+          echo 'NO_PRIVATE_NO_WEIGHTS_NO_GPU_NO_MERGE_NO_RELEASE'
+
+      - name: Run independent original source Go suites and adversarial controls
+        run: |
+          set -euo pipefail
+          case "$LANE" in
+            motion)
+              cd motion_learning/asfamc
+              go test -race -count=1 ./...
+              go vet ./...
+              go run ./cmd/admit                 -asf testdata/leg.synthetic.asf -amc testdata/leg.synthetic.amc                 -source-id synthetic/leg-v1 -capture-group synthetic/session-1                 -out "$GITHUB_WORKSPACE/receipts/native-proof.json"
+              ;;
+            fauna)
+              cd motion_learning/fauna_csv
+              go test -race -count=1 ./...
+              go vet ./...
+              go run ./cmd/inspect                 -source testdata/original.synthetic-horse.csv                 -source-id synthetic:horse1:walk1                 -capture-family synthetic:horse1:sessionA                 -out "$GITHUB_WORKSPACE/receipts/native-proof.json"
+              digest="$(sha256sum testdata/original.synthetic-native-layout.csv | cut -d' ' -f1)"
+              go run ./cmd/nativeprobe                 -source testdata/original.synthetic-native-layout.csv                 -expected-sha256 "$digest"                 -out "$GITHUB_WORKSPACE/receipts/native-header-proof.json"
+              ;;
+            mmd)
+              cd mmd/roadmap
+              go test -race -count=1 ./...
+              go vet ./...
+              go run ./cmd/envelopecheck envelope/testdata/synthetic-proof.json                 > "$GITHUB_WORKSPACE/receipts/native-proof.json"
+              ;;
+            spatial)
+              cd spatial-contract
+              go test -race -count=1 ./doe ./cmd/spatial-doe
+              go vet ./doe ./cmd/spatial-doe
+              go run ./cmd/spatial-doe plan                 > "$GITHUB_WORKSPACE/receipts/native-proof.json"
+              ;;
+            *) echo 'UNKNOWN_PORTFOLIO_LANE' >&2; exit 40;;
+          esac
+
+      - name: Independently check actual source-specific receipt and write portable lane evidence
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          lane = os.environ['LANE']
+          sha = os.environ['SOURCE_COMMIT']
+          pr = int(os.environ['SOURCE_PR'])
+          output = pathlib.Path('receipts')
+          data = json.loads((output / 'native-proof.json').read_text())
+          limits = {
+              'motion': 'SYNTHETIC_ASF_AMC_STRUCTURE_NOT_FK_OR_REAL_CONTACT',
+              'fauna': 'ORIGINAL_SYNTHETIC_7_MARKERS_NOT_REAL_HORSE_CONTACT',
+              'mmd': 'SYNTHETIC_EVIDENCE_CONTRACT_NOT_NATIVE_RENDER',
+              'spatial': '42_ENU_POSITION_DOE_NOT_EBU_OR_VIDEOLAN_PCM'
+          }
+          if lane == 'motion':
+              assert data['status'] == 'PASS_SYNTHETIC_STRUCTURE_ONLY'
+              assert data['admission'] == 'NOT_ADMITTED'
+              assert data['observed_ground_contact'] is False
+              assert data['native_frame_rate'] == 'UNKNOWN'
+              assert data['fk_converted'] is False
+              assert len(data['frames']) == 2
+          elif lane == 'fauna':
+              x = data['observation']
+              s = data['sensitivity']
+              assert x['admission'] == 'NOT_ADMITTED'
+              assert x['source_state'] == 'ORIGINAL_SYNTHETIC'
+              assert x['measured_physical_contact'] is False
+              assert s['ground_truth_established'] is False
+              header = json.loads((output / 'native-header-proof.json').read_text())
+              assert header['dataset_admission'] == 'NOT_ADMITTED'
+              assert header['true_physical_contact_established'] is False
+          elif lane == 'mmd':
+              assert data['validation'] == 'VALID_ENVELOPE_ONLY'
+              assert data['source_rights'] == 'ORIGINAL_SYNTHETIC'
+              assert data['observations'] >= 1 and data['metrics'] >= 1
+              # Internal envelope verdict PASS is synthetic structural evidence,
+              # never actual MMD engine/Blender-model admission or release.
+          elif lane == 'spatial':
+              assert data['schema'] == 'spatial_audio.offaxis_doe.v1'
+              assert len(data['cases']) == 42
+              assert all(v['ebu_gain_status'] == 'NOT_MEASURED'
+                         and v['videolan_pcm_status'] == 'NOT_MEASURED'
+                         for v in data['cases'])
+          else:
+              raise AssertionError('new unauthorized lane')
+          files = sorted(output.glob('native-*.json'))
+          hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
+          receipt = {
+            'schema': 'stable-character/portfolio-w01-public-cpu/1',
+            'status': 'PASS_PUBLIC_ORIGINAL_SYNTHETIC_SOURCE_TESTS',
+            'source_pr': pr,
+            'source_commit': sha,
+            'lane': lane,
+            'correctness_scope': limits[lane],
+            'original_synthetic_only': True,
+            'private_sources_used': False,
+            'original_media_downloads': 0,
+            'pretrained_weight_downloads': 0,
+            'learned_model_inferences': 0,
+            'gpu_executions': 0,
+            'release_authorized': False,
+            'native_evidence_sha256': hashes,
+          }
+          p = output / 'portfolio-w01-receipt.json'
+          p.write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n')
+          print('W01_SOURCE_BOUND_RECEIPT',p.read_text())
+          PY
+
+      - name: Preserve distinct original workstream evidence, even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-w01-${{ matrix.lane }}-pinned
+          path: receipts/
+          if-no-files-found: warn
+          retention-days: 3
