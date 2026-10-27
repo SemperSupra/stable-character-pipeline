@@ -35,6 +35,18 @@ jobs:
           ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
           path: vendor/mmd-tools
           persist-credentials: false
+      - name: Go 1.23 public catalog validation
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: mmd/catalog/go.mod
+          cache: false
+      - name: Test rights and candidate admission against adversarial fixtures
+        working-directory: mmd/catalog
+        run: |
+          set -euo pipefail
+          go test -count=1 ./...
+          go vet ./...
+          go run ./cmd/catalogcheck catalog.json
       - name: Run real upstream format parsers, positive and negative controls
         run: |
           set -euo pipefail

@@ -1,0 +1,152 @@
+{
+  "schema": "scp.mmd.asset-catalog.v1",
+  "entries": [
+    {
+      "id": "scp.synthetic-triangle.v1",
+      "kind": "fixture",
+      "source": "generated://mmd/qualification/probe.py",
+      "formats": [
+        "pmx",
+        "vmd",
+        "vpd"
+      ],
+      "status": "PROBED",
+      "license": "original synthetic fixture",
+      "redistribution": "GRANTED",
+      "publication": "GENERATED_ARTIFACT",
+      "notes": "Native files are produced by original fixture generator; rig/animation quality not yet qualified."
+    },
+    {
+      "id": "mmd-blender.mmd-tools.v4.5.14",
+      "kind": "tool",
+      "source": "https://github.com/MMD-Blender/blender_mmd_tools/tree/f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14",
+      "formats": [
+        "pmd",
+        "pmx",
+        "vmd",
+        "vpd"
+      ],
+      "status": "PROBED",
+      "license": "GPL-3.0-or-later",
+      "redistribution": "UNASSESSED",
+      "publication": "METADATA_ONLY",
+      "notes": "Native parsers passed; tool license is not a license to downstream models or motions."
+    },
+    {
+      "id": "blender.foundation.4.5",
+      "kind": "tool",
+      "source": "https://www.blender.org/releases/4-5/",
+      "formats": [
+        "blend",
+        "gltf",
+        "glb"
+      ],
+      "status": "PROBED",
+      "license": "GPL-3.0",
+      "redistribution": "UNASSESSED",
+      "publication": "METADATA_ONLY",
+      "notes": "Blender import render workcell pending independent evidence."
+    },
+    {
+      "id": "mmd.mikumiku-rig",
+      "kind": "tool",
+      "source": "https://github.com/XiaoFFGe/MikuMikuRig",
+      "formats": [
+        "blend"
+      ],
+      "status": "UNTRIED",
+      "license": "UNVERIFIED",
+      "redistribution": "UNASSESSED",
+      "publication": "METADATA_ONLY",
+      "notes": "Rigify bridge candidate; inspect version/license/CLI."
+    },
+    {
+      "id": "mmd.tools-append",
+      "kind": "tool",
+      "source": "https://github.com/MMD-Blender/blender_mmd_tools_append",
+      "formats": [
+        "blend"
+      ],
+      "status": "UNTRIED",
+      "license": "UNVERIFIED",
+      "redistribution": "UNASSESSED",
+      "publication": "METADATA_ONLY",
+      "notes": "Extension candidate, unqualified."
+    },
+    {
+      "id": "mmd.mmd2gltf",
+      "kind": "tool",
+      "source": "https://github.com/masaka1024/mmd2gltf-gui",
+      "formats": [
+        "pmx",
+        "vmd",
+        "gltf",
+        "glb"
+      ],
+      "status": "UNTRIED",
+      "license": "UNVERIFIED",
+      "redistribution": "UNASSESSED",
+      "publication": "METADATA_ONLY",
+      "notes": "extras.mmd preservation layer candidate, converted file can still carry restricted source data."
+    },
+    {
+      "id": "mmd.mmd-anim",
+      "kind": "tool",
+      "source": "https://github.com/yohawing/mmd-anim",
+      "formats": [
+        "pmx",
+        "vmd"
+      ],
+      "status": "UNTRIED",
+      "license": "UNVERIFIED",
+      "redistribution": "UNASSESSED",
+      "publication": "METADATA_ONLY",
+      "notes": "Rust IK/physics animation evaluator oracle candidate."
+    },
+    {
+      "id": "mmd.vmd-physics-bake",
+      "kind": "tool",
+      "source": "https://github.com/yyc-git/VMDPhysicsBake",
+      "formats": [
+        "pmx",
+        "vmd"
+      ],
+      "status": "UNTRIED",
+      "license": "REPOSITORY_CLAIMS_MIT",
+      "redistribution": "UNASSESSED",
+      "publication": "METADATA_ONLY",
+      "notes": "Physics bake candidate; demo assets separately licensed."
+    },
+    {
+      "id": "cmu.motion-capture",
+      "kind": "motion-source",
+      "source": "https://mocap.cs.cmu.edu/",
+      "formats": [
+        "asf",
+        "amc",
+        "bvh"
+      ],
+      "status": "UNTRIED",
+      "license": "CUSTOM_NON_RESALE_NOTICE",
+      "redistribution": "UNASSESSED",
+      "publication": "METADATA_ONLY",
+      "notes": "Official dataset prohibits direct dataset resale even after conversion; do not republish converted motions by default."
+    },
+    {
+      "id": "bowlroll.community",
+      "kind": "asset-index",
+      "source": "https://bowlroll.net/",
+      "formats": [
+        "pmx",
+        "pmd",
+        "vmd",
+        "vpd"
+      ],
+      "status": "HOLD",
+      "license": "PER_ITEM_UNVERIFIED",
+      "redistribution": "UNASSESSED",
+      "publication": "METADATA_ONLY",
+      "notes": "Per-creator restrictions; no downloads or passwords mirrored."
+    }
+  ]
+}
