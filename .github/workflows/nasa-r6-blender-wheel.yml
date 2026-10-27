@@ -1,0 +1,125 @@
+name: NASA R6 true Blender Python-wheel GLB skin readback (no apt)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/nasa-r6-blender-wheel.yml'
+      - 'qualification/nasa_rig_r3/R6_NATIVE_BLENDER.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: nasa-r6-blender-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-blender-python:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      PYTHONUNBUFFERED: '1'
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '1'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - name: Checkout public R6 source only, no persisted credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download verified public same-repository NASA R5 result; do not re-run MediaPipe
+        uses: actions/download-artifact@v4
+        with:
+          name: nasa-r5-originals-replay-and-rig
+          repository: SemperSupra/stable-character-pipeline
+          run-id: 40591683857
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: r5-evidence
+      - name: Pin original NASA R5 observations, skin and source times before any native import
+        run: |
+          set -euo pipefail
+          echo '69a9869e21542dcdaade37f290c29b6d7217ae0e392f450aeb40efe00611ac6a  r5-evidence/pose-rig-output/camera_plane_skinned_motion.glb' | sha256sum -c -
+          echo 'a6b56e7d794a5b74701031a75d350a9b2163182950861c1d135ec18b748c9b53  r5-evidence/nasa-pair-output/video_landmarks.json' | sha256sum -c -
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          m=json.loads(Path('r5-evidence/pose-rig-output/rig_manifest.json').read_text())
+          r=json.loads(Path('r5-evidence/nasa-pair-output/direct_source_replay.json').read_text())
+          assert m['glb_sha256']=='69a9869e21542dcdaade37f290c29b6d7217ae0e392f450aeb40efe00611ac6a'
+          assert m['glb_sample_count']==10 and m['frame_selection_method']=='coverage'
+          assert m['glb_frame_start_source_ms']==13000 and m['glb_frame_end_source_ms']==22000
+          assert r['bit_identical_observations_to_r2'] is True and r['pose_detected_frames']==21
+          print('R6_PINNED_R5_PRECHECK_PASS source seconds 13-22, 10 frames')
+          PY
+      - name: Install official standalone Blender 4.5 bpy Python and CPU raster/encoder wheels
+        timeout-minutes: 9
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir             'bpy==4.5.0' 'Pillow==11.3.0' 'imageio-ffmpeg==0.6.0'
+          python - <<'PY'
+          import bpy
+          from PIL import Image
+          import imageio_ffmpeg
+          assert bpy.app.version >= (4,5,0), bpy.app.version_string
+          print('BLENDER_WHEEL_READY',bpy.app.version_string,bpy.app.build_platform.decode() if isinstance(bpy.app.build_platform,bytes) else bpy.app.build_platform)
+          print('STANDALONE_FFMPEG',imageio_ffmpeg.get_ffmpeg_exe())
+          PY
+      - name: Real native Blender glTF import and skinned evaluated geometry (CPU Pillow raster)
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          mkdir -p r6-native-output
+          python -u qualification/nasa_rig_r3/blender_verify.py --             r5-evidence/pose-rig-output/camera_plane_skinned_motion.glb             r5-evidence/pose-rig-output/rig_manifest.json r6-native-output
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          r=json.loads(Path('r6-native-output/blender_independent_readback.json').read_text())
+          assert r['classification']=='INDEPENDENT_BLENDER_SKIN_AND_ANIMATION_READBACK'
+          assert r['skin_import_and_cpu_preview_pass'] is True
+          assert r['armatures']>=1 and r['skinned_meshes']>=1 and r['actions']>=1
+          assert r['rendered_png_frames']==r['source_sampled_frames']==10
+          assert r['evaluated_animated_vertex_max_displacement_camera_plane_units']>0.002
+          assert r['camera_plane_not_true_3d'] is True
+          assert 'NOT Blender render engine' in r['raster_pipeline']
+          assert len(list(Path('r6-native-output').glob('rig_frame_*.png')))==10
+          print('R6_BLENDER_NATIVE_DEFORMATION_PASS',json.dumps(r,sort_keys=True))
+          PY
+      - name: Encode iPhone H264 from Blender-evaluated polygons, no Blender GPU renderer
+        run: |
+          python - <<'PY'
+          import imageio_ffmpeg, subprocess
+          from pathlib import Path
+          ff=imageio_ffmpeg.get_ffmpeg_exe()
+          subprocess.run([ff,'-hide_banner','-loglevel','error','-nostdin','-y',
+              '-framerate','1','-start_number','0','-i','r6-native-output/rig_frame_%03d.png',
+              '-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',
+              'r6-native-output/blender_evaluated_rig.mp4'],check=True,timeout=50)
+          p=Path('r6-native-output/blender_evaluated_rig.mp4')
+          assert p.stat().st_size>3000
+          print('R6_BLENDER_CPU_IPHONE_MP4',p.stat().st_size)
+          PY
+      - name: Record native first failure or verified R6 receipt
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for f in ['r5-evidence/pose-rig-output/rig_manifest.json',
+                    'r6-native-output/blender_independent_readback.json',
+                    'r6-native-output/blender_evaluated_rig.mp4']:
+            p=Path(f)
+            print('R6_NATIVE_EVIDENCE',f,p.stat().st_size if p.exists() else 'NOT_PRODUCED')
+            if p.suffix=='.json' and p.exists():print(p.read_text()[:4000])
+          PY
+      - name: Archive native bpy readback evidence and iPhone preview
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nasa-r6-blender-wheel-native-geometry
+          path: r6-native-output/
+          retention-days: 3
+          if-no-files-found: warn
