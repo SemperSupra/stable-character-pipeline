@@ -35,6 +35,12 @@ jobs:
         run: python -m unittest discover -v -s qualification/cc0_human_pose -p 'test_*.py'
       - name: Install CPU pose inference adapter
         run: python -m pip install --disable-pip-version-check --no-cache-dir 'mediapipe==0.10.21'
+      - name: Install missing video codec utility
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg
+          command -v ffmpeg
+          ffmpeg -version | head -n 1
       - name: Native CC0 source-bound original video and image pose inference
         run: python qualification/cc0_human_pose/probe.py --out pose-probe-output
       - name: Confirm receipt classifications without laundering inference
