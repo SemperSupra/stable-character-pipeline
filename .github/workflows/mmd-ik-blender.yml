@@ -1,0 +1,70 @@
+name: MMD G10c real Blender IK goal tracking probe
+on:
+  push:
+    branches: [qualification/mmd-public-20261027]
+    paths:
+      - '.github/mmd-ik-blender/**'
+      - '.github/workflows/mmd-ik-blender.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-g10c-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  imported-blender-ik-runtime-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - name: Checkout exact original source qualification script
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned real Blender MMD Tools upstream
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Retrieve original known SHA source PMX/VMD from G10a
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-structural-evidence
+          run-id: 40455687379
+          github-token: ${{ github.token }}
+          path: reference
+      - name: Select compatible Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Install actual CPU Blender bpy 4.5 and addon dependency
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'opencc-python-reimplemented==0.1.7'
+      - name: Measure real imported Blender IK constraints and ankle-to-goal displacement
+        timeout-minutes: 3
+        env:
+          OMP_NUM_THREADS: '2'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          python -m py_compile .github/mmd-ik-blender/ik_blender.py
+          python -u .github/mmd-ik-blender/ik_blender.py \
+            --source vendor/mmd-tools \
+            --model reference/synthetic_two_link_ik.pmx \
+            --motion reference/synthetic_foot_goal.vmd \
+            --out g10c-output
+      - name: Preserve source measured Blender IK evidence even if red
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-blender-ik-evidence
+          path: g10c-output/*
+          retention-days: 14
+          if-no-files-found: warn
