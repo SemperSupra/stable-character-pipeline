@@ -1,0 +1,84 @@
+name: Motion W1 original synthetic ASF AMC source admission Go CI
+on:
+  pull_request:
+    paths:
+      - 'motion_learning/asfamc/**'
+      - '.github/workflows/motion-asfamc-admission.yml'
+  push:
+    branches: [research/motion-asfamc-admission-go-20261027]
+    paths:
+      - 'motion_learning/asfamc/**'
+      - '.github/workflows/motion-asfamc-admission.yml'
+permissions:
+  contents: read
+concurrency:
+  group: motion-w1-asfamc-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synthetic-original-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Exact source only, no tokens persisted
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Go stdlib toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Race, vet and source parser adversarial proof
+        working-directory: motion_learning/asfamc
+        run: |
+          set -euo pipefail
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Headless human/automation/agent receipt
+        working-directory: motion_learning/asfamc
+        run: |
+          set -euo pipefail
+          mkdir -p ../../motion-w1-output
+          go run ./cmd/admit \
+            -asf testdata/leg.synthetic.asf -amc testdata/leg.synthetic.amc \
+            -source-id synthetic/leg-v1 -capture-group synthetic/session-1 \
+            -out ../../motion-w1-output/synthetic-admission-observation.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('../../motion-w1-output/synthetic-admission-observation.json')
+          r=json.loads(p.read_text())
+          assert r['status']=='PASS_SYNTHETIC_STRUCTURE_ONLY'
+          assert r['admission']=='NOT_ADMITTED'
+          assert r['observed_ground_contact'] is False
+          assert r['native_frame_rate']=='UNKNOWN'
+          assert r['fk_converted'] is False
+          assert len(r['frames'])==2 and r['frames'][0]['number']==1
+          assert len(r['unknown'])>=4
+          PY
+          sha256sum testdata/leg.synthetic.asf testdata/leg.synthetic.amc > ../../motion-w1-output/source-hashes.sha256
+      - name: Reject nonsynthetic input, preserving first failure
+        working-directory: motion_learning/asfamc
+        run: |
+          set -euo pipefail
+          printf ':units\nlength 0.45\n' > ../../motion-w1-output/unadmitted.asf
+          if go run ./cmd/admit -asf ../../motion-w1-output/unadmitted.asf \
+              -amc testdata/leg.synthetic.amc -source-id forbidden -capture-group denied \
+              -out ../../motion-w1-output/should-not-exist.json \
+              > ../../motion-w1-output/expected-rejection-stdout.txt \
+              2> ../../motion-w1-output/expected-rejection-stderr.txt; then
+            echo 'FAIL original data admission bypass' >&2
+            exit 1
+          fi
+          test ! -e ../../motion-w1-output/should-not-exist.json
+          grep -q 'SOURCE_HOLD' ../../motion-w1-output/expected-rejection-stderr.txt
+          echo '{"status":"EXPECTED_REJECTION","reason":"absent original synthetic provenance marker"}' > ../../motion-w1-output/negative-receipt.json
+          rm ../../motion-w1-output/unadmitted.asf
+      - name: Preserve proof artifacts only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: motion-asfamc-synthetic-w1-proof
+          path: motion-w1-output/*
+          retention-days: 14
+          if-no-files-found: warn
