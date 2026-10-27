@@ -98,9 +98,13 @@ func build(s contract.Scene,receipts []contract.AssetReceipt)([]string,PlanRecei
   ga:=math.Pow(10,s.Emitters[0].GainDB/20)
   gb:=math.Pow(10,s.Emitters[1].GainDB/20)
   if !finite(ga)||!finite(gb)||ga<=0||gb<=0{return nil,PlanReceipt{},errors.New("bad amplitude")}
-  lines=append(lines,fmt.Sprintf("%d %d %s %.12f %.12f %.12f %.12f %s %.12f %.12f %.12f %.12f",
+  stopA:=s.Emitters[0].SourceStopFrame;if stopA==0{stopA=frames}
+  stopB:=s.Emitters[1].SourceStopFrame;if stopB==0{stopB=frames}
+  lines=append(lines,fmt.Sprintf("%d %d %s %.12f %.12f %.12f %.12f %s %.12f %.12f %.12f %.12f %d %d %d %d",
    start,n,s.Emitters[0].ID,pA.AzimuthDeg,pA.ElevationDeg,pA.DistanceM,ga,
-   s.Emitters[1].ID,pB.AzimuthDeg,pB.ElevationDeg,pB.DistanceM,gb))
+   s.Emitters[1].ID,pB.AzimuthDeg,pB.ElevationDeg,pB.DistanceM,gb,
+   s.Emitters[0].SourceStartFrame,stopA,
+   s.Emitters[1].SourceStartFrame,stopB))
  }
  last:=frames%block;if last==0{last=block}
  return lines,PlanReceipt{
