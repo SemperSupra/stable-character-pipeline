@@ -1,0 +1,108 @@
+name: MMD W02 genuine Blender input custody attestation
+on:
+  pull_request:
+    paths:
+      - '.github/mmd-ik-blender/ik_blender.py'
+      - '.github/workflows/mmd-w02-blender-custody.yml'
+  push:
+    branches: [qualification/mmd-w02-evidence-contract-20261027]
+    paths:
+      - '.github/mmd-ik-blender/ik_blender.py'
+      - '.github/workflows/mmd-w02-blender-custody.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-w02-blender-custody-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-hash-inside-native-blender-process:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - name: Checkout only public stacked review branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pin real upstream Blender MMD Tools at previous G10c SHA
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          persist-credentials: false
+      - name: Retrieve rights-clean original G10a model/motion and authored fixture receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-structural-evidence
+          run-id: 40455687379
+          github-token: ${{ github.token }}
+          path: g10a-source
+      - name: Set compatible Python without a paid runner
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Install genuine headless Blender 4.5 and addon dependency
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'opencc-python-reimplemented==0.1.7'
+      - name: Execute actual source-native PMX/VMD operators with in-process SHA witness
+        timeout-minutes: 3
+        env:
+          OMP_NUM_THREADS: '2'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          python -m py_compile .github/mmd-ik-blender/ik_blender.py
+          python -u .github/mmd-ik-blender/ik_blender.py \
+            --source vendor/mmd-tools \
+            --model g10a-source/synthetic_two_link_ik.pmx \
+            --motion g10a-source/synthetic_foot_goal.vmd \
+            --source-receipt g10a-source/ik_fixture_receipt.json \
+            --out w02-blender-custody
+      - name: Independently compare real original input hashes and recorded engine receipt
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,math
+          src=Path('g10a-source')
+          receipt=json.loads(Path('w02-blender-custody/blender_ik_receipt.json').read_text())
+          old=json.loads((src/'ik_fixture_receipt.json').read_text())
+          recorded=receipt['input_source_digests']
+          for name,key,alias in (('synthetic_two_link_ik.pmx','pmx_sha256','model'),('synthetic_foot_goal.vmd','vmd_sha256','motion')):
+              source=src/name
+              exact=hashlib.sha256(source.read_bytes()).hexdigest()
+              assert exact==recorded[key]==old['hashes'][name],(alias,'original input SHA mismatch')
+          assert receipt['input_source_receipt_sha256']==hashlib.sha256((src/'ik_fixture_receipt.json').read_bytes()).hexdigest()
+          assert receipt['native_input_digests_rechecked_after_import'] is True
+          assert receipt['real_ik_constraint_count']>=1
+          assert sorted(receipt['samples'])==['0','15','30']
+          for frame in ['0','15','30']:
+              error=receipt['samples'][frame]['error']
+              assert math.isfinite(error) and 0<=error<.05,(frame,error)
+          assert (Path('w02-blender-custody/blender_ik_source.blend').stat().st_size)>1000
+          report={'status':'PASS_REAL_BLENDER_INPUT_SHA_IN_PROCESS',
+            'native_blender_runtime':receipt['blender'],
+            'mmd_tools':str(receipt['mmd_tools']),
+            'input_hashes':recorded,
+            'source_fixture_receipt_sha256':receipt['input_source_receipt_sha256'],
+            'foot_ground_contact':'NOT_TESTED',
+            'native_MMD_CCD_parity':'NOT_TESTED',
+            'source_model_rights':'ORIGINAL_SYNTHETIC_SOURCE_FIXTURE_ONLY'}
+          Path('w02-blender-custody/w02-blender-input-attestation.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+          print(json.dumps(report,sort_keys=True))
+          PY
+          sha256sum g10a-source/synthetic_two_link_ik.pmx g10a-source/synthetic_foot_goal.vmd g10a-source/ik_fixture_receipt.json > w02-blender-custody/original-input-sha256.txt
+          sha256sum w02-blender-custody/blender_ik_receipt.json w02-blender-custody/blender_ik_source.blend > w02-blender-custody/runtime-output-sha256.txt
+      - name: Preserve receipt and editable native work product (original source only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mmd-w02-blender-input-sha-runtime-evidence
+          path: w02-blender-custody/*
+          retention-days: 14
+          if-no-files-found: warn
