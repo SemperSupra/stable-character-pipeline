@@ -1,0 +1,56 @@
+{
+  "schema": "scp.mmd.proof-bundle.v1",
+  "fixture": {
+    "id": "mmd-g7-synthetic",
+    "source_uri": "urn:synthetic:mmd-g7",
+    "source_sha256": "3f8721e15589b2b107cfbb73695a9c121459efab6b0746da22a4603f6fd8e27a",
+    "frame_count": 31,
+    "semantics": {
+      "native_format": "PMX",
+      "native_bone_labels": [
+        "腰",
+        "ひざ",
+        "足首"
+      ],
+      "native_morph_labels": [],
+      "units": "source_unit",
+      "meters_per_unit": 0.08,
+      "axes": "RH_Y_UP",
+      "fps_numerator": 30,
+      "fps_denominator": 1,
+      "frame_origin": 0,
+      "rights": {
+        "asset_rights": "ORIGINAL_SYNTHETIC",
+        "evidence_uri": "urn:original:fixture",
+        "cloud_allowed": true,
+        "redistribute_allowed": true
+      }
+    }
+  },
+  "observations": [
+    {
+      "id": "blender-f15",
+      "engine": "blender",
+      "engine_version": "4.5",
+      "fixture_sha256": "3f8721e15589b2b107cfbb73695a9c121459efab6b0746da22a4603f6fd8e27a",
+      "frame": 15,
+      "time_seconds": 0.5,
+      "status": "PASS",
+      "measured": {
+        "ankle_goal_error": 0.012
+      },
+      "declared_loss": []
+    }
+  ],
+  "metrics": [
+    {
+      "id": "goal-f15",
+      "observation_id": "blender-f15",
+      "oracle": "independent-glb-transform",
+      "status": "PASS",
+      "units": "source_unit",
+      "value": 0.012
+    }
+  ],
+  "verdict": "PASS"
+}
