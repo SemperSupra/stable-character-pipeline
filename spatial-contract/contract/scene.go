@@ -37,6 +37,10 @@ type Emitter struct {
  // These are NOT source-file offset seek/shift operations.
  SourceStartFrame int `json:"source_start_frame,omitempty"`
  SourceStopFrame int `json:"source_stop_frame,omitempty"`
+ // Empty transport is backward-compatible scene-locked indexing.
+ // Clip-relative indexes source at sceneFrame - SourceStartFrame + SourceOffsetFrame.
+ SourceTransport string `json:"source_transport,omitempty"`
+ SourceOffsetFrame int `json:"source_offset_frame,omitempty"`
 }
 type Output struct {
  ID string `json:"id"`
@@ -99,6 +103,16 @@ func (s Scene)Validate()error{
   if v.SourceStartFrame<0 || v.SourceStartFrame>=s.DurationMS*48 ||
      stop<=v.SourceStartFrame || stop>s.DurationMS*48 {
    return fmt.Errorf("invalid sample-frame source window for %q",v.ID)
+  }
+  switch v.SourceTransport {
+  case "", "scene_locked":
+   if v.SourceOffsetFrame!=0{return fmt.Errorf("offset without clip-relative transport for %q",v.ID)}
+  case "clip_relative":
+   if v.SourceOffsetFrame<0 || v.SourceOffsetFrame>=s.DurationMS*48 ||
+      v.SourceOffsetFrame+(stop-v.SourceStartFrame)>s.DurationMS*48 {
+    return fmt.Errorf("clip-relative source range exceeds admitted audio for %q",v.ID)
+   }
+  default:return fmt.Errorf("unqualified source transport for %q",v.ID)
   }
  }
  outputIDs:=map[string]bool{}

@@ -100,11 +100,19 @@ func build(s contract.Scene,receipts []contract.AssetReceipt)([]string,PlanRecei
   if !finite(ga)||!finite(gb)||ga<=0||gb<=0{return nil,PlanReceipt{},errors.New("bad amplitude")}
   stopA:=s.Emitters[0].SourceStopFrame;if stopA==0{stopA=frames}
   stopB:=s.Emitters[1].SourceStopFrame;if stopB==0{stopB=frames}
-  lines=append(lines,fmt.Sprintf("%d %d %s %.12f %.12f %.12f %.12f %s %.12f %.12f %.12f %.12f %d %d %d %d",
+  line:=fmt.Sprintf("%d %d %s %.12f %.12f %.12f %.12f %s %.12f %.12f %.12f %.12f %d %d %d %d",
    start,n,s.Emitters[0].ID,pA.AzimuthDeg,pA.ElevationDeg,pA.DistanceM,ga,
    s.Emitters[1].ID,pB.AzimuthDeg,pB.ElevationDeg,pB.DistanceM,gb,
    s.Emitters[0].SourceStartFrame,stopA,
-   s.Emitters[1].SourceStartFrame,stopB))
+   s.Emitters[1].SourceStartFrame,stopB)
+  // Do not change the legacy sixteen-column wire format without opt-in.
+  if s.Emitters[0].SourceTransport=="clip_relative" || s.Emitters[1].SourceTransport=="clip_relative" {
+   modeA,modeB:="scene_locked","scene_locked"
+   if s.Emitters[0].SourceTransport=="clip_relative" {modeA="clip_relative"}
+   if s.Emitters[1].SourceTransport=="clip_relative" {modeB="clip_relative"}
+   line+=fmt.Sprintf(" %s %d %s %d",modeA,s.Emitters[0].SourceOffsetFrame,modeB,s.Emitters[1].SourceOffsetFrame)
+  }
+  lines=append(lines,line)
  }
  last:=frames%block;if last==0{last=block}
  return lines,PlanReceipt{

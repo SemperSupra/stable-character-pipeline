@@ -152,6 +152,7 @@ void runDual(const std::string&srcA,const std::string&srcB,const std::string&pla
  int start=0,n=0;
  int aOn=0,aOff=0,bOn=0,bOff=0;
  int prevAOn=-1,prevAOff=-1,prevBOn=-1,prevBOff=-1;
+ std::string prevModeA,prevModeB;int prevOffsetA=-1,prevOffsetB=-1;
  std::string idA,idB;
  double azA=0,elA=0,distA=0,gainA=0,azB=0,elB=0,distB=0,gainB=0;
  std::string line;
@@ -159,8 +160,15 @@ void runDual(const std::string&srcA,const std::string&srcB,const std::string&pla
   std::istringstream parse(line);
   if(!(parse>>start>>n>>idA>>azA>>elA>>distA>>gainA>>idB>>azB>>elB>>distB>>gainB>>aOn>>aOff>>bOn>>bOff))
     throw std::runtime_error("incomplete dual source instruction");
+  std::string modeA="scene_locked",modeB="scene_locked";
+  int offsetA=0,offsetB=0;
   parse>>std::ws;
-  if(!parse.eof())throw std::runtime_error("extra dual source instruction field");
+  if(!parse.eof()){
+   if(!(parse>>modeA>>offsetA>>modeB>>offsetB))
+    throw std::runtime_error("incomplete source transport instruction");
+   parse>>std::ws;
+   if(!parse.eof())throw std::runtime_error("extra dual source instruction field");
+  }
   if(start<0 || (size_t)start!=consumed || n<=0 || n>(int)kFrame ||
      consumed+(size_t)n>a.size() || idA!="robot_a" || idB!="robot_b")
    throw std::runtime_error("dual-track id/time/frame discontinuity");
@@ -172,17 +180,37 @@ void runDual(const std::string&srcA,const std::string&srcB,const std::string&pla
   if(aOn<0||bOn<0||aOff<=aOn||bOff<=bOn||
       aOff>(int)a.size()||bOff>(int)b.size())
    throw std::runtime_error("invalid absolute source sample window");
-  if(blocks==0){prevAOn=aOn;prevAOff=aOff;prevBOn=bOn;prevBOff=bOff;}
-  if(aOn!=prevAOn||aOff!=prevAOff||bOn!=prevBOn||bOff!=prevBOff)
-   throw std::runtime_error("inconsistent source windows between blocks");
+  auto validTransport=[](const std::string&mode,int offset,int on,int off,size_t size){
+   if(mode=="scene_locked")return offset==0;
+   if(mode!="clip_relative"||offset<0)return false;
+   return (uint64_t)offset+(uint64_t)(off-on)<=(uint64_t)size;
+  };
+  if(!validTransport(modeA,offsetA,aOn,aOff,a.size())||
+     !validTransport(modeB,offsetB,bOn,bOff,b.size()))
+   throw std::runtime_error("invalid or out-of-source clip transport");
+  if(blocks==0){
+   prevAOn=aOn;prevAOff=aOff;prevBOn=bOn;prevBOff=bOff;
+   prevModeA=modeA;prevModeB=modeB;prevOffsetA=offsetA;prevOffsetB=offsetB;
+  }
+  if(aOn!=prevAOn||aOff!=prevAOff||bOn!=prevBOn||bOff!=prevBOff||
+     modeA!=prevModeA||modeB!=prevModeB||offsetA!=prevOffsetA||offsetB!=prevOffsetB)
+   throw std::runtime_error("inconsistent source windows/transport between blocks");
   if(!valid(azA,elA,distA,gainA)||!valid(azB,elB,distB,gainB))
    throw std::runtime_error("invalid source pose or gain");
   std::fill(blockA.begin(),blockA.end(),0.f);
   std::fill(blockB.begin(),blockB.end(),0.f);
   for(int i=0;i<n;i++){
    const auto frame=(int)(consumed+(size_t)i);
-   blockA[i]=(frame>=aOn&&frame<aOff)?(float)(a[(size_t)frame]*gainA):0.f;
-   blockB[i]=(frame>=bOn&&frame<bOff)?(float)(b[(size_t)frame]*gainB):0.f;
+   if(frame>=aOn&&frame<aOff){
+    const size_t sourceIndex=(size_t)(modeA=="clip_relative"?frame-aOn+offsetA:frame);
+    if(sourceIndex>=a.size())throw std::runtime_error("A source transport overflow");
+    blockA[i]=(float)(a[sourceIndex]*gainA);
+   }else blockA[i]=0.f;
+   if(frame>=bOn&&frame<bOff){
+    const size_t sourceIndex=(size_t)(modeB=="clip_relative"?frame-bOn+offsetB:frame);
+    if(sourceIndex>=b.size())throw std::runtime_error("B source transport overflow");
+    blockB[i]=(float)(b[sourceIndex]*gainB);
+   }else blockB[i]=0.f;
   }
   spaudio::ObjectMetadata ma,mb;
   ma.blockLength=kFrame;ma.trackInd=0;

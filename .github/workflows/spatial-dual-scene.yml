@@ -180,6 +180,49 @@ jobs:
           (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/dual-gated-5.1.wav")
           (cd spatial-contract && go run ./cmd/dual-spectrum windows \
              "$RUNNER_TEMP/dual-original-5.1.wav" "$RUNNER_TEMP/dual-gated-5.1.wav")
+      - name: Verify true clip-relative source-file transport distinct from scene mute
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/dual-fixture/scene.json" "$RUNNER_TEMP/clip-start0.json" "$RUNNER_TEMP/clip-offset512.json" <<'PY'
+          import json,sys
+          source=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert source['emitters'][1]['id']=='robot_b'
+          b=source['emitters'][1]
+          b['source_start_frame']=24575
+          b['source_stop_frame']=36865
+          b['source_transport']='clip_relative'
+          b['source_offset_frame']=0
+          with open(sys.argv[2],'w',encoding='utf-8') as f:json.dump(source,f)
+          b['source_offset_frame']=512
+          with open(sys.argv[3],'w',encoding='utf-8') as f:json.dump(source,f)
+          PY
+          (cd spatial-contract && go run ./cmd/spatial-dual plan \
+            "$RUNNER_TEMP/clip-start0.json" "$RUNNER_TEMP/dual-fixture" \
+            "$RUNNER_TEMP/clip-start0.tsv" > "$RUNNER_TEMP/clip-start0-receipt.json")
+          (cd spatial-contract && go run ./cmd/spatial-dual plan \
+            "$RUNNER_TEMP/clip-offset512.json" "$RUNNER_TEMP/dual-fixture" \
+            "$RUNNER_TEMP/clip-offset512.tsv" > "$RUNNER_TEMP/clip-offset512-receipt.json")
+          python3 - "$RUNNER_TEMP/clip-start0.tsv" "$RUNNER_TEMP/clip-offset512.tsv" <<'PY'
+          import pathlib,sys
+          lines=[pathlib.Path(x).read_text().strip().splitlines() for x in sys.argv[1:]]
+          assert all(len(x)==47 for x in lines)
+          assert all(len(line.split())==20 for seq in lines for line in seq)
+          assert all(line.split()[-4:]==['scene_locked','0','clip_relative','0'] for line in lines[0])
+          assert all(line.split()[-4:]==['scene_locked','0','clip_relative','512'] for line in lines[1])
+          print('spatial_source_transport_metadata_PASS scene_gate_start=24575 source_offsets=0,512')
+          PY
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/install/lib"
+          "$RUNNER_TEMP/dual-renderer" \
+            "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-fixture/robot_b.wav" \
+            "$RUNNER_TEMP/clip-start0.tsv" "$RUNNER_TEMP/clip-start0-5.1.wav"
+          "$RUNNER_TEMP/dual-renderer" \
+            "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-fixture/robot_b.wav" \
+            "$RUNNER_TEMP/clip-offset512.tsv" "$RUNNER_TEMP/clip-offset512-5.1.wav"
+          (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/clip-start0-5.1.wav")
+          (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/clip-offset512-5.1.wav")
+          (cd spatial-contract && go run ./cmd/transport-spectrum \
+            "$RUNNER_TEMP/clip-start0-5.1.wav" "$RUNNER_TEMP/clip-offset512-5.1.wav")
+          echo "source_transport_NATIVE_VERIFY_PASS rights_clean=true native_stereo_QUARANTINED=true"
       - name: "Negative controls: missing block, output collision, tampered second source"
         run: |
           set -euo pipefail
@@ -210,6 +253,10 @@ jobs:
       - name: Remove public test media and transient source builds
         if: always()
         run: |
+          rm -f "$RUNNER_TEMP/clip-start0.json" "$RUNNER_TEMP/clip-offset512.json" \
+            "$RUNNER_TEMP/clip-start0.tsv" "$RUNNER_TEMP/clip-offset512.tsv" \
+            "$RUNNER_TEMP/clip-start0-receipt.json" "$RUNNER_TEMP/clip-offset512-receipt.json" \
+            "$RUNNER_TEMP/clip-start0-5.1.wav" "$RUNNER_TEMP/clip-offset512-5.1.wav"
           rm -rf "$RUNNER_TEMP/dual-fixture" "$RUNNER_TEMP/dual-tampered" "$RUNNER_TEMP/dual-retuned" \
             "$RUNNER_TEMP/libspatialaudio" "$RUNNER_TEMP/build" "$RUNNER_TEMP/install" \
             "$RUNNER_TEMP/dual-renderer" "$RUNNER_TEMP/dual-"*.wav "$RUNNER_TEMP/dual-"*.tsv \
