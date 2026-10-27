@@ -1,0 +1,54 @@
+name: MMD G10d cross-engine IK contact fidelity hard gate
+on:
+  push:
+    branches: [qualification/mmd-public-20261027]
+    paths:
+      - '.github/mmd-ik-cross/**'
+      - '.github/workflows/mmd-ik-cross-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-g10d-cross-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  blender-versus-direct-ik-error:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Checkout independent glTF IK gate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Download exact verified independent solver target tracking receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-contact-falsification
+          run-id: 40456000406
+          github-token: ${{ github.token }}
+          path: direct-reference
+      - name: Download exact original real Blender IK import runtime receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-blender-ik-evidence
+          run-id: 40456318062
+          github-token: ${{ github.token }}
+          path: blender-reference
+      - name: Independently compare original ankle-to-goal errors and reject failed parity
+        run: |
+          set -euo pipefail
+          python3 -m py_compile .github/mmd-ik-cross/compare.py
+          python3 .github/mmd-ik-cross/compare.py \
+            --blender blender-reference/blender_ik_receipt.json \
+            --direct direct-reference/ik_contact_receipt.json \
+            --out results/ik_cross_engine_parity.json
+      - name: Preserve red cross-engine parity failure with source references
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-mmd-ik-two-engine-parity-evidence
+          path: results/*
+          retention-days: 14
+          if-no-files-found: warn
