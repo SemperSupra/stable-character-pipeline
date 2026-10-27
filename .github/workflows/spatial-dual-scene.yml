@@ -1,0 +1,172 @@
+name: Spatial W3a genuine dual-emitter native 5.1 qualification
+on:
+  pull_request:
+    paths:
+      - 'spatial-contract/**'
+      - '.github/workflows/spatial-dual-scene.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dual-source-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+      - name: Install $0 public native build and audio validation dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y meson ninja-build pkg-config g++ ffmpeg git
+      - name: Go strict source custody, regression, negative and race tests
+        working-directory: spatial-contract
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Create actual two independently SHA-admitted public synthetic sources and blockplan
+        working-directory: spatial-contract
+        run: |
+          set -euo pipefail
+          go run ./cmd/spatial-dual fixture "$RUNNER_TEMP/dual-fixture"
+          go run ./cmd/spatial-dual plan "$RUNNER_TEMP/dual-fixture/scene.json" "$RUNNER_TEMP/dual-fixture" \
+            "$RUNNER_TEMP/dual-plan.tsv" > "$RUNNER_TEMP/dual-receipt.json"
+          python3 - "$RUNNER_TEMP/dual-fixture" "$RUNNER_TEMP/dual-plan.tsv" "$RUNNER_TEMP/dual-receipt.json" <<'PY'
+          import hashlib,json,pathlib,sys
+          root,plan,receipt=pathlib.Path(sys.argv[1]),pathlib.Path(sys.argv[2]),pathlib.Path(sys.argv[3])
+          scene=json.loads((root/"scene.json").read_text())
+          proof=json.loads(receipt.read_text())
+          assert proof["schema"]=="spatial_audio.dual_blockplan.v1"
+          assert proof["classification"]=="PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL"
+          assert proof["frames"]==48000 and proof["blocks"]==47 and proof["last_block"]==896
+          assert [x["id"] for x in proof["tracks"]]==["robot_a","robot_b"]
+          assert scene["emitters"][0]["asset_sha256"]!=scene["emitters"][1]["asset_sha256"]
+          for em in scene["emitters"]:
+            assert hashlib.sha256((root/em["audio_asset"]).read_bytes()).hexdigest()==em["asset_sha256"]
+          lines=plan.read_text().strip().splitlines()
+          assert len(lines)==47 and sum(int(x.split()[1]) for x in lines)==48000
+          assert all(x.split()[2]=="robot_a" and x.split()[7]=="robot_b" for x in lines)
+          assert float(lines[0].split()[3])<0 and float(lines[0].split()[8])>0
+          assert float(lines[24].split()[3])>0 and float(lines[24].split()[8])<0
+          print("spatial_w3_dual_real_source_PASS emitters=2 ids=stable frames=48000 distinct_real_sha=true blocks=47")
+          PY
+      - name: Compile pinned upstream VideoLAN LGPL spatial engine and first-party dual adapter
+        run: |
+          set -euo pipefail
+          repo="$RUNNER_TEMP/libspatialaudio"
+          git init -q "$repo"
+          git -C "$repo" remote add origin https://github.com/videolan/libspatialaudio.git
+          git -C "$repo" fetch -q --depth=1 origin d149ed9744fd399b835c6f2920511f8cbcfce5ea
+          git -C "$repo" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$repo" rev-parse HEAD)" = "d149ed9744fd399b835c6f2920511f8cbcfce5ea"
+          grep -q LGPLv2.1 "$repo/LICENSE"
+          meson setup "$RUNNER_TEMP/build" "$repo" \
+            -Dlibmysofa=disabled -Dmit_hrtf=enabled \
+            --prefix="$RUNNER_TEMP/install" --libdir=lib --buildtype=release
+          meson compile -C "$RUNNER_TEMP/build"
+          meson test -C "$RUNNER_TEMP/build" --print-errorlogs
+          meson install -C "$RUNNER_TEMP/build"
+          export PKG_CONFIG_PATH="$RUNNER_TEMP/install/lib/pkgconfig"
+          g++ -std=c++14 -Wall -Wextra -O2 -I"$RUNNER_TEMP/install/include/spatialaudio" \
+            spatial-contract/native/dual_renderer.cpp -o "$RUNNER_TEMP/dual-renderer" \
+            $(pkg-config --cflags --libs spatialaudio)
+          echo "spatial_w3_pinned_two_source_native_BUILD_PASS"
+      - name: Render two native objects simultaneously and independently decode actual 5.1 PCM
+        run: |
+          set -euo pipefail
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/install/lib"
+          "$RUNNER_TEMP/dual-renderer" \
+            "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-fixture/robot_b.wav" \
+            "$RUNNER_TEMP/dual-plan.tsv" "$RUNNER_TEMP/dual-original-5.1.wav"
+          (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/dual-original-5.1.wav")
+          # Exact replay must have the same bytes on a DIFFERENT target without mutating source.
+          "$RUNNER_TEMP/dual-renderer" \
+            "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-fixture/robot_b.wav" \
+            "$RUNNER_TEMP/dual-plan.tsv" "$RUNNER_TEMP/dual-replay-5.1.wav"
+          test "$(sha256sum "$RUNNER_TEMP/dual-original-5.1.wav" | cut -d' ' -f1)" = \
+               "$(sha256sum "$RUNNER_TEMP/dual-replay-5.1.wav" | cut -d' ' -f1)"
+          echo "spatial_w3_dual_exact_replay_BYTE_IDENTICAL_PASS"
+      - name: Edit independent source B trajectory; prove same audio sources produce different actual spatial PCM
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/dual-fixture/scene.json" "$RUNNER_TEMP/dual-altered.json" <<'PY'
+          import json,sys
+          s=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert s["emitters"][0]["id"]=="robot_a" and s["emitters"][1]["id"]=="robot_b"
+          s["emitters"][1]["motion"][0]["position_m"]["x"]=-1
+          s["emitters"][1]["motion"][1]["position_m"]["x"]=-1
+          with open(sys.argv[2],"w",encoding="utf-8") as f:json.dump(s,f)
+          PY
+          (cd spatial-contract && go run ./cmd/spatial-dual plan \
+            "$RUNNER_TEMP/dual-altered.json" "$RUNNER_TEMP/dual-fixture" \
+            "$RUNNER_TEMP/dual-altered.tsv" > "$RUNNER_TEMP/dual-altered-receipt.json")
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/install/lib"
+          "$RUNNER_TEMP/dual-renderer" \
+            "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-fixture/robot_b.wav" \
+            "$RUNNER_TEMP/dual-altered.tsv" "$RUNNER_TEMP/dual-altered-5.1.wav"
+          (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/dual-altered-5.1.wav")
+          test "$(sha256sum "$RUNNER_TEMP/dual-original-5.1.wav" | cut -d' ' -f1)" != \
+               "$(sha256sum "$RUNNER_TEMP/dual-altered-5.1.wav" | cut -d' ' -f1)"
+          echo "spatial_w3_independent_B_trajectory_edit_PCM_DELTA_PASS"
+      - name: Prove source B 690-to-930 retune changes only its content contribution
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/dual-retuned"
+          cp "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-retuned/robot_a.wav"
+          (cd spatial-contract && go run ./cmd/spatial-dual tone "$RUNNER_TEMP/dual-retuned/robot_b.wav" 930)
+          python3 - "$RUNNER_TEMP/dual-fixture/scene.json" "$RUNNER_TEMP/dual-retuned/scene.json" \
+             "$RUNNER_TEMP/dual-retuned/robot_b.wav" <<'PY'
+          import hashlib,json,sys
+          scene=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert scene["emitters"][0]["id"]=="robot_a" and scene["emitters"][1]["id"]=="robot_b"
+          scene["emitters"][1]["asset_sha256"]=hashlib.sha256(open(sys.argv[3],"rb").read()).hexdigest()
+          assert scene["emitters"][1]["asset_sha256"]!=scene["emitters"][0]["asset_sha256"]
+          with open(sys.argv[2],"w",encoding="utf-8") as f:json.dump(scene,f)
+          PY
+          (cd spatial-contract && go run ./cmd/spatial-dual plan \
+             "$RUNNER_TEMP/dual-retuned/scene.json" "$RUNNER_TEMP/dual-retuned" \
+             "$RUNNER_TEMP/dual-retuned-plan.tsv" > "$RUNNER_TEMP/dual-retuned-plan.json")
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/install/lib"
+          "$RUNNER_TEMP/dual-renderer" \
+            "$RUNNER_TEMP/dual-retuned/robot_a.wav" "$RUNNER_TEMP/dual-retuned/robot_b.wav" \
+            "$RUNNER_TEMP/dual-retuned-plan.tsv" "$RUNNER_TEMP/dual-retuned-5.1.wav"
+          (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/dual-retuned-5.1.wav")
+          (cd spatial-contract && go run ./cmd/dual-spectrum \
+             "$RUNNER_TEMP/dual-original-5.1.wav" "$RUNNER_TEMP/dual-retuned-5.1.wav")
+      - name: "Negative controls: missing block, output collision, tampered second source"
+        run: |
+          set -euo pipefail
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/install/lib"
+          if "$RUNNER_TEMP/dual-renderer" \
+             "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-fixture/robot_b.wav" \
+             "$RUNNER_TEMP/dual-plan.tsv" "$RUNNER_TEMP/dual-original-5.1.wav"; then
+            echo "OUTPUT_COLLISION_ACCEPTED" >&2; exit 1
+          fi
+          sed '2d' "$RUNNER_TEMP/dual-plan.tsv" > "$RUNNER_TEMP/dual-skipped.tsv"
+          if "$RUNNER_TEMP/dual-renderer" \
+             "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-fixture/robot_b.wav" \
+             "$RUNNER_TEMP/dual-skipped.tsv" "$RUNNER_TEMP/dual-skipped-5.1.wav"; then
+            echo "MISSING_BLOCK_ACCEPTED" >&2; exit 1
+          fi
+          mkdir "$RUNNER_TEMP/dual-tampered"
+          cp "$RUNNER_TEMP/dual-fixture/"*.wav "$RUNNER_TEMP/dual-tampered/"
+          python3 - "$RUNNER_TEMP/dual-tampered/robot_b.wav" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]);data=bytearray(p.read_bytes());data[80]^=0x01;p.write_bytes(data)
+          PY
+          if (cd spatial-contract && go run ./cmd/spatial-dual plan \
+             "$RUNNER_TEMP/dual-fixture/scene.json" "$RUNNER_TEMP/dual-tampered" \
+             "$RUNNER_TEMP/rejected.tsv"); then
+            echo "TAMPERED_SOURCE_ACCEPTED" >&2; exit 1
+          fi
+          echo "spatial_w3_negative_guard_PASS skipped_frame=true collision=true second_sha_mismatch=true"
+      - name: Remove public test media and transient source builds
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/dual-fixture" "$RUNNER_TEMP/dual-tampered" "$RUNNER_TEMP/dual-retuned" \
+            "$RUNNER_TEMP/libspatialaudio" "$RUNNER_TEMP/build" "$RUNNER_TEMP/install" \
+            "$RUNNER_TEMP/dual-renderer" "$RUNNER_TEMP/dual-"*.wav "$RUNNER_TEMP/dual-"*.tsv \
+            "$RUNNER_TEMP/dual-"*.json "$RUNNER_TEMP/rejected.tsv"
