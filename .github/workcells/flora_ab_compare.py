@@ -11,6 +11,12 @@ import math
 import sys
 from pathlib import Path
 
+# Blender --python does not guarantee the script directory is importable.
+WORKCELL_ROOT = Path(__file__).resolve().parent
+if str(WORKCELL_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKCELL_ROOT))
+from flora_png_pixels import pixel_receipt
+
 import bpy
 from mathutils import Vector
 
@@ -144,6 +150,7 @@ def main():
     fixed_span=max(max(m["extent_m"]) for m in metrics.values())
     cam_data.ortho_scale=fixed_span*2.1
     views={}
+    views_rgba8={}
     for label,meshes in groups.items():
         visible=set(meshes)
         # Turn off every original scene object except the selected real meshes.
@@ -161,6 +168,7 @@ def main():
         if not target.exists() or target.stat().st_size < 4096 or target.read_bytes()[:8]!=b"\x89PNG\r\n\x1a\n":
             raise RuntimeError("missing native Blender A/B frame "+label)
         views[label]=digest(target)
+        views_rgba8[label]=pixel_receipt(target)
     if len(set(views.values()))!=3:
         raise RuntimeError("duplicate A/B source frames")
     evidence={
@@ -176,6 +184,7 @@ def main():
         "blender_version":bpy.app.version_string,
         "camera_ortho_scale":round(cam_data.ortho_scale,6),
         "metrics":metrics, "views_sha256":views,
+        "views_rgba8":views_rgba8,
         "limitations":["different proxy types and assumed F1 units; dimensions are not biologically commensurate",
                        "no botanical references or species homologous ground truth",
                        "no leaf attachment, wind, development, physics or light validation"]
