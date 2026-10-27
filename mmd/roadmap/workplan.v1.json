@@ -79,7 +79,7 @@
       "id": "W01",
       "phase": "P0",
       "title": "Machine-readable workplan, DAG and readiness validator",
-      "status": "READY",
+      "status": "DONE",
       "depends_on": [
         "G11A"
       ],
@@ -93,13 +93,14 @@
         "automation",
         "agent"
       ],
-      "risk": "medium"
+      "risk": "medium",
+      "completion_evidence": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40467605178"
     },
     {
       "id": "W02",
       "phase": "P0",
       "title": "Go Evidence/Fixture/SourceSemantics typed v1 contract",
-      "status": "PLANNED",
+      "status": "READY",
       "depends_on": [
         "W01"
       ],
