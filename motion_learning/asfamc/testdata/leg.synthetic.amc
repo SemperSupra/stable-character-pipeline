@@ -1,0 +1,12 @@
+# SCP_ORIGINAL_SYNTHETIC_FIXTURE_V1
+# Intentionally fabricated channel values; NOT a captured gait or actual timestamp.
+:fully-specified
+:degrees
+1
+root 0 0 0 0 0 0
+lhip 0 0 0
+lknee 0
+2
+root 1 2 3 0 0 0
+lhip 1 0 -1
+lknee 4
