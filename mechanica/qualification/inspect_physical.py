@@ -125,6 +125,34 @@ def world_bounds(obj):
             "WORLD_BBOX_NONFINITE:" + obj.name)
     return (lo, hi)
 
+def world_bvh(obj):
+    """Triangle-surface BVH. Detects intersecting triangles, not load/physics."""
+    from mathutils.bvhtree import BVHTree
+    verts = [tuple(obj.matrix_world @ vertex.co)
+             for vertex in obj.data.vertices]
+    polys = [tuple(poly.vertices) for poly in obj.data.polygons]
+    require(bool(polys) and all(len(poly) == 3 for poly in polys),
+            "NARROWPHASE_NONTRIANGULAR_MESH:" + obj.name)
+    return BVHTree.FromPolygons(verts, polys, all_triangles=True)
+
+
+def narrowphase_self_test(bpy):
+    """Independent Blender-generated collision / separation fixtures."""
+    bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 0))
+    a = bpy.context.object
+    bpy.ops.mesh.primitive_cube_add(size=2, location=(1, 0, 0))
+    b = bpy.context.object
+    bpy.context.view_layer.update()
+    positives = world_bvh(a).overlap(world_bvh(b))
+    require(len(positives) > 0, "BVH_PENETRATION_POSITIVE_CONTROL_FAILED")
+    b.location = (5, 0, 0)
+    bpy.context.view_layer.update()
+    negatives = world_bvh(a).overlap(world_bvh(b))
+    require(len(negatives) == 0, "BVH_SEPARATION_NEGATIVE_CONTROL_FAILED")
+    bpy.data.objects.remove(a, do_unlink=True)
+    bpy.data.objects.remove(b, do_unlink=True)
+
+
 def extract(args):
     import bpy
     directory = pathlib.Path(args.preview_dir)
@@ -133,6 +161,7 @@ def extract(args):
     provenance = (directory / "provenance.txt").read_text()
     assert f"source_sha={GENERATOR_SHA}" in provenance
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    narrowphase_self_test(bpy)
     bpy.ops.import_scene.gltf(filepath=str(path.resolve()))
     scene = bpy.context.scene
     meshes = {o.name: o for o in bpy.data.objects if o.type == "MESH"}
@@ -154,7 +183,10 @@ def extract(args):
         "sampled_frames": list(SAMPLES),
         "support": [],
         "candidate_collisions": [],
+        "surface_intersection_candidates": [],
         "candidate_counts": {},
+        "narrowphase_method": "world-space Blender BVHTree overlapping triangle surfaces",
+        "narrowphase_negative_controls": "PASS",
         "negative_controls": "PASS",
         "limitations": [
             "Bounding geometry, not triangle narrowphase or swept-volume collision",
@@ -197,18 +229,52 @@ def extract(args):
                     status == "ABOVE_INFERRED_PLANE":
                 hover.append(row)
         pair_count = 0
+        bvh_cache = {}
         for a, b in PAIRS:
             depths = intersection_depth(bboxes[a], bboxes[b])
             if depths is not None:
                 pair_count += 1
+                if a not in bvh_cache:
+                    bvh_cache[a] = world_bvh(meshes[a])
+                if b not in bvh_cache:
+                    bvh_cache[b] = world_bvh(meshes[b])
+                triangle_pairs = bvh_cache[a].overlap(bvh_cache[b])
                 report["candidate_collisions"].append({
                     "frame": frame, "object_a": a, "object_b": b,
                     "aabb_intersection_depth_m": depths,
-                    "narrowphase_verified": False,
+                    "surface_triangle_pair_count": len(triangle_pairs),
+                    "narrowphase_method": "BVH triangle surface overlap",
                 })
+                if triangle_pairs:
+                    report["surface_intersection_candidates"].append({
+                        "frame": frame, "object_a": a, "object_b": b,
+                        "surface_triangle_pair_count": len(triangle_pairs),
+                        "physical_collision_certified": False,
+                    })
         report["candidate_counts"][str(frame)] = pair_count
     report["neutral_pose_walker_hover_observations"] = hover
     report["below_plane_observations"] = penetration
+    # Red-team the tempting but unsafe 'just lower the whole walker' fix.
+    # A rigid translation does not solve changing gait contacts.
+    walker = [v for v in report["support"] if v["category"] == "walker"]
+    neutral = [v["delta_to_inferred_support_m"] for v in walker
+               if v["frame"] in (SAMPLES[0], SAMPLES[-1])]
+    require(len(neutral) == 4, "MISSING_NEUTRAL_WALKER_SAMPLES")
+    proposed_shift = -statistics.median(neutral)
+    translated = [{
+        "frame": row["frame"], "object": row["object"],
+        "projected_gap_m": round(row["delta_to_inferred_support_m"] +
+                                  proposed_shift, 5)}
+        for row in walker]
+    predicted_penetrations = [row for row in translated
+                              if row["projected_gap_m"] < -PENETRATION_TOL]
+    report["naive_constant_root_shift"] = {
+        "offset_z_m": round(proposed_shift, 5),
+        "predicted_support": translated,
+        "would_break_ground_tolerance": bool(predicted_penetrations),
+        "predicted_below_plane_samples": predicted_penetrations,
+        "note": "Hypothetical translation only; no asset/animation modified",
+    }
     report["potential_findings"] = (
         ["WALKER_NEUTRAL_POSE_GAP"] if hover else []
     ) + (["GEOMETRY_BELOW_REFERENCE"] if penetration else []) + (
