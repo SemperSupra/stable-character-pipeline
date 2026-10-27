@@ -8,6 +8,7 @@ import (
     "encoding/json"
     "errors"
     "fmt"
+    "io"
     "sort"
     "strings"
 )
@@ -83,8 +84,8 @@ func Decode(data []byte) (Workplan, error) {
     decoder.DisallowUnknownFields()
     if err := decoder.Decode(&w); err != nil { return w, fmt.Errorf("workplan JSON: %w", err) }
     var extra interface{}
-    if err := decoder.Decode(&extra); !errors.Is(err, errors.New("")) {
-        // Check trailing bytes separately below: decoder must report io.EOF.
+    if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+        return w, errors.New("trailing JSON object or data after workplan")
     }
     if err := Validate(w); err != nil { return w, err }
     return w, nil
