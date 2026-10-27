@@ -1,11 +1,5 @@
 name: MMD W04 pinned Babylon native PMX VMD source parser real public CPU
 on:
-  push:
-    branches: [qualification/mmd-w04-babylon-parser-20261027]
-    paths:
-      - 'mmd/qualification/w04_*'
-      - 'mmd/research/2026-10-27-w04-babylon-native-parser.md'
-      - '.github/workflows/mmd-w04-babylon-parser.yml'
   pull_request:
     paths:
       - 'mmd/qualification/w04_*'
@@ -134,6 +128,33 @@ jobs:
             --out w04-output/third_engine_numeric_pairwise.json
           test -s w04-output/third_engine_numeric_pairwise.json
           grep -q 'PASS_INDEPENDENT_DIRECT_VS_REAL_BABYLON_G10_SELECTED_IK_AND_G9_MORPH' w04-output/third_engine_numeric_pairwise.json
+      - name: Evaluate complete 31-frame genuine Babylon MmdRuntime on G10 and G9
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsx --tsconfig mmd/qualification/w04_tsconfig.json \
+            mmd/qualification/w04_babylon_runtime.mts \
+            original/g10/synthetic_two_link_ik.pmx \
+            original/g10/synthetic_foot_goal.vmd \
+            original/g9/synthetic_face_grid.pmx \
+            original/g9/synthetic_face_motion.vmd \
+            w04-output/babylon_31frames_native_runtime.json \
+            --all31
+          test -s w04-output/babylon_31frames_native_runtime.json
+          grep -q 'PASS_BABYLON_MMD_ACTUAL_BOUND_RUNTIME_31_FRAMES_ONLY' w04-output/babylon_31frames_native_runtime.json
+      - name: Reuse independent actual G10b GLB 31 frame samples and red-test G9 intermediates
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/w04_31frame_crosscheck.py
+          python3 mmd/qualification/w04_31frame_crosscheck.py \
+            --runtime w04-output/babylon_31frames_native_runtime.json \
+            --direct-glb original/g10/ik_enabled.glb \
+            --prior original/g10b/ik_contact_receipt.json \
+            --original-glb-verifier .github/mmd-ik/verify_contact.py \
+            --out w04-output/complete_31frame_comparison.json
+          test -s w04-output/complete_31frame_comparison.json
+          grep -q 'PASS_REAL_BABYLON_VS_DIRECT_G10_31_FRAME_GOAL_ERROR_AND_G9_INTERMEDIATE_MORPHS' w04-output/complete_31frame_comparison.json
       - name: Preserve actual third-engine source-parser positive and negative receipts
         if: always()
         uses: actions/upload-artifact@v4
