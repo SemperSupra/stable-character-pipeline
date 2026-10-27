@@ -27,7 +27,7 @@ Build a composable, inspectable pipeline to **create, rig, control, test and exc
 
 ## 1. Architecture: minimal vertical slice first
 
-`
+```text
 Original geometry / source model (Go, Blender or CAD)
             │
 Versioned **thin mechanism contract**: stable machine+part+joint IDs,
@@ -45,7 +45,7 @@ Optional adapters: glTF + KHR_interactivity viewer; Blender;
 URDF/SDF/MJCF/USD; MuJoCo CPU; specialist domain simulators later
             │
 Independent E0–E4 evidence and rights/owner gates
-`
+```
 
 Do **not** implement a general physics engine, a mandatory ROS 2 runtime, a generic interchange superset, one-off per-audience actuator implementations, or implicit CPE enforcement in Mechanica. Adopt lessons from ROS 2 controller lifecycle and Khronos tests without shipping those heavy runtimes as an MVP dependency.
 
