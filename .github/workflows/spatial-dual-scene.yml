@@ -136,6 +136,35 @@ jobs:
           (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/dual-retuned-5.1.wav")
           (cd spatial-contract && go run ./cmd/dual-spectrum \
              "$RUNNER_TEMP/dual-original-5.1.wav" "$RUNNER_TEMP/dual-retuned-5.1.wav")
+      - name: Verify source B exact-frame activity gate spanning 1024-block boundaries
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/dual-fixture/scene.json" "$RUNNER_TEMP/dual-gated.json" <<'PY'
+          import json,sys
+          s=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert s['emitters'][1]['id']=='robot_b'
+          s['emitters'][1]['source_start_frame']=24*1024-1
+          s['emitters'][1]['source_stop_frame']=36*1024+1
+          with open(sys.argv[2],'w',encoding='utf-8') as f:json.dump(s,f)
+          PY
+          (cd spatial-contract && go run ./cmd/spatial-dual plan \
+             "$RUNNER_TEMP/dual-gated.json" "$RUNNER_TEMP/dual-fixture" \
+             "$RUNNER_TEMP/dual-gated-plan.tsv" > "$RUNNER_TEMP/dual-gated-plan.json")
+          python3 - "$RUNNER_TEMP/dual-gated-plan.tsv" <<'PY'
+          import pathlib,sys
+          lines=pathlib.Path(sys.argv[1]).read_text().strip().splitlines()
+          assert len(lines)==47
+          assert all(len(l.split())==16 for l in lines)
+          assert all(l.split()[-4:]==['0','48000','24575','36865'] for l in lines)
+          print('spatial_w3b_activity_gate_metadata_PASS start=24575 stop=36865 blocks=47')
+          PY
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/install/lib"
+          "$RUNNER_TEMP/dual-renderer" \
+            "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-fixture/robot_b.wav" \
+            "$RUNNER_TEMP/dual-gated-plan.tsv" "$RUNNER_TEMP/dual-gated-5.1.wav"
+          (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/dual-gated-5.1.wav")
+          (cd spatial-contract && go run ./cmd/dual-spectrum windows \
+             "$RUNNER_TEMP/dual-original-5.1.wav" "$RUNNER_TEMP/dual-gated-5.1.wav")
       - name: "Negative controls: missing block, output collision, tampered second source"
         run: |
           set -euo pipefail
