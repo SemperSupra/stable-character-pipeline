@@ -1,10 +1,5 @@
 name: MMD W21 iPhone H264 MP4 and honest Blender keyframe gallery
 on:
-  push:
-    branches: [qualification/mmd-w21-iphone-evidence-20261027]
-    paths:
-      - 'mmd/mobile/**'
-      - '.github/workflows/mmd-w21-iphone-media.yml'
   pull_request:
     paths:
       - 'mmd/mobile/**'
@@ -19,7 +14,7 @@ concurrency:
 jobs:
   original-render-mobile-validation:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 13
     steps:
       - name: Checkout public text-only video-production script
         uses: actions/checkout@v4
@@ -65,13 +60,13 @@ jobs:
           python-version: '3.11'
           cache: ''
       - name: Install lightweight Pillow and system ffmpeg on free-tier hosted CPU
-        timeout-minutes: 5
+        timeout-minutes: 7
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check 'Pillow==11.3.0'
           if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
-            timeout --signal=TERM --kill-after=10s 100s sudo apt-get update -qq
-            timeout --signal=TERM --kill-after=10s 130s sudo apt-get install -y -qq --no-install-recommends ffmpeg
+            timeout --signal=TERM --kill-after=10s 220s sudo apt-get update -qq
+            timeout --signal=TERM --kill-after=10s 180s sudo apt-get install -y -qq --no-install-recommends ffmpeg
           fi
           ffmpeg -version | head -n 1
       - name: Produce actual video loops and legible 1080x1920 true-frame phone samples
