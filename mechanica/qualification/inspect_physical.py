@@ -143,7 +143,11 @@ def narrowphase_self_test(bpy):
     """Independent Blender-generated collision / separation fixtures."""
     bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 0))
     a = bpy.context.object
-    bpy.ops.mesh.primitive_cube_add(size=2, location=(1, 0, 0))
+    # Two co-planar aligned cubes can share surfaces that a triangle-BVH
+    # correctly declines to count as transverse intersections. Use a faceted
+    # sphere crossing the cube boundary for an unambiguous narrowphase fixture.
+    bpy.ops.mesh.primitive_ico_sphere_add(
+        subdivisions=2, radius=1.3, location=(0.9, 0.2, 0.1))
     b = bpy.context.object
     bpy.context.view_layer.update()
     positives = world_bvh(a).overlap(world_bvh(b))
