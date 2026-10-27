@@ -120,7 +120,7 @@ func SyntheticFixture()Scene{
  keys:=[]Key{{TimeMS:0,Position:Vec3{X:-2,Y:5,Z:1}},{TimeMS:500,Position:Vec3{X:2,Y:5,Z:1}}}
  var outputs []Output
  for _,name:=range []string{"stereo","stereo_bassmanaged_2_1","binaural","surround_5_1","surround_7_1","immersive_5_1_4","immersive_7_1_4"}{
-  p:=profiles[name];v:=Output{ID:name,Profile:name,Channels:p.channels,LFEPolicy:p.policy}
+  p:=profiles[name];v:=Output{ID:name,Profile:name,Channels:append([]string(nil),p.channels...),LFEPolicy:p.policy}
   if name=="binaural"{v.HRTF="builtin_mit_test"}
   outputs=append(outputs,v)
  }
