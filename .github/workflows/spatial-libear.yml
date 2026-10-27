@@ -1,0 +1,46 @@
+name: EBU libear spatial gain reference qualification
+on:
+  pull_request:
+    paths:
+      - 'spatial-reference/**'
+      - '.github/workflows/spatial-libear.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ebu-reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install free public C++ math dependencies (no private credentials)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake ninja-build pkg-config g++ libboost-dev libeigen3-dev libxsimd-dev
+      - name: Fetch EBU libear at audited exact Apache-2.0 source SHA
+        run: |
+          set -euo pipefail
+          repo="$RUNNER_TEMP/ebu-libear"
+          git init -q "$repo"
+          git -C "$repo" remote add origin https://github.com/ebu/libear.git
+          git -C "$repo" fetch -q --depth=1 origin 2db69f8fcea0bc5db8a78e14a9c2ae6ed4283c15
+          git -C "$repo" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$repo" rev-parse HEAD)" = "2db69f8fcea0bc5db8a78e14a9c2ae6ed4283c15"
+          grep -q 'Apache License' "$repo/LICENSE"
+          echo "ebu_libear_source_pin_PASS commit=2db69f8fcea0bc5db8a78e14a9c2ae6ed4283c15"
+      - name: Compile real EBU gain engine with standalone oracle
+        run: |
+          set -euo pipefail
+          cmake -S spatial-reference/libear -B "$RUNNER_TEMP/ebu-check" \
+            -G Ninja -DCMAKE_BUILD_TYPE=Release -DEAR_SOURCE="$RUNNER_TEMP/ebu-libear"
+          cmake --build "$RUNNER_TEMP/ebu-check" -j 2
+          "$RUNNER_TEMP/ebu-check/libear_oracle" | tee "$RUNNER_TEMP/libear-results.log"
+          grep -q 'libear_gain_oracle_PASS profile=surround_5_1' "$RUNNER_TEMP/libear-results.log"
+          grep -q 'libear_gain_oracle_PASS profile=surround_7_1' "$RUNNER_TEMP/libear-results.log"
+          grep -q 'libear_reference_PASS profiles=2' "$RUNNER_TEMP/libear-results.log"
+          echo "ebu_libear_oracle_PASS reference_only_not_merged"
+      - name: Cleanup ephemeral public synthetic resources
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/ebu-check" "$RUNNER_TEMP/ebu-libear" "$RUNNER_TEMP/libear-results.log"
