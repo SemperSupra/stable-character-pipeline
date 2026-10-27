@@ -135,7 +135,7 @@ func verifyReceipt(data []byte)error{
 func createGLB(frames []Frame)([]byte,map[string]any,error){
   start,n,err:=longestRun(frames);if err!=nil{return nil,nil,err}
   b:=&binBuilder{}
-  nodes:=make([]map[string]any,34)
+  nodes:=make([]map[string]any,35)
   // Root-pose global coordinates and per-frame relative translations.
   absolute:=make([][][3]float32,n)
   for i:=0;i<n;i++{
@@ -143,10 +143,10 @@ func createGLB(frames []Frame)([]byte,map[string]any,error){
     for j,p:=range frames[start+i].Landmarks{absolute[i][j]=xy(p)}
   }
   children:=make([][]int,33)
-  sceneRoots:=[]int{33}
+  sceneRoots:=[]int{33,34}
   for j,p:=range parent{
     if p>=0{children[p]=append(children[p],j)}
-    else {sceneRoots=append(sceneRoots,j)}
+    else {/* hips attach to common rig root 34 */}
   }
   for j,p:=range parent {
     t:=absolute[0][j]
@@ -215,6 +215,7 @@ func createGLB(frames []Frame)([]byte,map[string]any,error){
   jointIDs:=make([]int,33)
   for i:=range jointIDs{jointIDs[i]=i}
   nodes[33]=map[string]any{"name":"SOURCE_ESTIMATED_CAMERA_PLANE_SKIN","mesh":0,"skin":0}
+  nodes[34]=map[string]any{"name":"common_hip_root_not_measured","children":[]int{23,24}}
   root:=map[string]any{
     "asset":map[string]any{"version":"2.0","generator":"stable-character R3 Go camera-plane skin exporter"},
     "scene":0,"scenes":[]any{map[string]any{"nodes":sceneRoots}},
@@ -225,7 +226,7 @@ func createGLB(frames []Frame)([]byte,map[string]any,error){
         "material":0}}}},
     "materials":[]any{map[string]any{"name":"camera_plane_proxy_only","doubleSided":true,
       "pbrMetallicRoughness":map[string]any{"baseColorFactor":[]float32{.12,.75,.94,1},"metallicFactor":0,"roughnessFactor":1}}},
-    "skins":[]any{map[string]any{"joints":jointIDs,"inverseBindMatrices":ibmA,"name":"MediaPipe33_proxy"}},
+    "skins":[]any{map[string]any{"joints":jointIDs,"inverseBindMatrices":ibmA,"skeleton":34,"name":"MediaPipe33_proxy"}},
     "animations":[]any{map[string]any{"name":"source_video_longest_contiguous_pose_only",
       "channels":channels,"samplers":samplers}},
     "accessors":b.accessors,"bufferViews":b.views,
