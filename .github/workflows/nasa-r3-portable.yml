@@ -11,7 +11,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: nasa-r3-portable-\${{ github.event.pull_request.number || github.ref }}
+  group: nasa-r3-portable-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -39,7 +39,7 @@ jobs:
           name: nasa-independent-pair-r2
           repository: SemperSupra/stable-character-pipeline
           run-id: 40555220225
-          github-token: \${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           path: nasa-pair-output
       - name: Pin exact prior native observations and run all fail-closed Go controls
         run: |
