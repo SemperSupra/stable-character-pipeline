@@ -68,7 +68,8 @@ def glb_31(glb, prior, source):
     return [
       {"frame":i,
        "ankle":world(ids["足首"],i)[0],
-       "goal":world(ids["足ＩＫ"],i)[0]}
+       "goal":world(ids["足ＩＫ"],i)[0],
+       "bones":{name:world(ids[name],i)[0] for name in original_names}}
       for i in FRAME_IDS
     ]
 
