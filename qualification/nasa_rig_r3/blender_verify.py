@@ -58,31 +58,44 @@ max_displacement = max(math.dist(a, b) for a,b in zip(first,last))
 if max_displacement < 0.002:
     raise RuntimeError("imported animation is static or disconnected from skin")
 
-camera_data = bpy.data.cameras.new("camera_plane_proxy_oracle")
-camera = bpy.data.objects.new("camera_plane_proxy_oracle", camera_data)
-bpy.context.collection.objects.link(camera)
-scene.camera = camera
-camera.location = (0,0,8)
-camera.rotation_euler = (0,0,0)
-camera_data.type = 'ORTHO'
-camera_data.ortho_scale = 4.0
-scene.render.engine = 'BLENDER_WORKBENCH'
-scene.display.shading.light = 'STUDIO'
-scene.display.shading.color_type = 'MATERIAL'
-scene.display.shading.show_cavity = True
-scene.render.resolution_x = 640
-scene.render.resolution_y = 360
-scene.render.resolution_percentage = 100
-scene.render.image_settings.file_format = 'PNG'
-scene.render.film_transparent = False
-scene.render.image_settings.color_mode = 'RGBA'
-scene.render.filepath = str(out / "rig_frame_000.png")
+# Evaluate skin with Blender, but rasterize from evaluated polygons on CPU.
+# Ubuntu public Actions has no EGL; a Blender workbench engine would require a
+# graphics context. A dependency-free Pillow raster is explicitly NOT Blender
+# workbench rendering or a photorealistic/source-image comparison.
+from PIL import Image, ImageDraw
+def project(p):
+    return (int(round(320+160*p.x)), int(round(180-160*p.y)))
+
+def cpu_preview(frame_number, output_png, source_second):
+    scene.frame_set(frame_number)
+    bpy.context.view_layer.update()
+    deps = bpy.context.evaluated_depsgraph_get()
+    image = Image.new("RGB", (640,360), (13,22,38))
+    draw = ImageDraw.Draw(image)
+    count = 0
+    for ob in skinned:
+        ev = ob.evaluated_get(deps)
+        mesh = ev.to_mesh()
+        transformed = [ev.matrix_world @ v.co for v in mesh.vertices]
+        for polygon in mesh.polygons:
+            if len(polygon.vertices) < 3:
+                continue
+            pts = [project(transformed[j]) for j in polygon.vertices]
+            draw.polygon(pts, fill=(40,165,215), outline=(135,230,255))
+            count += 1
+        ev.to_mesh_clear()
+    if count == 0:
+        raise RuntimeError("Blender evaluated zero skinned triangles")
+    draw.rectangle((0,0,640,35), fill=(7,12,25))
+    draw.text((12,11), "NASA R3 | Blender evaluated skin | 2D camera-plane proxy", fill=(242,245,250))
+    draw.text((14,332), "NASA source second %d | Z=0, no body shape or true depth" % source_second, fill=(210,221,235))
+    image.save(output_png)
+
 for i, frame in enumerate(frames):
-    scene.frame_set(frame)
-    scene.render.filepath = str(out / ("rig_frame_%03d.png" % i))
-    bpy.ops.render.render(write_still=True)
-    if not Path(scene.render.filepath).exists():
-        raise RuntimeError("Blender rendered frame missing: %d" % i)
+    cpu_preview(frame, str(out / ("rig_frame_%03d.png" % i)),
+                int(manifest["glb_frame_start_source_ms"]/1000)+i)
+    if not (out / ("rig_frame_%03d.png" % i)).exists():
+        raise RuntimeError("CPU rasterized frame missing: %d" % i)
 receipt = {
     "classification": "INDEPENDENT_BLENDER_SKIN_AND_ANIMATION_READBACK",
     "input_glb_sha256": manifest["glb_sha256"],
@@ -96,8 +109,9 @@ receipt = {
     "native_animation_fps": fps,
     "evaluated_animated_vertex_max_displacement_camera_plane_units": max_displacement,
     "rendered_png_frames": len(frames),
+    "raster_pipeline": "Blender evaluated skin geometry -> Pillow CPU polygons; NOT Blender render engine",
     "camera_plane_not_true_3d": True,
-    "skin_import_render_pass": True,
+    "skin_import_and_cpu_preview_pass": True,
     "biomechanical_or_image_similarity": "NOT_VALIDATED"
 }
 (out / "blender_independent_readback.json").write_text(json.dumps(receipt,indent=2)+"\n")
