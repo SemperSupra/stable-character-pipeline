@@ -4,10 +4,12 @@ on:
     branches: [qualification/mmd-w04-babylon-parser-20261027]
     paths:
       - 'mmd/qualification/w04_*'
+      - 'mmd/research/2026-10-27-w04-babylon-native-parser.md'
       - '.github/workflows/mmd-w04-babylon-parser.yml'
   pull_request:
     paths:
       - 'mmd/qualification/w04_*'
+      - 'mmd/research/2026-10-27-w04-babylon-native-parser.md'
       - '.github/workflows/mmd-w04-babylon-parser.yml'
 
 permissions:
