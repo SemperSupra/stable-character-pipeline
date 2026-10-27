@@ -39,6 +39,11 @@ def parent_map(g):
         raise AssertionError("lost Japanese source labels in bone hierarchy "+str(chain))
     if chain["左腕"]!="センター" or chain["左手首"]!="左腕":
         raise AssertionError("bone parent hierarchy corrupted "+str(chain))
+    # Blender and mmd2gltf supply different OUTER armature/container objects.
+    # Those are not skin joints and must not alter the rig's source bone graph.
+    if chain["センター"] in BONES:
+        raise AssertionError("root bone unexpectedly parented to another source joint")
+    chain["センター"]="<external-rig-root>"
     return chain
 
 def weight_samples(g,blob):
