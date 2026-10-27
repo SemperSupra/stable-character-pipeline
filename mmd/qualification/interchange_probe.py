@@ -79,6 +79,39 @@ def main():
         export_force_sampling=True)
     assert glb.stat().st_size > 1000, "GLB not exported"
 
+    # Render *the imported and evaluated mesh*, not a substitute/proxy.
+    # Keep unmodified original MMD materials in the already-exported GLB.
+    # The synthetic PMX references toon01.bmp without a corresponding image;
+    # our separate interchange proof uses a deliberate diagnostic emissive
+    # display material, rather than claiming faithful MMD toon rendering.
+    before_visibility = [{
+        "name": obj.name, "type": obj.type,
+        "hide_render": bool(obj.hide_render),
+        "hide_viewport": bool(obj.hide_viewport)
+    } for obj in bpy.data.objects if obj.type in ("MESH", "ARMATURE", "EMPTY")]
+    for collection in bpy.data.collections:
+        collection.hide_render = False
+        collection.hide_viewport = False
+    for obj in bpy.data.objects:
+        if obj.type in ("MESH", "ARMATURE", "EMPTY"):
+            obj.hide_render = False
+            obj.hide_viewport = False
+            obj.hide_set(False)
+    diagnostic = bpy.data.materials.new("SCP_DIAGNOSTIC_EMISSION_NOT_MMD_SHADING")
+    diagnostic.use_nodes = True
+    diagnostic.diffuse_color = (0.9, 0.2, 0.05, 1.0)
+    diagnostic.use_backface_culling = False
+    nodes = diagnostic.node_tree.nodes
+    nodes.clear()
+    surface = nodes.new("ShaderNodeOutputMaterial")
+    emission = nodes.new("ShaderNodeEmission")
+    emission.inputs["Color"].default_value = (0.95, 0.15, 0.02, 1.0)
+    emission.inputs["Strength"].default_value = 3.0
+    diagnostic.node_tree.links.new(emission.outputs["Emission"], surface.inputs["Surface"])
+    for obj in meshes:
+        obj.data.materials.clear()
+        obj.data.materials.append(diagnostic)
+    scene.view_settings.view_transform = "Standard"
     camera_data = bpy.data.cameras.new("G4 camera")
     camera_data.type = "ORTHO"
     camera_data.ortho_scale = 3.6
@@ -112,6 +145,8 @@ def main():
         "blender": bpy.app.version_string,
         "mmd_tools": mmd_tools.MMD_TOOLS_VERSION,
         "original_rights": "synthetic self-authored triangle, one-bone rig and 2-key VMD",
+        "visual_material": "DIAGNOSTIC EMISSION ONLY, NOT faithful original MMD material or toon textures",
+        "visibility_before_diagnostic": before_visibility,
         "frame_range": [0, 30],
         "fps": 30,
         "bone_centers": bone_positions,
