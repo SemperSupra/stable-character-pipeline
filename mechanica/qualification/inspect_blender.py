@@ -41,6 +41,31 @@ def bounds(mesh_objects):
     return lo, hi
 
 
+def projected_corners(mesh_objects):
+    return [obj.matrix_world @ Vector(pt)
+            for obj in mesh_objects for pt in obj.bound_box]
+
+
+def frame_receipt(scene, cam, mesh_objects, min_margin=0.075):
+    # Independent test in actual Blender camera NDC, not the same arithmetic
+    # used to select ortho_scale. Render borders are x/y in [0,1].
+    from bpy_extras.object_utils import world_to_camera_view
+    corners = projected_corners(mesh_objects)
+    require(corners, "camera framing: no geometry")
+    values = [world_to_camera_view(scene, cam, pt) for pt in corners]
+    xlo, xhi = min(v.x for v in values), max(v.x for v in values)
+    ylo, yhi = min(v.y for v in values), max(v.y for v in values)
+    require(all(math.isfinite(v) for v in (xlo, xhi, ylo, yhi)),
+            "camera framing has nonfinite projected coordinates")
+    margin = min(xlo, 1 - xhi, ylo, 1 - yhi)
+    require(margin >= min_margin,
+            f"camera clips geometry or lacks safe margin: {margin:.5f} "
+            f"(x={xlo:.4f}..{xhi:.4f}; y={ylo:.4f}..{yhi:.4f})")
+    return {"x_min": round(xlo, 5), "x_max": round(xhi, 5),
+            "y_min": round(ylo, 5), "y_max": round(yhi, 5),
+            "minimum_safe_margin": round(margin, 5)}
+
+
 def set_camera(mesh_objects, frame):
     scene = bpy.context.scene
     scene.frame_set(frame)
@@ -54,12 +79,42 @@ def set_camera(mesh_objects, frame):
     scene.collection.objects.link(cam)
     direction = Vector((1.15, -1.4, 0.9)).normalized()
     cam.location = center + direction * span * 2.7
-    rotation = center - cam.location
-    cam.rotation_euler = rotation.to_track_quat("-Z", "Y").to_euler()
+    cam.rotation_euler = (center - cam.location).to_track_quat("-Z", "Y").to_euler()
     cam_data.type = "ORTHO"
-    cam_data.ortho_scale = span * 1.75
     scene.camera = cam
-    return cam, [round(float(v), 4) for v in lo], [round(float(v), 4) for v in hi]
+    bpy.context.view_layer.update()
+
+    corners = projected_corners(mesh_objects)
+    local = [cam.matrix_world.inverted() @ pt for pt in corners]
+    xlo, xhi = min(v.x for v in local), max(v.x for v in local)
+    ylo, yhi = min(v.y for v in local), max(v.y for v in local)
+    aspect = ((scene.render.resolution_x * scene.render.pixel_aspect_x) /
+              (scene.render.resolution_y * scene.render.pixel_aspect_y))
+    # Blender ortho_scale measures horizontal span, not world-Z bounding height.
+    # The previous span*1.75 erroneously ignored 16:9 aspect and clipped Titan.
+    cam_data.ortho_scale = max(xhi - xlo, (yhi - ylo) * aspect) * 1.36
+    center_offset = cam.matrix_world.to_quaternion() @ Vector(
+        ((xlo + xhi) * 0.5, (ylo + yhi) * 0.5, 0))
+    cam.location += center_offset
+    bpy.context.view_layer.update()
+
+    fitted = frame_receipt(scene, cam, mesh_objects)
+    # Red-team negative control: shrink fitted camera until projected geometry
+    # clips, proving the checker detects the exact previously observed defect.
+    correct_scale = cam_data.ortho_scale
+    cam_data.ortho_scale = correct_scale * 0.35
+    bpy.context.view_layer.update()
+    clipped_detected = False
+    try:
+        frame_receipt(scene, cam, mesh_objects)
+    except QualificationError:
+        clipped_detected = True
+    finally:
+        cam_data.ortho_scale = correct_scale
+        bpy.context.view_layer.update()
+    require(clipped_detected, "tight-camera negative control escaped")
+    return (cam, [round(float(v), 4) for v in lo],
+            [round(float(v), 4) for v in hi], fitted)
 
 
 def setup_render():
@@ -218,32 +273,35 @@ def execute(args):
     setup_render()
     out = pathlib.Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    # Full-scene frames followed by focused Titan: distinct objective visual receipts.
+    # Full-scene and independent per-rig closeups are separate evidence.
     first_frame, middle_frame, last_frame = frames[0], frames[2], frames[-1]
-    samples = [("scene", first_frame), ("scene", middle_frame),
-               ("scene", last_frame)]
-    titan = [obj for obj in mesh_objects if obj.name.startswith("titan/iron-atlas/")]
-    if titan:
-        samples += [("titan", first_frame), ("titan", middle_frame),
-                    ("titan", last_frame)]
-    require(titan, "Blender could not find Titan geometry by naming prefix")
-    for focus, frame in samples:
-        for obj in mesh_objects:
-            obj.hide_render = bool(focus == "titan" and obj not in titan)
-        selected = titan if focus == "titan" else mesh_objects
-        cam, lo, hi = set_camera(selected, frame)
-        name = f"{focus}_frame_{frame:04d}.png"
-        output = out / name
-        scene.render.filepath = str(output)
-        bpy.ops.render.render(write_still=True)
-        require(output.is_file() and output.stat().st_size > 2500,
-                "Blender did not produce substantial PNG: " + name)
-        reports["cpu_render_frames"].append({
-            "file": name, "frame": frame, "bytes": output.stat().st_size,
-            "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-            "world_bbox_min": lo, "world_bbox_max": hi
-        })
-        bpy.data.objects.remove(cam, do_unlink=True)
+    focus_sets = {
+        "scene": mesh_objects,
+        "titan": [obj for obj in mesh_objects
+                  if obj.name.startswith("titan/iron-atlas/")],
+        "space": [obj for obj in mesh_objects
+                  if obj.name.startswith("space/orbital-tug/")],
+    }
+    require(all(focus_sets.values()), "missing rig geometry for close-up views")
+    for focus, selected in focus_sets.items():
+        for frame in (first_frame, middle_frame, last_frame):
+            for obj in mesh_objects:
+                obj.hide_render = bool(focus != "scene" and obj not in selected)
+            cam, lo, hi, camera_fit = set_camera(selected, frame)
+            name = f"{focus}_frame_{frame:04d}.png"
+            output = out / name
+            scene.render.filepath = str(output)
+            bpy.ops.render.render(write_still=True)
+            require(output.is_file() and output.stat().st_size > 2500,
+                    "Blender did not produce substantial PNG: " + name)
+            reports["cpu_render_frames"].append({
+                "file": name, "frame": frame, "bytes": output.stat().st_size,
+                "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
+                "world_bbox_min": lo, "world_bbox_max": hi,
+                "camera_framing": camera_fit,
+                "tight_camera_negative_control_detected": True,
+            })
+            bpy.data.objects.remove(cam, do_unlink=True)
     require(len({s["sha256"] for s in reports["cpu_render_frames"]}) == len(samples),
             "Blender rendered identical PNGs across different articulation samples")
     reports["status"] = "PASS_BLENDER_IMPORT_MOTION_AND_RENDER"
