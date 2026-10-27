@@ -92,9 +92,12 @@ void one(const Target& t,const std::string& dir){
 }
 int main(int argc,char**argv){
  if(argc!=2){std::cerr<<"usage: spatial-qual OUTPUT_DIRECTORY\n";return 2;}
- try{
-  for(const auto&t:kTargets)one(t,argv[1]);
-  std::cout<<"spatial_native_PASS profiles=6"<<std::endl;
-  return 0;
- }catch(const std::exception&e){std::cerr<<"spatial_native_FIRST_FAILURE "<<e.what()<<'\n';return 1;}
+ bool failed=false;
+ for(const auto&t:kTargets){
+  try{one(t,argv[1]);}
+  catch(const std::exception&e){std::cerr<<"spatial_native_FIRST_FAILURE "<<e.what()<<'\n';failed=true;}
+ }
+ if(failed)return 1;
+ std::cout<<"spatial_native_PASS profiles=6"<<std::endl;
+ return 0;
 }
