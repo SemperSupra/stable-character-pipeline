@@ -1,0 +1,49 @@
+name: Public spatial scene contract admission
+on:
+  pull_request:
+    paths:
+      - 'spatial-contract/**'
+      - '.github/workflows/spatial-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  spatial-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+      - name: Go race, adversarial tests and vet
+        working-directory: spatial-contract
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Validate original synthetic spatial scene in public custody
+        working-directory: spatial-contract
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/spatial_scene.json"
+          receipt="$RUNNER_TEMP/spatial_plan.json"
+          trap 'rm -f "$scene" "$receipt"' EXIT
+          go run ./cmd/spatial-plan fixture > "$scene"
+          go run ./cmd/spatial-plan plan "$scene" > "$receipt"
+          python3 - "$receipt" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert r['classification']=='PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL'
+          assert r['world_frame']=='ENU_XEast_YNorth_ZUp_m'
+          assert len(r['outputs'])==7
+          byname={x['profile']:x for x in r['outputs']}
+          assert len(byname['stereo_bassmanaged_2_1']['channel_order'])==2
+          assert byname['stereo_bassmanaged_2_1']['lfe_policy']=='bass_managed'
+          assert byname['surround_5_1']['channel_order']==['FL','FR','FC','LFE','SL','SR']
+          assert len(byname['immersive_7_1_4']['channel_order'])==12
+          assert all(x['render_status']=='UNQUALIFIED_UNTIL_BACKEND_PASS' for x in r['outputs'])
+          print('spatial_contract_PASS outputs=7 renderer_qualified=false scene_sha256='+r['scene_sha256'])
+          PY
+          echo "Only original synthetic scene metadata used; no media, model weights or private identity assets."
