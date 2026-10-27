@@ -176,7 +176,7 @@ def evaluate(doc, data, manifest, out):
     receipt={
       "status":"PASS_INDEPENDENT_GLTF_SUBSET_SKIN_NOT_BLENDER",
       "source_input_sha256":manifest["input_landmarks_sha256"],
-      "input_glb_sha256":hashlib.sha256((out.parent/"camera_plane_skinned_motion.glb").read_bytes()).hexdigest(),
+      "input_glb_sha256":hashlib.sha256((out/"camera_plane_skinned_motion.glb").read_bytes()).hexdigest(),
       "skinned_vertices":len(pos),"triangle_count":len(indices)//3,
       "skin_joints":len(js),"animation_channels":len(translations),
       "raster_frames":count,"displacement_camera_plane_units":displacement,
