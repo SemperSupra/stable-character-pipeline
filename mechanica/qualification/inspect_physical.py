@@ -207,7 +207,7 @@ def main():
     parser.add_argument("--preview-dir")
     parser.add_argument("--output")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:]
-                             if "--" in sys.argv else [])
+                             if "--" in sys.argv else sys.argv[1:])
     if args.self_test:
         self_test()
         return
