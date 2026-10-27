@@ -61,3 +61,26 @@ func TestRightsAndChecksumGate(t *testing.T){
    t.Fatal("unsupported media accepted")
  }
 }
+
+
+func TestFramingQualityVsLongest(t *testing.T){
+  a:=testFrames()
+  for i:=13;i<=23;i++{
+    for j:=range a[i].Landmarks{
+      a[i].Landmarks[j].X=.5+(a[i].Landmarks[j].X-.5)*.12
+      a[i].Landmarks[j].Y=.5+(a[i].Landmarks[j].Y-.5)*.12
+    }
+  }
+  start,n,err:=selectRun(a,"coverage")
+  if err!=nil||start!=2||n!=10{t.Fatalf("coverage chose %d len=%d err=%v",start,n,err)}
+  start,n,err=selectRun(a,"longest")
+  if err!=nil||start!=13||n!=11{t.Fatalf("longest baseline changed %d len=%d err=%v",start,n,err)}
+  if _,_,err:=selectRun(a,"predicted_truth");err==nil{t.Fatal("unknown selector accepted")}
+}
+func TestVisibilityAndCroppingCoverage(t *testing.T){
+  p:=make([]Landmark,33)
+  for i:=range p{p[i]=Landmark{X:float64(i%10)/10,Y:float64(i/10)/10,Visibility:.2}}
+  if sampleCoverage(p)!=0{t.Fatal("unobserved inferred joints treated as measured framing")}
+  for i:=range p{p[i].Visibility=.95}
+  if sampleCoverage(p)<=.1{t.Fatal("valid source image coverage not computed")}
+}
