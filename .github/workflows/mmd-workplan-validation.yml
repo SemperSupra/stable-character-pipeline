@@ -101,6 +101,8 @@ jobs:
           fail_case('missing rights',lambda b:b['fixture']['semantics'].pop('rights'))
           fail_case('missing evidence',lambda b:b['metrics'][0].pop('oracle'))
           fail_case('bad source digest',lambda b:b['fixture'].update({'source_sha256':'abc'}))
+          fail_case('missing associated source inventory',lambda b:b['fixture'].pop('inputs'))
+          fail_case('missing observation measured-key',lambda b:b['metrics'][0].pop('measured_key'))
           evidence={
               'status':'PASS_SCHEMA_STRUCTURAL_ONLY',
               'validator':'jsonschema',
@@ -108,7 +110,7 @@ jobs:
               'schema_sha256':hashlib.sha256(src).hexdigest(),
               'sample_sha256':hashlib.sha256(sample_bytes).hexdigest(),
               'positive':1,
-              'deliberately_rejected':9,
+              'deliberately_rejected':11,
               'cross_record_or_rights_acceptance':'NOT_ATTESTED_BY_JSON_SCHEMA',
               'source_bytes_attested':False,
           }
