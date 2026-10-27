@@ -33,7 +33,7 @@ type SourceSemantics struct {
 	NativeBoneLabels  []string     `json:"native_bone_labels"`
 	NativeMorphLabels []string     `json:"native_morph_labels"`
 	Units             string       `json:"units"`
-	MetersPerUnit     float64      `json:"meters_per_unit"`
+	MetersPerUnit     *float64     `json:"meters_per_unit"`
 	Axes              string       `json:"axes"`
 	FPSNumerator      int          `json:"fps_numerator"`
 	FPSDenominator    int          `json:"fps_denominator"`
@@ -53,6 +53,8 @@ type EngineObservation struct {
 	ID            string             `json:"id"`
 	Engine        string             `json:"engine"`
 	EngineVersion string             `json:"engine_version"`
+	EvidenceURI   string             `json:"evidence_uri"`
+	EvidenceSHA256 string            `json:"evidence_sha256"`
 	FixtureSHA256 string             `json:"fixture_sha256"`
 	Frame         int                `json:"frame"`
 	TimeSeconds   *float64           `json:"time_seconds"`
@@ -113,9 +115,15 @@ func Validate(b ProofBundle) error {
 	if !safeID.MatchString(f.ID) || strings.TrimSpace(f.SourceURI)=="" || !lowerHash.MatchString(f.SourceSHA256) || f.FrameCount<1 {
 		return errors.New("fixture id, source, digest or frame count invalid")
 	}
-	if s.FrameOrigin==nil || s.FPSNumerator<=0 || s.FPSDenominator<=0 ||
-		s.MetersPerUnit<=0 || math.IsNaN(s.MetersPerUnit) || math.IsInf(s.MetersPerUnit,0) {
-		return errors.New("missing source frame origin, timebase or finite unit scale")
+	if s.FrameOrigin==nil || s.FPSNumerator<=0 || s.FPSDenominator<=0 {
+		return errors.New("missing source frame origin or timebase")
+	}
+	// An original MMD source unit is not automatically a physical meter.
+	// nil means UNKNOWN physical scale, never fabricated from a Blender import parameter.
+	if s.MetersPerUnit==nil {
+		if s.Units!="source_unit" { return errors.New("physical units require a declared finite conversion") }
+	} else if *s.MetersPerUnit<=0 || math.IsNaN(*s.MetersPerUnit) || math.IsInf(*s.MetersPerUnit,0) {
+		return errors.New("nonpositive or nonfinite physical meter conversion")
 	}
 	if s.NativeFormat!="PMX" && s.NativeFormat!="VMD" && s.NativeFormat!="VPD" && s.NativeFormat!="GLTF" {
 		return errors.New("unknown native format")
@@ -146,7 +154,7 @@ func Validate(b ProofBundle) error {
 	allPass:=len(b.Observations)>0 && len(b.Metrics)>0
 	for _, o:= range b.Observations {
 		if !safeID.MatchString(o.ID) || obs[o.ID].ID!="" || !safeID.MatchString(o.Engine) ||
-			strings.TrimSpace(o.EngineVersion)=="" || o.FixtureSHA256!=f.SourceSHA256 ||
+			strings.TrimSpace(o.EngineVersion)=="" || strings.TrimSpace(o.EvidenceURI)=="" || !lowerHash.MatchString(o.EvidenceSHA256) || o.FixtureSHA256!=f.SourceSHA256 ||
 			o.Frame<*s.FrameOrigin || o.Frame>=*s.FrameOrigin+f.FrameCount || o.TimeSeconds==nil || !result(o.Status) ||
 			o.DeclaredLoss==nil {
 			return errors.New("invalid or duplicate engine observation, source binding, native time or loss disclosure")
