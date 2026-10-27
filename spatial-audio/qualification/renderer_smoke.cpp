@@ -41,12 +41,12 @@ void writeWAV(const std::string& path,unsigned n,const std::vector<float>& inter
  for(float x:interleaved){uint32_t bits;std::memcpy(&bits,&x,4);put32(f,bits);}
  if(!f)throw std::runtime_error("WAV I/O failure");
 }
-void one(const Target& t,const std::string& dir){
+void one(const Target& t,const std::string& dir,unsigned hoaOrder=1){
  spaudio::StreamInformation in;
  in.nChannels=1;
  in.typeDefinition={spaudio::TypeDefinition::Objects};
  spaudio::Renderer renderer;
- if(!renderer.Configure(t.layout,1,kRate,kFrames,in,"",true))throw std::runtime_error(std::string(t.name)+" configure failed");
+ if(!renderer.Configure(t.layout,hoaOrder,kRate,kFrames,in,"",true))throw std::runtime_error(std::string(t.name)+" configure failed");
  const unsigned channels=renderer.GetSpeakerCount();
  if(channels!=t.count)throw std::runtime_error(std::string(t.name)+" unexpected channel count "+std::to_string(channels));
  renderer.Reset(); // control: explicitly clear configured buffers, filters and interpolators
@@ -97,6 +97,10 @@ int main(int argc,char**argv){
  if(mode=="stereo-negative"){
    try{one(kTargets[0],argv[2]);std::cerr<<"unexpected_stereo_success_not_yet_qualified\n";return 0;}
    catch(const std::exception&e){std::cerr<<"spatial_native_FIRST_FAILURE "<<e.what()<<'\n';return 1;}
+ }
+ if(mode=="stereo-hoa0"){
+   try{one(kTargets[0],argv[2],0);std::cout<<"stereo_hoa0_FINITE_CONTROL_ONLY not_admitted"<<std::endl;return 0;}
+   catch(const std::exception&e){std::cerr<<"stereo_hoa0_FIRST_FAILURE "<<e.what()<<'\n';return 1;}
  }
  if(mode!="supported"){std::cerr<<"unknown diagnostic mode\n";return 2;}
  bool failed=false;
