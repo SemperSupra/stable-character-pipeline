@@ -1,0 +1,121 @@
+name: Spatial P0 native scene from real admitted WAV
+on:
+  pull_request:
+    paths:
+      - 'spatial-contract/**'
+      - '.github/workflows/spatial-native-scene.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-scene-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+      - name: Install public C++ audio toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y meson ninja-build pkg-config g++ ffmpeg git
+      - name: Go race, static and negative source-contract checks
+        working-directory: spatial-contract
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Generate actual rights-clean WAV and exact sample-clock spatial source plan
+        working-directory: spatial-contract
+        run: |
+          set -euo pipefail
+          go run ./cmd/spatial-admit fixture "$RUNNER_TEMP/actual-scene"
+          go run ./cmd/spatial-admit verify "$RUNNER_TEMP/actual-scene/scene.json" "$RUNNER_TEMP/actual-scene" \
+            > "$RUNNER_TEMP/custody-receipt.json"
+          go run ./cmd/spatial-blockplan plan "$RUNNER_TEMP/actual-scene/scene.json" "$RUNNER_TEMP/actual-scene" "$RUNNER_TEMP/blockplan.tsv" \
+            > "$RUNNER_TEMP/block-receipt.json"
+          python3 - "$RUNNER_TEMP/custody-receipt.json" "$RUNNER_TEMP/block-receipt.json" "$RUNNER_TEMP/blockplan.tsv" <<'PY'
+          import json,pathlib,sys
+          cust,block=(json.load(open(x,encoding='utf-8')) for x in sys.argv[1:3])
+          lines=pathlib.Path(sys.argv[3]).read_text().strip().splitlines()
+          assert cust['sources'][0]['sha256']==block['source_sha256']
+          assert block['sample_frames']==48000 and block['blocks']==47 and block['last_block_length']==896
+          assert sum(int(line.split()[1]) for line in lines)==48000
+          assert float(lines[0].split()[2])<0 and float(lines[24].split()[2])>0
+          print('scene_native_source_binding_PASS actual_WAV_SHA='+block['source_sha256']+' blocks=47')
+          PY
+      - name: Fetch exact audited upstream VideoLAN LGPL renderer source
+        run: |
+          set -euo pipefail
+          repo="$RUNNER_TEMP/libspatialaudio"
+          git init -q "$repo"
+          git -C "$repo" remote add origin https://github.com/videolan/libspatialaudio.git
+          git -C "$repo" fetch -q --depth=1 origin d149ed9744fd399b835c6f2920511f8cbcfce5ea
+          git -C "$repo" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$repo" rev-parse HEAD)" = "d149ed9744fd399b835c6f2920511f8cbcfce5ea"
+          grep -q LGPLv2.1 "$repo/LICENSE"
+      - name: Build and test pinned upstream DSP, not a local substitute
+        run: |
+          set -euo pipefail
+          repo="$RUNNER_TEMP/libspatialaudio"
+          install="$RUNNER_TEMP/renderer-install"
+          meson setup "$RUNNER_TEMP/renderer-build" "$repo" \
+            -Dlibmysofa=disabled -Dmit_hrtf=enabled \
+            --prefix="$install" --libdir=lib --buildtype=release
+          meson compile -C "$RUNNER_TEMP/renderer-build"
+          meson test -C "$RUNNER_TEMP/renderer-build" --print-errorlogs
+          meson install -C "$RUNNER_TEMP/renderer-build"
+          test -f "$install/lib/pkgconfig/spatialaudio.pc"
+          export PKG_CONFIG_PATH="$install/lib/pkgconfig"
+          g++ -std=c++14 -O2 -Wall -Wextra -I"$install/include/spatialaudio" \
+            spatial-contract/native/scene_renderer.cpp -o "$RUNNER_TEMP/native-scene" \
+            $(pkg-config --cflags --libs spatialaudio)
+          echo "pinned_real_native_sdk_build_PASS"
+      - name: Actually render admitted source scene for 5.1 and binaural; derive stereo without native stereo
+        run: |
+          set -euo pipefail
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/renderer-install/lib"
+          src="$RUNNER_TEMP/actual-scene/synthetic.wav"
+          plan="$RUNNER_TEMP/blockplan.tsv"
+          "$RUNNER_TEMP/native-scene" "$src" "$plan" surround_5_1 "$RUNNER_TEMP/scene-5.1.wav"
+          "$RUNNER_TEMP/native-scene" "$src" "$plan" binaural "$RUNNER_TEMP/scene-binaural.wav"
+          (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/scene-5.1.wav")
+          (cd spatial-contract && go run ./cmd/nativeverify binaural "$RUNNER_TEMP/scene-binaural.wav")
+          ffmpeg -hide_banner -nostdin -v error -xerror -y \
+            -i "$RUNNER_TEMP/scene-5.1.wav" \
+            -af 'pan=stereo|c0=c0+0.7071067811865476*c2+0.7071067811865476*c4|c1=c1+0.7071067811865476*c2+0.7071067811865476*c5' \
+            -c:a pcm_f32le "$RUNNER_TEMP/scene-stereo-derived.wav"
+          (cd spatial-contract && go run ./cmd/nativeverify stereo_derived "$RUNNER_TEMP/scene-stereo-derived.wav")
+          echo "native_stereo_QUARANTINED; FFmpeg derived_stereo only"
+      - name: Prove a change in canonical scene geometry alters actual native audio
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/actual-scene/scene.json" "$RUNNER_TEMP/modified-scene.json" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert p['classification']=='PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL'
+          p['emitters'][0]['motion'][0]['position_m']['x']=4
+          p['emitters'][0]['motion'][1]['position_m']['x']=4
+          with open(sys.argv[2],'w',encoding='utf-8') as f:json.dump(p,f)
+          print('changed_source_position_authoritatively')
+          PY
+          (cd spatial-contract && go run ./cmd/spatial-blockplan plan \
+            "$RUNNER_TEMP/modified-scene.json" "$RUNNER_TEMP/actual-scene" "$RUNNER_TEMP/modified-blockplan.tsv" \
+            > "$RUNNER_TEMP/modified-receipt.json")
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/renderer-install/lib"
+          "$RUNNER_TEMP/native-scene" "$RUNNER_TEMP/actual-scene/synthetic.wav" \
+            "$RUNNER_TEMP/modified-blockplan.tsv" surround_5_1 "$RUNNER_TEMP/modified-5.1.wav"
+          (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/modified-5.1.wav")
+          test "$(sha256sum "$RUNNER_TEMP/scene-5.1.wav" | cut -d' ' -f1)" != \
+               "$(sha256sum "$RUNNER_TEMP/modified-5.1.wav" | cut -d' ' -f1)"
+          echo "native_scene_edited_geometry_changes_real_PCM_PASS"
+      - name: Erase ephemeral original synthetic files, renderer builds and outputs
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/actual-scene" "$RUNNER_TEMP/libspatialaudio" "$RUNNER_TEMP/renderer-build" \
+            "$RUNNER_TEMP/renderer-install" "$RUNNER_TEMP/native-scene" "$RUNNER_TEMP/"*scene*.wav \
+            "$RUNNER_TEMP/blockplan.tsv" "$RUNNER_TEMP/modified-blockplan.tsv" \
+            "$RUNNER_TEMP/custody-receipt.json" "$RUNNER_TEMP/block-receipt.json" \
+            "$RUNNER_TEMP/modified-scene.json" "$RUNNER_TEMP/modified-receipt.json"
