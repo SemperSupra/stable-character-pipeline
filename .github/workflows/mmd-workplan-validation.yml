@@ -48,6 +48,28 @@ jobs:
           test -s ../../workplan-output/readiness.json
           test -s ../../workplan-output/readiness.md
           head -n 8 ../../workplan-output/readiness.md
+      - name: Independently execute W02 typed envelope race tests and end-to-end JSON CLI
+        working-directory: mmd/roadmap
+        run: |
+          set -euo pipefail
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/envelopecheck envelope/testdata/synthetic-proof.json > ../../workplan-output/w02-structural-pass.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          doc=json.loads(Path('envelope/testdata/synthetic-proof.json').read_text())
+          doc['fixture']['semantics']['units']='UNSPECIFIED'
+          Path('../../workplan-output/w02-intentional-invalid.json').write_text(json.dumps(doc))
+          PY
+          if go run ./cmd/envelopecheck ../../workplan-output/w02-intentional-invalid.json > ../../workplan-output/w02-rejection.json 2> ../../workplan-output/w02-rejection-stderr.txt; then
+            echo 'FAIL: invalid native source unit unexpectedly accepted' >&2
+            exit 1
+          fi
+          grep -q '"validation":"VALID_ENVELOPE_ONLY"' ../../workplan-output/w02-structural-pass.json
+          grep -q '"validation":"INVALID"' ../../workplan-output/w02-rejection.json
+          grep -q 'exit status 4' ../../workplan-output/w02-rejection-stderr.txt
+          sha256sum envelope/envelope.go envelope/proof-bundle.schema.json envelope/testdata/synthetic-proof.json > ../../workplan-output/w02-source-pins.sha256
       - name: Preserve candidate plan proof and first failures
         if: always()
         uses: actions/upload-artifact@v4
