@@ -8,6 +8,7 @@ import (
   "errors"
   "flag"
   "fmt"
+  "io"
   "net/url"
   "os"
   "sort"
@@ -125,7 +126,7 @@ func decode(b []byte)(Manifest,error){
   if err:=d.Decode(&m);err!=nil{return m,err}
   // Decoder cannot accept appended extra JSON objects as undocumented policy.
   var tail any
-  if err:=d.Decode(&tail);err==nil{return m,errors.New("trailing JSON values not allowed")}
+  if err:=d.Decode(&tail);err==nil{return m,errors.New("trailing JSON values not allowed")} else if !errors.Is(err,io.EOF){return m,err}
   return m,nil
 }
 func run(manifestBytes []byte)(Receipt,error){
