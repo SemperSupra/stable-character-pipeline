@@ -1,0 +1,80 @@
+name: Public headless audio authoring tool qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/headless-audio-tools.yml'
+      - 'audio-headless/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lmms-tracks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install real LMMS headless renderer and FFprobe
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lmms ffmpeg
+          lmms --version
+      - name: Fetch pinned upstream GPL tutorial source (ephemeral)
+        run: |
+          set -euo pipefail
+          base=https://raw.githubusercontent.com/LMMS/lmms/bed447baab187ea6292449048e0b1aab16082e3b
+          curl --fail --location --retry 3 --max-time 100 -sS \
+            "$base/data/projects/tutorials/editing_note_volumes.mmp" \
+            -o "$RUNNER_TEMP/editing_note_volumes.mmp"
+          grep -q 'instrument name="tripleoscillator"' "$RUNNER_TEMP/editing_note_volumes.mmp"
+          sha256sum "$RUNNER_TEMP/editing_note_volumes.mmp"
+      - name: Render and verify actual instrument tracks without desktop UI
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/lmms-out"
+          QT_QPA_PLATFORM=offscreen timeout 240s \
+            lmms rendertracks "$RUNNER_TEMP/editing_note_volumes.mmp" \
+              --output "$RUNNER_TEMP/lmms-out" --format wav --samplerate 48000
+          python3 audio-headless/verify.py wav "$RUNNER_TEMP/lmms-out"
+          echo 'LMMS_REAL_HEADLESS_TRACKS_PASS'
+      - name: Cleanup synthetic output and copyrighted tutorial file
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/lmms-out" "$RUNNER_TEMP/editing_note_volumes.mmp"
+  musescore-score:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install open MuseScore converter, X virtual framebuffer and score validator
+        run: |
+          sudo apt-get update -qq
+          apt-cache policy musescore3
+          sudo apt-get install -y musescore3 xvfb unzip
+      - name: Fetch pinned CC0 OpenScore transcription
+        run: |
+          set -euo pipefail
+          base='https://raw.githubusercontent.com/OpenScore/Lieder/38c5db510224d9facdc4b08d741fc788cfb58ea8'
+          curl --fail --location --retry 3 --max-time 100 -sS \
+            "$base/scores/Schumann,_Clara/6_Lieder,_Op.13/1_Ich_stand_in_dunklen_Tr%C3%A4umen/lc5133602.mxl" \
+            -o "$RUNNER_TEMP/clara_schumann_op13_1.mxl"
+          curl --fail --location --retry 3 --max-time 100 -sS \
+            "$base/LICENSE.txt" -o "$RUNNER_TEMP/openscore-license.txt"
+          grep -q 'CC0 1.0 Universal' "$RUNNER_TEMP/openscore-license.txt"
+          unzip -t "$RUNNER_TEMP/clara_schumann_op13_1.mxl"
+          sha256sum "$RUNNER_TEMP/clara_schumann_op13_1.mxl"
+      - name: Actually convert score to editable standard MIDI, unattended
+        run: |
+          set -euo pipefail
+          QT_QPA_PLATFORM=offscreen timeout 180s xvfb-run -a \
+            musescore3 -o "$RUNNER_TEMP/openscore.mid" "$RUNNER_TEMP/clara_schumann_op13_1.mxl"
+          python3 audio-headless/verify.py midi "$RUNNER_TEMP/openscore.mid"
+          echo 'MUSESCORE_REAL_HEADLESS_SCORE_PASS'
+      - name: Cleanup copyrighted output and source
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/clara_schumann_op13_1.mxl" "$RUNNER_TEMP/openscore-license.txt" \
+            "$RUNNER_TEMP/openscore.mid"
