@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: nasa-r3-\${{ github.event.pull_request.number || github.ref }}
+  group: nasa-r3-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
