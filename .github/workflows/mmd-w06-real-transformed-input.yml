@@ -1,0 +1,126 @@
+name: MMD W06 true transformed VMD input through actual 31 frame Babylon MmdRuntime
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/w06_*'
+      - '.github/workflows/mmd-w06-real-transformed-input.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: mmd-w06-real-native-input-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  genuine-transformed-ik-solver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout rights-clean candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pin actual MIT Babylon MMD source with no user character assets
+        uses: actions/checkout@v4
+        with:
+          repository: noname0310/babylon-mmd
+          ref: ccb750db2998ed1067017eaf67f3fc987cfba6f8
+          path: vendor/babylon-mmd
+          sparse-checkout: |
+            LICENSE
+            src/Loader
+            src/Runtime
+          persist-credentials: false
+      - name: Pin actual Blender MMD Tools native VMD serializer source
+        uses: actions/checkout@v4
+        with:
+          repository: MMD-Blender/blender_mmd_tools
+          ref: f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          path: vendor/mmd-tools
+          sparse-checkout: |
+            mmd_tools/core/vmd
+            LICENSE
+          persist-credentials: false
+      - name: Download source-author-cleared real original G10 model and IK VMD
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-ik-structural-evidence
+          run-id: 40455687379
+          github-token: ${{ github.token }}
+          path: original/g10
+      - name: Download original G9 fixture to preserve real source runtime multi-model test
+        uses: actions/download-artifact@v4
+        with:
+          name: public-mmd-face-morph-parity-evidence
+          run-id: 40455150395
+          github-token: ${{ github.token }}
+          path: original/g9
+      - name: Verify exact original synthetic source motion hashes
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' \
+            fadfc3cb3d365cdb4b0c4cc26652c2e831a02ec7da518caae9142dd711468583 original/g10/synthetic_two_link_ik.pmx \
+            e61ae2953c6cd34904fec2c59ae95fe64ed043ce0cde93e1c3d5db3d12ed149c original/g10/synthetic_foot_goal.vmd \
+            311e8da1c17d924ac40ed84a543a162c79b5ad7a19d5718a62072f8908757d42 original/g9/synthetic_face_grid.pmx \
+            b69a57beeffe067cf7a100cb45ac83259c05004ffda5c599da54b5fb5b60b663 original/g9/synthetic_face_motion.vmd | sha256sum --check
+      - name: Select Python and Go for native fixture serializer and independent Go check
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Install pinned Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.12'
+          cache: false
+      - name: Native VMD serializer generates exact-source motion scaled by 0.75 and re-parses it
+        run: |
+          set -euo pipefail
+          mkdir -p w06-real-output
+          python mmd/qualification/w06_source_vmd.py \
+            --source vendor/mmd-tools \
+            --original original/g10/synthetic_foot_goal.vmd \
+            --out w06-real-output/scaled_goal.vmd
+          test -s w06-real-output/w06_transform_receipt.json
+      - name: Install real source-bound Babylon MMD runtime and pinned peer
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --no-audit --no-fund \
+            'tsx@4.20.6' '@babylonjs/core@9.18.0'
+      - name: Evaluate 31 true G10 source and transformed input frames through actual upstream MMD solver
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsx --tsconfig mmd/qualification/w04_tsconfig.json \
+            mmd/qualification/w04_babylon_runtime.mts \
+            original/g10/synthetic_two_link_ik.pmx \
+            original/g10/synthetic_foot_goal.vmd \
+            original/g9/synthetic_face_grid.pmx \
+            original/g9/synthetic_face_motion.vmd \
+            w06-real-output/native_original.json --all31
+          ./node_modules/.bin/tsx --tsconfig mmd/qualification/w04_tsconfig.json \
+            mmd/qualification/w04_babylon_runtime.mts \
+            original/g10/synthetic_two_link_ik.pmx \
+            w06-real-output/scaled_goal.vmd \
+            original/g9/synthetic_face_grid.pmx \
+            original/g9/synthetic_face_motion.vmd \
+            w06-real-output/native_transformed.json --all31
+      - name: Go independently checks real perturbed solver output and adversarial mutations
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          go run mmd/qualification/w06_real_transform_check.go \
+            w06-real-output/native_original.json \
+            w06-real-output/native_transformed.json \
+            w06-real-output/w06_transform_receipt.json \
+            w06-real-output/w06_true_solver_receipt.json
+          grep -q PASS_31_FRAME_REAL_BABYLON_SOLVER_INPUT_TRANSFORM_METAMORPHISM \
+            w06-real-output/w06_true_solver_receipt.json
+      - name: Preserve actual transformed source, native motion observations and first failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w06-real-vmd-transformed-native-mmd-solver
+          path: w06-real-output/*
+          retention-days: 14
+          if-no-files-found: warn
