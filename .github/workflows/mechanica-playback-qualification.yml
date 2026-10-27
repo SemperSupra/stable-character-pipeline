@@ -45,6 +45,12 @@ jobs:
             apt-cache policy "${pkg}" | head -n 12 || true
           done
           export DEBIAN_FRONTEND=noninteractive
+          # The Azure-hosted Ubuntu mirror has returned stale-package 404s and stalled
+          # while fetching blender-data; use official Ubuntu mirrors on this
+          # disposable read-only public GHA runner, never on sovereign hosts.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'http://archive.ubuntu.com/ubuntu/' 'http://security.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
+          fi
           echo 'Refreshing APT indexes to avoid stale runner package versions (bounded HTTP timeouts)'
           set +e
           timeout --signal=TERM --kill-after=10s 120s sudo apt-get \
