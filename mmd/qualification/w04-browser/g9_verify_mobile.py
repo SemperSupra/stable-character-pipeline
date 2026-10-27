@@ -44,11 +44,11 @@ def main():
     if len(tracks)!=31 or any(len(x["gpu_morph_influences"])!=2 for x in tracks):
         raise ValueError("real GPU target animation tracking missing")
     for i,row in enumerate(tracks):
-        a=row["morph_weights"]["まばたき"]
-        b=row["morph_weights"]["笑い"]
-        if not all(math.isfinite(z) for z in (a,b,*row["gpu_morph_influences"])):
+        blink_weight=row["morph_weights"]["まばたき"]
+        smile_weight=row["morph_weights"]["笑い"]
+        if not all(math.isfinite(z) for z in (blink_weight,smile_weight,*row["gpu_morph_influences"])):
             raise ValueError("nonfinite browser morph sample")
-        if abs(a-row["gpu_morph_influences"][0])>.002 or abs(b-row["gpu_morph_influences"][1])>.002:
+        if abs(blink_weight-row["gpu_morph_influences"][0])>.002 or abs(smile_weight-row["gpu_morph_influences"][1])>.002:
             raise ValueError("GPU native target and runtime morph diverged")
     for f,expected in [(0,(0,0)),(15,(1,.35)),(30,(0,1))]:
         v=tracks[f]["morph_weights"]
