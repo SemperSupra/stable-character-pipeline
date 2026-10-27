@@ -155,6 +155,19 @@ jobs:
             --out w04-output/complete_31frame_comparison.json
           test -s w04-output/complete_31frame_comparison.json
           grep -q 'PASS_REAL_BABYLON_VS_DIRECT_G10_31_FRAME_GOAL_ERROR_AND_G9_INTERMEDIATE_MORPHS' w04-output/complete_31frame_comparison.json
+      - name: Independently compare all G10 four-bone world translations at 31 real source frames
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/w04_31frame_pose.py
+          python3 mmd/qualification/w04_31frame_pose.py \
+            --runtime w04-output/babylon_31frames_native_runtime.json \
+            --glb original/g10/ik_enabled.glb \
+            --prior original/g10b/ik_contact_receipt.json \
+            --original-glb-verifier .github/mmd-ik/verify_contact.py \
+            --crosscheck mmd/qualification/w04_31frame_crosscheck.py \
+            --out w04-output/complete_31frame_world_joint_parity.json
+          grep -q 'PASS_REAL_BABYLON_VS_DIRECT_31FRAME_WORLD_POSE' w04-output/complete_31frame_world_joint_parity.json
       - name: Preserve actual third-engine source-parser positive and negative receipts
         if: always()
         uses: actions/upload-artifact@v4
