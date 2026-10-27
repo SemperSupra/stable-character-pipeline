@@ -10,7 +10,7 @@ permissions:
 jobs:
   dual-source-native:
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 27
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,10 +18,25 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: spatial-contract/go.mod
-      - name: Install $0 public native build and audio validation dependencies
+      - name: Bound and minimize public Ubuntu audio dependency admission
+        timeout-minutes: 22
         run: |
+          set -euo pipefail
+          date -u '+dependency_start_utc=%Y-%m-%dT%H:%M:%SZ'
+          for executable in g++ git pkg-config python3; do
+            command -v "$executable" >/dev/null || { echo "PREINSTALLED_TOOL_MISSING $executable"; exit 1; }
+          done
           sudo apt-get update -qq
-          sudo apt-get install -y meson ninja-build pkg-config g++ ffmpeg git
+          # Previous exact-head CI spent 17m18s installing 101 packages (94.8 MB)
+          # and was cancelled at the 18m job deadline *after native steps passed*.
+          # Do not install g++/git/pkg-config already on the public runner.
+          timeout 1200s sudo DEBIAN_FRONTEND=noninteractive apt-get install -y             --no-install-recommends meson ninja-build ffmpeg
+          for executable in meson ninja ffmpeg ffprobe g++ git pkg-config; do
+            command -v "$executable" >/dev/null || { echo "DEPENDENCY_INSTALL_MISSING $executable"; exit 1; }
+          done
+          ffmpeg -version | head -n 1
+          date -u '+dependency_end_utc=%Y-%m-%dT%H:%M:%SZ'
+          echo "native_audio_dependency_bound_PASS within_20min=true"
       - name: Go strict source custody, regression, negative and race tests
         working-directory: spatial-contract
         run: |
@@ -136,6 +151,35 @@ jobs:
           (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/dual-retuned-5.1.wav")
           (cd spatial-contract && go run ./cmd/dual-spectrum \
              "$RUNNER_TEMP/dual-original-5.1.wav" "$RUNNER_TEMP/dual-retuned-5.1.wav")
+      - name: Verify source B exact-frame activity gate spanning 1024-block boundaries
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/dual-fixture/scene.json" "$RUNNER_TEMP/dual-gated.json" <<'PY'
+          import json,sys
+          s=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert s['emitters'][1]['id']=='robot_b'
+          s['emitters'][1]['source_start_frame']=24*1024-1
+          s['emitters'][1]['source_stop_frame']=36*1024+1
+          with open(sys.argv[2],'w',encoding='utf-8') as f:json.dump(s,f)
+          PY
+          (cd spatial-contract && go run ./cmd/spatial-dual plan \
+             "$RUNNER_TEMP/dual-gated.json" "$RUNNER_TEMP/dual-fixture" \
+             "$RUNNER_TEMP/dual-gated-plan.tsv" > "$RUNNER_TEMP/dual-gated-plan.json")
+          python3 - "$RUNNER_TEMP/dual-gated-plan.tsv" <<'PY'
+          import pathlib,sys
+          lines=pathlib.Path(sys.argv[1]).read_text().strip().splitlines()
+          assert len(lines)==47
+          assert all(len(l.split())==16 for l in lines)
+          assert all(l.split()[-4:]==['0','48000','24575','36865'] for l in lines)
+          print('spatial_w3b_activity_gate_metadata_PASS start=24575 stop=36865 blocks=47')
+          PY
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/install/lib"
+          "$RUNNER_TEMP/dual-renderer" \
+            "$RUNNER_TEMP/dual-fixture/robot_a.wav" "$RUNNER_TEMP/dual-fixture/robot_b.wav" \
+            "$RUNNER_TEMP/dual-gated-plan.tsv" "$RUNNER_TEMP/dual-gated-5.1.wav"
+          (cd spatial-contract && go run ./cmd/nativeverify surround_5_1 "$RUNNER_TEMP/dual-gated-5.1.wav")
+          (cd spatial-contract && go run ./cmd/dual-spectrum windows \
+             "$RUNNER_TEMP/dual-original-5.1.wav" "$RUNNER_TEMP/dual-gated-5.1.wav")
       - name: "Negative controls: missing block, output collision, tampered second source"
         run: |
           set -euo pipefail

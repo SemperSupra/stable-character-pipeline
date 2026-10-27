@@ -33,6 +33,10 @@ type Emitter struct {
  Directivity string `json:"directivity"`
  SpreadDeg float64 `json:"spread_deg"`
  Motion []Key `json:"motion"`
+ // Absolute PCM sample-frame mute gates. A zero StopFrame defaults to scene end.
+ // These are NOT source-file offset seek/shift operations.
+ SourceStartFrame int `json:"source_start_frame,omitempty"`
+ SourceStopFrame int `json:"source_stop_frame,omitempty"`
 }
 type Output struct {
  ID string `json:"id"`
@@ -90,6 +94,12 @@ func (s Scene)Validate()error{
   if !finite(v.GainDB)||v.GainDB< -80||v.GainDB>12||!finite(v.SpreadDeg)||v.SpreadDeg<0||v.SpreadDeg>180 {return fmt.Errorf("invalid gain/spread for %q",v.ID)}
   if v.Directivity!="omni"&&v.Directivity!="cardioid"{return errors.New("unsupported directivity")}
   if e:=keys(v.Motion,s.DurationMS);e!=nil{return fmt.Errorf("emitter %s: %w",v.ID,e)}
+  stop:=v.SourceStopFrame
+  if stop==0{stop=s.DurationMS*48}
+  if v.SourceStartFrame<0 || v.SourceStartFrame>=s.DurationMS*48 ||
+     stop<=v.SourceStartFrame || stop>s.DurationMS*48 {
+   return fmt.Errorf("invalid sample-frame source window for %q",v.ID)
+  }
  }
  outputIDs:=map[string]bool{}
  for _,v:=range s.Outputs{

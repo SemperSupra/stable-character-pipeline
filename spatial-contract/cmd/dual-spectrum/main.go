@@ -56,8 +56,58 @@ func verify(actual,changed []float32)error {
  fmt.Printf("spatial_w3_source_content_ISOLATION_PASS original_A_410=%.9g original_B_690=%.9g retuned_A_410=%.9g retuned_B_930=%.9g retained_A_ratio=%.6f removed_B_690_ratio=%.6f\n",a410,a690,b410,b930,ratio,b690/a690)
  return nil
 }
+
+func windowEnergy(samples []float32,hz float64,start,stop int)float64{
+ var power float64
+ for ch:=0;ch<nch;ch++{
+  re,im:=0.0,0.0
+  for i:=start;i<stop;i++{
+   v:=float64(samples[i*nch+ch])
+   angle:=2*math.Pi*hz*float64(i)/rate
+   re+=v*math.Cos(angle)
+   im+=v*math.Sin(angle)
+  }
+  amp:=2*math.Hypot(re,im)/float64(stop-start)
+  power+=amp*amp
+ }
+ return power
+}
+// Window checks spectrally isolated source B remains active only in the declared
+// gate. It checks broad temporal energy, NOT exact acoustic ringing/impulse onset.
+func checkActivity(original,gated []float32)error{
+ windows:=[]struct{name string;start,stop int;active bool}{
+  {"before",0,22000,false},
+  {"inside",27000,35000,true},
+  {"after",39000,48000,false},
+ }
+ for _,w:=range windows{
+  if w.stop>frames||w.start<0||w.stop<=w.start{return errors.New("invalid QA window")}
+  priorB:=windowEnergy(original,690,w.start,w.stop)
+  gatedB:=windowEnergy(gated,690,w.start,w.stop)
+  priorA:=windowEnergy(original,410,w.start,w.stop)
+  gatedA:=windowEnergy(gated,410,w.start,w.stop)
+  if priorB<1e-6||priorA<1e-6||gatedA<1e-6{return fmt.Errorf("missing original source in %s interval",w.name)}
+  ar:=gatedA/priorA
+  if ar<0.7||ar>1.3{return fmt.Errorf("source A changed under B gating in %s interval: %.8f",w.name,ar)}
+  ratio:=gatedB/priorB
+  if w.active{
+   if ratio<0.5||ratio>1.5{return fmt.Errorf("B activity lost in %s interval %.8f",w.name,ratio)}
+  }else if ratio>0.03{
+   return fmt.Errorf("B activity leaked into muted %s interval %.8f",w.name,ratio)
+  }
+  fmt.Printf("spatial_w3b_window_OBS window=%s source_A_retained_ratio=%.6f B_690_energy_ratio=%.8f expected_active=%v\n",w.name,ar,ratio,w.active)
+ }
+ fmt.Println("spatial_w3b_source_sample_windows_PASS onset_frame=24575 stop_frame=36865 acoustic_residual_not_sample_zero_claimed")
+ return nil
+}
 func main(){
- if len(os.Args)!=3{fmt.Fprintln(os.Stderr,"usage: dual-spectrum original_5.1.wav retuned_B_5.1.wav");os.Exit(2)}
+ if len(os.Args)==4&&os.Args[1]=="windows"{
+  original,e:=decode(os.Args[2]);if e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(1)}
+  gated,e:=decode(os.Args[3]);if e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(1)}
+  if e=checkActivity(original,gated);e!=nil{fmt.Fprintln(os.Stderr,"WINDOW_FIRST_FAILURE",e);os.Exit(1)}
+  return
+ }
+ if len(os.Args)!=3{fmt.Fprintln(os.Stderr,"usage: dual-spectrum original_5.1.wav retuned_B_5.1.wav | windows ORIGINAL_5.1.wav GATED_B_5.1.wav");os.Exit(2)}
  a,e:=decode(os.Args[1]);if e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(1)}
  b,e:=decode(os.Args[2]);if e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(1)}
  if e=verify(a,b);e!=nil{fmt.Fprintln(os.Stderr,"SPECTRAL_FIRST_FAILURE",e);os.Exit(1)}
