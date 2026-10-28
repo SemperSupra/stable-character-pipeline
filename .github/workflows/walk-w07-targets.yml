@@ -1,0 +1,69 @@
+name: W07 two independent original body retarget Go qualifications
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w06/gait.py'
+      - 'qualification/walk_w07/**'
+      - '.github/workflows/walk-w07-targets.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-retarget:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Synthetic source transfer / ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        target: [different-proportions, compact-and-tall]
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: W06 canonical original source and rights gates
+        run: |
+          set -euo pipefail
+          (cd qualification/walk_w06 && python3 -m unittest -v test_gait)
+          python3 qualification/walk_w06/gait.py --out "$RUNNER_TEMP/original_source.json"
+      - name: Go profile, contact and adversarial source tests
+        env:
+          W07_TEST_SOURCE: ${{ runner.temp }}/original_source.json
+        run: |
+          set -euo pipefail
+          cd qualification/walk_w07
+          go vet .
+          go test -race -count=1 -v .
+      - name: Transfer into independent target rig
+        env:
+          TARGET_PROFILE: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          mkdir -p public-results
+          (cd qualification/walk_w07 && go run . -source "$RUNNER_TEMP/original_source.json" -target "$TARGET_PROFILE" -out "$GITHUB_WORKSPACE/public-results/$TARGET_PROFILE.json")
+          python3 - "public-results/$TARGET_PROFILE.json" <<'PY'
+          import json,sys
+          j=json.load(open(sys.argv[1]))
+          assert j["schema"]=="scp.walk_transfer_synthetic.v1"
+          assert j["status"]=="PASS_ORIGINAL_SYNTHETIC_CONTACT_PRESERVING_RETARGET"
+          assert j["source_rights"]=="ORIGINAL_PROGRAMMATIC_PROCEDURAL_ONLY"
+          assert len(j["frames"])==72 and j["min_root_gap"]>=1.5
+          assert j["max_planted_foot_slip"]<=1e-7
+          assert j["max_ik_length_residual"]<=1e-8
+          print("W07_SOURCE_NEUTRAL_TARGET_PASS",j["target_profile"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: walk-w07-${{ matrix.target }}
+          path: public-results/
+          retention-days: 3
+          if-no-files-found: warn
