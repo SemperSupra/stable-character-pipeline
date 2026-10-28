@@ -1,0 +1,72 @@
+name: W10 independent native Blender shoe contact source and geometry
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w10/**'
+      - '.github/workflows/walk-w10-native-shoe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  shoe-contact:
+    name: Independent native shoe / ${{ matrix.profile }}
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        profile: [relaxed, brisk]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check original public rights/source before native work
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          (cd qualification/walk_w06 && python -m unittest -v test_gait)
+          (cd qualification/walk_w08 && python -m unittest -v test_gait_w08)
+          python qualification/walk_w08/gait_w08.py --profile "$PROFILE" --out original_eased.json
+      - name: Native Blender two avatars, 72 full frames, native source witness
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'Pillow==11.3.0' 'imageio-ffmpeg==0.6.0'
+          python -u qualification/walk_w06/render_walk.py original_eased.json w10-source-native
+      - name: Independently reopen saved blend and measure shoe world contact with hostile mutation
+        run: |
+          set -euo pipefail
+          python -u qualification/walk_w10/native_shoe_check.py --source original_eased.json --blend w10-source-native/two_original_public_walkers.blend --out w10-source-native/native_shoe_receipt.json
+          python - <<'PY'
+          import json
+          with open('w10-source-native/native_shoe_receipt.json') as f:r=json.load(f)
+          assert r['status']=='PASS_INDEPENDENT_BPY_SHOE_CONTACT_SOURCE_AND_GEOMETRY'
+          assert r['frames']==72 and r['shoe_observations']==288
+          assert r['adversarial_native_shoe_060_shift']=='REJECTED_AS_EXPECTED'
+          assert r['maximum_native_center_residual']<1e-5
+          assert r['maximum_native_stance_slip']<1e-6
+          assert r['minimum_native_shoe_mesh_y'] >= -0.005
+          print('W10_INDEPENDENT_NATIVE_SHOE_NUMERICAL_PASS')
+          PY
+      - name: Original native source, editable scene, independent shoe witness
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: walk-w10-shoe-${{ matrix.profile }}
+          path: |
+            original_eased.json
+            w10-source-native/native_mesh_receipt.json
+            w10-source-native/native_shoe_receipt.json
+            w10-source-native/two_original_public_walkers.blend
+            w10-source-native/two_original_public_walkers_native.mp4
+            w10-source-native/preview_*.png
+          retention-days: 3
+          if-no-files-found: warn
