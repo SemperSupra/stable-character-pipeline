@@ -95,3 +95,16 @@ def polygons(actor_parts,frame,width,height):
             ev=obj.evaluated_get(deps)
             mesh=ev.to_mesh()
             if mesh is None:raise ValueError("MISSING_NATIVE_MESH")
+
+            try:
+                pts=[]
+                for v in mesh.vertices:
+                    w=ev.matrix_world@v.co
+                    pts.append(((w.x+3.9)/7.8*width,
+                                height-(w.y+.15)/3.0*height))
+                if not pts:raise ValueError("EMPTY_NATIVE_MESH")
+                polys.append((color,pts))
+            finally:
+                ev.to_mesh_clear()
+        result[actor_id]=polys
+    return result
