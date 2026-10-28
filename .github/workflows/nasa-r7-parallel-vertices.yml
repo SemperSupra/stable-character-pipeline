@@ -1,0 +1,153 @@
+name: NASA R7 independent parallel vertex evaluators and numerical parity
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/nasa-r7-parallel-vertices.yml'
+      - 'qualification/nasa_rig_r3/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: nasa-r7-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evaluators:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: R7 isolated CPU / ${{ matrix.reader }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 11
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        reader: [gltf, blender]
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '1'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download same original source-bound R5 model output; no new model inference
+        uses: actions/download-artifact@v4
+        with:
+          name: nasa-r5-originals-replay-and-rig
+          repository: SemperSupra/stable-character-pipeline
+          run-id: 40591683857
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: r5
+      - name: Prove exact source GLB and model-landmark observation SHA
+        run: |
+          set -euo pipefail
+          echo '69a9869e21542dcdaade37f290c29b6d7217ae0e392f450aeb40efe00611ac6a  r5/pose-rig-output/camera_plane_skinned_motion.glb' | sha256sum -c -
+          echo 'a6b56e7d794a5b74701031a75d350a9b2163182950861c1d135ec18b748c9b53  r5/nasa-pair-output/video_landmarks.json' | sha256sum -c -
+      - name: Install only reader-specific public Python dependencies
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.reader }}" = blender ]; then
+            python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'Pillow==11.3.0'
+          else
+            python -m pip install --disable-pip-version-check --no-cache-dir 'Pillow==11.3.0'
+          fi
+      - name: Independently evaluate 192 vertices across 10 source-bound frames
+        run: |
+          set -euo pipefail
+          mkdir -p evaluated
+          if [ "${{ matrix.reader }}" = blender ]; then
+            python -u qualification/nasa_rig_r3/blender_verify.py -- \
+              r5/pose-rig-output/camera_plane_skinned_motion.glb \
+              r5/pose-rig-output/rig_manifest.json evaluated
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('evaluated/r7_blender_vertices.json')
+          r=json.loads(p.read_text())
+          assert r['reader']=='bpy_evaluated_mesh_world_XYZ'
+          assert len(r['frames'])==10 and all(len(f['vertices'])==192 for f in r['frames'])
+          print('R7_ACTUAL_BLENDER_SAMPLED',p.stat().st_size)
+          PY
+          else
+            cp r5/pose-rig-output/camera_plane_skinned_motion.glb evaluated/
+            python -u qualification/nasa_rig_r3/portable_verify.py \
+              --glb r5/pose-rig-output/camera_plane_skinned_motion.glb \
+              --manifest r5/pose-rig-output/rig_manifest.json --out evaluated
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('evaluated/r7_gltf_vertices.json')
+          r=json.loads(p.read_text())
+          assert r['reader']=='independent_glTF_source_XYZ'
+          assert len(r['frames'])==10 and all(len(f['vertices'])==192 for f in r['frames'])
+          print('R7_INDEPENDENT_GLTF_SAMPLED',p.stat().st_size)
+          PY
+          fi
+      - name: Keep per-reader isolated numerical facts; no source asset redistribution
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r7-numeric-${{ matrix.reader }}
+          path: |
+            evaluated/r7_${{ matrix.reader }}_vertices.json
+            evaluated/*readback.json
+          retention-days: 3
+          if-no-files-found: warn
+
+  parity-reconcile:
+    name: R7 independent numerical parity and falsifiers
+    needs: evaluators
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Explicitly preserve failure of either original evaluator
+        env:
+          EVALUATORS: ${{ needs.evaluators.result }}
+        run: |
+          echo "R7_TWO_EVALUATORS=$EVALUATORS"
+          test "$EVALUATORS" = success
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: r7-numeric-*
+          path: r7-input
+          merge-multiple: true
+      - name: Test comparison semantics and exact source readback
+        run: |
+          set -euo pipefail
+          (cd qualification/nasa_rig_r3 && python -m unittest -v test_r7_vertex_parity)
+          mkdir -p r7-receipt
+          python qualification/nasa_rig_r3/r7_vertex_parity.py \
+            --gltf r7-input/r7_gltf_vertices.json \
+            --blender r7-input/r7_blender_vertices.json \
+            --out r7-receipt/vertex_numeric_parity.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('r7-receipt/vertex_numeric_parity.json')
+          r=json.loads(p.read_text())
+          assert r['sample_count']==10 and r['vertices_per_sample']==192
+          assert r['source_person_identity_accuracy']=='NOT_TESTED'
+          assert r['real_body_anatomy_accuracy']=='NOT_TESTED'
+          assert r['independent_source_truth_oracle'] is False
+          print('R7_FINAL_CROSS_READER_CLASSIFICATION',r['status'])
+          PY
+      - name: Keep all source-bound comparisons or first failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r7-numeric-parity-receipt
+          path: r7-receipt/
+          retention-days: 3
+          if-no-files-found: warn
