@@ -29,3 +29,18 @@ def between(piece,frame,a,b,width):
     dx=b[0]-a[0];dy=b[1]-a[1]
     pose_piece(piece,frame,(a[0]+b[0])/2,(a[1]+b[1])/2,
                width,math.hypot(dx,dy)+.06,math.atan2(-dx,dy))
+
+def character(actor):
+    aid=actor["id"];base,accent=COLORS[aid]
+    pieces={}
+    for side in ("left","right"):
+        for name,color,order in (("thigh",base,1),("shin",base,1),
+                                 ("foot",accent,2),("upperarm",base,2),
+                                 ("forearm",base,4)):
+            key=name+"_"+side
+            pieces[key]=make_piece(aid+"_"+key,color,order)
+    for name,color,order in (("torso",base,3),("head",base,5),
+                             ("visor",accent,6),("eye","#213343",7),
+                             ("hat",accent,8)):
+        pieces[name]=make_piece(aid+"_"+name,color,order)
+    return pieces
