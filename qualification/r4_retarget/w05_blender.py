@@ -8,6 +8,7 @@ import json
 import math
 import sys
 from pathlib import Path
+from mathutils import Vector
 from w05_contract import read_motion
 
 if len(sys.argv)!=3:
@@ -50,7 +51,10 @@ obj.parent=arm
 pose=arm.pose.bones['hinge']
 for idx,value in enumerate(xs):
     scene.frame_set(idx*fps)
-    pose.location=(value,0,0)
+    # PoseBone.location uses BONE-LOCAL axes; W04 specifies GLOBAL camera-plane X.
+    # The hinge rest bone points downward. Invert its actual rest-basis transform
+    # rather than assuming local X equals world X for all signed bone directions.
+    pose.location=arm.data.bones['hinge'].matrix_local.to_3x3().inverted() @ Vector((value,0,0))
     pose.keyframe_insert(data_path='location',frame=idx*fps,group='synthetic_hinge',index=-1)
 pose.location=(0,0,0)
 scene.frame_set(0)
@@ -69,6 +73,7 @@ for i,x in enumerate(xs):
     pts=sample_mesh()
     dx=[p[0]-q[0] for p,q in zip(pts,first)]
     if len(pts)!=4 or max(abs(v-x) for v in dx)>1e-5:
+        print('R4_W05_FIRST_FAILURE_NATIVE_POSE',json.dumps({'sample':i,'wanted_world_x':x,'observed_world_dx':dx,'rest_basis':list(map(list,arm.data.bones['hinge'].matrix_local.to_3x3()))}),flush=True)
         raise ValueError('BLENDER_NATIVE_WEIGHTED_TARGET_SKIN_MISMATCH')
     if any(abs(p[2])>1e-6 for p in pts):
         raise ValueError('SYNTHETIC_DEPTH_INVENTED')
