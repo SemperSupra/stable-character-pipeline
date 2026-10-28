@@ -1,0 +1,293 @@
+{
+  "schema": "scp.mmd.study_motion_source_admission.v1",
+  "authority": {
+    "human": "PRIVATE_HUMAN_OWNER_DLE_NOT_PUBLICLY_PROJECTED",
+    "public_motion": "SemperSupra/stable-character-pipeline#29",
+    "mmd": "SemperSupra/stable-character-pipeline#19",
+    "cpe": "independent blinded track, NOT_ADMITTED"
+  },
+  "created_as_of": "2026-10-28",
+  "data_policy": "METADATA_ONLY_NO_CAPTURE_BYTES_COPIED",
+  "default_status": "NOT_ADMITTED",
+  "first_planned_trials": [
+    "05_02",
+    "05_11",
+    "56_04",
+    "02_01"
+  ],
+  "requirements": [
+    "exact source file and SHA256",
+    "per-file terms and public/private processing approval",
+    "original measured/source/estimated/synthetic label",
+    "source session, performer, choreography and partner ancestry",
+    "real source FPS plus robust 30fps resampling",
+    "original skeleton mapping, coordinate/unit test",
+    "real native upstream VMD serializer plus independent target playback",
+    "negative controls and three-audience evidence"
+  ],
+  "sources": [
+    {
+      "id": "cmu-modern-dance",
+      "name": "CMU Graphics Lab Modern Dance",
+      "kind": "MEASURED_CAPTURE_CATALOG",
+      "format": [
+        "ASF",
+        "AMC"
+      ],
+      "source_url": "https://mocap.cs.cmu.edu/search.php?maincat=4&subcat=2",
+      "rights_url": "https://mocap.cs.cmu.edu/",
+      "license_summary": "Official free-use motion grant; no direct resale of original or converted motion data; confirm exact per-capture provenance.",
+      "scope": "FREE_USE_NO_DATA_RESALE",
+      "candidate_ids": [
+        "05_02",
+        "05_11"
+      ],
+      "fps_hint": 120,
+      "track_scope": "human 3D articulated mocap, source bone hierarchy",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "HOLD",
+      "mmd_path": "ASF+AMC -> measured 3D skeleton/time -> explicit human retarget -> VMD+PMX",
+      "risks": [
+        "source original ASF/AMC file bytes not yet retrieved or hashed",
+        "upstream 120 Hz to MMD 30 FPS must be anti-aliased and time-indexed",
+        "source conversion must keep subject/session ancestry"
+      ]
+    },
+    {
+      "id": "cmu-salsa",
+      "name": "CMU Graphics Lab Salsa",
+      "kind": "MEASURED_CAPTURE_CATALOG",
+      "format": [
+        "ASF",
+        "AMC"
+      ],
+      "source_url": "https://mocap.cs.cmu.edu/search.php",
+      "rights_url": "https://mocap.cs.cmu.edu/",
+      "license_summary": "Official free-use motion grant; no direct resale of original or converted motion data; trial file unverified.",
+      "scope": "FREE_USE_NO_DATA_RESALE",
+      "candidate_ids": [
+        "56_04"
+      ],
+      "fps_hint": 60,
+      "track_scope": "human articulated dance",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "HOLD",
+      "mmd_path": "ASF+AMC -> full joint FK, units and axes -> VMD",
+      "risks": [
+        "trial file bytes not yet verified",
+        "preserve source rhythm/phase before 60->30 fps resampling"
+      ]
+    },
+    {
+      "id": "cmu-walk",
+      "name": "CMU Original Walk Baseline",
+      "kind": "MEASURED_CAPTURE_CATALOG",
+      "format": [
+        "ASF",
+        "AMC"
+      ],
+      "source_url": "https://mocap.cs.cmu.edu/search.php?subjectnumber=2",
+      "rights_url": "https://mocap.cs.cmu.edu/",
+      "license_summary": "Official free-use motion grant; no direct resale of original or converted motion data.",
+      "scope": "FREE_USE_NO_DATA_RESALE",
+      "candidate_ids": [
+        "02_01"
+      ],
+      "fps_hint": null,
+      "track_scope": "single-performer walk baseline",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "HOLD",
+      "mmd_path": "ASF+AMC -> full pose/root/time -> synthetic model VMD",
+      "risks": [
+        "source owner R012 #35 nominated this trial but no file-level hash"
+      ]
+    },
+    {
+      "id": "cologne-bvh",
+      "name": "Cologne Motion Capture Database",
+      "kind": "MEASURED_CAPTURE_CATALOG",
+      "format": [
+        "BVH",
+        "C3D"
+      ],
+      "source_url": "https://mocap.web.th-koeln.de/about.php",
+      "rights_url": "https://mocap.web.th-koeln.de/about.php",
+      "license_summary": "TH Koeln motion files and annotations CC BY 4.0; keep author/source attribution and per-file recording metadata.",
+      "scope": "CC_BY_4_0",
+      "candidate_ids": [],
+      "fps_hint": null,
+      "track_scope": "3D motion and source annotations",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "HOLD",
+      "mmd_path": "BVH -> exact rotation order, scale/time and humanoid bone map -> VMD",
+      "risks": [
+        "per-file accessible URL and metadata not acquired",
+        "BVH hierarchies may not correspond 1:1 to PMX"
+      ]
+    },
+    {
+      "id": "northumbria-female-2017",
+      "name": "McCarty et al. 2017 female dance motion-parameter study",
+      "kind": "PAPER_AND_AVATAR_VIDEO_ONLY",
+      "format": [
+        "MOV",
+        "REPORTED_METRICS"
+      ],
+      "source_url": "https://doi.org/10.1038/srep42435",
+      "rights_url": "https://www.nature.com/articles/srep42435",
+      "license_summary": "Article CC BY 4.0 subject to third-party-material exclusions; exact supplementary video reuse and download file-specific rights must be inspected.",
+      "scope": "ARTICLE_CC_BY_EXCEPTIONS",
+      "candidate_ids": [
+        "supplementary-video-1",
+        "supplementary-video-2"
+      ],
+      "fps_hint": null,
+      "track_scope": "published rating/statistical parameters and visual avatars, not publicly verified raw joint tracks",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "HOLD",
+      "mmd_path": "published metrics -> labelled synthetic parameter study; video -> estimated pose with 2D/3D uncertainty, not ground-truth mocap",
+      "risks": [
+        "raw mocap not provided with paper",
+        "image/video rights may contain exceptions",
+        "rating correlations are not a physical motion animation or identity inference"
+      ]
+    },
+    {
+      "id": "northumbria-male-2010",
+      "name": "Neave et al. male dance movement study 2010",
+      "kind": "PAPER_AND_AVATAR_VIDEO_ONLY",
+      "format": [
+        "VIDEO",
+        "REPORTED_METRICS"
+      ],
+      "source_url": "https://royalsociety.org/news/2010/attractive-dance-moves/",
+      "rights_url": "https://royalsociety.org/news/2010/attractive-dance-moves/",
+      "license_summary": "Raw motion capture release and video reuse/derivative grant not established. Metadata only.",
+      "scope": "UNVERIFIED",
+      "candidate_ids": [],
+      "fps_hint": null,
+      "track_scope": "neck/trunk and right-knee motion study metrics",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "HOLD",
+      "mmd_path": "reported motif metrics -> original synthetic hypotheses OR video estimated pose after rights admission",
+      "risks": [
+        "no confirmed raw joint-angle files",
+        "no automatic third-party video redistribution"
+      ]
+    },
+    {
+      "id": "aist-annotations",
+      "name": "AIST++ motion annotations",
+      "kind": "ANNOTATION_CATALOG",
+      "format": [
+        "SMPL_AXIS_ANGLE",
+        "ROOT_TRANSLATION",
+        "3D_KEYPOINTS"
+      ],
+      "source_url": "https://google.github.io/aistplusplus_dataset/download.html",
+      "rights_url": "https://google.github.io/aistplusplus_dataset/factsfigures.html",
+      "license_summary": "Google LLC states annotations CC BY 4.0; source AIST videos/music subject to separate academic use/no-redistribution terms; SMPL model/license separate.",
+      "scope": "ANNOTATIONS_CC_BY_4_0_WITH_DEPENDENCIES",
+      "candidate_ids": [],
+      "fps_hint": 60,
+      "track_scope": "joint pose/root motion; SMPL 24 x axis-angle with 3D root trajectory and keypoints",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "HOLD",
+      "mmd_path": "annotation -> SMPL 24 joint pose hierarchy/axis transforms -> named PMX rig -> VMD",
+      "risks": [
+        "do not download or publish AIST dance video/music from research-only grant",
+        "untrusted .pkl deserialization must be sandboxed; avoid pickle load in public worker",
+        "SMPL body model access terms separate from annotation rights",
+        "actor/choreography/music split ancestry"
+      ]
+    },
+    {
+      "id": "amass",
+      "name": "AMASS SMPL motion database",
+      "kind": "RESTRICTED_DATA_CATALOG",
+      "format": [
+        "SMPL"
+      ],
+      "source_url": "https://amass.is.tue.mpg.de/",
+      "rights_url": "https://amass.is.tue.mpg.de/license.html",
+      "license_summary": "Noncommercial research only, explicit no redistribution without permission; no public-runner motion bytes.",
+      "scope": "NONCOMMERCIAL_NO_REDISTRIBUTION",
+      "candidate_ids": [],
+      "fps_hint": null,
+      "track_scope": "SMPL motion motion-ancestry; actual data not admitted",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "BLOCKED",
+      "mmd_path": "private authorized conversion only after terms/user access/owner admission",
+      "risks": [
+        "no distribution even converted clips without permission",
+        "original ancestry overlaps related text/motion datasets"
+      ]
+    },
+    {
+      "id": "finedance",
+      "name": "FineDance multi-genre human dance dataset",
+      "kind": "LICENSE_DISCOVERY_ONLY",
+      "format": [
+        "SMPLH",
+        "VIDEO_METADATA"
+      ],
+      "source_url": "https://github.com/li-ronghui/FineDance",
+      "rights_url": "https://github.com/li-ronghui/FineDance",
+      "license_summary": "Do not infer training/redistribution/license terms from publication or GitHub code license.",
+      "scope": "UNVERIFIED",
+      "candidate_ids": [],
+      "fps_hint": null,
+      "track_scope": "human dance sequences, dataset-specific",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "BLOCKED",
+      "mmd_path": "source terms -> permitted joint pose channel -> retarget skeleton -> VMD",
+      "risks": [
+        "verify accessible actual source terms and motion weights separately"
+      ]
+    },
+    {
+      "id": "cultural-dance-motion",
+      "name": "Atunda and Chang-E/Dunhuang culturally specific dance research",
+      "kind": "LICENSE_DISCOVERY_ONLY",
+      "format": [
+        "MOCAP",
+        "MULTIVIEW_VIDEO",
+        "POSE_METADATA"
+      ],
+      "source_url": "https://github.com/",
+      "rights_url": "https://github.com/",
+      "license_summary": "Mixed/unknown corpus terms; no inference that public paper grants source video or mocap redistribution.",
+      "scope": "UNVERIFIED",
+      "candidate_ids": [],
+      "fps_hint": null,
+      "track_scope": "genre/motif and raw kinematics separately, culturally contextual movement labels",
+      "source_file_sha256": null,
+      "file_verified": false,
+      "source_data_admission": "NOT_ADMITTED",
+      "public_runner": "BLOCKED",
+      "mmd_path": "rights-admitted source motion -> typed skeleton -> MMD VMD; retain original-language motif definitions and uncertainty",
+      "risks": [
+        "do not infer dancer ethnicity or community identity from kinematics",
+        "motif labels are research variables not automatically a physical motion"
+      ]
+    }
+  ]
+}
