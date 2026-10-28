@@ -1,0 +1,42 @@
+name: MMD measured motion study admission - metadata only
+on:
+  pull_request:
+    paths:
+      - 'mmd/research/study_motion_admission*'
+      - '.github/workflows/mmd-study-motion-admission.yml'
+permissions:
+  contents: read
+concurrency:
+  group: mmd-study-motion-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-metadata-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source-only research catalog, never actual recorded motion
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Use bounded pinned Go to validate admission and exercise negative tests
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.12'
+          cache: false
+      - name: Fail closed on fabricated licensing, capture SHA and public compute admission
+        run: |
+          set -euo pipefail
+          go run mmd/research/study_motion_admission.go \
+            -catalog mmd/research/study_motion_admission.v1.json \
+            -out receipts/source-metadata-only.json
+          grep -q PASS_METADATA_ONLY_SOURCE_GATES_AND_SIX_ADVERSARIAL_CONTROLS receipts/source-metadata-only.json
+          grep -q '"actual_external_capture_count": 0' receipts/source-metadata-only.json
+          sha256sum mmd/research/study_motion_admission.v1.json > receipts/source-catalog-sha256.txt
+      - name: Preserve independently inspectable JSON and exact research source provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scp-mmd-measured-study-admission-metadata-only
+          path: receipts/*
+          retention-days: 14
+          if-no-files-found: warn
