@@ -133,6 +133,7 @@ def evaluate(doc, data, manifest, out):
 
     out.mkdir(parents=True, exist_ok=True)
     first, last = None,None
+    r7_positions=[]
     for k in range(count):
         worlds = world_translations(k)
         deformed=[]
@@ -157,6 +158,8 @@ def evaluate(doc, data, manifest, out):
             deformed.append((x,y,z))
         if k==0: first=deformed
         if k==count-1: last=deformed
+        r7_positions.append({"sample":k,"source_second":manifest["glb_frame_start_source_ms"]//1000+k,
+                             "vertices":[list(p) for p in deformed]})
         image=Image.new("RGB",(640,360),(13,22,38))
         draw=ImageDraw.Draw(image)
         def screen(p): return (round(320+p[0]*160),round(180-p[1]*160))
@@ -173,6 +176,15 @@ def evaluate(doc, data, manifest, out):
     displacement=max(math.dist(a,b) for a,b in zip(first,last))
     if displacement < .002:
         raise ValueError("GLB skin animation failed deformation test")
+    (out/"r7_gltf_vertices.json").write_text(json.dumps({
+      "schema":"stable-character/r7-vertex-world/1",
+      "reader":"independent_glTF_source_XYZ",
+      "input_glb_sha256":manifest["glb_sha256"],
+      "axis_convention":"glTF Y_UP",
+      "source_camera_plane_only":True,
+      "anatomical_accuracy":"NOT_TESTED",
+      "frames":r7_positions
+    },sort_keys=True)+"\n")
     receipt={
       "status":"PASS_INDEPENDENT_GLTF_SUBSET_SKIN_NOT_BLENDER",
       "source_input_sha256":manifest["input_landmarks_sha256"],

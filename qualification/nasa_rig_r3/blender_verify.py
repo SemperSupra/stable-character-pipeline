@@ -50,7 +50,10 @@ def sample_vertices(frame):
 # glTF seconds are mapped to frames at the Blender import-time FPS (normally 24).
 fps = scene.render.fps / scene.render.fps_base
 n = int(manifest["glb_sample_count"])
-frames = [int(round(1 + i * fps)) for i in range(n)]
+# glTF animation sampler times are 0..(n-1) seconds; bpy glTF import
+# places t=0 at native scene frame ZERO. Adding 1 frame samples future pose:
+# vertex parity showed native bpy sample 1/24s ahead for 0..8, last clamped.
+frames = [int(round(i * fps)) for i in range(n)]
 first, last = sample_vertices(frames[0]), sample_vertices(frames[-1])
 if len(first) != len(last) or not first:
     raise RuntimeError("deformed mesh vertex capture mismatch")
@@ -111,11 +114,26 @@ def cpu_preview(frame_number, output_png, source_second):
     draw.text((14,332), "NASA source second %d | Z=0, no body shape or true depth" % source_second, fill=(210,221,235))
     image.save(output_png)
 
+r7_frames=[]
 for i, frame in enumerate(frames):
+    pts=sample_vertices(frame)
+    if len(pts)!=len(first) or any(not all(math.isfinite(c) for c in v) for v in pts):
+        raise RuntimeError("R7 rejected incomplete/nonfinite Blender mesh")
+    r7_frames.append({"sample":i,"source_second":int(manifest["glb_frame_start_source_ms"]/1000)+i,
+                      "vertices":[list(p) for p in pts]})
     cpu_preview(frame, str(out / ("rig_frame_%03d.png" % i)),
                 int(manifest["glb_frame_start_source_ms"]/1000)+i)
     if not (out / ("rig_frame_%03d.png" % i)).exists():
         raise RuntimeError("CPU rasterized frame missing: %d" % i)
+(out / "r7_blender_vertices.json").write_text(json.dumps({
+    "schema":"stable-character/r7-vertex-world/1",
+    "reader":"bpy_evaluated_mesh_world_XYZ",
+    "input_glb_sha256":manifest["glb_sha256"],
+    "axis_convention":"Blender Z_UP; glTF Y maps to Z; glTF Z maps to negative Y",
+    "source_camera_plane_only":True,
+    "anatomical_accuracy":"NOT_TESTED",
+    "frames":r7_frames
+},sort_keys=True)+"\n")
 receipt = {
     "classification": "INDEPENDENT_BLENDER_SKIN_AND_ANIMATION_READBACK",
     "input_glb_sha256": manifest["glb_sha256"],
