@@ -88,3 +88,10 @@ def polygons(actor_parts,frame,width,height):
     bpy.context.scene.frame_set(frame)
     deps=bpy.context.evaluated_depsgraph_get()
     result={}
+
+    for actor_id,parts in actor_parts.items():
+        polys=[]
+        for name,(obj,color,layer) in sorted(parts.items(),key=lambda item:item[1][2]):
+            ev=obj.evaluated_get(deps)
+            mesh=ev.to_mesh()
+            if mesh is None:raise ValueError("MISSING_NATIVE_MESH")
