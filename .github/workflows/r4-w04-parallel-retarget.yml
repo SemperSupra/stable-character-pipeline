@@ -1,0 +1,92 @@
+name: R4 W04 synthetic reference-rig retarget source-only CPU matrix
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r4-w04-parallel-retarget.yml'
+      - 'qualification/r4_retarget/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r4-w04-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  retarget-lane:
+    name: R4 W04 / ${{ matrix.lane }}
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    strategy:
+      max-parallel: 2
+      fail-fast: false
+      matrix:
+        lane: [map, motion]
+    env:
+      GO111MODULE: 'off'
+      CGO_ENABLED: '1'
+      GOTOOLCHAIN: local
+      LANE: ${{ matrix.lane }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Pin public source only and prove Go fixture/test inputs
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          sha256sum qualification/r4_retarget/main.go qualification/r4_retarget/main_test.go
+          echo "PUBLIC_ORIGINAL_SYNTHETIC_ONLY lane=$LANE no_weight_download=true no_private_assets=true"
+      - name: Independent source-governed adversarial controls
+        working-directory: qualification/r4_retarget
+        run: |
+          set -euo pipefail
+          go vet ./...
+          case "$LANE" in
+            map) go test -race -v -count=1 -run '^TestMap' . ;;
+            motion) go test -race -v -count=1 -run '^(TestMotion|TestUnknownWorkcell)' . ;;
+            *) echo 'invalid workcell lane' >&2; exit 40;;
+          esac
+      - name: Create explicit original synthetic retarget receipt
+        working-directory: qualification/r4_retarget
+        run: |
+          set -euo pipefail
+          mkdir -p ../../retarget-out
+          go run . -lane "$LANE" -out "../../retarget-out/r4-w04-$LANE.json"
+      - name: Independent fail-closed machine status classification
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          lane=os.environ['LANE']
+          p=pathlib.Path(f'retarget-out/r4-w04-{lane}.json')
+          r=json.loads(p.read_text())
+          assert r['schema']=='stable-character/r4-w04-synthetic-retarget/1'
+          assert r['lane']==lane and r['joint_count']==4
+          assert r['source_rights']==r['target_rights']=='ORIGINAL_SELF_AUTHORED_SYNTHETIC'
+          assert r['real_human_or_animal_contact_measured'] is False
+          assert r['learned_model_inference'] is False
+          assert r['metric_3d_recovered'] is False
+          if lane=='map':
+              assert r['status']=='PASS_SYNTHETIC_NAMED_RIG_CORRESPONDENCE'
+          else:
+              assert r['status']=='PASS_SYNTHETIC_LOCAL_TRANSLATION_SOURCE_CLOCK_ONLY'
+              assert r['frame_count']==3
+              assert r['max_target_delta_source_units']>0
+              assert [x['source_ms'] for x in r['samples']]==[0,1000,2000]
+          print('R4_W04_NATIVE_LANE_PASS',lane,hashlib.sha256(p.read_bytes()).hexdigest())
+          PY
+      - name: Preserve per-lane read-only receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r4-w04-${{ matrix.lane }}
+          path: retarget-out/r4-w04-${{ matrix.lane }}.json
+          retention-days: 3
+          if-no-files-found: warn
