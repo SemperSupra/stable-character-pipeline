@@ -1,0 +1,158 @@
+name: Spatial W3c pinned real 42-case EBU gains and VideoLAN 5.1 PCM observations
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w3c-native-partial-42.yml'
+      - 'spatial-contract/doe/**'
+      - 'spatial-reference/libear/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: w3c-native-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-engines:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: W3c public original / ${{ matrix.engine }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        engine: [ebu, videolan]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+          cache: false
+      - name: Original source-clean same Go geometry and same 410Hz PCM with hashes
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          (cd spatial-contract && go test -race -count=1 ./doe ./cmd/spatial-doe && go vet ./doe ./cmd/spatial-doe)
+          (cd spatial-contract && go run ./cmd/spatial-doe plan) > "$RUNNER_TEMP/w3c-source.json"
+          mkdir -p "$RUNNER_TEMP/w3c-native"
+          python3 spatial-contract/doe/prepare_native_42.py "$RUNNER_TEMP/w3c-source.json" "$RUNNER_TEMP/w3c-native"
+          cp "$RUNNER_TEMP/w3c-source.json" "$RUNNER_TEMP/w3c-native/original_doe.json"
+      - name: Minimal auditable free C++ dependency installation
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          if [ "${{ matrix.engine }}" = ebu ]; then
+            sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config g++ libboost-dev libeigen3-dev libxsimd-dev
+          else
+            sudo apt-get install -y --no-install-recommends meson ninja-build pkg-config g++ git
+          fi
+      - name: Fetch pinned upstream native engine from public source ONLY
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: |
+          set -euo pipefail
+          if [ "$ENGINE" = ebu ]; then
+            url="https://github.com/ebu/libear.git"
+            sha="2db69f8fcea0bc5db8a78e14a9c2ae6ed4283c15"
+          else
+            url="https://github.com/videolan/libspatialaudio.git"
+            sha="d149ed9744fd399b835c6f2920511f8cbcfce5ea"
+          fi
+          git init -q "$RUNNER_TEMP/engine-src"
+          git -C "$RUNNER_TEMP/engine-src" remote add origin "$url"
+          git -C "$RUNNER_TEMP/engine-src" fetch -q --depth=1 origin "$sha"
+          git -C "$RUNNER_TEMP/engine-src" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/engine-src" rev-parse HEAD)" = "$sha"
+          echo "W3C_NATIVE_ORIGINAL_SOURCE_PIN_PASS $ENGINE $sha"
+      - name: Run original upstream native EBU 42×2 or VideoLAN real PCM 42×5.1
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/w3c-native"
+          if [ "$ENGINE" = ebu ]; then
+            grep -q 'Apache License' "$RUNNER_TEMP/engine-src/LICENSE"
+            cmake -S spatial-reference/libear -B "$RUNNER_TEMP/ebu-build" \
+              -G Ninja -DCMAKE_BUILD_TYPE=Release -DEAR_SOURCE="$RUNNER_TEMP/engine-src"
+            cmake --build "$RUNNER_TEMP/ebu-build" --target libear_doe_42 -j 2
+            "$RUNNER_TEMP/ebu-build/libear_doe_42" "$root/w3c_cases.tsv" "$root/ebu_native_84.tsv"
+            test "$(wc -l < "$root/ebu_native_84.tsv")" -eq 84
+          else
+            grep -q LGPLv2.1 "$RUNNER_TEMP/engine-src/LICENSE"
+            meson setup "$RUNNER_TEMP/videolan-build" "$RUNNER_TEMP/engine-src" \
+              -Dlibmysofa=disabled -Dmit_hrtf=enabled --prefix="$RUNNER_TEMP/native-install" \
+              --libdir=lib --buildtype=release
+            meson compile -C "$RUNNER_TEMP/videolan-build"
+            meson test -C "$RUNNER_TEMP/videolan-build" --print-errorlogs
+            meson install -C "$RUNNER_TEMP/videolan-build"
+            export PKG_CONFIG_PATH="$RUNNER_TEMP/native-install/lib/pkgconfig"
+            g++ -std=c++14 -O2 -Wall -Wextra -I"$RUNNER_TEMP/native-install/include/spatialaudio" \
+              spatial-contract/native/scene_renderer.cpp -o "$RUNNER_TEMP/native-scene" \
+              $(pkg-config --cflags --libs spatialaudio)
+            export LD_LIBRARY_PATH="$RUNNER_TEMP/native-install/lib"
+            "$RUNNER_TEMP/native-scene" "$root/original_410hz.wav" \
+              "$root/w3c_videolan_blocks.tsv" surround_5_1 "$root/videolan_native_5_1.wav"
+          fi
+      - name: Archive actual native data, no private assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w3c-native-${{ matrix.engine }}
+          path: |
+            ${{ runner.temp }}/w3c-native/
+          retention-days: 3
+          if-no-files-found: warn
+
+  independent-observer:
+    name: W3c independent PCM and source/rights monitor
+    needs: native-engines
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Refuse partial native engine success
+        env:
+          ENGINES: ${{ needs.native-engines.result }}
+        run: test "$ENGINES" = success
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: w3c-native-*
+          path: native-data
+      - name: Check two independent original PCM and DoE source manifests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          def d(engine):
+              root=pathlib.Path('native-data/w3c-native-'+engine)
+              m=json.loads((root/'source_manifest.json').read_text())
+              for filename,key in [('original_410hz.wav','source_wav_sha256'),('original_doe.json','doe_sha256'),('w3c_cases.tsv','case_table_sha256')]:
+                  assert hashlib.sha256((root/filename).read_bytes()).hexdigest()==m[key]
+              return m
+          a=d('ebu');b=d('videolan')
+          assert a==b
+          print('TWO_INDEPENDENT_PUBLIC_RUNNERS_SOURCE_IDENTITY_MATCH',a['source_wav_sha256'])
+          PY
+          python3 spatial-contract/doe/inspect_native_42.py \
+            native-data/w3c-native-ebu/original_doe.json \
+            native-data/w3c-native-ebu \
+            native-data/w3c-native-ebu/ebu_native_84.tsv \
+            native-data/w3c-native-videolan/videolan_native_5_1.wav
+          mkdir -p result
+          cp native-data/w3c-native-ebu/w3c_native_observations.json result/
+          sha256sum result/w3c_native_observations.json
+      - name: Preserve per-case result, not 48MB PCM as permanent reference
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w3c-native-42-partial-observation-receipt
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
