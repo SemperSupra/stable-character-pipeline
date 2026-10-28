@@ -50,6 +50,9 @@ jobs:
           set -euo pipefail
           echo '69a9869e21542dcdaade37f290c29b6d7217ae0e392f450aeb40efe00611ac6a  r5/pose-rig-output/camera_plane_skinned_motion.glb' | sha256sum -c -
           echo 'a6b56e7d794a5b74701031a75d350a9b2163182950861c1d135ec18b748c9b53  r5/nasa-pair-output/video_landmarks.json' | sha256sum -c -
+      - name: Reject historical frame-one offset and invalid clocks
+        run: |
+          (cd qualification/nasa_rig_r3 && python -m unittest -v test_frame_clock)
       - name: Install only reader-specific public Python dependencies
         run: |
           set -euo pipefail
@@ -72,6 +75,9 @@ jobs:
           p=Path('evaluated/r7_blender_vertices.json')
           r=json.loads(p.read_text())
           assert r['reader']=='bpy_evaluated_mesh_world_XYZ'
+          br=json.loads(Path('evaluated/blender_independent_readback.json').read_text())
+          assert br['native_blender_scene_frames']==list(range(0,217,24))
+          assert br['source_glb_animation_time_origin_seconds']==0
           assert len(r['frames'])==10 and all(len(f['vertices'])==192 for f in r['frames'])
           print('R7_ACTUAL_BLENDER_SAMPLED',p.stat().st_size)
           PY
