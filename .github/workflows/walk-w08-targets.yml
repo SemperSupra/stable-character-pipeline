@@ -1,0 +1,70 @@
+name: W08 corrected original gait plus parallel synthetic target rigs
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w06/gait.py'
+      - 'qualification/walk_w07/**'
+      - 'qualification/walk_w08/**'
+      - '.github/workflows/walk-w08-targets.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  eased-retarget:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Original eased walk / ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        target: [different-proportions, compact-and-tall]
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Original canonical gait and W08 velocity/contact first
+        run: |
+          set -euo pipefail
+          (cd qualification/walk_w06 && python3 -m unittest -v test_gait)
+          (cd qualification/walk_w08 && python3 -m unittest -v test_gait_w08)
+          python3 qualification/walk_w08/gait_w08.py --out "$RUNNER_TEMP/original_eased.json"
+      - name: Source-only independent target and negative Go tests
+        env:
+          W07_TEST_SOURCE: ${{ runner.temp }}/original_eased.json
+        run: |
+          set -euo pipefail
+          cd qualification/walk_w07
+          go vet .
+          go test -race -count=1 -v .
+      - name: Two independently retargeted original character proportions
+        env:
+          TARGET_PROFILE: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          mkdir -p public-results
+          (cd qualification/walk_w07 && go run . -source "$RUNNER_TEMP/original_eased.json" -target "$TARGET_PROFILE" -out "$GITHUB_WORKSPACE/public-results/$TARGET_PROFILE.json")
+          python3 - "public-results/$TARGET_PROFILE.json" <<'PY'
+          import json,sys
+          j=json.load(open(sys.argv[1]))
+          assert j["status"]=="PASS_ORIGINAL_SYNTHETIC_CONTACT_PRESERVING_RETARGET"
+          assert j["source_schema"]=="scp.walk_motion.v1"
+          assert len(j["frames"])==72
+          assert j["max_planted_foot_slip"]<=1e-7 and j["max_ik_length_residual"]<=1e-8
+          assert j["min_root_gap"]>=1.5
+          print("W08_ORIGINAL_EASED_TARGET_PASS",j["target_profile"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: walk-w08-${{ matrix.target }}
+          path: public-results/
+          retention-days: 3
+          if-no-files-found: warn
