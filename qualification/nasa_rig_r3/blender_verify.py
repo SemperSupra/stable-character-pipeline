@@ -50,7 +50,10 @@ def sample_vertices(frame):
 # glTF seconds are mapped to frames at the Blender import-time FPS (normally 24).
 fps = scene.render.fps / scene.render.fps_base
 n = int(manifest["glb_sample_count"])
-frames = [int(round(1 + i * fps)) for i in range(n)]
+# glTF animation sampler times are 0..(n-1) seconds; bpy glTF import
+# places t=0 at native scene frame ZERO. Adding 1 frame samples future pose:
+# vertex parity showed native bpy sample 1/24s ahead for 0..8, last clamped.
+frames = [int(round(i * fps)) for i in range(n)]
 first, last = sample_vertices(frames[0]), sample_vertices(frames[-1])
 if len(first) != len(last) or not first:
     raise RuntimeError("deformed mesh vertex capture mismatch")
