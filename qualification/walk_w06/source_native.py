@@ -16,3 +16,16 @@ def make_piece(name,color,order):
     obj=bpy.context.object
     obj.name=name
     return (obj,color,order)
+
+def pose_piece(piece,frame,x,y,width,height,angle=0):
+    obj=piece[0]
+    obj.location=(x,y,0)
+    obj.scale=(width/2,height/2,.08)
+    obj.rotation_euler=(0,0,angle)
+    for item in ("location","scale","rotation_euler"):
+        obj.keyframe_insert(data_path=item,frame=frame)
+
+def between(piece,frame,a,b,width):
+    dx=b[0]-a[0];dy=b[1]-a[1]
+    pose_piece(piece,frame,(a[0]+b[0])/2,(a[1]+b[1])/2,
+               width,math.hypot(dx,dy)+.06,math.atan2(-dx,dy))
