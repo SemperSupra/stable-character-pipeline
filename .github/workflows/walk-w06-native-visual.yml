@@ -1,0 +1,58 @@
+name: W06 original public Blender object-mesh walking video
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w06/**'
+      - '.github/workflows/walk-w06-native-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-two-characters:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Rights, source clock and original gait regression
+        run: |
+          set -euo pipefail
+          (cd qualification/walk_w06 && python -m unittest -v test_gait)
+          python qualification/walk_w06/gait.py --profile relaxed --out original_walk.json
+      - name: Genuine Blender mesh evaluator and rasterizer
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'Pillow==11.3.0' 'imageio-ffmpeg==0.6.0'
+          python -c "import bpy; assert bpy.app.version >= (4,5,0)"
+          python -u qualification/walk_w06/render_walk.py original_walk.json w06-native-video
+          python - <<'PY'
+          import json,pathlib
+          r=json.loads(pathlib.Path('w06-native-video/native_mesh_receipt.json').read_text())
+          assert r['status']=='PASS_ORIGINAL_NATIVE_OBJECT_EVALUATION_AND_H264'
+          assert r['frame_count']==72 and r['fps']==12
+          assert r['native_blender_evaluated_mesh'] and not r['native_cycles_rendered']
+          assert r['source_rights']=='ORIGINAL_PROGRAMMATIC_PROCEDURAL_ONLY'
+          assert r['weighted_skin_deformation']=='NOT_MEASURED'
+          print('W06_NATIVE_2_CHARACTER_MESH_VIDEO_PASS')
+          PY
+      - name: Record original editable Blender, video, source and per-frame evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: walk-w06-native-two-avatars
+          path: |
+            original_walk.json
+            w06-native-video/two_original_public_walkers.blend
+            w06-native-video/two_original_public_walkers_native.mp4
+            w06-native-video/native_mesh_receipt.json
+            w06-native-video/preview_*.png
+          retention-days: 3
+          if-no-files-found: warn
