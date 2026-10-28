@@ -184,7 +184,7 @@ def evaluate(doc, data, manifest, out):
       "source_camera_plane_only":True,
       "anatomical_accuracy":"NOT_TESTED",
       "frames":r7_positions
-    },sort_keys=True)+"\\n")
+    },sort_keys=True)+"\n")
     receipt={
       "status":"PASS_INDEPENDENT_GLTF_SUBSET_SKIN_NOT_BLENDER",
       "source_input_sha256":manifest["input_landmarks_sha256"],
