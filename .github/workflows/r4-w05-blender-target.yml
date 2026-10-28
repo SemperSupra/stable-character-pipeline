@@ -1,0 +1,74 @@
+name: R4 W05 original-synthetic Go retarget to true Blender skin and GLB replay
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r4-w05-blender-target.yml'
+      - 'qualification/r4_retarget/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r4-w05-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-target:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GO111MODULE: 'off'
+      CGO_ENABLED: '1'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prove original synthetic W04 source and adversarial W05 contract
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          cd qualification/r4_retarget
+          go vet ./...
+          go test -race -count=1 .
+          python -m unittest -v test_w05_contract
+          go run . -lane motion -out ../../w05-w04-source.json
+      - name: Install actual Blender 4.5 Python wheel on free public CPU
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python -c "import bpy; assert bpy.app.version >= (4,5,0); print('NATIVE_BPY_READY',bpy.app.version_string)"
+      - name: Actually skin target rig and export-reimport animated source GLB
+        run: |
+          set -euo pipefail
+          mkdir -p r4-w05-artifacts
+          python -u qualification/r4_retarget/w05_blender.py w05-w04-source.json r4-w05-artifacts
+          python - <<'PY'
+          import json,math,pathlib
+          r=json.loads(pathlib.Path('r4-w05-artifacts/r4-w05-native-receipt.json').read_text())
+          assert r['status']=='PASS_NATIVE_BLENDER_SKIN_AND_GLB_REIMPORT'
+          assert [e['source_ms'] for e in r['reimport_evaluated']]==[0,1000,2000]
+          for i,e in enumerate(r['reimport_evaluated']):
+              assert len(e['indexed_x_delta'])==4
+              assert all(abs(x-i*.05)<.0005 and math.isfinite(x) for x in e['indexed_x_delta'])
+          assert r['human_identity']=='NOT_TESTED' and r['physical_contact']=='NOT_TESTED'
+          print('R4_W05_EXACT_SOURCE_NATIVE_REIMPORT_PASS')
+          PY
+      - name: Preserve source-only native geometry and editable Blender
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r4-w05-source-only-native-target
+          path: |
+            w05-w04-source.json
+            r4-w05-artifacts/
+          retention-days: 3
+          if-no-files-found: warn
