@@ -13,3 +13,6 @@ set(EAR_USE_INTERNAL_XSIMD OFF CACHE BOOL "" FORCE)
 add_subdirectory("${EAR_SOURCE}" libear-build EXCLUDE_FROM_ALL)
 add_executable(libear_oracle gain_oracle.cpp)
 target_link_libraries(libear_oracle PRIVATE ear)
+
+add_executable(libear_doe_42 gain_doe.cpp)
+target_link_libraries(libear_doe_42 PRIVATE ear)
