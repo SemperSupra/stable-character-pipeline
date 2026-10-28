@@ -1,0 +1,89 @@
+name: MMD W15 synthetic FK and timing oracle (public CPU only)
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/w15synthetic/**'
+      - '.github/workflows/mmd-w15-synthetic-oracles.yml'
+permissions:
+  contents: read
+jobs:
+  evaluate:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        lane: [fk, time]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.12'
+          cache: false
+      - name: Execute distinct synthetic oracle and adversarial cases
+        working-directory: mmd/qualification/w15synthetic
+        shell: bash
+        run: |
+          set -euo pipefail
+          go vet ./...
+          mkdir -p ../../../../receipts 2>/dev/null || true
+          if [[ "${{ matrix.lane }}" == fk ]]; then pattern='^TestFK'; else pattern='^TestTime'; fi
+          go test -count=1 -race -json -run "$pattern" ./... | tee "lane-${{ matrix.lane }}.jsonl"
+          LANE="${{ matrix.lane }}" SOURCE_HEAD="${{ github.event.pull_request.head.sha }}" python3 - <<'PY'
+          import json, os, pathlib
+          lane=os.environ["LANE"]
+          p=pathlib.Path("lane-"+lane+".jsonl")
+          messages=[json.loads(line) for line in p.read_text().splitlines()]
+          tests=[e["Test"] for e in messages if e.get("Action")=="pass" and e.get("Test","").startswith("Test"+("FK" if lane=="fk" else "Time"))]
+          if any(e.get("Action")=="fail" for e in messages) or len(tests)<2:
+              raise SystemExit("FAIL_LANE_TEST_OR_MISSING_CASES")
+          receipt={"schema":"scp.mmd.w15synthetic.v1","status":"PASS_SYNTHETIC_ONLY",
+            "lane":lane,"source_head_sha":os.environ["SOURCE_HEAD"],
+            "passed_test_names":tests,"original_external_capture_count":0,
+            "real_source_vmd_count":0,"claims_not_tested":["actual ASF/AMC parser","source real FPS","MMD serializer",
+              "physical contact","biomechanics","external source admission"]}
+          pathlib.Path("receipt-"+lane+".json").write_text(json.dumps(receipt,indent=2)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mmd-w15-synthetic-${{ matrix.lane }}
+          path: |
+            mmd/qualification/w15synthetic/lane-${{ matrix.lane }}.jsonl
+            mmd/qualification/w15synthetic/receipt-${{ matrix.lane }}.json
+          retention-days: 14
+          if-no-files-found: warn
+  reconcile:
+    needs: [evaluate]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mmd-w15-synthetic-*
+          merge-multiple: true
+          path: evidence
+      - name: Fail closed on any missing lane or inconclusive native job
+        env:
+          NATIVE_JOBS: ${{ needs.evaluate.result }}
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 - <<'PY'
+          import glob,json,os
+          if os.environ["NATIVE_JOBS"]!="success":raise SystemExit("FAILED_PARALLEL_NATIVE_JOB")
+          receipts={}
+          for path in glob.glob("evidence/**/receipt-*.json",recursive=True):
+              r=json.load(open(path))
+              lane=r["lane"]
+              if lane in receipts:raise SystemExit("DUPLICATE_LANE")
+              receipts[lane]=r
+          if set(receipts)!={"fk","time"}:raise SystemExit("MISSING_LANE")
+          for lane,r in receipts.items():
+              if r["source_head_sha"]!=os.environ["SOURCE_HEAD"] or r["status"]!="PASS_SYNTHETIC_ONLY" or r["original_external_capture_count"]!=0 or r["real_source_vmd_count"]!=0:
+                  raise SystemExit("SOURCE_OR_CLAIM_MISMATCH")
+          print("PASS_TWO_INDEPENDENT_PUBLIC_SYNTHETIC_CPU_ORACLES",os.environ["SOURCE_HEAD"])
+          PY

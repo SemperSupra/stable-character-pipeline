@@ -1,0 +1,9 @@
+# W15 synthetic FK and temporal qualification (candidate only)
+
+Authority: public [MMD #19](https://github.com/SemperSupra/stable-character-pipeline/issues/19) and [shared motion #29](https://github.com/SemperSupra/stable-character-pipeline/issues/29). This is not a second scheduler or human-source owner.
+
+Two **independent, simultaneous** public Ubuntu CPU Actions jobs exercise pure-Go synthetic geometry and timing primitives, then a strict third reconciliation job. FK lane verifies three-bone quaternion forward kinematics, named target-map coverage, explicit meters-per-source-unit, and eight wrong-source controls. Time lane verifies 60/120→30 FPS, source frame zero, endpoint preservation, quaternion hemisphere SLERP, and eight bad-clock/geometry controls. Files and samples are original synthetic source, **not** CMU, a recorded person, ASF/AMC actual parsing or MMD Tools binary serialization. All receipts retain original zero-based synthetic frames; a glTF clock is not automatically native VMD clock.
+
+Limitations: no real ASF/AMC source, raw kinematic capture, full ASF Euler channels, real MMD PMX model mapping, measured foot contact, antialiasing guarantee, IK physics, true animation visual acceptance, or independent actual Blender/Babylon/MMD playback. **Never convert a PASS here into an admission, quality score, cross-rig retarget result, or source rights decision.**
+
+Run locally: `cd mmd/qualification/w15synthetic && go test -count=1 -race ./... && go vet ./...`. Each GitHub matrix lane executes only its own test class, with source-head SHA and explicit `real_source_vmd_count=0`, and the final job verifies both receipts. Existing public #19 W02/03/04/06/07/21 branches and private owner are unchanged; no release/merge/deploy/CPE policy effect. Next after independent review: a source-specific parser/normalized-input adapter under the owner, with file-level rights and source-clock admission before any real source conversion.
