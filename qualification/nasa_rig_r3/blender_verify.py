@@ -130,7 +130,7 @@ for i, frame in enumerate(frames):
     "source_camera_plane_only":True,
     "anatomical_accuracy":"NOT_TESTED",
     "frames":r7_frames
-},sort_keys=True)+"\\n")
+},sort_keys=True)+"\n")
 receipt = {
     "classification": "INDEPENDENT_BLENDER_SKIN_AND_ANIMATION_READBACK",
     "input_glb_sha256": manifest["glb_sha256"],
