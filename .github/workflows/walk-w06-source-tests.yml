@@ -1,0 +1,17 @@
+name: W06 public source gait tests
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w06/**'
+      - '.github/workflows/walk-w06-source-tests.yml'
+permissions:
+  contents: read
+jobs:
+  gait:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Original gait red-team tests
+        run: cd qualification/walk_w06 && python3 -m unittest -v test_gait
