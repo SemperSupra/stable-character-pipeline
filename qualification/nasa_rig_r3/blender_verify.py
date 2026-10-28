@@ -8,7 +8,7 @@ import json
 import math
 import sys
 from pathlib import Path
-from mathutils import Vector
+from frame_clock import source_aligned_frames
 
 args = sys.argv[sys.argv.index("--")+1:]
 if len(args) != 3:
@@ -53,7 +53,7 @@ n = int(manifest["glb_sample_count"])
 # glTF animation sampler times are 0..(n-1) seconds; bpy glTF import
 # places t=0 at native scene frame ZERO. Adding 1 frame samples future pose:
 # vertex parity showed native bpy sample 1/24s ahead for 0..8, last clamped.
-frames = [int(round(i * fps)) for i in range(n)]
+frames = source_aligned_frames(n, fps)
 first, last = sample_vertices(frames[0]), sample_vertices(frames[-1])
 if len(first) != len(last) or not first:
     raise RuntimeError("deformed mesh vertex capture mismatch")
@@ -145,6 +145,9 @@ receipt = {
     "actions": len(bpy.data.actions),
     "source_sampled_frames": n,
     "native_animation_fps": fps,
+    "source_glb_animation_time_origin_seconds": 0,
+    "native_blender_scene_frames": frames,
+    "source_frame_to_scene_mapping": "source-relative-second-i -> scene frame round(i*fps) (zero-based)",
     "evaluated_animated_vertex_max_displacement_camera_plane_units": max_displacement,
     "rendered_png_frames": len(frames),
     "native_blender_axis_validation": blender_axes,
