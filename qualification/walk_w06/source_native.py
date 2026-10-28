@@ -72,3 +72,19 @@ def build(model,path):
     scene.frame_end=len(model["frames"])-1
     scene["motion_schema"]="scp.walk_motion.v1"
     actor_parts={a["id"]:character(a) for a in model["actors"]}
+
+    for frame in model["frames"]:
+        for actor in model["actors"]:
+            animate(actor_parts[actor["id"]],actor,
+                    frame["actors"][actor["id"]],frame["index"])
+    bpy.context.scene.frame_set(0)
+    dest=Path(path).resolve()
+    bpy.ops.wm.save_as_mainfile(filepath=str(dest))
+    if dest.stat().st_size<10000:
+        raise ValueError("EDITABLE_NATIVE_BLENDER_FILE_MISSING")
+    return actor_parts
+
+def polygons(actor_parts,frame,width,height):
+    bpy.context.scene.frame_set(frame)
+    deps=bpy.context.evaluated_depsgraph_get()
+    result={}
