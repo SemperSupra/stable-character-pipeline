@@ -1,4 +1,4 @@
-name: NASA R6 true Blender Python-wheel GLB skin readback (no apt)
+name: NASA R6 source-zero Blender evaluated skin replay (no apt)
 on:
   pull_request:
     paths:
@@ -57,6 +57,10 @@ jobs:
           assert r['bit_identical_observations_to_r2'] is True and r['pose_detected_frames']==21
           print('R6_PINNED_R5_PRECHECK_PASS source seconds 13-22, 10 frames')
           PY
+      - name: Reject historical one-frame clock bug before Blender install
+        run: |
+          set -euo pipefail
+          (cd qualification/nasa_rig_r3 && python -m unittest -v test_frame_clock)
       - name: Install official standalone Blender 4.5 bpy Python and CPU raster/encoder wheels
         timeout-minutes: 9
         run: |
@@ -83,6 +87,9 @@ jobs:
           assert r['skin_import_and_cpu_preview_pass'] is True
           assert r['armatures']>=1 and r['skinned_meshes']>=1 and r['actions']>=1
           assert r['rendered_png_frames']==r['source_sampled_frames']==10
+          assert r['source_glb_animation_time_origin_seconds'] == 0
+          assert r['native_blender_scene_frames'] == list(range(0,217,24))
+          assert r['source_frame_to_scene_mapping'].endswith('(zero-based)')
           assert r['evaluated_animated_vertex_max_displacement_camera_plane_units']>0.002
           assert r['camera_plane_not_true_3d'] is True
           axes=r['native_blender_axis_validation']
