@@ -35,7 +35,8 @@ jobs:
         run: |
           set -euo pipefail
           git rev-parse HEAD
-          (cd spatial-contract && go test -race -count=1 ./doe ./cmd/spatial-doe && go vet ./doe ./cmd/spatial-doe && go run ./cmd/spatial-doe plan) > "$RUNNER_TEMP/w3c-source.json"
+          (cd spatial-contract && go test -race -count=1 ./doe ./cmd/spatial-doe && go vet ./doe ./cmd/spatial-doe)
+          (cd spatial-contract && go run ./cmd/spatial-doe plan) > "$RUNNER_TEMP/w3c-source.json"
           mkdir -p "$RUNNER_TEMP/w3c-native"
           python3 spatial-contract/doe/prepare_native_42.py "$RUNNER_TEMP/w3c-source.json" "$RUNNER_TEMP/w3c-native"
           cp "$RUNNER_TEMP/w3c-source.json" "$RUNNER_TEMP/w3c-native/original_doe.json"
