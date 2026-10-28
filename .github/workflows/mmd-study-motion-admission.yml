@@ -28,9 +28,12 @@ jobs:
           set -euo pipefail
           go run mmd/research/study_motion_admission.go \
             -catalog mmd/research/study_motion_admission.v1.json \
+            -public-doc mmd/research/STUDY_MOTION_MMD_WORKPLAN.md \
             -out receipts/source-metadata-only.json
           grep -q PASS_METADATA_ONLY_SOURCE_GATES_AND_SIX_ADVERSARIAL_CONTROLS receipts/source-metadata-only.json
           grep -q '"actual_external_capture_count": 0' receipts/source-metadata-only.json
+          grep -q '"public_metadata_disclosure_preflight": "PASS_CATALOG_AND_WORKPLAN_ONLY"' receipts/source-metadata-only.json
+          grep -q '"protected_coordinate_red_controls_rejected": 2' receipts/source-metadata-only.json
           sha256sum mmd/research/study_motion_admission.v1.json > receipts/source-catalog-sha256.txt
       - name: Preserve independently inspectable JSON and exact research source provenance
         if: always()

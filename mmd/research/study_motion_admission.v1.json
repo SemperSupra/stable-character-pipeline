@@ -1,7 +1,7 @@
 {
   "schema": "scp.mmd.study_motion_source_admission.v1",
   "authority": {
-    "human": "SemperSupra/stable-character-pipeline-private#35",
+    "human": "PRIVATE_HUMAN_OWNER_DLE_NOT_PUBLICLY_PROJECTED",
     "public_motion": "SemperSupra/stable-character-pipeline#29",
     "mmd": "SemperSupra/stable-character-pipeline#19",
     "cpe": "independent blinded track, NOT_ADMITTED"

@@ -1,6 +1,6 @@
 # Dance/movement studies → source-typed MMD qualification
 
-This is a **metadata-only candidate** implementing the first public-safe admission step, not a second motion ontology or workstream controller. Owners: private R012 human source [DLE #35](https://github.com/SemperSupra/stable-character-pipeline-private/issues/35), shared human/fauna source [DLE #29](https://github.com/SemperSupra/stable-character-pipeline/issues/29), MMD target [DLE #19](https://github.com/SemperSupra/stable-character-pipeline/issues/19). Preserve those independent admission, concept, privacy and training authorities. Source catalog [`study_motion_admission.v1.json`](study_motion_admission.v1.json), Go admission/falsifier [`study_motion_admission.go`](study_motion_admission.go).
+This is a **metadata-only candidate** implementing the first public-safe admission step, not a second motion ontology or workstream controller. Owners: private R012 human source private human-source DLE (protected coordinate omitted), shared human/fauna source [DLE #29](https://github.com/SemperSupra/stable-character-pipeline/issues/29), MMD target [DLE #19](https://github.com/SemperSupra/stable-character-pipeline/issues/19). Preserve those independent admission, concept, privacy and training authorities. Source catalog [`study_motion_admission.v1.json`](study_motion_admission.v1.json), Go admission/falsifier [`study_motion_admission.go`](study_motion_admission.go).
 
 ## Source ladder — do not conflate stages
 
@@ -27,7 +27,7 @@ This is a **metadata-only candidate** implementing the first public-safe admissi
 
 Produce controlled source→reference skeleton→target skeleton→VMD/PMX/GLB test pairs. Negatives: forged file SHA/license; duplicate actor/capture/choreography leakage; wrong FPS/phase; centimeters as meters; axis inversion and handedness; nonunit quaternions or bad Euler order; root drift; mapping omitted arm/foot IK; rigid bone stretch; frozen animation; impossible labelled contact. **Do not use an observed attractive-motion metric as an assertion about an individual's ethnicity, status, quality, or traits.** Culturally named motifs remain independent hypotheses with provenance, context and competing explanations.
 
-Avoid a second scheduler or catalog authority. Human gets original-source rights table, source-tagged motion previews and editable Blender/MMD files; automation gets `go run mmd/research/study_motion_admission.go -catalog ... -out ...`, machine PASS/FAIL/NOT_RUN and negative controls; agent gets existing DLE #19/#29/#35 and immutable source/runner/rights receipts. A green metadata check does **not** mean any measured source entered public GitHub or a real VMD conversion completed.
+Avoid a second scheduler or catalog authority. Human gets original-source rights table, source-tagged motion previews and editable Blender/MMD files; automation gets `go run mmd/research/study_motion_admission.go -catalog ... -out ...`, machine PASS/FAIL/NOT_RUN and negative controls; agent gets existing public DLE #19/#29 and separately held private human-source authority and immutable source/runner/rights receipts. A green metadata check does **not** mean any measured source entered public GitHub or a real VMD conversion completed.
 
 ## Workstream dependencies and parallelism
 

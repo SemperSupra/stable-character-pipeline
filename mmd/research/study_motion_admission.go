@@ -10,6 +10,7 @@ import (
  "flag"
  "fmt"
  "os"
+ "regexp"
  "path/filepath"
  "strings"
 )
@@ -90,11 +91,28 @@ func runNegative(c Catalog)([]string,error){
  }
  return rejected,nil
 }
+// Narrow public-facing metadata preflight. PR descriptions, old commits, logs
+// and artifacts are not covered; do not emit matched coordinates into logs.
+var protectedIssue = regexp.MustCompile(`(?i)(?:https?://github\.com/)?[a-z0-9_.-]+/[a-z0-9_.-]*(?:-private|_private)(?:/issues/[0-9]+|#[0-9]+)`)
+func checkPublicMetadata(b []byte) error {
+ if protectedIssue.Match(b) { return errors.New("protected private issue coordinate in public research metadata") }
+ return nil
+}
+func checkPublicMetadataNegatives() (int,error) {
+ cases := []string{"example/synthetic-private#7","https://github.com/example/synthetic-private/issues/8"}
+ for _,s := range cases { if checkPublicMetadata([]byte(s)) == nil { return 0, errors.New("protected coordinate falsifier not rejected") } }
+ return len(cases),nil
+}
 func main(){
  input:=flag.String("catalog","mmd/research/study_motion_admission.v1.json","source catalog (metadata only)")
+ publicDoc:=flag.String("public-doc","mmd/research/STUDY_MOTION_MMD_WORKPLAN.md","public workplan metadata disclosure preflight")
  output:=flag.String("out","", "optional machine-readable JSON receipt")
  flag.Parse()
  b,err:=os.ReadFile(*input);if err!=nil{panic(err)}
+ if err=checkPublicMetadata(b);err!=nil{panic(err)}
+ db,err:=os.ReadFile(*publicDoc);if err!=nil{panic(err)}
+ if err=checkPublicMetadata(db);err!=nil{panic(err)}
+ protectedNegatives,err:=checkPublicMetadataNegatives();if err!=nil{panic(err)}
  var c Catalog;if err=json.Unmarshal(b,&c);err!=nil{panic(err)}
  if err=check(c);err!=nil{panic(err)}
  rejected,err:=runNegative(c);if err!=nil{panic(err)}
@@ -105,6 +123,8 @@ func main(){
   "first_trial_nominations":c.FirstTrials,"actual_external_capture_count":0,
   "actual_vmd_from_study_count":0,
   "red_controls_rejected":rejected,
+  "public_metadata_disclosure_preflight":"PASS_CATALOG_AND_WORKPLAN_ONLY",
+  "protected_coordinate_red_controls_rejected":protectedNegatives,
   "real_data_admission":"BLOCKED_PENDING_FILE_LEVEL_RIGHTS_AND_AUTHORITY",
   "limits":[]string{"source descriptions not equivalent to recovered kinematics",
    "rights of derivative video/music/body model checked independently",
