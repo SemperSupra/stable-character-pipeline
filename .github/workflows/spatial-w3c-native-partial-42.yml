@@ -1,10 +1,11 @@
-name: Spatial W3c pinned real 42-case EBU gains and VideoLAN 5.1 PCM observations
+name: Spatial W3c W2 EBU 5.1/7.1 and native VideoLAN 5.1+7.1 independent qualification
 on:
   pull_request:
     paths:
       - '.github/workflows/spatial-w3c-native-partial-42.yml'
       - 'spatial-contract/doe/**'
       - 'spatial-reference/libear/**'
+      - 'spatial-contract/native/w3c_scene_renderer.cpp'
   workflow_dispatch:
 permissions:
   contents: read
@@ -90,11 +91,13 @@ jobs:
             meson install -C "$RUNNER_TEMP/videolan-build"
             export PKG_CONFIG_PATH="$RUNNER_TEMP/native-install/lib/pkgconfig"
             g++ -std=c++14 -O2 -Wall -Wextra -I"$RUNNER_TEMP/native-install/include/spatialaudio" \
-              spatial-contract/native/scene_renderer.cpp -o "$RUNNER_TEMP/native-scene" \
+              spatial-contract/native/w3c_scene_renderer.cpp -o "$RUNNER_TEMP/native-scene" \
               $(pkg-config --cflags --libs spatialaudio)
             export LD_LIBRARY_PATH="$RUNNER_TEMP/native-install/lib"
             "$RUNNER_TEMP/native-scene" "$root/original_410hz.wav" \
               "$root/w3c_videolan_blocks.tsv" surround_5_1 "$root/videolan_native_5_1.wav"
+            "$RUNNER_TEMP/native-scene" "$root/original_410hz.wav" \
+              "$root/w3c_videolan_blocks.tsv" surround_7_1 "$root/videolan_native_7_1.wav"
           fi
       - name: Archive actual native data, no private assets
         if: always()
@@ -148,11 +151,18 @@ jobs:
           mkdir -p result
           cp native-data/w3c-native-ebu/w3c_native_observations.json result/
           sha256sum result/w3c_native_observations.json
+          (cd spatial-contract/doe && python3 -m unittest -v test_native_7_1)
+          python3 spatial-contract/doe/inspect_native_7_1.py \
+            result/w3c_native_observations.json \
+            native-data/w3c-native-ebu/ebu_native_84.tsv \
+            native-data/w3c-native-videolan/videolan_native_7_1.wav \
+            result/w3c_native_7_1_parity.json
+          sha256sum result/w3c_native_7_1_parity.json
       - name: Preserve per-case result, not 48MB PCM as permanent reference
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: w3c-native-42-partial-observation-receipt
+          name: w3c-native-42-both-layouts-receipt
           path: result/
           retention-days: 3
           if-no-files-found: warn
