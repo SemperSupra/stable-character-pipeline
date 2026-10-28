@@ -44,3 +44,13 @@ def character(actor):
                              ("hat",accent,8)):
         pieces[name]=make_piece(aid+"_"+name,color,order)
     return pieces
+
+def animate(p,actor,pose,frame):
+    joints=pose["joints"];direction=actor["facing"]
+    for side in ("left","right"):
+        between(p["thigh_"+side],frame,joints["hip_"+side],joints["knee_"+side],.18)
+        between(p["shin_"+side],frame,joints["knee_"+side],joints["ankle_"+side],.16)
+        x,y=joints["ankle_"+side]
+        pose_piece(p["foot_"+side],frame,x+direction*.07,y-.03,.32,.13)
+        between(p["upperarm_"+side],frame,joints["shoulder_"+side],joints["elbow_"+side],.14)
+        between(p["forearm_"+side],frame,joints["elbow_"+side],joints["wrist_"+side],.13)
