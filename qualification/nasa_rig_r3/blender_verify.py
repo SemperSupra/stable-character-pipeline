@@ -8,7 +8,7 @@ import json
 import math
 import sys
 from pathlib import Path
-from mathutils import Vector
+from frame_clock import source_aligned_frames
 
 args = sys.argv[sys.argv.index("--")+1:]
 if len(args) != 3:
@@ -50,7 +50,9 @@ def sample_vertices(frame):
 # glTF seconds are mapped to frames at the Blender import-time FPS (normally 24).
 fps = scene.render.fps / scene.render.fps_base
 n = int(manifest["glb_sample_count"])
-frames = [int(round(1 + i * fps)) for i in range(n)]
+# This specific NASA GLB uses animation keys at source-relative t=0..9s.
+# The former 1+i*fps began 1/24s ahead and visually misaligned the samples.
+frames = source_aligned_frames(n, fps)
 first, last = sample_vertices(frames[0]), sample_vertices(frames[-1])
 if len(first) != len(last) or not first:
     raise RuntimeError("deformed mesh vertex capture mismatch")
@@ -127,6 +129,9 @@ receipt = {
     "actions": len(bpy.data.actions),
     "source_sampled_frames": n,
     "native_animation_fps": fps,
+    "source_glb_animation_time_origin_seconds": 0,
+    "native_blender_scene_frames": frames,
+    "source_frame_to_scene_mapping": "source-relative-second-i -> scene frame round(i*fps) (zero-based)",
     "evaluated_animated_vertex_max_displacement_camera_plane_units": max_displacement,
     "rendered_png_frames": len(frames),
     "native_blender_axis_validation": blender_axes,
