@@ -108,7 +108,7 @@ def make_pose(actor,t,speed):
 def generate(profile="relaxed"):
     if profile not in ("relaxed","brisk"):
         raise ValueError("INVALID_ADMITTED_PUBLIC_GAIT_PROFILE")
-    speed=.35 if profile=="relaxed" else .37
+    speed=.35 if profile=="relaxed" else .36
     frames=[]
     for i in range(N):
         t=i/FPS
