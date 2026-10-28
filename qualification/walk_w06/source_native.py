@@ -54,3 +54,21 @@ def animate(p,actor,pose,frame):
         pose_piece(p["foot_"+side],frame,x+direction*.07,y-.03,.32,.13)
         between(p["upperarm_"+side],frame,joints["shoulder_"+side],joints["elbow_"+side],.14)
         between(p["forearm_"+side],frame,joints["elbow_"+side],joints["wrist_"+side],.13)
+
+    x,y=joints["torso"]
+    robot="automaton" in actor["id"]
+    pose_piece(p["torso"],frame,x,y,.58 if robot else .53,.71)
+    x,y=joints["head"]
+    pose_piece(p["head"],frame,x,y,.51,.54)
+    pose_piece(p["visor"],frame,x+direction*.13,y-.07,.24,.17)
+    pose_piece(p["eye"],frame,x+direction*.20,y+.01,.08,.11)
+    pose_piece(p["hat"],frame,x,y+.34,.10 if robot else .60,.25 if robot else .14)
+
+def build(model,path):
+    reset()
+    scene=bpy.context.scene
+    scene.render.fps=model["fps"]
+    scene.frame_start=0
+    scene.frame_end=len(model["frames"])-1
+    scene["motion_schema"]="scp.walk_motion.v1"
+    actor_parts={a["id"]:character(a) for a in model["actors"]}
