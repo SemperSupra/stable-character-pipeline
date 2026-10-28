@@ -1,0 +1,71 @@
+name: W09 public native Blender corrected W08 walking and source provenance
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w08/**'
+      - '.github/workflows/walk-w09-native-eased.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-and-native:
+    name: W08 original native Blender / ${{ matrix.profile }}
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        profile: [relaxed, brisk]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original source canonical contract, W08 negatives and source clock
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          (cd qualification/walk_w06 && python -m unittest -v test_gait)
+          (cd qualification/walk_w08 && python -m unittest -v test_gait_w08)
+          python qualification/walk_w08/gait_w08.py --profile "$PROFILE" --out corrected_gait.json
+      - name: Actual native Blender evaluated two avatars with corrected gait
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0' 'Pillow==11.3.0' 'imageio-ffmpeg==0.6.0'
+          python -u qualification/walk_w06/render_walk.py corrected_gait.json w09-native
+          python - <<'PY'
+          import hashlib,json,pathlib
+          r=json.loads(pathlib.Path('w09-native/native_mesh_receipt.json').read_text())
+          original=pathlib.Path('corrected_gait.json').read_bytes()
+          m=json.loads(original)
+          assert m['w08_variant']=='W08_ORIGINAL_SOURCE_EASED_STOP_AND_PLANAR_ANKLE_STAGGER'
+          assert r['source_motion_sha256']==hashlib.sha256(original).hexdigest()
+          assert r['status']=='PASS_ORIGINAL_NATIVE_OBJECT_EVALUATION_AND_H264'
+          assert r['frame_count']==72 and r['fps']==12
+          assert r['source_contact_invariants']['contact_slip_max_scene_units']==0
+          assert r['native_blender_evaluated_mesh'] is True
+          assert r['weighted_skin_deformation']=='NOT_MEASURED'
+          print('W09_W08_NATIVE_ORIGINAL_PASS')
+          PY
+      - name: Preserve native Blender+source+video across both gait variants
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: walk-w09-w08-${{ matrix.profile }}
+          path: |
+            corrected_gait.json
+            w09-native/native_mesh_receipt.json
+            w09-native/two_original_public_walkers.blend
+            w09-native/two_original_public_walkers_native.mp4
+            w09-native/preview_*.png
+          retention-days: 3
+          if-no-files-found: warn
