@@ -7,7 +7,7 @@ class GainOracle(unittest.TestCase):
         self.g=[.6,0,.8,0,0,0,0,0]
         self.r=[.06,0,.08,0,0,0,0,0]
     def test_exact_source_normalization(self):
-        self.assertEqual(max(x for x in normalized_differences(self.r,self.g) if x is not None),0)
+        self.assertAlmostEqual(max(x for x in normalized_differences(self.r,self.g) if x is not None),0,places=12)
     def test_wrong_channel_order_detected(self):
         swapped=self.r.copy();swapped[0],swapped[1]=swapped[1],swapped[0]
         self.assertGreater(max(x for x in normalized_differences(swapped,self.g) if x is not None),TOLERANCE)
