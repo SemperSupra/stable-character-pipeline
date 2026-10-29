@@ -5,6 +5,10 @@ on:
     paths:
       - research/providers/**
       - .github/workflows/provider-anon-qualification.yml
+  pull_request:
+    paths:
+      - research/providers/**
+      - .github/workflows/provider-anon-qualification.yml
   workflow_dispatch:
 
 permissions:
