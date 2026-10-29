@@ -23,7 +23,7 @@ func main(){
     {Language:"th",Term:"การเดิน",EvidenceRef:"fixture:th",Relation:"exact"},
     {Language:"en",Term:"catwalk",EvidenceRef:"fixture:hardnegative",Relation:"hard_negative"},
    }}
-  targets:=[]sweeps.Target{{ProviderID:"synthetic-provider",Engine:"provider_api",Origin:"https://example.org",SourceLineage:"fixture:provider-1",
+  targets:=[]sweeps.Target{{ProviderID:"synthetic-provider",Engine:"provider_api",Origin:"https://example.org",SourceLineage:"fixture:provider-1",SupportedKinds:[]string{"motion"},
    PolicyRef:"fixture:only",PolicyVerified:true,ScopeAllowed:true,MetadataAPIVerified:true}}
   p,err:=sweeps.PlanSynthetic(intent,targets,sweeps.Budget{TotalQueries:3,MaxPerProvider:3,MaxLanguages:3})
   if err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
