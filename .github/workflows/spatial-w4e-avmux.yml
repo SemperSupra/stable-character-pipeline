@@ -1,0 +1,82 @@
+name: Spatial W4e actual A/V lossless mux and iPhone-compatible preview qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4e-avmux.yml'
+      - 'spatial-contract/interop/generate_avsync.py'
+      - 'spatial-contract/interop/inspect_avsync.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: w4e-avmux-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-av-media:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: CPU-only Linux ffmpeg/ffprobe source tools, record versions
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 800 sudo apt-get install -y --no-install-recommends ffmpeg python3
+          ffmpeg -hide_banner -encoders | grep -E 'ffv1|libx264|aac'
+          ffmpeg -version | head -n 1
+      - name: Create three real original lossless audio/video masters and three mobile previews
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          python3 spatial-contract/interop/generate_avsync.py "$RUNNER_TEMP/avsync-native"
+          test "$(find "$RUNNER_TEMP/avsync-native" -name '*_master.mkv' | wc -l)" -eq 3
+          test "$(find "$RUNNER_TEMP/avsync-native" -name '*_mobile.mp4' | wc -l)" -eq 3
+      - name: Retain real original PCM, lossless video and mobile preview candidates
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4e-avmux-native-media
+          path: ${{ runner.temp }}/avsync-native/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-observer:
+    needs: native-av-media
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Fail closed if native encoding failed
+        env:
+          NATIVE_RESULT: ${{ needs.native-av-media.result }}
+        run: test "$NATIVE_RESULT" = success
+      - name: Independent ffprobe and decode dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 800 sudo apt-get install -y --no-install-recommends ffmpeg python3
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4e-avmux-native-media
+          path: source-native
+      - name: Verify full actual A/V decoded pixels, original exact PCM clicks and timestamps
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 spatial-contract/interop/inspect_avsync.py source-native result/w4e_avmux_numeric.json
+          sha256sum result/w4e_avmux_numeric.json
+      - name: Retain first-failure or numerical acceptance receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4e-avmux-independent-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
