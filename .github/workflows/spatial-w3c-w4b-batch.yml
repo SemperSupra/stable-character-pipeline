@@ -1,0 +1,108 @@
+name: Spatial W3c W4b batched moving emitter native qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w3c-w4b-batch.yml'
+      - 'spatial-contract/doe/w4b_movement.py'
+      - 'spatial-contract/doe/test_w4b_movement.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: w4b-motion-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-native:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 29
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+          cache: false
+      - name: Freeze original 42-case Go DoE, create 4 plans and 8 negative tests
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          (cd spatial-contract && go test -race -count=1 ./doe ./cmd/spatial-doe && go vet ./doe ./cmd/spatial-doe)
+          (cd spatial-contract && go run ./cmd/spatial-doe plan) > "$RUNNER_TEMP/w4b-doe.json"
+          mkdir -p "$RUNNER_TEMP/w4b-native"
+          python3 spatial-contract/doe/prepare_native_42.py "$RUNNER_TEMP/w4b-doe.json" "$RUNNER_TEMP/w4b-native"
+          cp "$RUNNER_TEMP/w4b-doe.json" "$RUNNER_TEMP/w4b-native/original_doe.json"
+          (cd spatial-contract/doe && python3 -m unittest -v test_w4b_movement)
+          python3 spatial-contract/doe/w4b_movement.py prepare "$RUNNER_TEMP/w4b-native"
+      - name: Minimum auditable C++ build toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 1200 sudo apt-get install -y --no-install-recommends meson ninja-build pkg-config g++ git
+      - name: Native pinned VideoLAN 4 schedules x 2 surround layouts batch
+        run: |
+          set -euo pipefail
+          sha=d149ed9744fd399b835c6f2920511f8cbcfce5ea
+          git init -q "$RUNNER_TEMP/video-src"
+          git -C "$RUNNER_TEMP/video-src" remote add origin https://github.com/videolan/libspatialaudio.git
+          git -C "$RUNNER_TEMP/video-src" fetch -q --depth=1 origin "$sha"
+          git -C "$RUNNER_TEMP/video-src" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/video-src" rev-parse HEAD)" = "$sha"
+          grep -q LGPLv2.1 "$RUNNER_TEMP/video-src/LICENSE"
+          meson setup "$RUNNER_TEMP/video-build" "$RUNNER_TEMP/video-src" -Dlibmysofa=disabled -Dmit_hrtf=enabled --prefix="$RUNNER_TEMP/native-install" --libdir=lib --buildtype=release
+          meson compile -C "$RUNNER_TEMP/video-build"
+          meson test -C "$RUNNER_TEMP/video-build" --print-errorlogs
+          meson install -C "$RUNNER_TEMP/video-build"
+          export PKG_CONFIG_PATH="$RUNNER_TEMP/native-install/lib/pkgconfig"
+          g++ -std=c++14 -O2 -Wall -Wextra -I"$RUNNER_TEMP/native-install/include/spatialaudio" spatial-contract/native/w3c_scene_renderer.cpp -o "$RUNNER_TEMP/native-scene" $(pkg-config --cflags --libs spatialaudio)
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/native-install/lib"
+          root="$RUNNER_TEMP/w4b-native"
+          for layout in surround_5_1 surround_7_1; do
+            for mode in static yaw_left_75 yaw_right_75 range_2_to_20; do
+              "$RUNNER_TEMP/native-scene" "$root/w4b_motion.wav" "$root/w4b_${mode}.tsv" "$layout" "$root/w4b_${mode}_${layout}.wav"
+            done
+          done
+          echo W4B_EIGHT_REAL_NATIVE_RENDER_OUTPUTS
+      - name: Preserve all true source, plan, original PCM and first failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4b-native-source-batch
+          path: ${{ runner.temp }}/w4b-native/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-observer:
+    needs: original-native
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Fail closed on incomplete native outputs
+        env:
+          NATIVE_RESULT: ${{ needs.original-native.result }}
+        run: test "$NATIVE_RESULT" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4b-native-source-batch
+          path: native-data
+      - name: Independent full-float32 PCM motion and negative-check batch
+        run: |
+          set -euo pipefail
+          (cd spatial-contract/doe && python3 -m unittest -v test_w4b_movement)
+          mkdir -p result
+          python3 spatial-contract/doe/w4b_movement.py observe native-data result/w4b_batch_numeric.json
+          sha256sum result/w4b_batch_numeric.json
+      - name: Preserve bounded numeric receipt even for scientific failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4b-batch-independent-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
