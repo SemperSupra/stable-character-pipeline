@@ -1,0 +1,67 @@
+name: W16 strict source-only typed 3D motion admission
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16/**'
+      - '.github/workflows/walk-w16-source-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-contract:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Native Go source contract and hostile negatives / ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        profile: [forward, outward]
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Native independent source admission and adversarial fixtures
+        run: |
+          set -euo pipefail
+          cd qualification/walk_w16
+          go vet .
+          go test -race -count=1 -v .
+      - name: Generate typed synthetic source receipt
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          mkdir -p w16-evidence
+          (cd qualification/walk_w16 && go run . -profile "$PROFILE" -out "$GITHUB_WORKSPACE/w16-evidence/$PROFILE.json")
+      - name: Independently check machine receipt scope
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python3 - "$PROFILE" <<'PY'
+          import json, re, sys
+          p=sys.argv[1]
+          x=json.load(open('w16-evidence/'+p+'.json',encoding='utf-8'))
+          assert x['schema']=='scp.walk_w16_contract_receipt.v1'
+          assert x['status']=='PASS_TYPED_SOURCE_ONLY_CONTRACT'
+          assert x['source_rights']=='ORIGINAL_SELF_AUTHORED_SYNTHETIC'
+          assert x['actor_count']==2 and x['frame_count']==6
+          assert re.fullmatch('[0-9a-f]{64}',x['source_sha256'])
+          assert x['scope']=='SOURCE_ONLY_NOT_IK_EQUIVALENCE_NOT_SKIN_NOT_CONTACT_PHYSICS_NOT_PRIVATE'
+          print("W16_SCOPE_LIMITED_CONTRACT_PASS",p,x['source_sha256'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: walk-w16-source-contract-${{ matrix.profile }}
+          path: w16-evidence/
+          retention-days: 3
+          if-no-files-found: warn
