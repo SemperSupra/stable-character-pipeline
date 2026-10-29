@@ -16,7 +16,7 @@ func main(){
  var output any
  switch *lane{
  case "plan":
-  intent:=sweeps.Intent{ID:"synthetic-walking-motion",Mode:"frontier_discovery",Classification:"public_synthetic",DefinitionRef:"fixture:2actor-walk-v1",
+  intent:=sweeps.Intent{ID:"synthetic-walking-motion",RequiredAssetKind:"motion",Mode:"frontier_discovery",Classification:"public_synthetic",DefinitionRef:"fixture:2actor-walk-v1",
    Forms:[]sweeps.Form{
     {Language:"en",Term:"walking motion",EvidenceRef:"fixture:en",Relation:"exact"},
     {Language:"de",Term:"Gehbewegung",EvidenceRef:"fixture:de",Relation:"related"},
