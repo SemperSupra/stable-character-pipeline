@@ -1,0 +1,51 @@
+name: Public multilingual concept and provider-citizen controls (synthetic)
+on:
+  pull_request:
+    paths:
+      - research/providers/sweeps/**
+      - research/providers/cmd/multilingual-demo/**
+      - .github/workflows/provider-multilingual-safety.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-clean-citizen:
+    name: Offline ${{ matrix.lane }} safety qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        lane: [plan, citizen, cpe]
+    defaults:
+      run:
+        working-directory: research/providers
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: research/providers/go.mod
+          cache: false
+      - name: Test all invariants and race, stdlib only
+        run: |
+          go test -race -count=1 ./sweeps ./cmd/multilingual-demo
+          go vet ./sweeps ./cmd/multilingual-demo
+      - name: Produce exactly one offline synthetic lane
+        env:
+          LANE: ${{ matrix.lane }}
+        run: |
+          mkdir -p reports
+          go run ./cmd/multilingual-demo -lane "$LANE" > "reports/synthetic-${LANE}.json"
+          python3 -m json.tool "reports/synthetic-${LANE}.json" > /dev/null
+          cat "reports/synthetic-${LANE}.json"
+      - name: Retain research-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-clean-multilingual-${{ matrix.lane }}
+          path: research/providers/reports/synthetic-*.json
+          retention-days: 14
+          if-no-files-found: warn
