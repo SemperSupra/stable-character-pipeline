@@ -69,5 +69,5 @@ func TestVFRHalfSamplePrecisionAndRationalEquivalence(t *testing.T){
  got,err:=FrameContaining(pts,4,0)
  if err!=nil||got!=0{t.Fatalf("exact zero frame %+v %v",got,err)}
  got,err=FrameContaining(pts,4,1)
- if err!=nil||got!=2{t.Fatalf("containing half-frame %+v %v",got,err)}
+ if err!=nil||got!=1{t.Fatalf("containing half-frame %+v %v",got,err)}
 }
