@@ -20,6 +20,7 @@ func TestCPECases(t *testing.T){
   {"unmapped","unknown_residual_cluster"},
   {"collision","hard_negative_or_collision"},
   {"lexical_gap","lexicalization_candidate"},
+  {"source_coverage_gap","coverage_gap"},
  }
  for _,c:=range cases {
   obs:=[]Observation{{QueryID:"q",Term:"walking",Language:"en",SourceID:"p:r",SourceLineage:"ancestry",EvidenceRef:"fixture:1",MappingState:c.state,MappingRelation:"ambiguous"}}
