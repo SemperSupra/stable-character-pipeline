@@ -1,0 +1,29 @@
+name: Spatial W4e rational audio/video PTS and source-event clock
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4e-avsync-clock.yml'
+      - 'spatial-contract/avsync/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rational-timeline:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+          cache: false
+      - name: Exact rational PTS and no-cumulative-drift tests with race and vet
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          (cd spatial-contract && go test -race -count=1 -v ./avsync ./canonicalbridge ./contract && go vet ./avsync ./canonicalbridge ./contract)
+          echo SPATIAL_W4E_RATIONAL_TIMELINE_GO_VERIFIED
