@@ -39,7 +39,7 @@ func BuildProposals(observations []Observation, snapshotRef string) ([]Proposal,
  grouped:=map[string][]Observation{}
  for _,o:=range observations{
   if o.QueryID==""||o.SourceID==""||o.SourceLineage==""||o.EvidenceRef==""||o.Term==""||!ValidLanguage(o.Language) {return nil,errors.New("incomplete evidence/ancestry")}
-  switch o.MappingState {case "unmapped","collision","lexical_gap","known": default:return nil,errors.New("invalid mapping-state observation")}
+  switch o.MappingState {case "unmapped","collision","lexical_gap","known","source_coverage_gap": default:return nil,errors.New("invalid mapping-state observation")}
   if o.MappingRelation!="exact"&&o.MappingRelation!="related"&&o.MappingRelation!="ambiguous"&&o.MappingRelation!="no_equivalent" {return nil,errors.New("unsupported mapping relation")}
   key:=o.Language+"|"+strings.ToLower(strings.TrimSpace(o.Term))+"|"+o.MappingState
   grouped[key]=append(grouped[key],o)
@@ -56,6 +56,7 @@ func BuildProposals(observations []Observation, snapshotRef string) ([]Proposal,
   if first.MappingState=="lexical_gap"{kind="lexicalization_candidate"}
   if first.MappingState=="collision"{kind="hard_negative_or_collision"}
   if first.MappingState=="unmapped"{kind="unknown_residual_cluster"}
+  if first.MappingState=="source_coverage_gap"{kind="coverage_gap"}
   lineages:=map[string]bool{};refs:=map[string]bool{}
   for _,o:=range observations {lineages[o.SourceLineage]=true;refs[o.EvidenceRef]=true}
   ancestry:=make([]string,0,len(lineages));evidence:=make([]string,0,len(refs))
