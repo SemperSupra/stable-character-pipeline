@@ -3,15 +3,15 @@ package sweeps
 import ("strings";"testing")
 
 func fixture() (Intent,[]Target,Budget){
- return Intent{ID:"original-public-two-person-walk",Mode:"frontier_discovery",Classification:"public_synthetic",DefinitionRef:"fixture:walking-v1",Forms:[]Form{
+ return Intent{ID:"original-public-two-person-walk",RequiredAssetKind:"motion",Mode:"frontier_discovery",Classification:"public_synthetic",DefinitionRef:"fixture:walking-v1",Forms:[]Form{
   {Language:"en",Term:"walking cycle",Relation:"exact",EvidenceRef:"fixture:en"},
   {Language:"de",Term:"Gehbewegung",Relation:"related",EvidenceRef:"fixture:de"},
   {Language:"th",Term:"เดิน",Relation:"exact",EvidenceRef:"fixture:th"},
   {Language:"en",Term:"catwalk",Relation:"hard_negative",EvidenceRef:"fixture:neg"},
   {Language:"de",Term:"Gehbewegung",Relation:"related",EvidenceRef:"fixture:de-again"},
  }},[]Target{
-  {ProviderID:"example-provider",Engine:"provider_api",Origin:"https://example.org",SourceLineage:"fixture:independent-1",PolicyRef:"fixture:policy",PolicyVerified:true,ScopeAllowed:true,MetadataAPIVerified:true},
-  {ProviderID:"example-searxng",Engine:"searxng_owned",Origin:"http://127.0.0.1:8888",SourceLineage:"fixture:upstream-search-engine",PolicyRef:"fixture:local-only",PolicyVerified:true,ScopeAllowed:true,MetadataAPIVerified:true},
+  {ProviderID:"example-provider",Engine:"provider_api",Origin:"https://example.org",SourceLineage:"fixture:independent-1",SupportedKinds:[]string{"motion"},PolicyRef:"fixture:policy",PolicyVerified:true,ScopeAllowed:true,MetadataAPIVerified:true},
+  {ProviderID:"example-searxng",Engine:"searxng_owned",Origin:"http://127.0.0.1:8888",SourceLineage:"fixture:upstream-search-engine",SupportedKinds:[]string{"motion"},PolicyRef:"fixture:local-only",PolicyVerified:true,ScopeAllowed:true,MetadataAPIVerified:true},
  },Budget{TotalQueries:6,MaxPerProvider:3,MaxLanguages:3}
 }
 func TestPlanMultilingualSynthetic(t *testing.T){
@@ -65,4 +65,15 @@ func TestOnlySourceNeutralScopes(t *testing.T){
   if err:=SafeScope(s);err==nil{t.Fatalf("scope %s should not be permitted",s)}
  }
  if err:=SafeScope("search_only");err!=nil{t.Fatal(err)}
+}
+
+func TestCapabilityMismatchStopsUnrelatedSearch(t *testing.T){
+ intent,targets,b:=fixture()
+ targets[0].SupportedKinds=[]string{"environment","model"}
+ plan,err:=PlanSynthetic(intent,targets,b)
+ if err!=nil{t.Fatal(err)}
+ if len(plan.Queries)!=3||!strings.Contains(strings.Join(plan.Skipped,","),"CAPABILITY_MISMATCH"){t.Fatalf("search fanout into unrelated model library: %+v",plan)}
+ targets[0].SupportedKinds=nil
+ plan,err=PlanSynthetic(intent,targets,b)
+ if err!=nil||!strings.Contains(strings.Join(plan.Skipped,","),"CAPABILITY_UNVERIFIED"){t.Fatalf("unverified capability escaped: %+v %v",plan,err)}
 }
