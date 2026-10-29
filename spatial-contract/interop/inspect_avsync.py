@@ -103,9 +103,8 @@ def inspect(root):
             timestamp_errors.append(error)
         clicktime=Fraction(CLICK,RATE)
         flashtime=Fraction(vframes[flash]["best_effort_timestamp_time"])
-        if not (flashtime<=clicktime+Fraction(1,1000) and
-                flashtime+Fraction(1,1)/fps>=clicktime):
-            raise ValueError("visual/audio flash event outside same frame window")
+        if abs(float(flashtime-clicktime))>0.5/float(fps)+0.0011:
+            raise ValueError("visual flash is more than half a video frame from audio click")
         decodedmobile=decode_audio(mobile)
         mobile_at,amobile=peak_sample(decodedmobile)
         if abs(mobile_at-CLICK)>1024:raise ValueError("AAC codec priming moved audio outside bounded window")
