@@ -216,6 +216,14 @@ def main():
              "body_contact":"NOT_QUALIFIED","character_identity":"NOT_APPLICABLE",
              "independent_non_blender_reader":"NOT_YET_QUALIFIED",
              "blend_sha256":sha(blend),"glb_sha256":sha(glb)}
+    # Independent non-Blender W15 reader must compare its own mathematical
+    # LBS results with original source scene world vertices, not merely the
+    # imported Blender scene or a self-reported parity summary.
+    truth={"schema":"scp.walk_w15_source_truth.v1",
+           "glb_sha256":sha(glb),"source_rights":SOURCE,
+           "frames":list(FRAMES),
+           "world_vertices":{str(f):{name:native[name][str(f)] for name in assets} for f in FRAMES}}
+    (out/"native_source_vertex_truth.json").write_text(json.dumps(truth,sort_keys=True,indent=2)+"\n")
     (out/"native_3d_skin_receipt.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
     print("W14_WEIGHTED_TWO_AVATAR_GLB_PASS",json.dumps(receipt,sort_keys=True))
 if __name__=="__main__":main()
