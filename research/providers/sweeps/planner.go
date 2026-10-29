@@ -19,6 +19,7 @@ type Form struct {
 }
 type Intent struct {
  ID string `json:"id"`
+ RequiredAssetKind string `json:"required_asset_kind"`
  Mode string `json:"mode"`
  Classification string `json:"classification"`
  ConceptRef string `json:"concept_ref,omitempty"`
@@ -31,6 +32,7 @@ type Target struct {
  Engine string `json:"engine"`
  Origin string `json:"origin"`
  SourceLineage string `json:"source_lineage"`
+ SupportedKinds []string `json:"supported_kinds"`
  PolicyRef string `json:"policy_ref"`
  PolicyVerified bool `json:"policy_verified"`
  ScopeAllowed bool `json:"scope_allowed"`
@@ -70,6 +72,8 @@ func ValidLanguage(s string) bool {
 func PlanSynthetic(intent Intent, targets []Target, b Budget) (Plan,error) {
  out:=Plan{Schema:"scp.multilingual_search_plan.v1",IntentID:intent.ID,IntentMode:intent.Mode,SourceClassification:intent.Classification,ProjectionRef:intent.ProjectionRef,NoNetwork:true,NoOntologyMutation:true}
  if intent.Classification!="public_synthetic" {return out,errors.New("public runner requires only original synthetic query material")}
+ validKinds:=map[string]bool{"motion":true,"rig":true,"model":true,"environment":true,"texture":true,"reference":true,"audio":true,"character":true}
+ if !validKinds[intent.RequiredAssetKind] {return out,errors.New("requested media/asset capability must be explicit")}
  if intent.ID==""||len(intent.Forms)==0 {return out,errors.New("missing bounded intent")}
  switch intent.Mode{
  case "known_projection":
@@ -99,6 +103,10 @@ func PlanSynthetic(intent Intent, targets []Target, b Budget) (Plan,error) {
   if t.ProviderID==""||t.SourceLineage==""||t.PolicyRef==""||t.Origin==""||seenProviders[t.ProviderID] {return out,errors.New("invalid provider/ancestry or duplicate")}
   seenProviders[t.ProviderID]=true
   if t.Engine!="provider_api"&&t.Engine!="searxng_owned" {return out,errors.New("unsupported engine; public SearXNG not admissible")}
+  supports:=false
+  for _,kind:=range t.SupportedKinds {if !validKinds[kind] {return out,errors.New("unknown claimed provider asset capability")};if kind==intent.RequiredAssetKind {supports=true}}
+  if len(t.SupportedKinds)==0 {out.Skipped=append(out.Skipped,t.ProviderID+":CAPABILITY_UNVERIFIED");continue}
+  if !supports {out.Skipped=append(out.Skipped,t.ProviderID+":CAPABILITY_MISMATCH");continue}
   if !t.PolicyVerified||!t.ScopeAllowed||!t.MetadataAPIVerified {out.Skipped=append(out.Skipped,t.ProviderID+":POLICY_OR_API_HOLD");continue}
   for _,f:=range forms{
    if f.Relation=="hard_negative"||f.Relation=="no_equivalent" {out.Skipped=append(out.Skipped,t.ProviderID+":"+f.Language+":NEGATIVE_OR_NO_EQUIVALENT");continue}
