@@ -23,12 +23,13 @@ static int run_one(const Profile *p,const Pose *pose,const char *root,
                    LPALCLOOPBACKOPENDEVICESOFT openloop,
                    LPALCISRENDERFORMATSUPPORTEDSOFT supported,
                    LPALCRENDERSAMPLESSOFT render) {
-    if(!supported(NULL,RATE,p->layout,ALC_FLOAT_SOFT)) {
-        fprintf(stderr,"OPENAL_UNSUPPORTED_FORMAT %s\n",p->name);
-        return 2;
-    }
     ALCdevice *dev=openloop(NULL);
     if(!dev) { fputs("OPENAL_NO_LOOPBACK_DEVICE\n",stderr);return 3; }
+    if(!supported(dev,RATE,p->layout,ALC_FLOAT_SOFT)) {
+        fprintf(stderr,"OPENAL_UNSUPPORTED_FORMAT %s\n",p->name);
+        alcCloseDevice(dev);
+        return 2;
+    }
     ALCint attrs[]={ ALC_FORMAT_CHANNELS_SOFT,p->layout,
                      ALC_FORMAT_TYPE_SOFT,ALC_FLOAT_SOFT,
                      ALC_FREQUENCY,RATE,0 };
