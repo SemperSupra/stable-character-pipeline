@@ -1,0 +1,66 @@
+name: W15 independent non-Blender glTF LBS and animation vertex parity
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w14/**'
+      - 'qualification/walk_w15/**'
+      - '.github/workflows/walk-w15-independent-gltf.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pure-third-reader:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Independent pure glTF LBS / ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Generate original weighted Blender scene and exact source-native reference
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python qualification/walk_w14/weighted_3d.py --profile "$PROFILE" --out "w15-$PROFILE"
+          test -s "w15-$PROFILE/native_source_vertex_truth.json"
+      - name: Qualify third independent glTF evaluator with adversarial packets
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          export W15_GLB="$GITHUB_WORKSPACE/w15-$PROFILE/original_two_weighted_3d_characters.glb"
+          export W15_TMP="$RUNNER_TEMP"
+          (cd qualification/walk_w15 && python -m unittest -v test_glb_reader)
+          python qualification/walk_w15/pure_glb_reader.py --glb "$W15_GLB" --truth "w15-$PROFILE/native_source_vertex_truth.json" --out "w15-$PROFILE/pure_gltf_vertex_receipt.json"
+          python - "$PROFILE" <<'PY'
+          import json,sys
+          p=sys.argv[1]
+          r=json.load(open('w15-'+p+'/pure_gltf_vertex_receipt.json'))
+          assert r['status']=='PASS_PURE_STDLIB_GLTF_LBS_ANIMATION_INDEXED'
+          assert r['reader']=='PURE_PYTHON_STDLIB_NO_BPY_NO_GLTF_LOADER'
+          assert r['indexed_vertex_observations']==392
+          assert r['maximum_world_position_error']<.0005
+          assert r['source_rights']=='ORIGINAL_SELF_AUTHORED_SYNTHETIC'
+          print('W15_THIRD_NUMERIC_READER_PASS',p,r['maximum_world_position_error'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w15-independent-gltf-${{ matrix.profile }}
+          path: w15-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
