@@ -1,0 +1,76 @@
+name: Spatial W4c Go analytic distance envelope and full PCM batch
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4c-go-distance.yml'
+      - 'spatial-contract/attenuation/**'
+      - 'spatial-contract/cmd/attenuation-batch/**'
+      - 'spatial-contract/doe/observe_distance.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: spatial-w4c-go-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  go-native-gain:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+          cache: false
+      - name: Real Go race, vet, source-generated original WAV and 85 native float outputs
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          (cd spatial-contract && go test -race -count=1 ./attenuation ./cmd/attenuation-batch && go vet ./attenuation ./cmd/attenuation-batch)
+          (cd spatial-contract && go run ./cmd/attenuation-batch "$RUNNER_TEMP/w4c-source-native")
+          find "$RUNNER_TEMP/w4c-source-native" -name '*.wav' | wc -l
+          test "$(find "$RUNNER_TEMP/w4c-source-native" -name '*.wav' | wc -l)" -eq 87
+      - name: Preserve complete original waveform source and output PCM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4c-go-native-source-pcm-batch
+          path: ${{ runner.temp }}/w4c-source-native/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-observer:
+    needs: go-native-gain
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Fail closed on incomplete native source
+        env:
+          NATIVE_RESULT: ${{ needs.go-native-gain.result }}
+        run: test "$NATIVE_RESULT" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4c-go-native-source-pcm-batch
+          path: source-native
+      - name: Decode all 85 IEEE float WAVs against independent float64 1/r mathematical oracle
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 spatial-contract/doe/observe_distance.py source-native result/w4c_numeric.json
+          sha256sum result/w4c_numeric.json
+      - name: Preserve numerical source/rights/shape readback
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4c-independent-analytic-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
