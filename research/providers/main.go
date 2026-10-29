@@ -2,6 +2,11 @@ package main
 
 import (
     "bytes"
+    "context"
+    "crypto/x509"
+    "errors"
+    "net"
+    "sort"
     "crypto/sha256"
     "encoding/hex"
     "encoding/json"
@@ -36,6 +41,8 @@ type Receipt struct {
     SampleSHA256 string `json:"sample_sha256,omitempty"`
     Truncated bool `json:"truncated"`
     Result string `json:"result"`
+    TransportKind string `json:"transport_kind,omitempty"`
+    JSONTopKeys []string `json:"json_top_keys,omitempty"`
     ElapsedMS int64 `json:"elapsed_ms"`
 }
 
@@ -52,7 +59,7 @@ var targets = []Target{
     {"open3dlab-feed", "C", "https://open3dlab.com/rss/", "xml", "source discovery only; no scraping/bypass"},
     {"open3dlab-project", "C", "https://open3dlab.com/project/e2a0830d-f166-4b1b-aabf-8ca735d0638c/", "html", "specific user URL; permission unknown"},
     {"sketchfab-data", "C", "https://api.sketchfab.com/v3/models?downloadable=true&count=1", "json", "download API requires OAuth; discovery only"},
-    {"blenderkit", "C", "https://www.blenderkit.com/api/v1/search/?query=character", "json", "automation permission unverified"},
+    {"blenderkit", "C", "https://www.blenderkit.com/api/v1/search/?query=character&page_size=1", "json", "automation permission unverified"},
     {"poly-pizza", "C", "https://poly.pizza/", "html", "website only; API/rights unverified"},
     {"opengameart", "C", "https://opengameart.org/", "html", "per-item rights; API unverified"},
 }
@@ -88,12 +95,25 @@ func classify(status int, kind, mime string, body []byte, truncated bool) string
     return "UNSUPPORTED_KIND_HOLD"
 }
 
+func transportKind(err error) string {
+    if errors.Is(err, context.DeadlineExceeded) { return "TIMEOUT" }
+    var netErr net.Error
+    if errors.As(err, &netErr) && netErr.Timeout() { return "TIMEOUT" }
+    var dnsErr *net.DNSError
+    if errors.As(err, &dnsErr) { return "DNS" }
+    var certErr x509.UnknownAuthorityError
+    if errors.As(err, &certErr) { return "TLS_CERT" }
+    var opErr *net.OpError
+    if errors.As(err, &opErr) { return "NETWORK" }
+    return "OTHER"
+}
+
 func probe(t Target) (receipt Receipt) {
     receipt = Receipt{Provider:t.Provider, Lane:t.Lane, Endpoint:t.URL, RightsGate:t.Rights}
     start := time.Now()
     defer func(){ receipt.ElapsedMS = time.Since(start).Milliseconds() }()
     req, err := http.NewRequest(http.MethodGet, t.URL, nil)
-    if err != nil { receipt.Result = "TRANSPORT_HOLD"; return receipt }
+    if err != nil { receipt.Result = "TRANSPORT_HOLD"; receipt.TransportKind = transportKind(err); return receipt }
     req.Header.Set("User-Agent", userAgent)
     req.Header.Set("Accept", "application/json, application/xml, text/html, text/plain;q=0.8")
     client := &http.Client{
@@ -101,18 +121,26 @@ func probe(t Target) (receipt Receipt) {
         CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
     }
     response, err := client.Do(req)
-    if err != nil { receipt.Result = "TRANSPORT_HOLD"; return receipt }
+    if err != nil { receipt.Result = "TRANSPORT_HOLD"; receipt.TransportKind = transportKind(err); return receipt }
     defer response.Body.Close()
     receipt.Status = response.StatusCode
     receipt.ContentType = response.Header.Get("Content-Type")
     buf, err := io.ReadAll(io.LimitReader(response.Body, maxBody+1))
-    if err != nil { receipt.Result = "TRANSPORT_HOLD"; return receipt }
+    if err != nil { receipt.Result = "TRANSPORT_HOLD"; receipt.TransportKind = transportKind(err); return receipt }
     receipt.Truncated = len(buf) > maxBody
     if receipt.Truncated { buf = buf[:maxBody] }
     receipt.BodyBytesSampled = len(buf)
     sum := sha256.Sum256(buf)
     receipt.SampleSHA256 = hex.EncodeToString(sum[:])
     receipt.Result = classify(receipt.Status, t.Kind, receipt.ContentType, buf, receipt.Truncated)
+    if receipt.Result == "API_METADATA_OK" {
+        var fields map[string]json.RawMessage
+        if err := json.Unmarshal(buf, &fields); err == nil {
+            for k := range fields { receipt.JSONTopKeys = append(receipt.JSONTopKeys,k) }
+            sort.Strings(receipt.JSONTopKeys)
+            if len(receipt.JSONTopKeys)>12 { receipt.JSONTopKeys=receipt.JSONTopKeys[:12] }
+        }
+    }
     return receipt
 }
 
