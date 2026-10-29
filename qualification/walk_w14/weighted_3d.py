@@ -58,8 +58,10 @@ def add_actor(name,x,profile,phase):
     for f in FRAMES:
         bpy.context.scene.frame_set(f)
         t=f/12.0
-        primary=.24*math.sin(2*math.pi*t/3+phase)
-        secondary=.31*math.sin(2*math.pi*t/3+phase+.37)
+        # Ensure exact neutral world/rest at source t=0 for both distinct actors;
+        # later frames still have independent nonplanar quaternion deformation.
+        primary=.24*(math.sin(2*math.pi*t/3+phase)-math.sin(phase))
+        secondary=.31*(math.sin(2*math.pi*t/3+phase+.37)-math.sin(phase+.37))
         # XYZW is the export representation; Blender native mathutils stores WXYZ.
         # Two different axes and parent-linked bones make genuine 3D deformations.
         if profile=="forward":
