@@ -41,7 +41,7 @@ jobs:
           git -C "$RUNNER_TEMP/SDL_mixer" fetch -q --depth=1 origin "$mixer"
           git -C "$RUNNER_TEMP/SDL_mixer" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
           test "$(git -C "$RUNNER_TEMP/SDL_mixer" rev-parse HEAD)" = "$mixer"
-          grep -q 'zlib License' "$RUNNER_TEMP/SDL/LICENSE.txt"
+          grep -q 'Permission is granted to anyone to use this software for any purpose' "$RUNNER_TEMP/SDL/LICENSE.txt"
           cmake -S "$RUNNER_TEMP/SDL" -B "$RUNNER_TEMP/SDL-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl-native-install" -DCMAKE_INSTALL_LIBDIR=lib -DSDL_TEST=OFF -DSDL_EXAMPLES=OFF -DSDL_SHARED=ON -DSDL_STATIC=OFF
           cmake --build "$RUNNER_TEMP/SDL-build" -j 2
           cmake --install "$RUNNER_TEMP/SDL-build"
