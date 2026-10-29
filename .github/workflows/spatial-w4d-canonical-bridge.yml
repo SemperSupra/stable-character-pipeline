@@ -1,0 +1,34 @@
+name: Spatial W4d authoritative canonical scene to first-party gain bridge
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4d-canonical-bridge.yml'
+      - 'spatial-contract/canonicalbridge/**'
+      - 'spatial-contract/contract/**'
+      - 'spatial-contract/sceneadapter/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: spatial-w4d-canonical-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  canonical-contract:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+          cache: false
+      - name: Canonical admission and scene-gain strict source rights/cross-timebase test batch
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          (cd spatial-contract && go test -race -count=1 -v ./canonicalbridge ./contract ./sceneadapter ./attenuation && go vet ./canonicalbridge ./contract ./sceneadapter ./attenuation)
+          echo W4D_CANONICAL_BRIDGE_GO_VERIFIED_SOURCE_ONLY
