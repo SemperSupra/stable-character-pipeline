@@ -3,6 +3,7 @@ import(
  "testing"
  "example.invalid/spatial-contract/avsync"
 )
+func sec(n,d int64) avsync.Seconds{return avsync.Seconds{Numerator:n,Denominator:d}}
 func fixture() []Span{
  return []Span{
   {0,2400,0},{4000,5600,2400},{7000,7600,4000},{9600,11000,4600},
@@ -10,9 +11,9 @@ func fixture() []Span{
 }
 func vfr()[][]avsync.Seconds{
  return [][]avsync.Seconds{
-  {{0,48000},{400,48000},{1100,48000},{1800,48000},{2400,48000},{2500,48000},{3900,48000},{4600,48000},{5400,48000},{5800,48000}},
-  {{0,48000},{1000,48000},{2100,48000},{3100,48000},{4250,48000},{5100,48000},{5800,48000}},
-  {{0,48000},{650,48000},{1650,48000},{2450,48000},{3400,48000},{4550,48000},{5800,48000}},
+  {sec(0,48000),sec(400,48000),sec(1100,48000),sec(1800,48000),sec(2400,48000),sec(2500,48000),sec(3900,48000),sec(4600,48000),sec(5400,48000),sec(5800,48000)},
+  {sec(0,48000),sec(1000,48000),sec(2100,48000),sec(3100,48000),sec(4250,48000),sec(5100,48000),sec(5800,48000)},
+  {sec(0,48000),sec(650,48000),sec(1650,48000),sec(2450,48000),sec(3400,48000),sec(4550,48000),sec(5800,48000)},
  }
 }
 func TestEditCuesAcrossThreeVFRPatterns(t *testing.T) {
@@ -52,19 +53,19 @@ func TestRefuseUnqualifiedEdits(t *testing.T){
 }
 func TestRefuseVFRDuplicatesReorderGapsOrBadBounds(t *testing.T){
  for _,times:=range [][]avsync.Seconds{
-  {},{{0,0}},{{1,48000}},{{0,48000},{0,48000}},
-  {{0,48000},{3000,48000},{2000,48000}},
-  {{0,48000},{6000,48000}},
-  {{0,48000},{3000,0}},
-  {{0,48000},{3000,-48000}},
-  {{0,48000},{3000,1000001}},
+  {},{sec(0,0)},{sec(1,48000)},{sec(0,48000),sec(0,48000)},
+  {sec(0,48000),sec(3000,48000),sec(2000,48000)},
+  {sec(0,48000),sec(6000,48000)},
+  {sec(0,48000),sec(3000,0)},
+  {sec(0,48000),sec(3000,-48000)},
+  {sec(0,48000),sec(3000,1000001)},
  }{
   if ValidateVFR(times,6000)==nil{t.Fatalf("accepted invalid VFR %+v",times)}
  }
  if _,err:=FrameContaining(vfr()[0],6000,6000);err==nil{t.Fatal("accepted overlong cue")}
 }
 func TestVFRHalfSamplePrecisionAndRationalEquivalence(t *testing.T){
- pts:=[]avsync.Seconds{{0,48000},{1,96000},{3,96000},{5,96000},{7,96000}}
+ pts:=[]avsync.Seconds{sec(0,48000),sec(1,96000),sec(3,96000),sec(5,96000),sec(7,96000)}
  if err:=ValidateVFR(pts,4);err!=nil{t.Fatalf("exact half-sample VFR rejected %v",err)}
  got,err:=FrameContaining(pts,4,0)
  if err!=nil||got!=0{t.Fatalf("exact zero frame %+v %v",got,err)}
