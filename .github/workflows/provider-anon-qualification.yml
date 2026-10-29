@@ -1,10 +1,5 @@
 name: Anonymous provider metadata qualification (research-only)
 on:
-  push:
-    branches: [qualification/provider-anon-probe-20261029]
-    paths:
-      - research/providers/**
-      - .github/workflows/provider-anon-qualification.yml
   pull_request:
     paths:
       - research/providers/**
