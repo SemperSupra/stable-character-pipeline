@@ -149,6 +149,25 @@ def main():
     if len([x for x in bpy.data.objects if x.type=="ARMATURE"])!=2:
         raise ValueError("GLB_ARMATURE_MISSING")
     if not bpy.data.actions:raise ValueError("GLB_IMPORTED_ANIMATION_MISSING")
+    # The bpy 4.5 glTF importer can retain named Action assets without assigning
+    # their layered ActionSlot to the imported armature's live animation_data.
+    # Bind ONLY exact actor-name matches and require an OBJECT slot, never
+    # silently evaluate rest pose as a successful animated skin import.
+    for name in assets:
+        arm=bpy.data.objects.get(name+"_Skeleton")
+        if arm is None or arm.type!="ARMATURE":raise ValueError("GLB_ACTOR_ARMATURE_MISSING")
+        action=bpy.data.actions.get(arm.name+"Action")
+        if action is None:raise ValueError("GLB_ACTOR_SPECIFIC_ACTION_MISSING")
+        slots=[s for s in action.slots if s.target_id_type=="OBJECT"]
+        if len(slots)!=1:raise ValueError("GLB_ACTION_SLOT_MISSING_OR_AMBIGUOUS")
+        data=arm.animation_data_create()
+        if data.action is not None and data.action is not action:
+            raise ValueError("GLB_DIFFERENT_ACTION_ALREADY_BOUND")
+        data.action=action
+        data.action_slot=slots[0]
+        if data.action is not action or data.action_slot!=slots[0]:
+            raise ValueError("GLB_CORRECT_ACTION_NOT_LIVE")
+        print("W14_EXACT_GLTF_ACTION_SLOT_BOUND",name,action.name,slots[0].identifier,flush=True)
     max_err=0.
     minimum_motion=math.inf
     imported_count=0
