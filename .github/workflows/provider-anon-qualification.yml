@@ -1,0 +1,52 @@
+name: Anonymous provider metadata qualification (research-only)
+on:
+  push:
+    branches: [qualification/provider-anon-probe-20261029]
+    paths:
+      - research/providers/**
+      - .github/workflows/provider-anon-qualification.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  credential-free-metadata:
+    name: Provider batch ${{ matrix.batch }} (no downloads)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        batch: [A, B, C]
+    defaults:
+      run:
+        working-directory: research/providers
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: research/providers/go.mod
+          cache: false
+      - name: Synthetic controls (no network)
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: One bounded GET per provider, no secrets or asset downloads
+        env:
+          BATCH: ${{ matrix.batch }}
+        run: |
+          mkdir -p reports
+          go run . -batch "$BATCH" > "reports/batch-${BATCH}.jsonl"
+          cat "reports/batch-${BATCH}.jsonl"
+      - name: Preserve exact machine-readable runner evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anonymous-provider-metadata-${{ matrix.batch }}
+          path: research/providers/reports/
+          if-no-files-found: warn
+          retention-days: 14
