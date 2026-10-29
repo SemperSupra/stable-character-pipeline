@@ -81,3 +81,22 @@
 - **Sequential gate:** only after P1–P5 source native successes and independent rights checks, exact private workcell/Agent Dispatch caller/source/custody/GARM acceptance -> evaluate original Naomi/Alison rig and six-second dual-scene against skin/contact/visibility original FAIL receipts.
 
 **All above is audit/design proposal only.** Existing public W06–W10 native/Go receipts stay accepted only in their original narrow envelopes; no merge/release/deploy/CPE or private source disclosure.
+
+
+## Deeper source-red-team proof — W12 Go retarget (executed)
+
+The audit found that original Go `Source` omitted JSON `time_s`, `classification`, `geometry_space`, `transfer_intent`, and `real_person_identity`, and only counted joints/contacts rather than checking exact names. Standard `encoding/json` drops unknown fields. This is a source-validation **trust-boundary gap** even though the original first-party W06 → W07 GHA path generated honest input.
+
+- **First native failure deliberately preserved:** W12 [draft PR #91](https://github.com/SemperSupra/stable-character-pipeline/pull/91) at initial head `e344ff24d8349d79ee5d6a4254415e9a6827fbf8`, public [GHA 40793411121](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40793411121) original 2 target-profile jobs 123183904242 and 123183904362 **FAIL (correct negative expectation)**. All 7 hostile source variants were falsely accepted: forged or missing `time_s`, changed `geometry_space`, forged `classification`, modified transfer intent, removed required joint with same-count decoy, and replaced right foot contact with same-count decoy. First failures are genuine original Go source omissions, not flaky infrastructure or failed rights asset access.
+- **Bounded correction:** W12 new head `6b7ed64c7db7819c5cf3a6356b8ff9640864a370`: explicitly type+validate source provenance fields, require non-nil per-frame time in seconds within `1e-8` of original rational 12fps, require exact 16 named source joints and both `left/right` contact keys, retain current source-rights restrictions and numerical IK/contact tolerances. Do **not** infer this covers arbitrary JSON duplicate keys, malicious source signer, MMD/VMD, or original private assets; only the original synthetic schema.
+- **Native requalification:** public [GHA 40793592776](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/40793592776) 2/2 Go workers PASS, Python original W06 10/10 and Go original 10 plus seven corrected hostile negative tests PASS, `go vet` and `go test -race`, both 72-frame original source transfers, zero planted foot slip, maximum target IK segment error 4.44e-16 / 5.55e-16 source scene units and minimum 1.62 original XY root gap. Artifacts 12862597074 SHA `45ce094a2fa03553969a0ae968e7368c9a03546234455837526c8da8ecc5955b` and 12862044962 SHA `5102cea8e4cc87df838ef9e5aedcb7cb6fc814e4b431f3fb84340e4419b849a5`.
+- **Generalizable invariant:** parse/validate each admitted source packet as a complete typed contract; unknown/missing essential fields and altered metadata cannot silently disappear in serialization. Sign/verify exact original raw source bytes separately from semantic validation; the Go function's `sha` length check alone is *not* an authenticity proof.
+
+## More precise Ozz implementation inspection
+
+Actual [`src/animation/runtime/ik_two_bone_job.cc`](https://github.com/guillaumeblanc/ozz-animation/blob/master/src/animation/runtime/ik_two_bone_job.cc), blob `84066fb74846ca27b5fbf7998638bf3a67252d38`:
+
+- `SoftenTarget` lines 113–175 computes softened target distance near total chain length, explicitly avoiding zero divisors and using a bounded rational approximation `1−3⁴/(α+3)⁴` with first derivative 1 at onset. This is a concrete candidate for gentle leg reach and controlled stop, **not** our current W08 root easing or a guarantee of toe/heel contact.
+- `ComputeMidJoint` uses signed knee bend orientation relative to mid-axis (lines 205–222); `ComputeStartJoint` transforms pole vector into start-joint space and aligns plane normals (lines 225–286); `Run` distinguishes `reached=false` for zero weight/softened unreachable targets (336–375). Negative qualification should cover aligned/crossing pole axis, singular length, signed bend reversal, and unreachable target.
+- Do not import Ozz SIMD source into Go code by textual copy. First qualify equivalent math on synthetic fixtures as independent engine oracle and verify MIT/build deps/toolchain.
+
