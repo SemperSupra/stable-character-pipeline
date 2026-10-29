@@ -45,7 +45,10 @@ jobs:
         run: |
           mkdir -p reports
           go run . -batch "$BATCH" > "reports/batch-${BATCH}.jsonl"
+          go run ./cmd/normalize -input "reports/batch-${BATCH}.jsonl" -format jsonl > "reports/capabilities-${BATCH}.jsonl"
+          go run ./cmd/normalize -input "reports/batch-${BATCH}.jsonl" -format md > "reports/summary-${BATCH}.md"
           cat "reports/batch-${BATCH}.jsonl"
+          cat "reports/summary-${BATCH}.md"
       - name: Preserve exact machine-readable runner evidence
         if: always()
         uses: actions/upload-artifact@v4
