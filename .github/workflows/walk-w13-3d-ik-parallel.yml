@@ -1,0 +1,93 @@
+name: W13 original 3D analytic IK independent Go and Python oracle
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w13/**'
+      - '.github/workflows/walk-w13-3d-ik-parallel.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  go-native:
+    name: Go independent analytic 3D IK
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Source-only Go vet and negative tests under race
+        run: |
+          set -euo pipefail
+          cd qualification/walk_w13
+          go vet .
+          go test -race -count=1 -v .
+      - name: Go original 3D solver numeric receipt
+        run: |
+          set -euo pipefail
+          mkdir -p w13-go
+          (cd qualification/walk_w13 && go run . -source fixtures.json -out "$GITHUB_WORKSPACE/w13-go/go.json")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: walk-w13-go
+          path: w13-go/go.json
+          retention-days: 3
+          if-no-files-found: error
+  python-independent:
+    name: Independent Python original 3D IK oracle
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python independent oracle adversarial controls
+        run: |
+          set -euo pipefail
+          (cd qualification/walk_w13 && python3 -m unittest -v test_independent_ik)
+      - name: Independent numeric oracle output
+        run: |
+          set -euo pipefail
+          mkdir -p w13-python
+          python3 qualification/walk_w13/independent_ik.py --source qualification/walk_w13/fixtures.json --out w13-python/python.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: walk-w13-python
+          path: w13-python/python.json
+          retention-days: 3
+          if-no-files-found: error
+  independent-join:
+    name: Fail-closed 3D indexed oracle comparison
+    needs: [go-native,python-independent]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: walk-w13-go
+          path: w13-go
+      - uses: actions/download-artifact@v4
+        with:
+          name: walk-w13-python
+          path: w13-python
+      - name: Independently verify source SHA, rights, 5 indexed 3D geometry/reach results
+        run: |
+          set -euo pipefail
+          python3 qualification/walk_w13/join_verify.py w13-go/go.json w13-python/python.json qualification/walk_w13/fixtures.json joined.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: walk-w13-independent-3d-parity
+          path: joined.json
+          retention-days: 3
+          if-no-files-found: error
