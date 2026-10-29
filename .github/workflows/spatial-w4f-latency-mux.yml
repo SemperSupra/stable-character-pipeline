@@ -1,0 +1,78 @@
+name: Spatial W4f native DSP latency compensation and retained echo AV mux
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4f-latency-mux.yml'
+      - 'spatial-contract/interop/generate_latency_mux.py'
+      - 'spatial-contract/interop/inspect_latency_mux.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: w4f-latency-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-mux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: CPU ffmpeg native encoder / ffprobe
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 800 sudo apt-get install -y --no-install-recommends ffmpeg python3
+      - name: Render 6 original fixed-DSP-latency/tail WAV + real lossless AV masters
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          python3 spatial-contract/interop/generate_latency_mux.py "$RUNNER_TEMP/w4f-latency-native"
+          test "$(find "$RUNNER_TEMP/w4f-latency-native" -name '*tail*.mkv' | wc -l)" -eq 6
+      - name: Preserve complete raw PCM and native AV masters
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4f-latency-original-native-mux
+          path: ${{ runner.temp }}/w4f-latency-native/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-observer:
+    if: always()
+    needs: native-mux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require complete independent source
+        env:
+          NATIVE: ${{ needs.native-mux.result }}
+        run: test "$NATIVE" = success
+      - name: Install independent ffmpeg/ffprobe
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 800 sudo apt-get install -y --no-install-recommends ffmpeg python3
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4f-latency-original-native-mux
+          path: native
+      - name: Independently decode all 6 actual audio/video streams; fail on shifted click and tail
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 spatial-contract/interop/inspect_latency_mux.py native result/w4f_latency_numeric.json
+          sha256sum result/w4f_latency_numeric.json
+      - name: Preserve numerical evidence and exact first failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4f-latency-independent-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
