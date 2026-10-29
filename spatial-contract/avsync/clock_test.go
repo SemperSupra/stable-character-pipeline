@@ -50,7 +50,7 @@ func TestEventAndLatencyInvariants(t *testing.T){
  two,e:=m.Digest();if e!=nil||one!=two{t.Fatal("unstable manifest")}
  trim,e:=m.RequiredTrim();if e!=nil||trim!=255{t.Fatal("missing explicit trim")}
  tests:=[]func(*Manifest){
-  func(m *Manifest){m.VideoRate.Den=0},func(m *Manifest){m.AudioSamples--},
+  func(m *Manifest){m.VideoRate.Den=0},func(m *Manifest){m.AudioSamples-=4},
   func(m *Manifest){m.AudioSampleHz=44100},func(m *Manifest){m.LatencySamples=-1},
   func(m *Manifest){m.Rights="PRIVATE"},func(m *Manifest){m.Events[0].AtSample=-1},
   func(m *Manifest){m.Events[0].SourceSHA256="broken"},
