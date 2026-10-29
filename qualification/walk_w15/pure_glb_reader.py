@@ -131,6 +131,8 @@ def main():
  d,b,sha=read_glb(args.glb);truth=json.loads(Path(args.truth).read_text())
  if truth["schema"]!="scp.walk_w15_source_truth.v1" or truth["source_rights"]!="ORIGINAL_SELF_AUTHORED_SYNTHETIC":
   raise ValueError("TRUTH_PROVENANCE")
+ if truth["frames"]!=[0,12,24,36,48,60,71]:raise ValueError("SOURCE_FRAME_TIMES_OR_ORDER")
+ if len(truth["world_vertices"])!=7:raise ValueError("SOURCE_TRUTH_FRAME_COUNT")
  if truth["glb_sha256"]!=sha:raise ValueError("TRUTH_NOT_BOUND_TO_EXACT_GLB")
  maximum=0.;sample_count=0
  for f in truth["frames"]:
