@@ -25,11 +25,17 @@ type Pose struct {
 type Frame struct {
  Index int `json:"index"`
  Timestamp int `json:"timestamp_ms"`
+ TimeS *float64 `json:"time_s"`
  Actors map[string]Pose `json:"actors"`
 }
 type Source struct {
  Schema string `json:"schema"`
  Rights string `json:"source_rights"`
+ Classification string `json:"classification"`
+ GeometrySpace string `json:"geometry_space"`
+ TransferIntent string `json:"transfer_intent"`
+ RealPersonIdentity string `json:"real_person_identity"`
+ Duration float64 `json:"duration_seconds"`
  FPS int `json:"fps"`
  FramesCount int `json:"frames_count"`
  Actors []struct{ ID string `json:"id"` } `json:"actors"`
@@ -71,16 +77,23 @@ func legs(profile string)(map[string]Leg,error){
 }
 func Retarget(s Source, sha, profile string)(Transfer,error){
  spec,err:=legs(profile);if err!=nil{return Transfer{},err}
- if s.Schema!=schema||s.Rights!=rights||s.FPS!=12||s.FramesCount!=72||len(s.Frames)!=72||len(s.Actors)!=2||len(sha)!=64{return Transfer{},errors.New("RIGHTS_SCHEMA_OR_CLOCK")}
+ if s.Schema!=schema||s.Rights!=rights||s.Classification!="ORIGINAL_SELF_AUTHORED_PUBLIC_PROCEDURAL_CHARACTERS_NOT_REAL_PERSONS"||s.GeometrySpace!="STYLIZED_CAMERA_XY_UNCALIBRATED"||s.TransferIntent!="SOURCE_NEUTRAL_JOINT_CONTACT_AND_ROOT_MOTION_ONLY_REQUIRE_PRIVATE_REMAP"||s.RealPersonIdentity!="NOT_EVALUATED"||s.Duration!=6||s.FPS!=12||s.FramesCount!=72||len(s.Frames)!=72||len(s.Actors)!=2||len(sha)!=64{return Transfer{},errors.New("RIGHTS_SCHEMA_GEOMETRY_OR_CLOCK")}
  if s.Actors[0].ID!=IDs[0]||s.Actors[1].ID!=IDs[1]{return Transfer{},errors.New("ACTOR_IDENTITY")}
  t:=Transfer{Schema:outschema,SourceSchema:s.Schema,SourceRights:s.Rights,SourceSHA:sha,Target:profile,TargetLegs:spec,MinGap:math.Inf(1),Scope:"ORIGINAL_SYNTHETIC_2D_CONTACT_ONLY_NOT_PRIVATE_REAL_PERSON_NOT_NATIVE_SKIN"}
  initial:=map[string]float64{};previous:=map[string]Pose{}
  for i,f:=range s.Frames{
-  if f.Index!=i||f.Timestamp!=int(math.Round(float64(i)*1000/12))||len(f.Actors)!=2{return Transfer{},errors.New("FRAME_INDEX_OR_TIMESTAMP")}
+  if f.Index!=i||f.Timestamp!=int(math.Round(float64(i)*1000/12))||f.TimeS==nil||!finite(*f.TimeS)||math.Abs(*f.TimeS-float64(i)/12)>1e-8||len(f.Actors)!=2{return Transfer{},errors.New("FRAME_INDEX_OR_TIMESTAMP_SECONDS")}
   row:=Frame{Index:i,Timestamp:f.Timestamp,Actors:map[string]Pose{}}
   for idx,id:=range IDs{
    p,ok:=f.Actors[id];direction:=1;if idx==1{direction= -1}
-   if !ok||p.Facing!=direction||len(p.Contact)!=2||len(p.Joints)<16||!finite(p.Root){return Transfer{},errors.New("SOURCE_ACTOR_MISSING_OR_FORGED")}
+   if !ok||p.Facing!=direction||len(p.Contact)!=2||len(p.Joints)!=16||!finite(p.Root){return Transfer{},errors.New("SOURCE_ACTOR_MISSING_OR_FORGED")}
+   if _,left:=p.Contact["left"];!left{return Transfer{},errors.New("MISSING_LEFT_CONTACT_KEY")}
+   if _,right:=p.Contact["right"];!right{return Transfer{},errors.New("MISSING_RIGHT_CONTACT_KEY")}
+   required:=[]string{"pelvis","torso","neck","head"}
+   for _,side:=range []string{"left","right"}{
+    for _,base:=range []string{"hip_","knee_","ankle_","shoulder_","elbow_","wrist_"}{required=append(required,base+side)}
+   }
+   for _,name:=range required{if _,ok:=p.Joints[name];!ok{return Transfer{},fmt.Errorf("MISSING_CANONICAL_SOURCE_JOINT:%s",name)}}
    if i==0{initial[id]=p.Root}
    joints:=make(map[string]V,len(p.Joints))
    for k,v:=range p.Joints{if !finite(v[0])||!finite(v[1]){return Transfer{},errors.New("NONFINITE_JOINT")};joints[k]=v}
