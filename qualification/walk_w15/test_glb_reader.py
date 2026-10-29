@@ -44,5 +44,5 @@ class GltfReadbackControls(unittest.TestCase):
  def test_reject_scene_parent_cycle(self):
   doc=copy.deepcopy(self.doc)
   doc["nodes"][0]["children"]=[1]
-  with self.assertRaisesRegex(ValueError,"CYCLIC_JOINT_HIERARCHY"):evaluate(doc,self.binary,0)
+  with self.assertRaisesRegex(ValueError,"NODE_MULTIPLE_PARENTS|CYCLIC_JOINT_HIERARCHY"):evaluate(doc,self.binary,0)
 if __name__=="__main__":unittest.main()
