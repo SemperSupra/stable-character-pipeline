@@ -160,7 +160,6 @@ func main(){
   ActorCount:len(parsed.Actors),FrameCount:len(parsed.Actors[0].Frames)*len(parsed.Actors),
   Scope:"SOURCE_ONLY_NOT_IK_EQUIVALENCE_NOT_SKIN_NOT_CONTACT_PHYSICS_NOT_PRIVATE"}
  data,e:=json.MarshalIndent(r,"","  ");if e!=nil{panic(e)}
- if e=os.WriteFile(*out,append(data,'
-'),0644);e!=nil{panic(e)}
+ if e=os.WriteFile(*out,append(data,byte(10)),0644);e!=nil{panic(e)}
  fmt.Println("W16_TYPED_SOURCE_ONLY_PASS",*prof,r.SourceSHA256)
 }
