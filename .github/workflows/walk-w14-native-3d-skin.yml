@@ -1,0 +1,61 @@
+name: W14 original native two-character 3D weighted skin GLB qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w14/**'
+      - '.github/workflows/walk-w14-native-3d-skin.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-3d-weighted:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Source-clean 3D weighted rigs / ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Actual Blender 4.5 source-only weighted 3D and fresh imported GLB
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python -u qualification/walk_w14/weighted_3d.py --profile "$PROFILE" --out "w14-native-$PROFILE"
+      - name: Hard source rights, two skinned meshes, exported evaluated vertex readback
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python3 - "$PROFILE" <<'PY'
+          import json,sys
+          x=json.load(open('w14-native-'+sys.argv[1]+'/native_3d_skin_receipt.json'))
+          assert x['status']=='PASS_BLENDER_NATIVE_TWO_WEIGHTED_3D_AND_GLB_REIMPORT'
+          assert x['source_rights']=='ORIGINAL_SELF_AUTHORED_SYNTHETIC'
+          assert x['actors']==2 and x['vertices_per_actor']==28
+          assert x['weighted_mesh'] and x['true_xyz_deformation']
+          assert x['maximum_world_vertex_error']<.0005
+          assert x['minimum_actor_deformation']>.02
+          assert x['independent_non_blender_reader']=='NOT_YET_QUALIFIED'
+          print('W14_TWO_ACTUAL_WEIGHTED_3D_BPY_READERS_PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: walk-w14-original-3d-${{ matrix.profile }}
+          path: w14-native-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
