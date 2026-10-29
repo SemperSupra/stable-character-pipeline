@@ -1,0 +1,1062 @@
+{
+  "schema": "scp.provider_operations.v1",
+  "status": "documentation_snapshot_not_authenticated_qualification",
+  "purpose": "source-neutral research-only provider operation declarations; not permission or actual account access",
+  "operations": [
+    "search",
+    "download",
+    "upload",
+    "storage",
+    "online_edit",
+    "viewer"
+  ],
+  "allowed_api_states": [
+    "public",
+    "gated",
+    "conditional",
+    "enterprise",
+    "not_documented",
+    "not_offered"
+  ],
+  "allowed_web_states": [
+    "yes",
+    "limited",
+    "source-link",
+    "unknown",
+    "no"
+  ],
+  "providers": [
+    {
+      "provider_id": "polyhaven",
+      "name": "Poly Haven",
+      "auth_modes": [
+        "none"
+      ],
+      "evidence_url": "https://polyhaven.com/our-api",
+      "operations": {
+        "search": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": "CC0, live API requires attribution and unique User-Agent"
+        },
+        "upload": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "ambientcg",
+      "name": "ambientCG",
+      "auth_modes": [
+        "none"
+      ],
+      "evidence_url": "https://docs.ambientcg.com/api/v3/",
+      "operations": {
+        "search": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "upload": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "openverse",
+      "name": "Openverse",
+      "auth_modes": [
+        "none",
+        "registered"
+      ],
+      "evidence_url": "https://api.openverse.org/v1/",
+      "operations": {
+        "search": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "source-link",
+          "auth": "none",
+          "notes": "Media lives at external origin; not hosted download API"
+        },
+        "upload": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_offered",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "wikimedia",
+      "name": "Wikimedia Commons",
+      "auth_modes": [
+        "none",
+        "oauth2"
+      ],
+      "evidence_url": "https://www.mediawiki.org/wiki/API:Upload/en",
+      "operations": {
+        "search": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "upload": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": ""
+        },
+        "storage": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": "Commons is a public commons, not private storage"
+        },
+        "online_edit": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": "Metadata API/web media tools; not general mesh modeling"
+        },
+        "viewer": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "sketchfab",
+      "name": "Sketchfab",
+      "auth_modes": [
+        "none",
+        "oauth2",
+        "api_token"
+      ],
+      "evidence_url": "https://sketchfab.com/developers",
+      "operations": {
+        "search": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": "Owner enabled downloadable and per-model license"
+        },
+        "upload": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2_or_api_token",
+          "notes": ""
+        },
+        "storage": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2_or_api_token",
+          "notes": "Model management and collections"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Web 3D settings/materials/lighting, not proven persistent API editor"
+        },
+        "viewer": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": "JavaScript Viewer API"
+        }
+      }
+    },
+    {
+      "provider_id": "blenderkit",
+      "name": "BlenderKit",
+      "auth_modes": [
+        "none",
+        "oauth2",
+        "api_key"
+      ],
+      "evidence_url": "https://github.com/BlenderKit/bk_client/blob/main/client/docs/API.md",
+      "operations": {
+        "search": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "conditional",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Free anonymous subset; premium assets gated"
+        },
+        "upload": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "account",
+          "notes": ""
+        },
+        "storage": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Hosted asset library, not a private file locker"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "no",
+          "auth": "none",
+          "notes": "Blender-side edits via add-on; not web mesh editor"
+        },
+        "viewer": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "huggingface",
+      "name": "Hugging Face Hub",
+      "auth_modes": [
+        "none",
+        "oauth2",
+        "access_token"
+      ],
+      "evidence_url": "https://huggingface.co/docs/hub/oauth",
+      "operations": {
+        "search": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "conditional",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Individual gated repos require separate owner approval"
+        },
+        "upload": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2_or_access_token",
+          "notes": ""
+        },
+        "storage": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2_or_access_token",
+          "notes": "Versioned models/datasets/Spaces/repositories"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Web repository metadata/files; not 3D mesh editing"
+        },
+        "viewer": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "fab",
+      "name": "Fab",
+      "auth_modes": [
+        "account"
+      ],
+      "evidence_url": "https://dev.epicgames.com/documentation/fab/fab-documentation",
+      "operations": {
+        "search": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Official end-user website/launcher acquisition; public API unverified"
+        },
+        "upload": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Publisher workflow and review"
+        },
+        "storage": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Marketplace listings only"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "unknown",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "cgtrader",
+      "name": "CGTrader",
+      "auth_modes": [
+        "oauth2",
+        "api_key",
+        "account"
+      ],
+      "evidence_url": "https://www.cgtrader.com/developers",
+      "operations": {
+        "search": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "api_key",
+          "notes": ""
+        },
+        "download": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "api_key",
+          "notes": "Purchases/entitlements and allowed licenses additionally required"
+        },
+        "upload": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "api_key",
+          "notes": ""
+        },
+        "storage": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Listings and inventory, not generic file locker"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "unknown",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "vroidhub",
+      "name": "VRoid Hub",
+      "auth_modes": [
+        "oauth2",
+        "client_id",
+        "client_secret"
+      ],
+      "evidence_url": "https://developer.vroid.com/en/api/",
+      "operations": {
+        "search": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": ""
+        },
+        "download": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": "Creator/character permission for VRM usage"
+        },
+        "upload": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Hosted VRM character library"
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": "Use VRoid Studio or other editor separately"
+        },
+        "viewer": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "polycam",
+      "name": "Polycam",
+      "auth_modes": [
+        "api_token",
+        "enterprise"
+      ],
+      "evidence_url": "https://poly.cam/docs/api",
+      "operations": {
+        "search": {
+          "api": "enterprise",
+          "web": "yes",
+          "auth": "api_token",
+          "notes": "Workspace capture list/filter"
+        },
+        "download": {
+          "api": "enterprise",
+          "web": "yes",
+          "auth": "api_token",
+          "notes": "Enterprise Content Management API signed exports"
+        },
+        "upload": {
+          "api": "enterprise",
+          "web": "yes",
+          "auth": "api_token",
+          "notes": "Separate Reconstruction API gate, not assumed enabled"
+        },
+        "storage": {
+          "api": "enterprise",
+          "web": "yes",
+          "auth": "api_token",
+          "notes": "Workspace captures"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "unknown",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "googledrive",
+      "name": "Google Drive",
+      "auth_modes": [
+        "oauth2"
+      ],
+      "evidence_url": "https://developers.google.com/workspace/drive/api/guides/manage-uploads",
+      "operations": {
+        "search": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": ""
+        },
+        "download": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": ""
+        },
+        "upload": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": ""
+        },
+        "storage": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": "Files, version, ACL, sharing"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "limited",
+          "auth": "account",
+          "notes": "Docs editors for supported file types; not native online 3D mesh editor"
+        },
+        "viewer": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "oauth2",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "archiveorg",
+      "name": "Internet Archive",
+      "auth_modes": [
+        "none",
+        "account",
+        "access_key"
+      ],
+      "evidence_url": "https://archive.org/developers/",
+      "operations": {
+        "search": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": "Item-specific legal/restriction gate"
+        },
+        "upload": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "account",
+          "notes": "S3-like API may require access keys"
+        },
+        "storage": {
+          "api": "gated",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Public archive items, not general private storage"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "limited",
+          "auth": "account",
+          "notes": "Metadata management rather than 3D editing"
+        },
+        "viewer": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "open3dlab",
+      "name": "Open3DLab",
+      "auth_modes": [
+        "none",
+        "account",
+        "browser_challenge"
+      ],
+      "evidence_url": "https://open3dlab.com/rss/",
+      "operations": {
+        "search": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": "RSS feed available; catalog search API unverified"
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Project URL Anubis challenge in public GHA; no bypass"
+        },
+        "upload": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Project hosting"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "unknown",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "opengameart",
+      "name": "OpenGameArt",
+      "auth_modes": [
+        "none",
+        "account"
+      ],
+      "evidence_url": "https://opengameart.org/",
+      "operations": {
+        "search": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": "Per-item licensing and external download links"
+        },
+        "upload": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "account",
+          "notes": "Community art posts"
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "unknown",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "kenney",
+      "name": "Kenney",
+      "auth_modes": [
+        "none"
+      ],
+      "evidence_url": "https://kenney.nl/assets",
+      "operations": {
+        "search": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "upload": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "quaternius",
+      "name": "Quaternius",
+      "auth_modes": [
+        "none"
+      ],
+      "evidence_url": "https://quaternius.com/license.html",
+      "operations": {
+        "search": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": "Per-pack QAL vs historical CC0 version matters"
+        },
+        "upload": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "kaykit",
+      "name": "KayKit",
+      "auth_modes": [
+        "none"
+      ],
+      "evidence_url": "https://kaylousberg.itch.io/kaykit-adventurers",
+      "operations": {
+        "search": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "upload": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "poly-pizza",
+      "name": "Poly Pizza",
+      "auth_modes": [
+        "none",
+        "unknown"
+      ],
+      "evidence_url": "https://poly.pizza/",
+      "operations": {
+        "search": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": "Public runner 403; not an API qualification"
+        },
+        "upload": {
+          "api": "not_documented",
+          "web": "unknown",
+          "auth": "none",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_documented",
+          "web": "unknown",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_documented",
+          "web": "unknown",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "khronos",
+      "name": "Khronos glTF Sample Assets",
+      "auth_modes": [
+        "none",
+        "github_account"
+      ],
+      "evidence_url": "https://github.com/KhronosGroup/glTF-Sample-Assets",
+      "operations": {
+        "search": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": "GitHub repository content APIs"
+        },
+        "download": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": "Per-model licensing; official sample repository"
+        },
+        "upload": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": "Contributor PR is not a hosted upload API"
+        },
+        "storage": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "public",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "cmu-mocap",
+      "name": "CMU Motion Capture",
+      "auth_modes": [
+        "none"
+      ],
+      "evidence_url": "https://mocap.cs.cmu.edu/faqs.php",
+      "operations": {
+        "search": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": "Do not crawl trials; GHA TLS certificate error"
+        },
+        "upload": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    },
+    {
+      "provider_id": "nasa3d",
+      "name": "NASA 3D Resources",
+      "auth_modes": [
+        "none"
+      ],
+      "evidence_url": "https://nasa3d.arc.nasa.gov/",
+      "operations": {
+        "search": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "download": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        },
+        "upload": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "storage": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "online_edit": {
+          "api": "not_offered",
+          "web": "no",
+          "auth": "none",
+          "notes": ""
+        },
+        "viewer": {
+          "api": "not_documented",
+          "web": "yes",
+          "auth": "none",
+          "notes": ""
+        }
+      }
+    }
+  ]
+}
