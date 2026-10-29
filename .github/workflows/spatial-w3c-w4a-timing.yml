@@ -63,7 +63,7 @@ jobs:
           root="$RUNNER_TEMP/w4a-native"
           for layout in surround_5_1 surround_7_1; do
             for kind in baseline shifted; do
-              "$RUNNER_TEMP/native-scene" "$root/w4_$kind.wav" "$root/w3c_videolan_blocks.tsv" "$layout" "$root/w4_$kind_$layout.wav"
+              "$RUNNER_TEMP/native-scene" "$root/w4_$kind.wav" "$root/w3c_videolan_blocks.tsv" "$layout" "$root/w4_${kind}_${layout}.wav"
             done
           done
           echo W4A_REAL_NATIVE_PCM_GENERATED
