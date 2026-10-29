@@ -1,0 +1,61 @@
+name: W13 original 3D pole IK and quaternion numerical qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w13/**'
+      - '.github/workflows/walk-w13-pole-ik.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pole-ik:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Original 3D pole IK / ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      max-parallel: 2
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Independent 3D IK, FK quaternion and adversarial numerical suite
+        run: |
+          set -euo pipefail
+          cd qualification/walk_w13
+          go vet .
+          go test -race -count=1 -v .
+      - name: Export exact source-only 3D IK receipt
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          (cd qualification/walk_w13 && go run . -profile "$PROFILE" -out "$GITHUB_WORKSPACE/evidence/$PROFILE.json")
+          python3 - "evidence/$PROFILE.json" <<'PY'
+          import json,sys,math
+          x=json.load(open(sys.argv[1]))
+          assert x['schema']=='scp.walk_3d_ik_result.v1'
+          assert x['status']=='PASS_ORIGINAL_3D_POLE_IK_QUATERNION'
+          assert x['reachable'] is True
+          assert x['length_residual']<1e-9
+          assert x['upper_fk_error']<1e-9
+          assert x['lower_fk_error']<1e-9
+          print("W13_POLE_QUAT_FK_NUMERICAL_PASS",x['profile'])
+          PY
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w13-original-${{ matrix.profile }}
+          path: evidence/
+          retention-days: 3
+          if-no-files-found: warn
