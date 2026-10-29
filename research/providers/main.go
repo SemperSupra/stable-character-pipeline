@@ -88,8 +88,8 @@ func classify(status int, kind, mime string, body []byte, truncated bool) string
     return "UNSUPPORTED_KIND_HOLD"
 }
 
-func probe(t Target) Receipt {
-    receipt := Receipt{Provider:t.Provider, Lane:t.Lane, Endpoint:t.URL, RightsGate:t.Rights}
+func probe(t Target) (receipt Receipt) {
+    receipt = Receipt{Provider:t.Provider, Lane:t.Lane, Endpoint:t.URL, RightsGate:t.Rights}
     start := time.Now()
     defer func(){ receipt.ElapsedMS = time.Since(start).Milliseconds() }()
     req, err := http.NewRequest(http.MethodGet, t.URL, nil)
