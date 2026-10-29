@@ -1,0 +1,75 @@
+name: Spatial W4d composed Go scene and independent 144-case PCM audit
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4d-scene-batch.yml'
+      - 'spatial-contract/sceneadapter/**'
+      - 'spatial-contract/cmd/scene-batch/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: spatial-w4d-go-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-go:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+          cache: false
+      - name: Race/vet, ENU source-custody and 144 actual output case batch
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          (cd spatial-contract && go test -race -count=1 ./sceneadapter ./attenuation ./cmd/scene-batch && go vet ./sceneadapter ./attenuation ./cmd/scene-batch)
+          (cd spatial-contract && go run ./cmd/scene-batch "$RUNNER_TEMP/w4d-go-native")
+          test "$(find "$RUNNER_TEMP/w4d-go-native" -name '*.wav' | wc -l)" -eq 144
+          test "$(find "$RUNNER_TEMP/w4d-go-native" -name '*.s16le' | wc -l)" -eq 2
+      - name: Retain full original source and native Go interleaved PCM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4d-go-scene-original-pcm
+          path: ${{ runner.temp }}/w4d-go-native/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-observer:
+    needs: native-go
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require real Go native output to have completed
+        env:
+          NATIVE_RESULT: ${{ needs.native-go.result }}
+        run: test "$NATIVE_RESULT" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4d-go-scene-original-pcm
+          path: source-native
+      - name: Independent full PCM 144-grid ENU/pressure/custody oracle
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 spatial-contract/sceneadapter/scene_observe.py source-native result/w4d_scene_numeric.json
+          sha256sum result/w4d_scene_numeric.json
+      - name: Retain complete numerical result and first failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4d-independent-scene-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
