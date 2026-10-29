@@ -1,0 +1,49 @@
+name: Public rights-cleared tiny asset + 3-language retrieval proof
+on:
+  pull_request:
+    paths:
+      - research/providers/cmd/public-asset-sample/**
+      - .github/workflows/provider-small-asset-sample.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bounded-provider-proof:
+    name: Public ${{ matrix.lane }} (single provider, bounded)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        lane: [sample, search]
+    defaults:
+      run:
+        working-directory: research/providers
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: research/providers/go.mod
+          cache: false
+      - name: Local controls and code vet
+        run: |
+          go test -race -count=1 ./cmd/public-asset-sample
+          go vet ./cmd/public-asset-sample
+      - name: Bounded licensed tiny source or three public search forms
+        env:
+          LANE: ${{ matrix.lane }}
+        run: |
+          mkdir -p reports/${LANE}
+          go run ./cmd/public-asset-sample -lane "${LANE}" -out "reports/${LANE}"
+          python3 -m json.tool "reports/${LANE}/receipt-${LANE}.json" > /dev/null
+      - name: Retain individual reproducible public-rights evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-clean-provider-${{ matrix.lane }}
+          path: research/providers/reports/${{ matrix.lane }}/
+          retention-days: 14
+          if-no-files-found: warn
