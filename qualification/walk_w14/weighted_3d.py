@@ -169,6 +169,12 @@ def main():
                         "dst_vertex":dest_idx,"expected":expected[src_idx],
                         "actual":actual[dest_idx],"error":e,
                         "max_before":max_err,
+                        "imported_scene_fps":bpy.context.scene.render.fps,
+                        "action_names":[a.name for a in bpy.data.actions],
+                        "mesh_armature": [(m.object.name if m.object else "NONE") for m in obj.modifiers if m.type=="ARMATURE"],
+                        "parent":obj.parent.name if obj.parent else None,
+                        "pose_upper": ([float(v) for v in obj.parent.pose.bones["upper"].rotation_quaternion] if obj.parent and obj.parent.type=="ARMATURE" else None),
+                        "parent_action": (obj.parent.animation_data.action.name if obj.parent and obj.parent.animation_data and obj.parent.animation_data.action else None),
                     }),flush=True)
                     raise ValueError("GLB_REIMPORT_WEIGHTED_3D_VERTEX_PARITY_FAIL")
             moved=max(moved,max(math.dist(a,b) for a,b in zip(expected,native[name]["0"])))
