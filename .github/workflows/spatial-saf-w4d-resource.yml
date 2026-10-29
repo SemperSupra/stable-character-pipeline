@@ -1,0 +1,87 @@
+name: Spatial SAF W4d 18-cell hop/filter resource matrix
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-saf-w4d-resource.yml'
+      - 'spatial-contract/interop/saf_w4d_resource.c'
+      - 'spatial-contract/interop/saf_w4d_observe.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: spatial-saf-ir-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-ir:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Minimal open C DSP/FFT toolchain (no GPL optional SAF modules)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 900 sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config gcc g++ git libopenblas-dev liblapacke-dev libfftw3-dev
+      - name: Exact original SAF core source build and 18 genuine partitioned convolution and resource modes
+        run: |
+          set -euo pipefail
+          sha=18fd5aba46e20787b51f28f7197a68506c965c07
+          git init -q "$RUNNER_TEMP/saf-src"
+          git -C "$RUNNER_TEMP/saf-src" remote add origin https://github.com/leomccormack/Spatial_Audio_Framework.git
+          git -C "$RUNNER_TEMP/saf-src" fetch -q --depth=1 origin "$sha"
+          git -C "$RUNNER_TEMP/saf-src" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/saf-src" rev-parse HEAD)" = "$sha"
+          grep -q 'ISC License' "$RUNNER_TEMP/saf-src/framework/include/saf.h"
+          cmake -S "$RUNNER_TEMP/saf-src" -B "$RUNNER_TEMP/saf-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSAF_PERFORMANCE_LIB=SAF_USE_OPEN_BLAS_AND_LAPACKE -DSAF_USE_FFTW=ON -DSAF_BUILD_EXAMPLES=OFF -DSAF_BUILD_TESTS=OFF -DSAF_BUILD_EXTRAS=OFF -DSAF_ENABLE_TRACKER_MODULE=OFF -DSAF_ENABLE_HADES_MODULE=OFF -DSAF_ENABLE_SOFA_READER_MODULE=OFF -DSAF_USE_FAST_MATH_FLAG=OFF
+          cmake --build "$RUNNER_TEMP/saf-build" -j 2
+          lib="$(find "$RUNNER_TEMP/saf-build" -name 'libsaf.a' -type f -print -quit)"
+          test -n "$lib"
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP/saf-src/framework/include" spatial-contract/interop/saf_w4d_resource.c "$lib" -lopenblas -llapacke -lfftw3f -lm -latomic -o "$RUNNER_TEMP/saf-native-probe"
+          mkdir -p "$RUNNER_TEMP/saf-native"
+          "$RUNNER_TEMP/saf-native-probe" "$RUNNER_TEMP/saf-native"
+          test "$(find "$RUNNER_TEMP/saf-native" -name '*.f32' | wc -l)" -eq 18
+          echo SAF_W4D_NATIVE_18_RESOURCE_OUTPUTS_READY
+      - name: Preserve actual original input, filters and native PCM even on failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saf-w4d-native-18-resource
+          path: ${{ runner.temp }}/saf-native/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-ir:
+    needs: native-ir
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require real native original-source convolution
+        env:
+          NATIVE_STATUS: ${{ needs.native-ir.result }}
+        run: test "$NATIVE_STATUS" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: saf-w4d-native-18-resource
+          path: native-data
+      - name: Full independent SAF filter-length and hop source-rights plus performance observer
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 spatial-contract/interop/saf_w4d_observe.py native-data result/saf_w4d_resource_numeric.json
+          sha256sum result/saf_w4d_resource_numeric.json
+      - name: Preserve exact independent numeric acceptance and first failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saf-w4d-independent-resource-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
