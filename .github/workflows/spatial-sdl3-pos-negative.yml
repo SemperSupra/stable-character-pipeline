@@ -1,0 +1,42 @@
+name: Spatial SDL3-mixer source-derived position update falsification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-sdl3-pos-negative.yml'
+      - 'spatial-contract/interop/sdl3_source_probe.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-source-c-probe:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Source custodial pin and C unit source extraction
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          sha=d9478014cddcf00f035c950637917d2280a67ab2
+          git init -q "$RUNNER_TEMP/upstream"
+          git -C "$RUNNER_TEMP/upstream" remote add origin https://github.com/libsdl-org/SDL_mixer.git
+          git -C "$RUNNER_TEMP/upstream" fetch -q --depth=1 origin "$sha"
+          git -C "$RUNNER_TEMP/upstream" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/upstream" rev-parse HEAD)" = "$sha"
+          mkdir -p result
+          python3 spatial-contract/interop/sdl3_source_probe.py "$RUNNER_TEMP/upstream/src/SDL_mixer.c" result/
+          grep -q PINNED_UPSTREAM_CONTROL_SKIPPED_Y_UPDATE <(result/pinned_upstream_control)
+          grep -q CORRECTED_CONTROL_RECOMPUTED <(result/corrected_control)
+          sha256sum result/receipt.json
+      - name: Preserve source-derived C control probes and numeric receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spatial-sdl3-source-control-reproduction
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
