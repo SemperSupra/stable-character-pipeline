@@ -163,7 +163,14 @@ def main():
             for src_idx,dest_idx in enumerate(mapping):
                 e=math.dist(actual[dest_idx],expected[src_idx])
                 max_err=max(max_err,e)
-                if e>5e-4:raise ValueError("GLB_REIMPORT_WEIGHTED_3D_VERTEX_PARITY_FAIL")
+                if e>5e-4:
+                    print("W14_ANIMATION_PARITY_FIRST_FAILURE",json.dumps({
+                        "actor":name,"frame":f,"src_vertex":src_idx,
+                        "dst_vertex":dest_idx,"expected":expected[src_idx],
+                        "actual":actual[dest_idx],"error":e,
+                        "max_before":max_err,
+                    }),flush=True)
+                    raise ValueError("GLB_REIMPORT_WEIGHTED_3D_VERTEX_PARITY_FAIL")
             moved=max(moved,max(math.dist(a,b) for a,b in zip(expected,native[name]["0"])))
             imported_count+=len(mapping)
         minimum_motion=min(minimum_motion,moved)
