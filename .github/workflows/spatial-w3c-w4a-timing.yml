@@ -1,0 +1,111 @@
+name: Spatial W3c W4a independent impulse-boundary timing
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w3c-w4a-timing.yml'
+      - 'spatial-contract/doe/w4_boundary.py'
+      - 'spatial-contract/doe/test_w4_boundary.py'
+      - 'spatial-contract/native/w3c_scene_renderer.cpp'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: w4a-timing-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-native:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Pinned VideoLAN native boundary render on original audio
+    runs-on: ubuntu-24.04
+    timeout-minutes: 27
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: spatial-contract/go.mod
+          cache: false
+      - name: Freeze Go geometry, generate original paired impulses and run seven red tests
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          (cd spatial-contract && go test -race -count=1 ./doe ./cmd/spatial-doe && go vet ./doe ./cmd/spatial-doe)
+          (cd spatial-contract && go run ./cmd/spatial-doe plan) > "$RUNNER_TEMP/w4a-original-doe.json"
+          mkdir -p "$RUNNER_TEMP/w4a-native"
+          python3 spatial-contract/doe/prepare_native_42.py "$RUNNER_TEMP/w4a-original-doe.json" "$RUNNER_TEMP/w4a-native"
+          cp "$RUNNER_TEMP/w4a-original-doe.json" "$RUNNER_TEMP/w4a-native/original_doe.json"
+          (cd spatial-contract/doe && python3 -m unittest -v test_w4_boundary)
+          python3 spatial-contract/doe/w4_boundary.py prepare "$RUNNER_TEMP/w4a-native"
+      - name: Minimal source-only native build toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 1200 sudo apt-get install -y --no-install-recommends meson ninja-build pkg-config g++ git
+      - name: Fetch precisely pinned VideoLAN LGPL upstream and render actual 5.1/7.1 PCM
+        run: |
+          set -euo pipefail
+          sha=d149ed9744fd399b835c6f2920511f8cbcfce5ea
+          git init -q "$RUNNER_TEMP/libspatialaudio"
+          git -C "$RUNNER_TEMP/libspatialaudio" remote add origin https://github.com/videolan/libspatialaudio.git
+          git -C "$RUNNER_TEMP/libspatialaudio" fetch -q --depth=1 origin "$sha"
+          git -C "$RUNNER_TEMP/libspatialaudio" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/libspatialaudio" rev-parse HEAD)" = "$sha"
+          grep -q LGPLv2.1 "$RUNNER_TEMP/libspatialaudio/LICENSE"
+          meson setup "$RUNNER_TEMP/videolan-build" "$RUNNER_TEMP/libspatialaudio" -Dlibmysofa=disabled -Dmit_hrtf=enabled --prefix="$RUNNER_TEMP/native-install" --libdir=lib --buildtype=release
+          meson compile -C "$RUNNER_TEMP/videolan-build"
+          meson test -C "$RUNNER_TEMP/videolan-build" --print-errorlogs
+          meson install -C "$RUNNER_TEMP/videolan-build"
+          export PKG_CONFIG_PATH="$RUNNER_TEMP/native-install/lib/pkgconfig"
+          g++ -std=c++14 -O2 -Wall -Wextra -I"$RUNNER_TEMP/native-install/include/spatialaudio" spatial-contract/native/w3c_scene_renderer.cpp -o "$RUNNER_TEMP/native-scene" $(pkg-config --cflags --libs spatialaudio)
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/native-install/lib"
+          root="$RUNNER_TEMP/w4a-native"
+          for layout in surround_5_1 surround_7_1; do
+            for kind in baseline shifted; do
+              "$RUNNER_TEMP/native-scene" "$root/w4_$kind.wav" "$root/w3c_videolan_blocks.tsv" "$layout" "$root/w4_${kind}_${layout}.wav"
+            done
+          done
+          echo W4A_REAL_NATIVE_PCM_GENERATED
+      - name: Preserve original source, real PCM and first failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4a-native-original
+          path: ${{ runner.temp }}/w4a-native/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-observer:
+    name: Independent source-shift and impulse-tail full PCM observer
+    needs: original-native
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Fail closed on incomplete upstream native renderer
+        env:
+          NATIVE_RESULT: ${{ needs.original-native.result }}
+        run: test "$NATIVE_RESULT" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4a-native-original
+          path: native-data
+      - name: Independent strict full PCM and relative sample-offset observation
+        run: |
+          set -euo pipefail
+          (cd spatial-contract/doe && python3 -m unittest -v test_w4_boundary)
+          mkdir -p result
+          python3 spatial-contract/doe/w4_boundary.py observe native-data result/w4a_numeric.json
+          sha256sum result/w4a_numeric.json
+      - name: Retain bounded numeric evidence even for falsified threshold
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w4a-independent-numeric-receipt
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
