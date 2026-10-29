@@ -1,0 +1,112 @@
+name: Spatial SDL3 actual native PCM position-update regression
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-sdl3-full-native.yml'
+      - 'spatial-contract/interop/sdl3_full_native.c'
+      - 'spatial-contract/interop/sdl3_full_native_observe.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sdl3-native-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  pinned-sdl-full-native:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Minimal dependency toolchain and no-device SDL headless
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 900 sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config gcc g++ git
+      - name: Build exact SDL 3.4.18 and SDL3_mixer 3.0 independent public upstream
+        run: |
+          set -euo pipefail
+          core=829a65d769d935c4852f8159e964312c0957260a
+          mixer=d9478014cddcf00f035c950637917d2280a67ab2
+          git init -q "$RUNNER_TEMP/SDL"
+          git -C "$RUNNER_TEMP/SDL" remote add origin https://github.com/libsdl-org/SDL.git
+          git -C "$RUNNER_TEMP/SDL" fetch -q --depth=1 origin "$core"
+          git -C "$RUNNER_TEMP/SDL" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/SDL" rev-parse HEAD)" = "$core"
+          git init -q "$RUNNER_TEMP/SDL_mixer"
+          git -C "$RUNNER_TEMP/SDL_mixer" remote add origin https://github.com/libsdl-org/SDL_mixer.git
+          git -C "$RUNNER_TEMP/SDL_mixer" fetch -q --depth=1 origin "$mixer"
+          git -C "$RUNNER_TEMP/SDL_mixer" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/SDL_mixer" rev-parse HEAD)" = "$mixer"
+          grep -q 'Permission is granted to anyone to use this software for any purpose' "$RUNNER_TEMP/SDL/LICENSE.txt"
+          cmake -S "$RUNNER_TEMP/SDL" -B "$RUNNER_TEMP/SDL-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl-native-install" -DCMAKE_INSTALL_LIBDIR=lib -DSDL_TEST=OFF -DSDL_EXAMPLES=OFF -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_UNIX_CONSOLE_BUILD=ON
+          cmake --build "$RUNNER_TEMP/SDL-build" -j 2
+          cmake --install "$RUNNER_TEMP/SDL-build"
+          cmake -S "$RUNNER_TEMP/SDL_mixer" -B "$RUNNER_TEMP/SDL-mixer-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/sdl-native-install" -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/sdl-native-install" -DCMAKE_INSTALL_LIBDIR=lib -DSDLMIXER_VENDORED=OFF -DSDLMIXER_INSTALL=ON -DSDLMIXER_TESTS=OFF -DSDLMIXER_EXAMPLES=OFF -DSDLMIXER_WAVE=ON -DSDLMIXER_FLAC=OFF -DSDLMIXER_GME=OFF -DSDLMIXER_MOD=OFF -DSDLMIXER_MP3=OFF -DSDLMIXER_MIDI=OFF -DSDLMIXER_OPUS=OFF -DSDLMIXER_VORBIS_STB=OFF -DSDLMIXER_VORBIS_VORBISFILE=OFF -DSDLMIXER_WAVPACK=OFF
+          cmake --build "$RUNNER_TEMP/SDL-mixer-build" -j 2
+          cmake --install "$RUNNER_TEMP/SDL-mixer-build"
+          echo SDL3_PINNED_NATIVE_LIBRARIES_BUILT
+      - name: Generate original rights-clean source and run actual four-case mixer PCM regression
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/sdl-native"
+          python3 - "$RUNNER_TEMP/sdl-native/original_sdl410.wav" <<'PY'
+          import hashlib,math,struct,sys,wave
+          out=sys.argv[1]
+          with wave.open(out,'wb') as wav:
+              wav.setnchannels(1)
+              wav.setsampwidth(2)
+              wav.setframerate(48000)
+              wav.writeframes(b''.join(struct.pack('<h',int(round(32767*0.12*math.sin(2*math.pi*410*i/48000)))) for i in range(8192)))
+          print("SDL3_ORIGINAL_410HZ_SHA",hashlib.sha256(open(out,'rb').read()).hexdigest())
+          PY
+          prefix="$RUNNER_TEMP/sdl-native-install"
+          cc -std=c11 -O2 -Wall -Wextra -Werror -I"$prefix/include" spatial-contract/interop/sdl3_full_native.c -L"$prefix/lib" -lSDL3_mixer -lSDL3 -lm -o "$RUNNER_TEMP/sdl-probe"
+          export LD_LIBRARY_PATH="$prefix/lib"
+          "$RUNNER_TEMP/sdl-probe" "$RUNNER_TEMP/sdl-native/original_sdl410.wav" "$RUNNER_TEMP/sdl-native"
+          test "$(find "$RUNNER_TEMP/sdl-native" -name '*.f32' | wc -l)" -eq 4
+      - name: Preserve native source and full actual PCM even for failed tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdl3-native-position-original-pcm
+          path: ${{ runner.temp }}/sdl-native/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-pcm:
+    needs: pinned-sdl-full-native
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Refuse failed native build or partial PCM output
+        env:
+          NATIVE_RESULT: ${{ needs.pinned-sdl-full-native.result }}
+        run: test "$NATIVE_RESULT" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdl3-native-position-original-pcm
+          path: native-data
+      - name: Independently read full native float32 output and frozen controls
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 spatial-contract/interop/sdl3_full_native_observe.py native-data result/sdl3_native_numeric.json
+          sha256sum result/sdl3_native_numeric.json
+      - name: Preserve numeric readback and first failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdl3-native-independent-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
