@@ -92,7 +92,16 @@ def min_pair_match(reference,candidate):
     for a in reference:
         best=min(remaining,key=lambda idx:math.dist(a,candidate[idx]))
         error=math.dist(a,candidate[best])
-        if error>2e-5:raise ValueError("GLB_REST_VERTEX_CORRESPONDENCE_FAIL")
+        if error>2e-5:
+            print("W14_REIMPORT_FIRST_FRAME_MISMATCH",json.dumps({
+                "original":a,"closest_imported":candidate[best],
+                "error":error,
+                "source_count":len(reference),
+                "import_count":len(candidate),
+                "first_original":reference[:3],
+                "first_imported":candidate[:3],
+            }),flush=True)
+            raise ValueError("GLB_REST_VERTEX_CORRESPONDENCE_FAIL")
         mapping.append(best);remaining.remove(best)
     if remaining:raise ValueError("NON_BIJECTIVE_VERTEX_MAP")
     return mapping
