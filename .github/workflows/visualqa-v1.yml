@@ -84,6 +84,8 @@ jobs:
           if-no-files-found: warn
 
   vision-research:
+    # Even a failed L1 pixel gate must be observed by the independent model.
+    if: ${{ always() && !cancelled() }}
     needs: rendered-video
     runs-on: ubuntu-24.04
     timeout-minutes: 10
