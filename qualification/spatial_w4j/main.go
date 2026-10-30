@@ -38,7 +38,7 @@ func classify(t Trace)(Receipt,error){
  var previous Frame
  for i,f:=range t.Frames{
   if f.Index!=i||!valid(f.Heel)||!valid(f.Toe){return r,errors.New("SOURCE_FRAME_NONFINITE_OR_CLOCK")}
-  if f.Heel[2]<-groundTolerance||f.Toe[2]<-groundTolerance{return r,errors.New("PENETRATION")}
+  if f.Heel[2] < -groundTolerance||f.Toe[2] < -groundTolerance{return r,errors.New("PENETRATION")}
   now:=math.Abs(f.Heel[2])<=groundTolerance&&math.Abs(f.Toe[2])<=groundTolerance
   if now&&touched {
    if dist(f.Heel,previous.Heel)>plantedSlip||dist(f.Toe,previous.Toe)>plantedSlip{return r,errors.New("PLANTED_FOOT_SKATING")}
