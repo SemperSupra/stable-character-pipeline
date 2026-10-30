@@ -1,0 +1,51 @@
+name: W16 B5 Blender rest crosswalk
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16b5/**'
+      - '.github/workflows/walk-b5-rest.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      GO111MODULE: 'off'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Native Blender rest and independent rowmajor oracle
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          mkdir -p "w16b5-$PROFILE"
+          (cd qualification/walk_w16b3 && go vet ./... && go run . "$PROFILE" "$GITHUB_WORKSPACE/w16b5-$PROFILE/motion.json" "$GITHUB_WORKSPACE/w16b5-$PROFILE/b3_receipt.json")
+          python qualification/walk_w16b4/rest_clock.py --source "w16b5-$PROFILE/motion.json" --out "w16b5-$PROFILE/rest_clock.json"
+          xvfb-run -a python qualification/walk_w16b5/native_rest.py --source "w16b5-$PROFILE/rest_clock.json" --profile "$PROFILE" --out "w16b5-$PROFILE/native_rest.json"
+          python qualification/walk_w16b5/independent_rest.py "w16b5-$PROFILE/rest_clock.json" "w16b5-$PROFILE/native_rest.json" "w16b5-$PROFILE/third_oracle.json"
+          python -m unittest discover -s qualification/walk_w16b5 -p 'test_*.py' -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16b5-rest-${{ matrix.profile }}
+          path: w16b5-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
