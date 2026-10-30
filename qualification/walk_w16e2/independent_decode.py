@@ -34,7 +34,7 @@ def validate_native_pts(raw_ticks, time_base, fps):
 def verify(path):
  p=Path(path);src=json.loads((p/"source_manifest.json").read_text())
  if src["source_rights"]!="ORIGINAL_SELF_AUTHORED_SYNTHETIC":raise ValueError("SOURCE_RIGHTS")
- mux=p/"original_mux.mkv"
+ mux=p/"original_mux.nut"
  i=json.loads(call(["ffprobe","-v","error","-show_streams","-of","json",str(mux)]))["streams"]
  vs=[x for x in i if x["codec_type"]=="video"]
  als=[x for x in i if x["codec_type"]=="audio"]
