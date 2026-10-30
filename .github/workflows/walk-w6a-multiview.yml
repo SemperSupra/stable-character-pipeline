@@ -46,6 +46,7 @@ jobs:
             fi
             python -c 'import json,sys; c=int(sys.argv[1]); p=sys.argv[2]; r=json.load(open(p)); assert (c==0 and r["status"]=="PASS_L1_VIDEO_ONLY") or (c==2 and r["status"]=="FAIL"); print("W6A_L1_OBSERVED_NONPROMOTABLE",r["status"],r["failures"])' "$code" "walk-w6a-$PROFILE/rendered/qa-$cam/video_qa.json"
           done
+          python qualification/walk_w6a/multiview_rollup.py --folder "walk-w6a-$PROFILE/rendered"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
