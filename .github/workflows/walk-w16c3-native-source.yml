@@ -1,0 +1,57 @@
+name: W16-C3 exact B3 typed source driven native Blender
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16c3/**'
+      - '.github/workflows/walk-w16c3-native-source.yml'
+permissions:
+  contents: read
+jobs:
+  source-to-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 23
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      GO111MODULE: 'off'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Generate pinned B3 source file and original Blender scene
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          mkdir -p "w16c3-$PROFILE"
+          (cd qualification/walk_w16c3/typed_source && go vet ./... && go run . "$PROFILE" "$GITHUB_WORKSPACE/w16c3-$PROFILE/motion.json" "$GITHUB_WORKSPACE/w16c3-$PROFILE/source_receipt.json")
+          xvfb-run -a python qualification/walk_w16c3/typed_native.py --profile "$PROFILE" --motion "w16c3-$PROFILE/motion.json" --out "w16c3-$PROFILE"
+      - name: Independent W15 pure glTF and source hash and real H264
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python qualification/walk_w15/pure_glb_reader.py --glb "w16c3-$PROFILE/original_two_actors_dual_leg.glb" --truth "w16c3-$PROFILE/native_source_vertex_truth.json" --out "w16c3-$PROFILE/third_gltf_vertex_receipt.json"
+          python qualification/walk_w16c2/verify.py "w16c3-$PROFILE"
+          python qualification/walk_w16c3/verify_source.py "w16c3-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16c3-exact-B3-native-${{ matrix.profile }}
+          path: w16c3-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
