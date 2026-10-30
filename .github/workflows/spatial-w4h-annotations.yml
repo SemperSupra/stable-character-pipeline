@@ -1,0 +1,67 @@
+name: Spatial W4h source-annotated expression and viseme timeline
+on:
+  pull_request:
+    paths:
+      - 'qualification/spatial_w4h/**'
+      - '.github/workflows/spatial-w4h-annotations.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  typed-source:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Strict native Go source and hostile qualification
+        env:
+          GO111MODULE: 'off'
+        run: |
+          set -euo pipefail
+          cd qualification/spatial_w4h
+          go vet .
+          go test -race -count=1 -v .
+      - name: Producer annotation/sample/frame receipt
+        env:
+          GO111MODULE: 'off'
+        run: |
+          set -euo pipefail
+          mkdir -p w4h-evidence
+          (cd qualification/spatial_w4h && go run . -out "$GITHUB_WORKSPACE/w4h-evidence/annotation.json")
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spatial-w4h-source-annotation
+          path: w4h-evidence/
+          retention-days: 3
+          if-no-files-found: warn
+  independent-oracle:
+    needs: typed-source
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require producer success
+        env:
+          PRODUCER_RESULT: ${{ needs.typed-source.result }}
+        run: test "$PRODUCER_RESULT" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: spatial-w4h-source-annotation
+          path: source-receipt
+      - name: Independent Python rational-clock and interpolation oracle
+        run: |
+          set -euo pipefail
+          python3 qualification/spatial_w4h/observe.py source-receipt/annotation.json
