@@ -1,0 +1,44 @@
+name: W16-B2 typed source origin and parent-local quaternion admission
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16b2/**'
+      - '.github/workflows/walk-w16b2-source-bridge.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exact-source-adapter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Native pinned W13 solver and W16-A decoder tests
+        run: |
+          set -euo pipefail
+          cd qualification/walk_w16b2
+          go vet ./...
+          go test -race -count=1 ./...
+          go run . "${{ matrix.profile }}" ../walk_w16b/fixtures_w13a_pinned.json "derived-${{ matrix.profile }}.json" "receipt-${{ matrix.profile }}.json"
+          python3 third_oracle.py ../walk_w16b/fixtures_w13a_pinned.json "derived-${{ matrix.profile }}.json" "receipt-${{ matrix.profile }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16b2-bridge-${{ matrix.profile }}
+          path: |
+            qualification/walk_w16b2/derived-*.json
+            qualification/walk_w16b2/receipt-*.json
+          retention-days: 3
+          if-no-files-found: warn
