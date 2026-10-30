@@ -1,0 +1,74 @@
+name: Spatial W4g original two-walker frame/audio contact AV qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4g-two-walkers.yml'
+      - 'spatial-contract/interop/generate_walkers.py'
+      - 'spatial-contract/interop/observe_walkers.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-animated-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Original 2D animation and AV encoder runtime
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 750 sudo apt-get install -y --no-install-recommends ffmpeg python3
+      - name: Create original lossless two-walker AV and H264/AAC review candidate
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          python3 spatial-contract/interop/generate_walkers.py "$RUNNER_TEMP/w4g-walkers"
+          test -f "$RUNNER_TEMP/w4g-walkers/two_walkers_lossless.mkv"
+          test -f "$RUNNER_TEMP/w4g-walkers/two_walkers_mobile.mp4"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w4g-original-two-walkers-AV-media
+          path: ${{ runner.temp }}/w4g-walkers/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-contact-observer:
+    needs: original-animated-source
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require native source completion
+        env:
+          PRODUCER: ${{ needs.original-animated-source.result }}
+        run: test "$PRODUCER" = success
+      - name: FFmpeg independent full decoded media dependency
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 750 sudo apt-get install -y --no-install-recommends ffmpeg python3
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4g-original-two-walkers-AV-media
+          path: source-native
+      - name: Inspect actual articulated pixels and full 12-sample stereo contact trace
+        run: |
+          set -euo pipefail
+          mkdir result
+          python3 spatial-contract/interop/observe_walkers.py source-native result/w4g_walkers_numeric.json
+          sha256sum result/w4g_walkers_numeric.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w4g-independent-walkers-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
