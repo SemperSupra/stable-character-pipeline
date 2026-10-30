@@ -1,0 +1,7 @@
+# ROMFMT B — actual original Blender joint rig constraints and annotations
+
+Child of ROMFMT DLE #175. On a fresh standard public CPU runner, Python `bpy==4.5.0` builds an original two-bone armature, authors `LIMIT_ROTATION` in LOCAL space and separate Blender pose-bone IK X/Y limits, and stores source-identical JSON annotation in pose-bone, armature-bone and rig-object custom properties. Saves the actual binary .blend, reopens it, compares each limit, joint parent and metadata SHA, then mutates local max angle and owner-space independently to prove rejection. Reloads the clean binary after hostile tests and emits source SHA/limits receipt.
+
+**Important:** A Blender data-block transform may exceed the constraint although the evaluated pose is limited. Normal Limit Rotation constraints are not automatically honored by inverse-kinematics solving; separate IK limits are checked. This is an original synthetic metadata/constraint persistence test, not proof of actual IK-based animation, biological knee ROM, third-party interchange or runtime enforcement. The project-owned ROM #173 and VisualQA #150 remain independent gates.
+
+Source and receipts: draft Git+DLE; actual `.blend` binary is retained in GHA for three days and must use owner-private Drive AAR/CDR custody (same exact original bytes verified after rehydrate) if preserved. No merge/release/deploy/CPE promotion, paid runner, real private actor or unapproved biomechanical table.
