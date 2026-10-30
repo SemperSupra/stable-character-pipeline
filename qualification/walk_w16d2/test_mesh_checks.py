@@ -17,7 +17,7 @@ class Hostile(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,"GROUND_PENETRATION"):verify_frames(s,FACES)
  def test_source_teleport(self):
   s=synthetic()
-  for v in s["world_vertices"]["12"][ACTORS[0]]:v[0]+=100
+  for v in s["world_vertices"]["12"][ACTORS[0]]:v[1]+=5 # teleport along view axis, still in frustum
   with self.assertRaisesRegex(ValueError,"TELEPORT"):verify_frames(s,FACES)
  def test_surface_collision(self):
   s=synthetic()
