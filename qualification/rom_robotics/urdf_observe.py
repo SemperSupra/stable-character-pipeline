@@ -78,6 +78,25 @@ def read_model(raw):
         joints[name]=entry
     if len(set(j["child"] for j in joints.values()))!=len(joints):
         raise ValueError("KINEMATIC_TREE_CHILD_DUPLICATION")
+    # URDF is a tree, not an arbitrary closed linkage. Reject multiple roots and loops
+    # instead of silently treating a closed-chain mechanism as an admitted tree.
+    children={j["child"] for j in joints.values()}
+    roots=[link for link in links if link not in children]
+    if len(roots)!=1:
+        raise ValueError("NON_TREE_ROOT_OR_CLOSED_CHAIN")
+    adjacency={name:[] for name in links}
+    for j in joints.values():
+        adjacency[j["parent"]].append(j["child"])
+    visited=set()
+    stack=[roots[0]]
+    while stack:
+        node=stack.pop()
+        if node in visited:
+            raise ValueError("NON_TREE_LOOP")
+        visited.add(node)
+        stack.extend(adjacency[node])
+    if visited!=set(links):
+        raise ValueError("DISCONNECTED_ROBOT_LINK_GRAPH")
     for name,j in joints.items():
         if "mimic" not in j:
             continue
