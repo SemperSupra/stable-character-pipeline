@@ -36,5 +36,7 @@ jobs:
           path: |
             w16e2-${{ matrix.profile }}/source_manifest.json
             w16e2-${{ matrix.profile }}/decoded_receipt.json
+            w16e2-${{ matrix.profile }}/original_mux.nut
+            w16e2-${{ matrix.profile }}/source_48k_mono.wav
           retention-days: 3
           if-no-files-found: warn
