@@ -1,3 +1,5 @@
 # W6-E3 source-original actual rendered-video clock
 
 This workcell takes the native two-camera 24-frame/12fps synthetic W6 rendered videos, doubles the actual source video to 48 FFV1 frames at 24fps, and combines it with original synthetic 48kHz PCM marker clicks (not speech/Foley). Third observer checks exact original decoded RGB source frame x2, source PCM byte parity and real rational NUT timestamps. This validates original synthetic A/V transport only, not real people, voice production, gait anatomy, VisualQA L1, or private R009. All work runs on free public CPU, in isolated draft; source and receipts Git/DLE, large videos owner-private Drive after raw SHA. No merge/release/deploy.
+
+First native RED [41138097881](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/41138097881) found source-vs-repacked RGB conversion differed by average 0.68/255 (native decoded planar YUV420p exact byte parity 100% in independent replay). New v2 witness checks the exact native YUV420p bytes instead of incorrectly claiming cross-codec RGB colorimetry parity. Actual RGB color management remains ABSTAIN, no tolerance widened and original failure retained.
