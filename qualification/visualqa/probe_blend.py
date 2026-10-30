@@ -25,7 +25,7 @@ def extract(blend, output):
         for leg, sign in LEGS:
             upper = arm.data.bones.get(leg + "Upper")
             lower = arm.data.bones.get(leg + "Lower")
-            if upper is None or lower is None or lower.parent is not upper:
+            if upper is None or lower is None or lower.parent is None or lower.parent.name != upper.name:
                 raise ValueError("SOURCE_BONE_HIERARCHY_MISMATCH")
             specs.append({"actor": name, "leg": leg,
                           "pole": [sign * 0.36, 0.48, -0.42],
