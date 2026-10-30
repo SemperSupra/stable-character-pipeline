@@ -53,6 +53,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m unittest discover -s qualification/visualqa -p 'test_qa_video.py' -v
           python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
           xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "visualqa-$PROFILE"
       - name: Independently observe ACTUAL native evaluated bone coordinates
