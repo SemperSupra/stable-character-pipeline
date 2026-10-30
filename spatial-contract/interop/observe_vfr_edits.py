@@ -51,7 +51,7 @@ def inspect(root,out):
  if not {40,80}.issubset(set(deltas)) or any(abs((pts[i+1]-pts[i])*1000-m["video_frame_durations_ms"][i])>1.1 for i in range(49)):
   raise ValueError("not truly time-varying PTS")
  raw=run("ffmpeg","-hide_banner","-loglevel","error","-nostdin","-i",str(mux),
-       "-map","0:v:0","-pix_fmt","gray","-f","rawvideo","-")
+       "-map","0:v:0","-pix_fmt","gray","-fps_mode","passthrough","-f","rawvideo","-")
  frame_size=160*90
  if len(raw)!=frame_size*50:raise ValueError("decoded pixel count")
  white=[i for i in range(50) if sum(raw[i*frame_size:(i+1)*frame_size])/frame_size>128]
