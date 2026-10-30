@@ -1,9 +1,36 @@
 """Independent ffmpeg decoded source RGB, PCM and Decimal frame PTS verification."""
 import argparse,hashlib,json,subprocess
-from decimal import Decimal
+from fractions import Fraction
 from pathlib import Path
 W,H=128,72
 def call(args):return subprocess.check_output(args,stderr=subprocess.PIPE)
+def validate_native_pts(raw_ticks, time_base, fps):
+ """Exact source rational frame PTS, compared with independently observed mux ticks.
+
+ The Matroska stream owns its actual time_base (often 1/1000), so requiring
+ sub-microsecond equality to unrepresentable 1/24 seconds is a false rejection.
+ Demand the EXACT nearest representable tick for every source frame, monotonicity,
+ and <= half a native tick of quantization. Never treat this as drift correction.
+ """
+ if not isinstance(time_base,str) or "/" not in time_base or fps!=24:raise ValueError("PTS_CLOCK_SOURCE")
+ try:
+  numerator,denominator=map(int,time_base.split("/"))
+ except (TypeError,ValueError):
+  raise ValueError("PTS_CLOCK_PARSE")
+ if numerator<=0 or denominator<=0 or numerator*fps>=denominator:raise ValueError("PTS_CLOCK_RESOLUTION")
+ if len(raw_ticks)!=48:raise ValueError("PTS_COVERAGE")
+ errors=[];last=-1
+ for i,raw in enumerate(raw_ticks):
+  try:actual=int(raw)
+  except (ValueError,TypeError):raise ValueError("PTS_NOT_INTEGER")
+  if str(actual)!=str(raw) or actual<=last:raise ValueError("PTS_NONMONOTONIC_OR_NONINTEGER")
+  expected=(2*i*denominator+fps*numerator)//(2*fps*numerator)
+  if actual!=expected:raise ValueError("PTS_NATIVE_TICK_MISMATCH")
+  error=abs(Fraction(actual*numerator,denominator)-Fraction(i,fps))
+  if error>Fraction(numerator,2*denominator):raise ValueError("PTS_ABOVE_HALF_TICK")
+  errors.append(error);last=actual
+ return max(errors)
+
 def verify(path):
  p=Path(path);src=json.loads((p/"source_manifest.json").read_text())
  if src["source_rights"]!="ORIGINAL_SELF_AUTHORED_SYNTHETIC":raise ValueError("SOURCE_RIGHTS")
@@ -30,14 +57,17 @@ def verify(path):
  if len(pcm)!=192000 or hashlib.sha256(pcm).hexdigest()!=src["source_pcm_sha256"]:
   raise ValueError("PCM_BYTE_MISMATCH")
  frames=json.loads(call(["ffprobe","-v","error","-select_streams","v:0",
- "-show_frames","-show_entries","frame=best_effort_timestamp_time","-of","json",str(mux)]))["frames"]
+ "-show_frames","-show_entries","frame=best_effort_timestamp","-of","json",str(mux)]))["frames"]
  if len(frames)!=48:raise ValueError("PTS_COVERAGE")
- errors=[abs(Decimal(f["best_effort_timestamp_time"])-Decimal(i)/Decimal(24)) for i,f in enumerate(frames)]
- if max(errors)>Decimal("0.0000005"):raise ValueError("PTS_DRIFT")
+ time_base=v.get("time_base")
+ errors=validate_native_pts([f.get("best_effort_timestamp") for f in frames],time_base,24)
+
  r={"schema":"scp.walk_w16e2_decode.v1","status":"PASS_SOURCE_ONLY_REAL_FFV1_PCM_MUX",
  "source_rights":src["source_rights"],"profile":src["profile"],
  "rgb_frames":48,"decoded_pcm_samples":96000,"source_motion_frames":24,
- "maximum_pts_error_decimal":str(max(errors)),
+ "maximum_pts_quantization_seconds":str(errors),
+ "native_video_stream_time_base":time_base,
+ "pts_nearest_tick_exact":True,
  "native_mux_sha256":hashlib.sha256(mux.read_bytes()).hexdigest(),
  "scope":"NOT_C3_VIDEO_NOT_SPEECH_NOT_REAL_LIP_SYNC_NOT_PRIVATE"}
  (p/"decoded_receipt.json").write_text(json.dumps(r,indent=2,sort_keys=True)+"\n")
