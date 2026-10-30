@@ -83,6 +83,34 @@ def main():
     assert exported.get("animations"), "export lost the animation"
     assert exported.get("meshes"), "export lost mesh"
 
+    # Independent second Blender glTF load; compare evaluated MESH world orientation
+    # at the original times. A JSON declaration alone does not prove animation parity.
+    mesh_names = {obj.name for obj in meshes}
+    source_mesh_poses = {}
+    for observation in observations:
+        source_mesh_poses[observation["frame"]] = [
+            tuple(row[1:]) for row in observation["transforms"] if row[0] in mesh_names
+        ]
+    assert all(len(qs) == len(meshes) for qs in source_mesh_poses.values())
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.context.scene.render.fps = 24
+    reimport_result = bpy.ops.import_scene.gltf(filepath=str(glb_path))
+    assert "FINISHED" in reimport_result, "exported GLB failed real re-import"
+    roundtrip_meshes = sorted([o for o in bpy.data.objects if o.type == "MESH"], key=lambda o: o.name)
+    assert len(roundtrip_meshes) == len(meshes), "mesh count changed through round-trip"
+    assert len(bpy.data.actions) >= 1, "re-imported GLB has no Blender animation action"
+    parity = []
+    for frame in frames:
+        bpy.context.scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        source_quats = source_mesh_poses[frame]
+        dest_quats = [tuple(float(c) for c in o.matrix_world.to_quaternion()) for o in roundtrip_meshes]
+        assert len(source_quats) == len(dest_quats)
+        # Quaternion signs are equivalent; same ordered mesh set is a one-mesh fixture.
+        errors = [1.0 - abs(sum(a*b for a,b in zip(q1,q2))) for q1,q2 in zip(source_quats,dest_quats)]
+        parity.append({"frame": frame, "max_quaternion_1_minus_abs_dot": max(errors)})
+    assert max(v["max_quaternion_1_minus_abs_dot"] for v in parity) < 0.001, "GLB round-trip animation pose mismatch"
+
     report = {
         "schema": "scp.blender_real_cc0_qualification.v1",
         "source_model": "Khronos glTF-Sample-Assets AnimatedTriangle",
@@ -96,6 +124,9 @@ def main():
         "sampled_poses": observations,
         "export_animations": len(exported["animations"]),
         "export_meshes": len(exported["meshes"]),
+        "reimport_mesh_count": len(roundtrip_meshes),
+        "reimport_actions": len(bpy.data.actions),
+        "animation_quaternion_parity": parity,
         "export_glb_sha256": sha(glb_path),
         "blend_sha256": sha(blend_path),
         "limitations": "This is one CC0 rotating triangle, not a person, rigged model, measured human walking or MMD parity."
