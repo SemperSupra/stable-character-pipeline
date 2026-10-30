@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   credential-free-metadata:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.base.ref == 'main'
     name: Provider batch ${{ matrix.batch }} (no downloads)
     runs-on: ubuntu-latest
     timeout-minutes: 8
