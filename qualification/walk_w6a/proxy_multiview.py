@@ -97,6 +97,8 @@ def run(source,out):
     scene.render.resolution_x=640;scene.render.resolution_y=360;scene.render.resolution_percentage=100
     scene.render.image_settings.file_format="PNG"
     scene.render.film_transparent=False
+    scene.frame_set(0)
+    bpy.context.view_layer.update()  # resolve camera matrix_world after assigning location/rotation
     original_sha=hashlib.sha256(blend.read_bytes()).hexdigest()
     outputs=[]
     for cam in cameras:
@@ -107,7 +109,7 @@ def run(source,out):
             for role,height in (("Head",2.17),("Torso",1.5),("Pelvis",1.09)):
                 projected=world_to_camera_view(scene,cam,rig.matrix_world@Vector((0,0,height)))
                 if not (0<projected.x<1 and 0<projected.y<1 and projected.z>0):
-                    raise ValueError("CORE_BODY_OUT_OF_CAMERA_VIEW")
+                    raise ValueError(f"CORE_BODY_OUT_OF_CAMERA_VIEW_{cam.name}_{actor}_{role}_{float(projected.x):.3f}_{float(projected.y):.3f}_{float(projected.z):.3f}")
                 location_probes.append({"actor":actor,"part":role,"uv":[float(projected.x),float(projected.y)]})
         frames=out/cam.name;frames.mkdir(exist_ok=True)
         for tick in range(24):
