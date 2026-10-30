@@ -1,0 +1,113 @@
+name: W4k B3 native OpenAL SAF common original PCM
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4k-common.yml'
+      - 'spatial-contract/interop/openal_w4k_common.c'
+      - 'spatial-contract/interop/saf_w4k_common.c'
+      - 'spatial-contract/interop/observe_w4k_common.py'
+      - 'spatial-contract/interop/test_w4k_common.py'
+permissions:
+  contents: read
+jobs:
+  openal-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pinned source OpenAL Soft CPU build
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config gcc g++ git
+          sha=b7463649fd73188146e3b1467a91e7f0926a6d04
+          git init -q "$RUNNER_TEMP/openal-src"
+          git -C "$RUNNER_TEMP/openal-src" remote add origin https://github.com/kcat/openal-soft.git
+          git -C "$RUNNER_TEMP/openal-src" fetch -q --depth=1 origin "$sha"
+          git -C "$RUNNER_TEMP/openal-src" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/openal-src" rev-parse HEAD)" = "$sha"
+          grep -q 'LIBRARY GENERAL PUBLIC LICENSE' "$RUNNER_TEMP/openal-src/COPYING"
+          cmake -S "$RUNNER_TEMP/openal-src" -B "$RUNNER_TEMP/openal-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/openal-install" -DCMAKE_INSTALL_LIBDIR=lib -DALSOFT_EXAMPLES=OFF -DALSOFT_UTILS=OFF -DALSOFT_TESTS=OFF -DALSOFT_INSTALL=ON -DALSOFT_INSTALL_HRTF_DATA=ON -DALSOFT_BACKEND_ALSA=OFF -DALSOFT_BACKEND_PULSEAUDIO=OFF -DALSOFT_BACKEND_PIPEWIRE=OFF -DALSOFT_BACKEND_JACK=OFF
+          cmake --build "$RUNNER_TEMP/openal-build" -j 2
+          cmake --install "$RUNNER_TEMP/openal-build"
+          mkdir -p "$RUNNER_TEMP/original-openal"
+          cc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP/openal-install/include" spatial-contract/interop/openal_w4k_common.c -L"$RUNNER_TEMP/openal-install/lib" -lopenal -lm -o "$RUNNER_TEMP/openal-probe"
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/openal-install/lib"
+          export XDG_DATA_DIRS="$RUNNER_TEMP/openal-install/share:/usr/local/share:/usr/share"
+          "$RUNNER_TEMP/openal-probe" "$RUNNER_TEMP/original-openal"
+          test "$(find "$RUNNER_TEMP/original-openal" -name '*.f32' | wc -l)" -eq 3
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w4k-openal-common-native
+          path: ${{ runner.temp }}/original-openal/
+          retention-days: 2
+          if-no-files-found: warn
+  saf-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pinned Spatial Audio Framework source CPU build
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config gcc g++ git libopenblas-dev liblapacke-dev libfftw3-dev
+          sha=18fd5aba46e20787b51f28f7197a68506c965c07
+          git init -q "$RUNNER_TEMP/saf-src"
+          git -C "$RUNNER_TEMP/saf-src" remote add origin https://github.com/leomccormack/Spatial_Audio_Framework.git
+          git -C "$RUNNER_TEMP/saf-src" fetch -q --depth=1 origin "$sha"
+          git -C "$RUNNER_TEMP/saf-src" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/saf-src" rev-parse HEAD)" = "$sha"
+          grep -q 'ISC License' "$RUNNER_TEMP/saf-src/framework/include/saf.h"
+          cmake -S "$RUNNER_TEMP/saf-src" -B "$RUNNER_TEMP/saf-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSAF_PERFORMANCE_LIB=SAF_USE_OPEN_BLAS_AND_LAPACKE -DSAF_USE_FFTW=ON -DSAF_BUILD_EXAMPLES=OFF -DSAF_BUILD_TESTS=OFF -DSAF_BUILD_EXTRAS=OFF -DSAF_ENABLE_TRACKER_MODULE=OFF -DSAF_ENABLE_HADES_MODULE=OFF -DSAF_ENABLE_SOFA_READER_MODULE=OFF -DSAF_USE_FAST_MATH_FLAG=OFF
+          cmake --build "$RUNNER_TEMP/saf-build" -j 2
+          lib="$(find "$RUNNER_TEMP/saf-build" -name 'libsaf.a' -type f -print -quit)"
+          test -n "$lib"
+          mkdir -p "$RUNNER_TEMP/original-saf"
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP/saf-src/framework/include" spatial-contract/interop/saf_w4k_common.c "$lib" -lopenblas -llapacke -lfftw3f -lm -latomic -o "$RUNNER_TEMP/saf-probe"
+          "$RUNNER_TEMP/saf-probe" "$RUNNER_TEMP/original-saf"
+          test "$(find "$RUNNER_TEMP/original-saf" -name '*.f32' | wc -l)" -eq 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w4k-saf-common-native
+          path: ${{ runner.temp }}/original-saf/
+          retention-days: 2
+          if-no-files-found: warn
+  independent-pcm:
+    needs: [openal-native,saf-native]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require both native producers
+        env:
+          OPENAL_STATUS: ${{ needs.openal-native.result }}
+          SAF_STATUS: ${{ needs.saf-native.result }}
+        run: |
+          test "$OPENAL_STATUS" = success
+          test "$SAF_STATUS" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4k-openal-common-native
+          path: native-openal
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4k-saf-common-native
+          path: native-saf
+      - name: Source and full floating PCM with hostile controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s spatial-contract/interop -p test_w4k_common.py -v
+          mkdir -p result
+          python3 spatial-contract/interop/observe_w4k_common.py native-openal native-saf result/w4k_common.json
+          sha256sum result/w4k_common.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w4k-independent-common-input-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
