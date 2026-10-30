@@ -1,0 +1,57 @@
+name: Public CC0 animated glTF native Blender verification
+on:
+  pull_request:
+    paths:
+      - research/providers/qualification/blender_cc0_probe.py
+      - .github/workflows/provider-cc0-blender.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  blender-45-actual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    defaults:
+      run:
+        working-directory: research/providers
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: research/providers/go.mod
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Syntax and source-clean Go controls
+        run: |
+          python -m py_compile qualification/blender_cc0_probe.py
+          go test -count=1 ./cmd/public-asset-sample
+          go vet ./cmd/public-asset-sample
+      - name: Acquire exactly one pinned CC0 microfixture (4 bounded GETs)
+        run: |
+          mkdir -p reports/sample
+          go run ./cmd/public-asset-sample -lane sample -out reports/sample
+      - name: Install pinned real Blender Python package
+        timeout-minutes: 9
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python -c 'import bpy; assert bpy.app.version >= (4,5,0); print(bpy.app.version_string)'
+      - name: Import, evaluate motion, export GLB and editable Blender file
+        timeout-minutes: 5
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          OMP_NUM_THREADS: '2'
+        run: |
+          python -u qualification/blender_cc0_probe.py --source reports/sample --out reports/blender
+      - name: Preserve first failure or real native artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc0-blender45-native-evidence
+          path: research/providers/reports/
+          retention-days: 14
+          if-no-files-found: warn
