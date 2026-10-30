@@ -72,6 +72,8 @@ jobs:
         with:
           name: spatial-w4i-native-viseme-av
           path: original-output
+      - name: Independent FFmpeg tools
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Independent source-clock, full real RGB pixel/PCM and geometric jaw observer
         run: |
           set -euo pipefail
