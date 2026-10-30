@@ -1,0 +1,45 @@
+name: W16-D5 conservative swept triangle original source
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16d5/**'
+      - '.github/workflows/walk-w16d5-linear-sweep.yml'
+permissions:
+  contents: read
+jobs:
+  witness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original native C2 rig and independent conservative continuous triangles
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python -m unittest discover -s qualification/walk_w16d5 -p 'test_*.py' -v
+          xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "w16d5-$PROFILE"
+          python qualification/walk_w16d5/linear_sweep.py --glb "w16d5-$PROFILE/original_two_actors_dual_leg.glb" --truth "w16d5-$PROFILE/native_source_vertex_truth.json" --profile "$PROFILE" --out "w16d5-$PROFILE/swept_triangle_receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16d5-numeric-${{ matrix.profile }}
+          path: |
+            w16d5-${{ matrix.profile }}/swept_triangle_receipt.json
+            w16d5-${{ matrix.profile }}/native_dual_leg_receipt.json
+          retention-days: 3
+          if-no-files-found: warn
