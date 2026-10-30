@@ -49,6 +49,7 @@ func TestFailClosedFilesystemAndScope(t *testing.T){
  _,got,err:=l.Reserve(p,"https://assets.example.org",1000)
  if err!=nil||got.Status!="POLICY_HOLD"{t.Fatalf("unverified policy bypassed %+v %v",got,err)}
  p.Verified=true
+ if err:=os.Remove(l.Path);err!=nil{t.Fatal(err)}
  if err:=os.Symlink(filepath.Join(dir,"not-real"),l.Path);err!=nil{t.Fatal(err)}
  if _,_,err:=l.Reserve(p,"https://assets.example.org",1000);err==nil{t.Fatal("ledger symlink not refused")}
 }
