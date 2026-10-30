@@ -50,5 +50,12 @@ class OriginalRobotTests(unittest.TestCase):
     def test_source_duplicate_link_rejected(self):
         with self.assertRaisesRegex(ValueError,"UNQUALIFIED_LINK_SET"):
             read_model(GOOD.replace('<link name="base"/>','<link name="base"/><link name="base"/>').encode())
+    def test_closed_loop_must_not_masquerade_as_urdf_tree(self):
+        loop='<joint name="loop" type="fixed"><parent link="follower"/><child link="base"/></joint>'
+        with self.assertRaisesRegex(ValueError,"NON_TREE_ROOT_OR_CLOSED_CHAIN"):
+            read_model(GOOD.replace("</robot>",loop+"</robot>").encode())
+    def test_disconnected_unused_link_rejected(self):
+        with self.assertRaisesRegex(ValueError,"NON_TREE_ROOT_OR_CLOSED_CHAIN"):
+            read_model(GOOD.replace("<link name=\"base\"/>",'<link name="base"/><link name="orphan"/>').encode())
 if __name__=="__main__":
     unittest.main()
