@@ -1,0 +1,21 @@
+name: ROMFMT V1 C - format source semantics and incompatible units
+on:
+  pull_request:
+    paths:
+      - 'qualification/rom_fmt_schema/**'
+      - '.github/workflows/romfmt-schema.yml'
+permissions:
+  contents: read
+jobs:
+  format-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original-only USD physics / URDF / MJCF / OpenSim source-field conversion
+        run: python -m unittest discover -s qualification/rom_fmt_schema -p 'test_export_projection.py' -v
