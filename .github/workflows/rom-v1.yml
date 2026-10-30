@@ -1,0 +1,25 @@
+name: ROM V1 - source-only synthetic joint envelope qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/rom_v1/**'
+      - '.github/workflows/rom-v1.yml'
+permissions:
+  contents: read
+jobs:
+  source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: qualification/rom_v1/go.mod
+      - name: Original synthetic ROM, derivative, coupling and provenance falsifiers
+        working-directory: qualification/rom_v1
+        run: |
+          set -euo pipefail
+          go test -count=1 -race ./...
+          go vet ./...
