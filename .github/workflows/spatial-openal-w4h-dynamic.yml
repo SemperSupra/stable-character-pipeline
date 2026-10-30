@@ -1,0 +1,89 @@
+name: Spatial W4h native source/listener orientation dynamic HRTF transition
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-openal-w4h-dynamic.yml'
+      - 'spatial-contract/interop/openal_w4h_dynamic.c'
+      - 'spatial-contract/interop/observe_openal_w4h.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-openal-native:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Minimal CPU source-only toolchain
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 900 sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config gcc g++ git
+      - name: Fetch pinned upstream LGPL OpenAL Soft source and build without audio-device backend
+        run: |
+          set -euo pipefail
+          sha=b7463649fd73188146e3b1467a91e7f0926a6d04
+          git init -q "$RUNNER_TEMP/openal-src"
+          git -C "$RUNNER_TEMP/openal-src" remote add origin https://github.com/kcat/openal-soft.git
+          git -C "$RUNNER_TEMP/openal-src" fetch -q --depth=1 origin "$sha"
+          git -C "$RUNNER_TEMP/openal-src" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/openal-src" rev-parse HEAD)" = "$sha"
+          grep -q 'LIBRARY GENERAL PUBLIC LICENSE' "$RUNNER_TEMP/openal-src/COPYING"
+          cmake -S "$RUNNER_TEMP/openal-src" -B "$RUNNER_TEMP/openal-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/openal-install" -DCMAKE_INSTALL_LIBDIR=lib -DALSOFT_EXAMPLES=OFF -DALSOFT_UTILS=OFF -DALSOFT_TESTS=OFF -DALSOFT_INSTALL=ON -DALSOFT_INSTALL_HRTF_DATA=ON -DALSOFT_BACKEND_ALSA=OFF -DALSOFT_BACKEND_PULSEAUDIO=OFF -DALSOFT_BACKEND_PIPEWIRE=OFF -DALSOFT_BACKEND_JACK=OFF
+          cmake --build "$RUNNER_TEMP/openal-build" -j 2
+          cmake --install "$RUNNER_TEMP/openal-build"
+          test -f "$RUNNER_TEMP/openal-install/include/AL/alext.h"
+      - name: Compile 3 actual pinned dynamic OpenAL HRTF loopback modes
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hrtf-native"
+          cc -std=c11 -O2 -Wall -Wextra -Werror -I"$RUNNER_TEMP/openal-install/include" spatial-contract/interop/openal_w4h_dynamic.c -L"$RUNNER_TEMP/openal-install/lib" -lopenal -lm -o "$RUNNER_TEMP/hrtf-probe"
+          export LD_LIBRARY_PATH="$RUNNER_TEMP/openal-install/lib"
+          export XDG_DATA_DIRS="$RUNNER_TEMP/openal-install/share:/usr/local/share:/usr/share"
+          "$RUNNER_TEMP/hrtf-probe" "$RUNNER_TEMP/hrtf-native"
+          test "$(find "$RUNNER_TEMP/hrtf-native" -name '*.f32' | wc -l)" -eq 3
+          echo OPENAL_W4H_DYNAMIC_THREE_NATIVE_OUTPUTS_READY
+      - name: Preserve original source and dynamic PCM for independent worker
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openal-w4h-native-pose-3
+          path: ${{ runner.temp }}/hrtf-native/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-pcm:
+    needs: pinned-openal-native
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require actual upstream native success
+        env:
+          NATIVE_RESULT: ${{ needs.pinned-openal-native.result }}
+        run: test "$NATIVE_RESULT" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: openal-w4h-native-pose-3
+          path: native-data
+      - name: Independent full PCM sample orientation transition and onset/tail qualification
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 spatial-contract/interop/observe_openal_w4h.py native-data result/openal_w4h_dynamic_numeric.json
+          sha256sum result/openal_w4h_dynamic_numeric.json
+      - name: Retain exact source-bound dynamic pose numeric receipt and first failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openal-w4h-independent-pose-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
