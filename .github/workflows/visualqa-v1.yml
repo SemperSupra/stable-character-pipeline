@@ -67,7 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           (cd qualification/visualqa && go test -count=1 ./...)
-          go run ./qualification/visualqa --input "visualqa-$PROFILE/pose_observed.json" --source "visualqa-$PROFILE/original_two_actors_dual_leg.blend" > "visualqa-$PROFILE/knee_report.json"
+          (cd qualification/visualqa && go run . --input "../../visualqa-$PROFILE/pose_observed.json" --source "../../visualqa-$PROFILE/original_two_actors_dual_leg.blend") > "visualqa-$PROFILE/knee_report.json"
       - name: Independently decode ACTUAL output pixels and build contact sheet
         env:
           PROFILE: ${{ matrix.profile }}
