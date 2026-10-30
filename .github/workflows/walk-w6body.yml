@@ -1,0 +1,45 @@
+name: W6 original multiview rendered surrogate
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w6body/**'
+      - '.github/workflows/walk-w6body.yml'
+permissions:
+  contents: read
+jobs:
+  camera:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source authored complete surrogate in two real native camera renders
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          mkdir -p "w6body-$PROFILE"
+          python qualification/walk_w16c4/ground_feasibility.py --profile "$PROFILE" --out "w6body-$PROFILE"
+          xvfb-run -a python qualification/walk_w6body/render.py --profile "$PROFILE" --source "w6body-$PROFILE/source.json" --out "w6body-$PROFILE"
+          python qualification/walk_w6body/pixel_reader.py "w6body-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w6-original-multiview-${{ matrix.profile }}
+          path: w6body-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
