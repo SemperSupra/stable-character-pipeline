@@ -1,0 +1,23 @@
+name: VisualQA W2C Gate
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w2c/**'
+      - '.github/workflows/visualqa-w2c.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: qualification/visualqa_w2c/go.mod
+      - working-directory: qualification/visualqa_w2c
+        run: |
+          go test -race -count=1 ./...
+          go vet ./...
