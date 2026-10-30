@@ -28,6 +28,7 @@ jobs:
           python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
           xvfb-run -a python qualification/rom_fmt_blender/export_glb.py --out romfmt-native-export
           xvfb-run -a python qualification/rom_fmt_blender/import_glb.py --glb romfmt-native-export/original_annotated_skin.glb --source-receipt romfmt-native-export/blender_glb_export_receipt.json --out romfmt-native-export/blender_glb_reimport_receipt.json
+          xvfb-run -a python qualification/rom_fmt_blender/rebind_after_import.py --glb romfmt-native-export/original_annotated_skin.glb --source-receipt romfmt-native-export/blender_glb_export_receipt.json --out romfmt-native-export
       - uses: actions/upload-artifact@v4
         if: always()
         with:

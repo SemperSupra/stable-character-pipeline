@@ -1,0 +1,3 @@
+# W4A first restore semantics
+
+Standalone exact native source GLB with previous #179 verified exporter; fresh importer initially yields zero Limit Rotation and no IK limit; imported joint JSON/source digest and parent mapping must be exact before re-enforcing local pose-bone joint limits. Restored numeric constraint must alter the evaluated output rotation when authored outside the original test bound. Source-authored imaginary values only, not human, animal, actual IK target, full-body gait or robot safety. Hostile changed source bound rejected; publish source/test/receipt in Git/DLE, retain significant Blender GLB binary owner-private Drive only after full byte/hash readback. No private data/paid CPU/merge/release/deploy.
