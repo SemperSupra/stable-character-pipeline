@@ -1,0 +1,94 @@
+{
+  "schema": "scp.rom.format_capability_matrix.v1",
+  "issue": 175,
+  "results_are": "RESEARCH_OBSERVATIONS_NOT_EXPORT_ADMISSION",
+  "formats": [
+    {
+      "id": "blend",
+      "name": "Blender .blend",
+      "core_joint_position": "bone rotation and IK constraint fields",
+      "custom": "object / pose bone / data bone ID properties",
+      "semantic": "native enforced evaluation not same as stored input rotations; IK limits independent",
+      "scope": "NATIVE_CONSTRAINTS_AND_ANNOTATIONS",
+      "reference": "https://docs.blender.org/manual/de/4.0/animation/constraints/transform/limit_rotation.html"
+    },
+    {
+      "id": "usd",
+      "name": "OpenUSD .usd/.usda",
+      "core_joint_position": "UsdPhysics joints and per-DOF limits/drives; not automatically UsdSkel",
+      "custom": "USD attribute namespace, customData, API schemas",
+      "semantic": "angular PhysicsRevolute limit degrees; distinct physics vs skeleton joint hierarchy; custom skeletal constraints plugin-specific",
+      "scope": "NATIVE_PHYSICS_LIMITS_SEPARATE_FROM_SKIN",
+      "reference": "https://openusd.org/release/api/usd_physics_page_front.html"
+    },
+    {
+      "id": "fbx",
+      "name": "FBX .fbx",
+      "core_joint_position": "FbxNode RotationActive, RotationMin/Max and per-axis switches",
+      "custom": "user-defined FBX node properties",
+      "semantic": "axis/Euler order/pre/post rotation; exporter may lose active/enabled flags",
+      "scope": "NATIVE_NODE_ROTATION_LIMITS",
+      "reference": "https://help.autodesk.com/cloudhelp/2019/ENU/FBX-Developer-Help/cpp_ref/class_fbx_node.html"
+    },
+    {
+      "id": "gltf",
+      "name": "glTF .gltf/.glb",
+      "core_joint_position": "none for anatomical skeletal joint range in glTF core",
+      "custom": "node extras or extension schema",
+      "semantic": "nodes+skins define animation and skinning; custom ROM metadata is not enforced by glTF renderer; roundtrip depends exporter",
+      "scope": "ANNOTATION_ONLY",
+      "reference": "https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html"
+    },
+    {
+      "id": "osim",
+      "name": "OpenSim .osim",
+      "core_joint_position": "Coordinate range, clamped/locked and nonlinear CustomJoint coordinate transforms",
+      "custom": "OpenSim object properties and XML",
+      "semantic": "rotational ranges rad in XML, translational meters; source-specific physiological validity",
+      "scope": "NATIVE_BIOMECHANICAL_MODEL_LIMITS",
+      "reference": "https://opensimconfluence.atlassian.net/wiki/spaces/OpenSim/pages/53090621/Preparing+a+Model+for+Analysis"
+    },
+    {
+      "id": "urdf",
+      "name": "URDF .urdf",
+      "core_joint_position": "revolute/prismatic lower/upper, velocity, effort, mimic; continuous no position limits",
+      "custom": "extra namespaces/extensions and controller config",
+      "semantic": "URDF topology tree, no intrinsic multi-DOF coupled anatomical limits; hardware controller separate",
+      "scope": "NATIVE_ROBOT_KINEMATIC_LIMITS",
+      "reference": "https://docs.ros.org/en/rolling/Tutorials/Intermediate/URDF/Building-a-Visual-Robot-Model-with-URDF-from-Scratch.html"
+    },
+    {
+      "id": "mjcf",
+      "name": "MuJoCo MJCF .xml",
+      "core_joint_position": "joint range/limited, joint and actuator force/damping and equality/tendon dynamics",
+      "custom": "user-defined numeric/text fields",
+      "semantic": "compiler angular units explicit; actuator effort not equivalent to a simple joint hard limit",
+      "scope": "NATIVE_SIMULATION_LIMITS",
+      "reference": "https://mujoco.readthedocs.io/en/stable/XMLreference.html"
+    },
+    {
+      "id": "vtk",
+      "name": "VTK .vtp/.vtu",
+      "core_joint_position": "no common interoperable joint rig ROM schema",
+      "custom": "point,cell,field data arrays and external metadata",
+      "semantic": "geometry/data container not a portable skeletal constraint format",
+      "scope": "CUSTOM_METADATA_ONLY",
+      "reference": "https://docs.vtk.org/en/latest/design_documents/VTKFileFormats.html"
+    }
+  ],
+  "required_roundtrip": [
+    "source_manifest_sha256",
+    "joint_stable_id",
+    "source_bone_or_joint_ref",
+    "parent_child",
+    "coordinate_frame",
+    "axis",
+    "unit",
+    "limits",
+    "context",
+    "provenance",
+    "custom_metadata_survival",
+    "native_enforcement_status"
+  ],
+  "default_if_lost": "FAIL_METADATA_PRESERVATION_NOT_UNLIMITED_ROM"
+}
