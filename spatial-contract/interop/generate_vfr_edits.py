@@ -44,7 +44,7 @@ def gen(root):
   # white frame marks cue; black otherwise. All pixels original.
   px=(b"\xff\xff\xff" if i in markers else b"\x00\x00\x00")
   path.write_bytes(b"P6\n160 90\n255\n"+px*(160*90))
-  entries.extend([f"file '{path.name}'",f"duration {Fraction(d,1000)}"])
+  entries.extend([f"file '{path.name}'",f"duration {d/1000:.3f}"])
  entries.append("file 'vfr_49.ppm'")
  (root/"frames.ffconcat").write_text("\n".join(entries)+"\n")
  video=root/"vfr_video.mkv"
