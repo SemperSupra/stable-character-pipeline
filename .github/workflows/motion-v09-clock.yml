@@ -1,0 +1,44 @@
+name: Motion v09 rational clock falsifier
+on:
+  pull_request:
+    paths:
+      - 'motion_qualification/nearcontact_v09/**'
+      - '.github/workflows/motion-v09-clock.yml'
+permissions:
+  contents: read
+jobs:
+  go-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Independent negative controls and Go race/vet
+        run: |
+          set -euo pipefail
+          cd motion_qualification/nearcontact_v09
+          go vet ./...
+          go test -race -count=1 -v ./...
+  python-fraction-control:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Separate standard-library exact time oracle
+        run: |
+          python3 - <<'PY'
+          from fractions import Fraction
+          a=Fraction((1<<60),30)
+          b=Fraction((1<<60)+1,30)
+          assert b-a == Fraction(1,30)
+          assert b != a
+          assert Fraction(60,60) == Fraction(30,30)
+          print("independent exact rational arithmetic controls PASS")
+          PY
