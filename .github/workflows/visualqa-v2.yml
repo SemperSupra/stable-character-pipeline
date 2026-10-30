@@ -1,0 +1,89 @@
+name: VisualQA V2 independent decoded luma temporal research
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_v2/**'
+      - '.github/workflows/visualqa-v2.yml'
+permissions:
+  contents: read
+jobs:
+  native-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Exact original public synthetic weighted Blender and H264
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb libegl1 libgl1 libgl1-mesa-dri
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "visualqa-$PROFILE"
+      - name: Original frozen L1 must remain failed on this native clip
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          PROFILE="$PROFILE" PYTHONPATH=qualification/visualqa python -c 'import os, pathlib, qa_video; p=os.environ["PROFILE"]; d=pathlib.Path("visualqa-"+p); r=qa_video.inspect(d/"original_two_actors_dual_leg_preview.mp4",d); assert r["status"]=="FAIL", r; print("VISUALQA_V2_PARENT_L1_STILL_FAIL",p)'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-original-l1-fail-${{ matrix.profile }}
+          path: |
+            visualqa-${{ matrix.profile }}/original_two_actors_dual_leg_preview.mp4
+            visualqa-${{ matrix.profile }}/video_qa.json
+          retention-days: 2
+          if-no-files-found: warn
+  independent-luma:
+    needs: native-source
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Actual independent FFmpeg and hostile source tests
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python3 -m unittest discover -s qualification/visualqa_v2 -p test_diagnose.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: v2-original-l1-fail-${{ matrix.profile }}
+          path: original
+      - name: Decode all frames independently; never turn L1 FAIL into PASS
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          mkdir -p receipt
+          python3 qualification/visualqa_v2/diagnose.py --video "original/original_two_actors_dual_leg_preview.mp4" --l1 "original/video_qa.json" --out "receipt/$PROFILE.json"
+          python3 -c 'import json,os;d=json.load(open("receipt/"+os.environ["PROFILE"]+".json"));assert d["status"]=="OBSERVATION_ONLY_PARENT_L1_FAIL" and not d["can_override_parent_l1"]'
+          sha256sum "receipt/$PROFILE.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-independent-luma-${{ matrix.profile }}
+          path: receipt/
+          retention-days: 3
+          if-no-files-found: warn
