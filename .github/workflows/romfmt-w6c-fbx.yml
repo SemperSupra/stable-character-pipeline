@@ -1,0 +1,36 @@
+name: ROMFMT W6C - Genuine Blender FBX Rig and Metadata Roundtrip
+on:
+  pull_request:
+    paths:
+      - 'qualification/rom_fmt_blender/**'
+      - '.github/workflows/romfmt-w6c-fbx.yml'
+permissions:
+  contents: read
+jobs:
+  native-fbx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original-only actual FBX exporter/importer and operative ROM preservation observation
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/rom_fmt_blender/fbx_roundtrip.py --out romfmt-w6c-native
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: romfmt-w6c-native-fbx
+          path: romfmt-w6c-native/
+          retention-days: 3
+          if-no-files-found: warn

@@ -1,0 +1,5 @@
+# W6C native Blender FBX constraints vs annotations
+
+Authority ROM format #175, ROM #170, prior native GLB W4A/W5A. Genuinely source-original two-bone Blender rig, saved native .blend and skinned cube is exported as actual FBX with custom properties, then imported into a fresh Blender state using stock FBX importer. Inspect stable bone name, armature object/bone/pose/mesh custom-property SHA retention, and *independently* count actual local Limit Rotation constraint and IK X limitation versus source. Missing metadata is reported MISSING, not silently treated as universal ROM. Changed source metadata must reject where retained.
+
+The source-defined numeric constraints are artificial synthetic fixture bounds only and have no approved anatomical authority. FBX may carry native per-axis limits as a format but this pipeline has to verify actual Blender translator behavior. No statement of native solver enforcement based on a property alone, no valid hardware control or real R009 character. Original public/free CPU source-only, binary artifacts private Drive after readback. Git/DLE owns small code and authoritative receipts; no merge, release, deploy or CPE.
