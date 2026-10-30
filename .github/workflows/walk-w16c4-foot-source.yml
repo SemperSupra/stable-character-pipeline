@@ -1,0 +1,37 @@
+name: W16-C4 source-only original grounded foot feasibility
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16c4/**'
+      - '.github/workflows/walk-w16c4-foot-source.yml'
+permissions:
+  contents: read
+jobs:
+  original-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original authored grounded foot feasibility and hostile controls
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s qualification/walk_w16c4 -p 'test_*.py' -v
+          python qualification/walk_w16c4/ground_feasibility.py --profile "$PROFILE" --out "w16c4-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16c4-numeric-${{ matrix.profile }}
+          path: w16c4-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
