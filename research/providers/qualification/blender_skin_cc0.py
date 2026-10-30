@@ -1,0 +1,126 @@
+"""Real Blender CC0 two-joint skin and animation round-trip; no character identity."""
+import argparse
+import hashlib
+import json
+import math
+from pathlib import Path
+import struct
+
+import bpy
+
+def source_times(g, root):
+    a = g["accessors"][g["animations"][0]["samplers"][0]["input"]]
+    view = g["bufferViews"][a["bufferView"]]
+    assert a["componentType"] == 5126 and a["type"] == "SCALAR"
+    raw = (root / g["buffers"][view["buffer"]]["uri"]).read_bytes()
+    times = struct.unpack_from("<" + str(a["count"]) + "f", raw, view.get("byteOffset", 0) + a.get("byteOffset", 0))
+    assert len(times) == 12 and all(math.isfinite(x) for x in times)
+    return min(times), max(times)
+
+def snapshot(frame):
+    bpy.context.scene.frame_set(frame)
+    bpy.context.view_layer.update()
+    meshes = sorted((obj for obj in bpy.data.objects if obj.type == "MESH" and any(mod.type=="ARMATURE" for mod in obj.modifiers) and len(obj.vertex_groups)>=2), key=lambda x:x.name)
+    rigs = [obj for obj in bpy.data.objects if obj.type == "ARMATURE"]
+    print("SIMPLE_SKIN_DIAGNOSTIC", json.dumps({
+        "object_types": [{"name":obj.name,"type":obj.type} for obj in bpy.data.objects],
+        "mesh_count":len(meshes),
+        "armatures":[{"name":obj.name,"bones":[bone.name for bone in obj.data.bones]} for obj in rigs],
+        "mesh_modifiers":[{"name":obj.name,"mods":[mod.type for mod in obj.modifiers],
+                          "vertex_groups":[group.name for group in obj.vertex_groups]} for obj in meshes],
+        "action_count":len(bpy.data.actions)
+    }),flush=True)
+    assert len(meshes)==1 and len(rigs)==1 and len(rigs[0].data.bones)>=2, "two-joint weighted skin not imported"
+    dep = bpy.context.evaluated_depsgraph_get()
+    obj = meshes[0].evaluated_get(dep)
+    mesh = obj.to_mesh()
+    try:
+        points = [tuple(float(v) for v in obj.matrix_world @ vertex.co) for vertex in mesh.vertices]
+    finally:
+        obj.to_mesh_clear()
+    assert len(points)==10
+    return points
+
+def max_delta(a,b):
+    assert len(a)==len(b)
+    return max(max(abs(x-y) for x,y in zip(av,bv)) for av,bv in zip(a,b))
+
+def main():
+    p=argparse.ArgumentParser()
+    p.add_argument("--source",required=True)
+    p.add_argument("--out",required=True)
+    args=p.parse_args()
+    src=Path(args.source).resolve();out=Path(args.out).resolve();out.mkdir(parents=True,exist_ok=True)
+    assert bpy.app.version>=(4,5,0)
+    assert "Creative Commons Zero v1.0 Universal" in (src/"README.md").read_text()
+    gltf=src/"SimpleSkin.gltf"
+    g=json.loads(gltf.read_text())
+    assert g["asset"]["version"]=="2.0" and len(g["skins"])==1 and len(g["skins"][0]["joints"])==2
+    assert len(g["animations"])==1
+    for b in g["buffers"]:
+        assert (src/b["uri"]).stat().st_size==b["byteLength"]
+    source_start,source_end=source_times(g,src)
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.context.scene.render.fps=24
+    assert "FINISHED" in bpy.ops.import_scene.gltf(filepath=str(gltf))
+    assert len(bpy.data.actions)>=1
+    action=bpy.data.actions[0]
+    af0,af1=tuple(float(x) for x in action.frame_range)
+    print("SKIN_ANIMATION_TIMING",json.dumps({"source_seconds":[source_start,source_end],
+        "blender_action_frames":[af0,af1],
+        "actions":[{"name":a.name,"frame_range":list(a.frame_range),"slots":len(a.slots)} for a in bpy.data.actions],
+        "animation_data":[{"name":obj.name,
+            "active_action":obj.animation_data.action.name if obj.animation_data and obj.animation_data.action else None,
+            "nla_tracks":[{"name":track.name,"mute":track.mute,"is_solo":track.is_solo,
+                           "strips":[{"action":strip.action.name if strip.action else None,"start":strip.frame_start,"end":strip.frame_end} for strip in track.strips]}
+                          for track in obj.animation_data.nla_tracks] if obj.animation_data else []}
+                         for obj in bpy.data.objects if obj.type=="ARMATURE"]}),flush=True)
+    assert af1>af0, "imported Blender action has no clock span"
+    frames=sorted(set(int(round(af0+(af1-af0)*step)) for step in [0,0.25,0.5,0.75,1]))
+    assert len(frames)>=4, "native Blender action too short"
+    original=[snapshot(f) for f in frames]
+    deltas=[max_delta(original[i-1],original[i]) for i in range(1,len(original))]
+    print("SKIN_ANIMATION_VERTEX_DELTAS",json.dumps({"frames":frames,"deltas":deltas}),flush=True)
+    assert max(deltas)>0.0001, "skin not deforming across native action timeline"
+    # Blender importer may add an Icosphere custom-bone visual helper. It is not
+    # a source mesh: retain only mesh objects with a genuine ARMATURE modifier.
+    skinned={obj for obj in bpy.data.objects if obj.type=="MESH" and any(m.type=="ARMATURE" for m in obj.modifiers)}
+    assert len(skinned)==1
+    for helper in list(bpy.data.objects):
+        if helper.type=="MESH" and helper not in skinned:
+            bpy.data.objects.remove(helper,do_unlink=True)
+    blend=out/"SimpleSkin.blend"
+    glb=out/"SimpleSkin.glb"
+    bpy.ops.wm.save_as_mainfile(filepath=str(blend))
+    assert "FINISHED" in bpy.ops.export_scene.gltf(filepath=str(glb),export_format="GLB",export_animations=True)
+    raw=glb.read_bytes()
+    assert raw[:4]==b"glTF" and struct.unpack_from("<I",raw,8)[0]==len(raw)
+    n=struct.unpack_from("<I",raw,12)[0]
+    exported=json.loads(raw[20:20+n])
+    assert len(exported.get("skins",[]))==1 and len(exported.get("animations",[]))>=1 and len(exported.get("meshes",[]))==1
+
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.context.scene.render.fps=24
+    assert "FINISHED" in bpy.ops.import_scene.gltf(filepath=str(glb))
+    assert len(bpy.data.actions)>=1
+    replay=[snapshot(f) for f in frames]
+    errors=[max_delta(a,b) for a,b in zip(original,replay)]
+    assert max(errors)<0.01, f"skinned mesh deform parity exceeded 0.01 units: {errors}"
+    sha=lambda f:hashlib.sha256(f.read_bytes()).hexdigest()
+    receipt={
+     "schema":"scp.real_cc0_skinned_roundtrip.v1",
+     "blender":bpy.app.version_string,
+     "source":"Khronos glTF-Sample-Assets SimpleSkin CC0 by Marco Hutter",
+     "upstream_commit":"8f492390ddc7a2ae221a1369ef560589cf8c70fb",
+     "source_sha256":sha(gltf),"blend_sha256":sha(blend),"glb_sha256":sha(glb),
+     "source_skin_joint_count":2,
+     "reimported_skin_count":len(exported["skins"]),
+     "reimported_animations":len(exported["animations"]),
+     "frames":frames,
+     "source_motion_delta":max(deltas),
+     "reimported_max_vertex_coordinate_error":max(errors),
+     "limitations":"2-bone original CC0 geometry, not a person, full-body rig, VMD/PMX, BVH or MMD parity"
+    }
+    (out/"receipt.json").write_text(json.dumps(receipt,indent=2)+"\n")
+    print(json.dumps(receipt,indent=2))
+if __name__=="__main__":main()

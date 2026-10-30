@@ -2,7 +2,10 @@ name: Anonymous provider metadata qualification (research-only)
 on:
   pull_request:
     paths:
-      - research/providers/**
+      - research/providers/main.go
+      - research/providers/main_test.go
+      - research/providers/go.mod
+      - research/providers/cmd/normalize/**
       - .github/workflows/provider-anon-qualification.yml
   workflow_dispatch:
 
@@ -11,6 +14,7 @@ permissions:
 
 jobs:
   credential-free-metadata:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.base.ref == 'main'
     name: Provider batch ${{ matrix.batch }} (no downloads)
     runs-on: ubuntu-latest
     timeout-minutes: 8
@@ -32,8 +36,8 @@ jobs:
           cache: false
       - name: Synthetic controls (no network)
         run: |
-          go test -race -count=1 ./...
-          go vet ./...
+          go test -race -count=1 . ./cmd/normalize
+          go vet . ./cmd/normalize
       - name: One bounded GET per provider, no secrets or asset downloads
         env:
           BATCH: ${{ matrix.batch }}

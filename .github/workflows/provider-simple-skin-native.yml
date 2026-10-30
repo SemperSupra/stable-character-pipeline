@@ -1,0 +1,61 @@
+name: Public CC0 two-joint native Blender skin qualification
+on:
+  pull_request:
+    paths:
+      - research/providers/cmd/simple-skin/**
+      - research/providers/qualification/blender_skin_cc0.py
+      - .github/workflows/provider-simple-skin-native.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-two-joint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: research/providers
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: research/providers/go.mod
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: ''
+      - name: Compile, vet and offline checks
+        run: |
+          set -euo pipefail
+          python -m py_compile qualification/blender_skin_cc0.py
+          go test -count=1 ./cmd/simple-skin
+          go vet ./cmd/simple-skin
+      - name: Download only pinned individually CC0 source geometry and animation
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          go run ./cmd/simple-skin -out reports/simple-skin
+      - name: Install pinned native Blender
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+      - name: Verify two-joint LBS animation and independent GLB reimport parity
+        timeout-minutes: 5
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          OMP_NUM_THREADS: '2'
+        run: |
+          set -euo pipefail
+          python -u qualification/blender_skin_cc0.py --source reports/simple-skin --out reports/skin-result
+      - name: Preserve actual native sample, editable Blender, GLB and receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-clean-cc0-two-bone-blender
+          path: research/providers/reports/
+          if-no-files-found: warn
+          retention-days: 14
