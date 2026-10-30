@@ -1,0 +1,42 @@
+name: W16-B public pinned IK comparison and third oracle
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16b/**'
+      - '.github/workflows/walk-w16b-independent-join.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  numerical-join:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Original independent W13 A/B + Python witness
+        run: |
+          set -euo pipefail
+          cd qualification/walk_w16b
+          go vet ./...
+          go test -race -count=1 ./...
+          go run . fixtures_w13a_pinned.json receipt.json
+          python3 independent_check.py fixtures_w13a_pinned.json receipt.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16b-source-${{ matrix.profile }}
+          path: qualification/walk_w16b/receipt.json
+          retention-days: 3
+          if-no-files-found: warn
