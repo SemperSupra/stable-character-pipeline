@@ -1,0 +1,87 @@
+name: Spatial W4i native source-annotated original 3D facial A/V
+on:
+  pull_request:
+    paths:
+      - 'qualification/spatial_w4h/**'
+      - 'qualification/spatial_w4i/**'
+      - '.github/workflows/spatial-w4i-viseme.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-render:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GO111MODULE: 'off'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source-clean native 3D workbench tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb libegl1 libgl1 libopengl0 libglx-mesa0 libosmesa6
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+      - name: Revalidate original typed source and export exact admitted packet
+        run: |
+          set -euo pipefail
+          cd qualification/spatial_w4h
+          go vet .
+          go test -race -count=1 .
+          mkdir -p "$GITHUB_WORKSPACE/native-av"
+          go run . -out "$GITHUB_WORKSPACE/native-av/typed_source_receipt.json" -packet-out "$GITHUB_WORKSPACE/native-av/annotation.json"
+      - name: Real native synthetic 3D jaw camera and lossless 48k A/V
+        run: |
+          set -euo pipefail
+          xvfb-run -a python -u qualification/spatial_w4i/native_viseme.py --packet native-av/annotation.json --out native-av
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spatial-w4i-native-viseme-av
+          path: native-av/
+          retention-days: 2
+          if-no-files-found: warn
+  independent-media:
+    needs: native-render
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require source-admitted native production
+        env:
+          PRODUCER: ${{ needs.native-render.result }}
+        run: test "$PRODUCER" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: spatial-w4i-native-viseme-av
+          path: original-output
+      - name: Independent source-clock, full real RGB pixel/PCM and geometric jaw observer
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 qualification/spatial_w4i/observe_viseme.py original-output result/w4i_viseme_observer.json
+          sha256sum result/w4i_viseme_observer.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spatial-w4i-viseme-independent-receipt
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
