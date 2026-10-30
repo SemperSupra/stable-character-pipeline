@@ -1,0 +1,41 @@
+name: Concept Sweep Synthetic Four-Shard Qualification
+on:
+  push:
+    branches:
+      - research/parallel-lexical-reps-20261030
+    paths:
+      - 'qualification/concept_sweep_pilot/**'
+      - '.github/workflows/concept-four-shard-synthetic.yml'
+  pull_request:
+    paths:
+      - 'qualification/concept_sweep_pilot/**'
+      - '.github/workflows/concept-four-shard-synthetic.yml'
+permissions:
+  contents: read
+jobs:
+  source-only:
+    name: "Synthetic-only ${{ matrix.shard }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [alpha, beta, gamma, delta]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run bounded no-network synthetic source validation
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/concept_sweep_pilot/parallel_pilot.py
+          python3 qualification/concept_sweep_pilot/parallel_pilot.py --shard "${{ matrix.shard }}" --out "out/${{ matrix.shard }}.json"
+          python3 qualification/concept_sweep_pilot/public_source_contracts.py --shard "${{ matrix.shard }}" --out "out/contracts-${{ matrix.shard }}.json"
+      - name: Retain source-only receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "concept-sweep-synthetic-${{ matrix.shard }}"
+          path: out/
+          if-no-files-found: warn
+          retention-days: 1
