@@ -1,0 +1,59 @@
+name: W6 E3 actual rendered source AV 24fps PCM 48k
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w6e3/**'
+      - '.github/workflows/walk-w6e3-source-av.yml'
+permissions:
+  contents: read
+jobs:
+  actual-multiview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Native original 24f grounded synthetic multiview and 24fps FFV1 48k PCM crosswalk
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          mkdir -p "w6e3-$PROFILE"
+          python qualification/walk_w16c4/ground_feasibility.py --profile "$PROFILE" --out "w6e3-$PROFILE"
+          xvfb-run -a python qualification/walk_w6body/render.py --profile "$PROFILE" --source "w6e3-$PROFILE/source.json" --out "w6e3-$PROFILE"
+          python qualification/walk_w6body/pixel_reader.py "w6e3-$PROFILE"
+          python qualification/walk_w6e3/clock_audio.py --folder "w6e3-$PROFILE" --profile "$PROFILE"
+          for VIEW in front oblique; do
+            ffmpeg -hide_banner -loglevel error -y -i "w6e3-$PROFILE/original_${VIEW}_surrogate.mp4" -i "w6e3-$PROFILE/original_48k_synthetic_clock.wav" -vf fps=24 -c:v ffv1 -pix_fmt yuv420p -c:a pcm_s16le -map 0:v:0 -map 1:a:0 -f nut -shortest "w6e3-$PROFILE/actual_${VIEW}_source_AV.nut"
+          done
+          python qualification/walk_w6e3/independent_av.py "w6e3-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w6e3-actual-source-av-${{ matrix.profile }}
+          path: |
+            w6e3-${{ matrix.profile }}/source.json
+            w6e3-${{ matrix.profile }}/multiview_render_receipt.json
+            w6e3-${{ matrix.profile }}/original_front_surrogate.mp4
+            w6e3-${{ matrix.profile }}/original_oblique_surrogate.mp4
+            w6e3-${{ matrix.profile }}/original_48k_synthetic_clock.wav
+            w6e3-${{ matrix.profile }}/original_48k_clock_manifest.json
+            w6e3-${{ matrix.profile }}/actual_front_source_AV.nut
+            w6e3-${{ matrix.profile }}/actual_oblique_source_AV.nut
+            w6e3-${{ matrix.profile }}/third_actual_multiview_av_receipt.json
+          retention-days: 3
+          if-no-files-found: warn
