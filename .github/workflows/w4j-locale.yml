@@ -1,0 +1,35 @@
+name: W4j C2 source annotated trilingual viseme cues
+on:
+  pull_request:
+    paths:
+      - qualification/spatial_w4j_locale/**
+      - .github/workflows/w4j-locale.yml
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s qualification/spatial_w4j_locale -p test_annotate.py -v
+      - run: python3 qualification/spatial_w4j_locale/annotate.py original-locale-packets.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: w4j-manual-language-cues
+          path: original-locale-packets.json
+          retention-days: 2
+  observer:
+    needs: source
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4j-manual-language-cues
+          path: results
+      - run: python3 qualification/spatial_w4j_locale/independent.py results/original-locale-packets.json result.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: w4j-independent-language-clock
+          path: result.json
+          retention-days: 3
