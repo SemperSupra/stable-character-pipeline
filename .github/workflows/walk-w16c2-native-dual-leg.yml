@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           export W15_GLB="$GITHUB_WORKSPACE/w16c2-$PROFILE/original_two_actors_dual_leg.glb"
           export W15_TMP="$RUNNER_TEMP"
-          (cd qualification/walk_w15 && python -m unittest -v test_glb_reader)
+          (cd qualification/walk_w16c2 && python -m unittest -v test_dual_leg_reader)
           python qualification/walk_w15/pure_glb_reader.py --glb "$W15_GLB" --truth "w16c2-$PROFILE/native_source_vertex_truth.json" --out "w16c2-$PROFILE/third_gltf_vertex_receipt.json"
           python qualification/walk_w16c2/verify.py "w16c2-$PROFILE"
       - uses: actions/upload-artifact@v4
