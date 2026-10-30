@@ -15,7 +15,9 @@ class Independent(unittest.TestCase):
    solve((0.,0.,1.4),(0.,0.,0.),(.25,.35,1.0))
  def test_false_planted_slip(self):
   s=original("forward")
-  s["actors"][0]["frames"][1]["legs"][0]["ankle"]=(0.,1.,0.)
+  leg=s["actors"][0]["frames"][1]["legs"][0]
+  leg["ankle"]=(leg["ankle"][0],leg["ankle"][1]+.01,leg["ankle"][2])
+  leg["knee"]=solve(leg["hip"],leg["ankle"],leg["pole"])
   with self.assertRaisesRegex(ValueError,"STANCE_ANCHOR|PLANTED_SLIP"):verify(s)
  def test_false_stance_hover(self):
   s=original("forward")
