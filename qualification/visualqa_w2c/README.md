@@ -1,0 +1,7 @@
+# VisualQA W2C — non-promoting evidence reconciliation
+
+Independent research-only Go 1.23 stdlib workcell. Authority: public VisualQA DLE #150, stacked on draft #152 at exact source head cb8de12d929ed5e118b1fef0d835132ecf6deb2c. It consumes actual source-bound JSON receipts for the original native Blender renderer, decoded H264 L1, independent Go rig L2, pinned CPU pose L3, plus W2A and W2B research receipts. Missing evidence causes UNKNOWN, integrity/rights violations or hard quality failures cause FAIL. A source-authored rig mathematical PASS cannot override an actual pixel FAIL. No combination creates a human-anatomical PASS or release approval.
+
+Go tests exercise forged L3 hashes, wrong rights, missing witnesses, L1 freeze veto, L2 geometric failure, zero-pose abstention, and deterministic receipts. Public zero-cost GitHub Actions CPU only. JSON/CLI exit codes: 2 FAIL, 3 UNKNOWN, no quality-release success code in this research phase. Independent native smoke tests qualify the acceptance contract, not production. No merges/releases/deployment/private characters/CPE promotions.
+
+Source and compact test receipts: draft Git and DLE. Full binaries and contact sheets: owner-private Google Drive after full-byte SHA verification if explicitly retained. Next integration requires independent rights/runner admission and independently calibrated human anatomy, sole-contact and multi-view image-to-geometry evidence; this gate cannot promote itself.
