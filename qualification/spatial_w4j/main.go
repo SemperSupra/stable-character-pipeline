@@ -70,7 +70,6 @@ func main(){
  if len(os.Args)!=3||os.Args[1]!="toy"&&os.Args[1]!="native"{panic("usage: w4j toy|native output.json")}
  profile:=os.Args[1];r,e:=classify(fixtures(profile));if e!=nil{panic(e)}
  b,e:=json.MarshalIndent(r,"","  ");if e!=nil{panic(e)}
- if e=os.WriteFile(os.Args[2],append(b,'
-'),0644);e!=nil{panic(e)}
+ if e=os.WriteFile(os.Args[2],append(b,byte(10)),0644);e!=nil{panic(e)}
  fmt.Println("W4J_A2_CONTACT_TO_SAMPLE",profile,r.Status,len(r.Events))
 }
