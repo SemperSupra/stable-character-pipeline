@@ -22,6 +22,14 @@ def snapshot(frame):
     bpy.context.view_layer.update()
     meshes = sorted((obj for obj in bpy.data.objects if obj.type == "MESH"), key=lambda x:x.name)
     rigs = [obj for obj in bpy.data.objects if obj.type == "ARMATURE"]
+    print("SIMPLE_SKIN_DIAGNOSTIC", json.dumps({
+        "object_types": [{"name":obj.name,"type":obj.type} for obj in bpy.data.objects],
+        "mesh_count":len(meshes),
+        "armatures":[{"name":obj.name,"bones":[bone.name for bone in obj.data.bones]} for obj in rigs],
+        "mesh_modifiers":[{"name":obj.name,"mods":[mod.type for mod in obj.modifiers],
+                          "vertex_groups":[group.name for group in obj.vertex_groups]} for obj in meshes],
+        "action_count":len(bpy.data.actions)
+    }),flush=True)
     assert len(meshes)==1 and len(rigs)==1 and len(rigs[0].data.bones)>=2, "genuine joint skin not imported"
     dep = bpy.context.evaluated_depsgraph_get()
     obj = meshes[0].evaluated_get(dep)
