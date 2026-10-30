@@ -1,0 +1,123 @@
+name: VisualQA V1 independent public rendered frame + knee admission
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa/**'
+      - '.github/workflows/visualqa-v1.yml'
+permissions:
+  contents: read
+concurrency:
+  group: visualqa-v1-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-kinematics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: qualification/visualqa/go.mod
+      - name: Independent source-hostile kinematics negatives
+        working-directory: qualification/visualqa
+        run: |
+          set -euo pipefail
+          go test -count=1 -race ./...
+          go vet ./...
+  rendered-video:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: qualification/visualqa/go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Native original two-actor Blender/H264 source
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m unittest discover -s qualification/visualqa -p 'test_qa_video.py' -v
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "visualqa-$PROFILE"
+      - name: Independently observe ACTUAL native evaluated bone coordinates
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          xvfb-run -a python qualification/visualqa/probe_blend.py --blend "visualqa-$PROFILE/original_two_actors_dual_leg.blend" --out "visualqa-$PROFILE/pose_observed.json"
+      - name: Enforce independently authored rest-pole geometry witness
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          (cd qualification/visualqa && go test -count=1 ./...)
+          (cd qualification/visualqa && go run . --input "../../visualqa-$PROFILE/pose_observed.json" --source "../../visualqa-$PROFILE/original_two_actors_dual_leg.blend") > "visualqa-$PROFILE/knee_report.json"
+      - name: Independently decode ACTUAL output pixels and build contact sheet
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python qualification/visualqa/qa_video.py --video "visualqa-$PROFILE/original_two_actors_dual_leg_preview.mp4" --out "visualqa-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-v1-original-${{ matrix.profile }}
+          path: visualqa-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
+
+  vision-research:
+    # Even a failed L1 pixel gate must be observed by the independent model.
+    if: ${{ always() && !cancelled() }}
+    needs: rendered-video
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Obtain public original exact-run video artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: visualqa-v1-original-${{ matrix.profile }}
+          path: visualqa-${{ matrix.profile }}
+      - name: Pinned CPU image model actual rendered-frame observations — research only
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'mediapipe==0.10.32'
+          python qualification/visualqa/vision_pose.py --video "visualqa-$PROFILE/original_two_actors_dual_leg_preview.mp4" --native-receipt "visualqa-$PROFILE/native_dual_leg_receipt.json" --out "visualqa-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-v1-l3-research-${{ matrix.profile }}
+          path: visualqa-${{ matrix.profile }}/l3_model_observations.json
+          retention-days: 3
+          if-no-files-found: warn
