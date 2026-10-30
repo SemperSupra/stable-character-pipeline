@@ -29,6 +29,22 @@ jobs:
           xvfb-run -a python qualification/rom_fmt_blender/export_glb.py --out romfmt-native-export
           xvfb-run -a python qualification/rom_fmt_blender/import_glb.py --glb romfmt-native-export/original_annotated_skin.glb --source-receipt romfmt-native-export/blender_glb_export_receipt.json --out romfmt-native-export/blender_glb_reimport_receipt.json
           xvfb-run -a python qualification/rom_fmt_blender/rebind_after_import.py --glb romfmt-native-export/original_annotated_skin.glb --source-receipt romfmt-native-export/blender_glb_export_receipt.json --out romfmt-native-export
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: qualification/rom_v1/go.mod
+      - name: Independently observe actual restored evaluated joint and run Go ROM guard
+        run: |
+          set -euo pipefail
+          xvfb-run -a python qualification/rom_fmt_blender/w5a_pose_to_go.py --out romfmt-native-export
+          go -C qualification/rom_v1 test -race -count=1 ./...
+          go -C qualification/rom_v1 build -o "$RUNNER_TEMP/rom-v1" .
+          "$RUNNER_TEMP/rom-v1" --input romfmt-native-export/w5a_evaluated_poses_go.json --source romfmt-native-export/original_imported_rebound_limits.blend --out romfmt-native-export/w5a_go_real_pose_result.json
+          set +e
+          "$RUNNER_TEMP/rom-v1" --input romfmt-native-export/w5a_unconstrained_bad_go.json --source romfmt-native-export/original_imported_rebound_limits.blend --out romfmt-native-export/w5a_go_hostile_result.json
+          code=$?
+          set -e
+          test "$code" -eq 2
+          python -c 'import json;good=json.load(open("romfmt-native-export/w5a_go_real_pose_result.json"));bad=json.load(open("romfmt-native-export/w5a_go_hostile_result.json"));assert good["status"]=="PASS_SYNTHETIC_SCALAR_LIMITS_ONLY";assert bad["status"]=="FAIL";assert any(f["code"]=="HARD_ROM_VIOLATION" for f in bad["findings"]);print("W5A_ACTUAL_BPY_JOINT_TO_GO_PASS_VS_HOSTILE_FAIL")'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
