@@ -20,7 +20,7 @@ def source_times(g, root):
 def snapshot(frame):
     bpy.context.scene.frame_set(frame)
     bpy.context.view_layer.update()
-    meshes = sorted((obj for obj in bpy.data.objects if obj.type == "MESH"), key=lambda x:x.name)
+    meshes = sorted((obj for obj in bpy.data.objects if obj.type == "MESH" and any(mod.type=="ARMATURE" for mod in obj.modifiers) and len(obj.vertex_groups)>=2), key=lambda x:x.name)
     rigs = [obj for obj in bpy.data.objects if obj.type == "ARMATURE"]
     print("SIMPLE_SKIN_DIAGNOSTIC", json.dumps({
         "object_types": [{"name":obj.name,"type":obj.type} for obj in bpy.data.objects],
@@ -30,7 +30,7 @@ def snapshot(frame):
                           "vertex_groups":[group.name for group in obj.vertex_groups]} for obj in meshes],
         "action_count":len(bpy.data.actions)
     }),flush=True)
-    assert len(meshes)==1 and len(rigs)==1 and len(rigs[0].data.bones)>=2, "genuine joint skin not imported"
+    assert len(meshes)==1 and len(rigs)==1 and len(rigs[0].data.bones)>=2, "two-joint weighted skin not imported"
     dep = bpy.context.evaluated_depsgraph_get()
     obj = meshes[0].evaluated_get(dep)
     mesh = obj.to_mesh()
@@ -69,6 +69,13 @@ def main():
     assert len(bpy.data.actions)>=1
     original=[snapshot(f) for f in frames]
     assert max_delta(original[0],original[1])>0.0001 or max_delta(original[1],original[2])>0.0001, "skin not deforming"
+    # Blender importer may add an Icosphere custom-bone visual helper. It is not
+    # a source mesh: retain only mesh objects with a genuine ARMATURE modifier.
+    skinned={obj for obj in bpy.data.objects if obj.type=="MESH" and any(m.type=="ARMATURE" for m in obj.modifiers)}
+    assert len(skinned)==1
+    for helper in list(bpy.data.objects):
+        if helper.type=="MESH" and helper not in skinned:
+            bpy.data.objects.remove(helper,do_unlink=True)
     blend=out/"SimpleSkin.blend"
     glb=out/"SimpleSkin.glb"
     bpy.ops.wm.save_as_mainfile(filepath=str(blend))
