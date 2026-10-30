@@ -44,6 +44,12 @@ class LivenessTests(unittest.TestCase):
         self.assertEqual(out["moving_skin_actors"],[0,1])
         self.assertEqual(out["status"],"PASS_SYNTHETIC_GLB_24FRAME_LOWER_BONE_LIVENESS_ONLY")
         self.assertEqual(out["human_anatomy"],"UNKNOWN_UNAPPROVED")
+    def test_source_grounded_schema_still_only_qualifies_animation_liveness(self):
+        d,b,r=fixture()
+        r["schema"]="scp.walk_w5d_native_grounded.v1"
+        output=liveness(d,b,r)
+        self.assertEqual(output["status"],"PASS_SYNTHETIC_GLB_24FRAME_LOWER_BONE_LIVENESS_ONLY")
+        self.assertEqual(output["sole_contact"],"UNKNOWN_UNVALIDATED")
     def test_false_animation_objects_with_one_timestamp_abstain(self):
         d,b,r=fixture()
         for a in d["accessors"]:a["count"]=1
