@@ -1,0 +1,44 @@
+name: W4j source sole sensor qualification
+on:
+  pull_request:
+    paths:
+      - qualification/spatial_w4j/**
+      - .github/workflows/w4j-sole.yml
+permissions:
+  contents: read
+jobs:
+  producer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Native source checks
+        run: |
+          cd qualification/spatial_w4j
+          GO111MODULE=off go vet .
+          GO111MODULE=off go test -race -count=1 .
+          mkdir -p ../../receipts
+          GO111MODULE=off go run . toy ../../receipts/toy.json
+          GO111MODULE=off go run . native ../../receipts/native.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: w4j-source
+          path: receipts/
+          retention-days: 2
+  observer:
+    needs: producer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4j-source
+          path: receipts
+      - run: python3 qualification/spatial_w4j/observe.py receipts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: w4j-independent
+          path: receipts/independent.json
+          retention-days: 3
