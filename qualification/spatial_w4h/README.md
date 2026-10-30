@@ -1,0 +1,7 @@
+# W4h public annotated event/viseme shared 48k presentation timeline
+
+Authority: public spatial DLE #39 and W16 source-neutral walking DLE #84. Independent source-clean research-only workcell; not a change to either baseline. One original right-cleared synthetic typed event source across nine dialogue/phoneme/viseme/expression/gesture/camera/foot cues, exact integer PCM48k sample intervals and 24/30/30000/1001 rational frame locator. Explicit externally annotated vs inferred origin; inference cannot enter ground_truth. Synthetic source only.
+
+Execute from this directory: `GO111MODULE=off go vet .`; `GO111MODULE=off go test -race -count=1 -v .`; `GO111MODULE=off go run . -out receipt.json`; `python3 observe.py receipt.json`. Separate hosted producer and independent source-clock observer. Go rejects 26 mutation controls including clock/right/overlap/NaN and strict JSON unknown/trailing/duplicate keys. PoseAt is a deterministic linear interpolation bounded by discontinuities, not muscle motion estimation.
+
+**Qualification limits:** This is annotated source-to-48k-scene timeline only. It does not render source PCM, video, viseme geometry, Blender, infer speech, assess emotion, or prove perceptual alignment. No private voices, people or source rights disclosed. Source and small numerical receipts belong Git/DLE; any actual complete future media belongs private byte store and requires independent rehydrate+SHA before durable claim. EN/DE/TH UI text is a separate acceptance. No merge, release, deploy, source-promotion or paid runner authorized.
