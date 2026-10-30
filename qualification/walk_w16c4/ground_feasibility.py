@@ -47,14 +47,15 @@ def original(profile):
     phase=(i+offset)%12
     stance=phase<6
     # Canonical anchor ties all stance frames to one physical ground point.
-    cycle=(i+offset)//12
-    anchor_y=direction*.16*(max(0,cycle*12-offset)/23)
+    cycle_start=i-phase
+    anchor_y=direction*.16*cycle_start/23
+    next_anchor=direction*.16*(cycle_start+12)/23
     if stance:
      ay=anchor_y;z=0.
     else:
-     u=(phase-6)/6
-     ay=anchor_y+direction*.16*u
-     z=.055*math.sin(math.pi*u)+.025
+     u=(phase-6+1)/6
+     ay=anchor_y+(next_anchor-anchor_y)*u
+     z=.045*math.sin(math.pi*u)+.025
     hip=(x+sign*.22,root_y,HIP_Z)
     ankle=(hip[0],ay,z)
     pole=(hip[0]+sign*.25,hip[1]+direction*.36,hip[2]-.4)
@@ -82,7 +83,7 @@ def verify(p):
  min_clear=math.inf;max_stance_drift=0.;stance_count=0;swing_count=0
  for a in p["actors"]:
   if len(a["frames"])!=24:raise ValueError("C4_FRAME_COUNT")
-  previous={}
+  previous={};prior_any={};max_frame_step=0.
   for i,f in enumerate(a["frames"]):
    if (f["index"],f["time_num"],f["time_den"])!=(i,i,12):raise ValueError("C4_CLOCK")
    if len(f["legs"])!=2:raise ValueError("C4_LEG_COUNT")
@@ -94,6 +95,11 @@ def verify(p):
      if len(v)!=3 or any(not math.isfinite(x) for x in v):raise ValueError("C4_NONFINITE")
     if abs(length(sub(leg["hip"],leg["knee"]))-THIGH)>1e-8 or abs(length(sub(leg["ankle"],leg["knee"]))-SHIN)>1e-8:
      raise ValueError("C4_BONE_FK")
+    if leg["id"] in prior_any:
+     step=length(sub(leg["ankle"],prior_any[leg["id"]]))
+     max_frame_step=max(max_frame_step,step)
+     if step>.045:raise ValueError("C4_ABRUPT_FOOT_JUMP")
+    prior_any[leg["id"]]=leg["ankle"]
     min_clear=min(min_clear,leg["heel"][2],leg["toe"][2])
     if min(leg["heel"][2],leg["toe"][2]) < -GROUND_TOL:raise ValueError("C4_GROUND_PENETRATION")
     if leg["state"]=="stance":
@@ -118,6 +124,7 @@ def verify(p):
   "actors":2,"source_frames":24,"legs":4,"stance_samples":stance_count,
   "swing_samples":swing_count,"min_sole_z":min_clear,
   "max_source_stance_drift":max_stance_drift,
+  "max_frame_ankle_step":max_frame_step,
   "current_C3_native_hip_height":1.4,"current_C3_native_max_leg_reach":1.2,
   "current_C3_can_reach_ground_with_this_rest":False,
   "native_skinning":"NOT_BUILT_NOT_ADMITTED",
