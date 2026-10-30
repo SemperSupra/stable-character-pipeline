@@ -1,0 +1,71 @@
+name: VisualQA W2B - Independent weighted 3D projection versus real H264 pixels
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w2b/**'
+      - '.github/workflows/visualqa-w2b-projection.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Native encoded image/camera malicious controls
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+          python -m unittest discover -s qualification/visualqa_w2b -p 'test_projection.py' -v
+  source-render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Native 72-frame source-original two-actor weighted preview
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "w2b-$PROFILE"
+      - name: Independently observe Blender actual mesh camera projection
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          xvfb-run -a python qualification/visualqa_w2b/probe_projection.py --blend "w2b-$PROFILE/original_two_actors_dual_leg.blend" --video "w2b-$PROFILE/original_two_actors_dual_leg_preview.mp4" --native "w2b-$PROFILE/native_dual_leg_receipt.json" --out "w2b-$PROFILE/source_camera_projection.json"
+      - name: Independently calculate camera, decode H264 pixels and observe silhouette agreement
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python qualification/visualqa_w2b/projection.py --manifest "w2b-$PROFILE/source_camera_projection.json" --video "w2b-$PROFILE/original_two_actors_dual_leg_preview.mp4" --native "w2b-$PROFILE/native_dual_leg_receipt.json" --out "w2b-$PROFILE/w2b_projection.json"
+          python -c 'import json,sys;r=json.load(open(sys.argv[1]));assert r["release_acceptance"]=="NOT_ACCEPTED_RESEARCH_ONLY";print("W2B_IMAGE_GEOMETRY_RESEARCH_NOT_ANATOMY_PASS",r["status"])' "w2b-$PROFILE/w2b_projection.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-w2b-original-${{ matrix.profile }}
+          path: w2b-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
