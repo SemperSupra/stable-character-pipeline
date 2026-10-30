@@ -1,0 +1,9 @@
+# W4j-A2: source-owned toy sole → 48k synthetic Foley events / real W16-D3 abstention
+
+This *does not* claim contact in walking W16-D3. W16-D3 [#144] independently measured its native two-leg mesh minimum clearance at **0.2700000107 source-scene units**, with zero source-authorized heel/toe/sole ownership. That source is therefore mapped to `NATIVE_UNLABELED_MESH` and emits **ABSTAIN / no events**, even though other geometric witnesses passed. Reject fabricated heel/toe fields from this native evidence.
+
+A completely **separate self-authored artificial sole toy** has explicit synthetic heel/toe landmarks, Z-up ground, 12 fps and 48 kHz. Two transitions [frames 1,4] map exactly to [4000,16000] audio samples; these are typed event markers, **not actual Foley audio, ground contact force, or anatomical gait**. Frozen synthetic ground <=1e-4 and stance slip <=1e-3 source units. Fifteen hostile mutations and independent Python frame/clock observer reject rights, bad provenance, clock substitution, penetration, stance sliding, missing frames and source confusion.
+
+Sequential remaining: obtain explicit owner/source-approved anatomical sole mapping → extract native skinned heel/toe world geometry → prove planted/impact events against actual GLB with independent geometry/clock → render real contact-triggered audio and decoded PCM pixels. Current source evidence does **not** authorize that step for real/private characters.
+
+Public source/tests/numeric receipts in Git/DLE. Large original synthetic media research archives in private Drive after complete independent SHA readback. No real identity, private rig, merges, release, CPE promotion, deployment, paid runners or source-ownership override.
