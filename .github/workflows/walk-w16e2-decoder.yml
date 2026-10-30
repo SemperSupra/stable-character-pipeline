@@ -27,7 +27,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
           python3 -m unittest discover -s qualification/walk_w16e2 -p 'test_*.py' -v
           python3 qualification/walk_w16e2/source.py --out "w16e2-$PROFILE" --profile "$PROFILE"
-          ffmpeg -hide_banner -loglevel error -y -framerate 24 -start_number 0 -i "w16e2-$PROFILE/frame_%03d.ppm" -i "w16e2-$PROFILE/source_48k_mono.wav" -c:v ffv1 -c:a pcm_s16le -map 0:v:0 -map 1:a:0 -shortest "w16e2-$PROFILE/original_mux.mkv"
+          ffmpeg -hide_banner -loglevel error -y -framerate 24 -start_number 0 -i "w16e2-$PROFILE/frame_%03d.ppm" -i "w16e2-$PROFILE/source_48k_mono.wav" -c:v ffv1 -c:a pcm_s16le -map 0:v:0 -map 1:a:0 -shortest "w16e2-$PROFILE/original_mux.nut"
           python3 qualification/walk_w16e2/independent_decode.py --folder "w16e2-$PROFILE"
       - uses: actions/upload-artifact@v4
         if: always()
