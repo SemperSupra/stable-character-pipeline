@@ -57,7 +57,8 @@ func judge(in Input) Decision {
  data:=map[string][]byte{"native":in.Native,"l1":in.L1,"l2":in.L2,
                          "l3":in.L3,"w2a":in.W2A,"w2b":in.W2B}
  parsed:=map[string]map[string]any{}
- for k,b:=range data{
+ for _,k:=range []string{"native","l1","l2","l3","w2a","w2b"} {
+  b:=data[k]
   if len(b)==0 {unknown=append(unknown,"MISSING_"+strings.ToUpper(k));continue}
   sum:=sha256.Sum256(b);d.Receipts[k]=hex.EncodeToString(sum[:])
   m,err:=readMap(b)
