@@ -27,6 +27,8 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
           command -v ffmpeg
           command -v ffprobe
       - name: Reuse W14 original weighted 3D source instead of duplicate rig
@@ -70,6 +72,8 @@ jobs:
       - name: Separate actual lossless 72-frame camera video + PCM event sample oracle
         run: |
           set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
           command -v ffmpeg
           command -v ffprobe
           mkdir -p result
