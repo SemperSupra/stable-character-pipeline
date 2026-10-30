@@ -1,0 +1,143 @@
+{
+  "schema": "scp.rom.provenance_atlas.v1",
+  "authority_issue": 170,
+  "scope": "SOURCE-ONLY RESEARCH_NOT_AUTHORIZED_ROM_VALUES",
+  "design_version": "2026-10-30",
+  "record_policy": "No numeric human or animal ROM values are admitted from an article title or abstract; joint-specific numeric values require source units/frame, population, context, rights and independent review.",
+  "records": [
+    {
+      "id": "human-jcs-2002",
+      "domain": "human",
+      "scope": "ankle,hip,spine",
+      "source": "https://pubmed.ncbi.nlm.nih.gov/11934426/",
+      "claim": "standardized anatomical joint coordinate system",
+      "limit_values": null,
+      "readiness": "FRAME_CONVENTION_REFERENCE_ONLY"
+    },
+    {
+      "id": "human-jcs-2005",
+      "domain": "human",
+      "scope": "shoulder,elbow,wrist,hand",
+      "source": "https://pubmed.ncbi.nlm.nih.gov/15844264/",
+      "claim": "standardized anatomical joint coordinate system",
+      "limit_values": null,
+      "readiness": "FRAME_CONVENTION_REFERENCE_ONLY"
+    },
+    {
+      "id": "human-opensim-coupling",
+      "domain": "human",
+      "scope": "nonlinear joint coordinates, knee coupled translation and rotation",
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4397580/",
+      "claim": "custom joints and splined coupled translations possible",
+      "limit_values": null,
+      "readiness": "PRIMITIVE_REFERENCE_NOT_BIOLOGICAL_ADMISSION"
+    },
+    {
+      "id": "dog-anatolian-goniometry",
+      "domain": "animal",
+      "taxon": "Canis lupus familiaris",
+      "cohort": "Anatolian shepherd dogs",
+      "scope": "shoulder,elbow,carpus,hip,stifle,tarsus",
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13192051/",
+      "claim": "measurement technique and observer variability depend on joint; sedation and population matter",
+      "limit_values": null,
+      "readiness": "REQUIRES_FULL_METHOD_TABLE_EXTRACTION_RIGHTS_AND_FRAME_REVIEW"
+    },
+    {
+      "id": "horse-markerless-opensim",
+      "domain": "animal",
+      "taxon": "Equus caballus",
+      "scope": "23 joints,35 rotational degrees of freedom reported in study model",
+      "source": "https://www.mdpi.com/2076-2615/15/15/2281",
+      "claim": "published equine OpenSim model with physiological ranges where sourced, otherwise model assumptions",
+      "limit_values": null,
+      "readiness": "REQUIRES_MODEL_LICENSE_SOURCE_AND_CONTEXT_REVIEW"
+    },
+    {
+      "id": "horse-stifle-3d",
+      "domain": "animal",
+      "taxon": "Equus caballus",
+      "scope": "stifle flexion and coupled rotation/abduction",
+      "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3864602/",
+      "claim": "stifle moves with coupled axial rotation and frontal plane displacement",
+      "limit_values": null,
+      "readiness": "COUPLED_FRAME_REQUIRED_NOT_ONE_HINGE"
+    },
+    {
+      "id": "horse-reciprocal-apparatus",
+      "domain": "animal",
+      "taxon": "Equus caballus",
+      "scope": "stifle-hock",
+      "source": "https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1439-0264.1983.tb01019.x",
+      "claim": "coupled motion is not perfectly congruent",
+      "limit_values": null,
+      "readiness": "NONLINEAR_COUPLING_OR_TOLERANCE_REQUIRES_SOURCE"
+    },
+    {
+      "id": "avian-knee-ankle-homology",
+      "domain": "animal",
+      "taxon": "Aves",
+      "scope": "true knee,intertarsal ankle and toes",
+      "source": "https://www.birds-online.de/wp/en/birds-online-english/health-and-diseases/general-health-topics/bird-anatomy/leg-and-foot/",
+      "claim": "visually backwards-looking joint often ankle not knee",
+      "limit_values": null,
+      "readiness": "TOPOLOGY_REFERENCE_NOT_ROM_VALUES"
+    },
+    {
+      "id": "ros-joint-limits",
+      "domain": "machine",
+      "scope": "revolute/prismatic;soft limits;velocity;effort",
+      "source": "https://ros-industrial.github.io/ros2_i_training/_source/urdf/introduction.html",
+      "claim": "URDF hard/soft limits plus mimic and dynamics schema",
+      "limit_values": null,
+      "readiness": "ADAPTER_SPEC_ONLY"
+    },
+    {
+      "id": "ros-limits-interface",
+      "domain": "machine",
+      "scope": "position,velocity,acceleration,jerk,effort",
+      "source": "https://index.ros.org/p/joint_limits_interface/",
+      "claim": "representation of position/velocity/acceleration/jerk/effort and soft ranges",
+      "limit_values": null,
+      "readiness": "ADAPTER_SPEC_ONLY"
+    },
+    {
+      "id": "mujoco-equality-and-dynamics",
+      "domain": "machine",
+      "scope": "couplings and force limits",
+      "source": "https://mujoco.readthedocs.io/en/stable/computation.html",
+      "claim": "equations of motion and constraint reaction forces",
+      "limit_values": null,
+      "readiness": "DYNAMIC_PROOF_FUTURE"
+    },
+    {
+      "id": "opensim-rom-caution",
+      "domain": "human",
+      "scope": "model independent ROM range",
+      "source": "https://opensimconfluence.atlassian.net/wiki/spaces/OpenSim/pages/53090621/Preparing+a+Model+for+Analysis",
+      "claim": "ROM adjustments must remain faithful to model validity range",
+      "limit_values": null,
+      "readiness": "OWNER_REVIEW_REQUIRED"
+    }
+  ],
+  "acceptance_policy": {
+    "required_fields": [
+      "taxon_or_mechanism",
+      "joint_anatomical_identity",
+      "axis_coordinate_system",
+      "units",
+      "sign",
+      "parent_child_bones",
+      "position_limits",
+      "loading_context",
+      "active_passive_rom",
+      "evidence_reference",
+      "cohort_age_breed_or_model",
+      "data_license",
+      "model_version",
+      "independent_review"
+    ],
+    "default_status": "UNKNOWN_PROVENANCE_PENDING",
+    "never_use_as": "release approval or public/private biological authenticity"
+  }
+}
