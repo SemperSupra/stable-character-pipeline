@@ -38,7 +38,9 @@ func TestHostileGeometryFails(t *testing.T){
   {"occluded_actor","CAMERA_FRUSTUM_OR_ACTOR_OCCLUSION",func(t *Trace){
     for j:=0;j<3;j++{
       near:=t.Actors[0].Frames[j].Root
-      t.Actors[1].Frames[j].Root=V{near[0],near[1],near[2]+3}
+      near[0]=0 // make occluder EXACTLY collinear with camera ray, not only same world X
+      t.Actors[0].Frames[j].Root=near
+      t.Actors[1].Frames[j].Root=V{0,near[1],near[2]+3}
     }
   }},
   {"behind_camera","CAMERA_FRUSTUM_OR_ACTOR_OCCLUSION",func(t *Trace){
