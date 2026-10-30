@@ -15,23 +15,34 @@ FPS=12
 
 
 def analytic_ik(start,end,pole,u=.60,l=.60):
-    """Original 3D two-segment geometric source target; not private or calibrated."""
-    forward=end-start
-    d=forward.length
+    """Original double-precision analytic 3D two-link solve.
+
+    Blender mathutils Vector is float32: using it for the 1e-8 analytic
+    segment invariant creates an artificial pre-export red. Evaluate source
+    geometry in Python float64, then convert once to Blender Vector. Native
+    bone tails are independently checked against the fixed 1e-3 gate.
+    """
+    a=tuple(float(x) for x in start)
+    b=tuple(float(x) for x in end)
+    po=tuple(float(x) for x in pole)
+    direction=tuple(b[i]-a[i] for i in range(3))
+    d=math.sqrt(math.fsum(x*x for x in direction))
     if not (abs(u-l)+1e-8<d<u+l-1e-8):
         raise ValueError("W16C_TARGET_OUTSIDE_STRICT_REACH")
-    axis=forward/d
-    p=pole-start
-    p=p-axis*p.dot(axis)
-    if p.length<1e-8:
-        raise ValueError("W16C_DEGENERATE_POLE")
-    p.normalize()
+    axis=tuple(x/d for x in direction)
+    polevec=tuple(po[i]-a[i] for i in range(3))
+    parallel=math.fsum(polevec[i]*axis[i] for i in range(3))
+    p=tuple(polevec[i]-axis[i]*parallel for i in range(3))
+    plen=math.sqrt(math.fsum(x*x for x in p))
+    if plen<1e-8:raise ValueError("W16C_DEGENERATE_POLE")
+    side=tuple(x/plen for x in p)
     along=(u*u-l*l+d*d)/(2*d)
-    height=math.sqrt(max(0,u*u-along*along))
-    knee=start+axis*along+p*height
-    if abs((knee-start).length-u)>1e-8 or abs((end-knee).length-l)>1e-8:
-        raise ValueError("W16C_IK_SEGMENT_LENGTH")
-    return knee
+    height=math.sqrt(max(0.0,u*u-along*along))
+    k=tuple(a[i]+axis[i]*along+side[i]*height for i in range(3))
+    if abs(math.dist(k,a)-u)>1e-8 or abs(math.dist(k,b)-l)>1e-8:
+        raise ValueError("W16C_DOUBLE_PRECISION_IK_SEGMENT_LENGTH")
+    return Vector(k)
+
 
 def add_actor(name,x,profile,phase):
     data=bpy.data.armatures.new(name+"_ArmatureData")
