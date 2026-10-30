@@ -1,0 +1,3 @@
+# W6-E3 source-original actual rendered-video clock
+
+This workcell takes the native two-camera 24-frame/12fps synthetic W6 rendered videos, doubles the actual source video to 48 FFV1 frames at 24fps, and combines it with original synthetic 48kHz PCM marker clicks (not speech/Foley). Third observer checks exact original decoded RGB source frame x2, source PCM byte parity and real rational NUT timestamps. This validates original synthetic A/V transport only, not real people, voice production, gait anatomy, VisualQA L1, or private R009. All work runs on free public CPU, in isolated draft; source and receipts Git/DLE, large videos owner-private Drive after raw SHA. No merge/release/deploy.
