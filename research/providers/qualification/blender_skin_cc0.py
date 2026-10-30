@@ -59,16 +59,29 @@ def main():
     assert len(g["animations"])==1
     for b in g["buffers"]:
         assert (src/b["uri"]).stat().st_size==b["byteLength"]
-    start,end=source_times(g,src)
-    frames=sorted(set(int(round(24*t)) for t in [start,(start+end)/2,end]))
-    assert len(frames)==3
-
+    source_start,source_end=source_times(g,src)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.context.scene.render.fps=24
     assert "FINISHED" in bpy.ops.import_scene.gltf(filepath=str(gltf))
     assert len(bpy.data.actions)>=1
+    action=bpy.data.actions[0]
+    af0,af1=tuple(float(x) for x in action.frame_range)
+    print("SKIN_ANIMATION_TIMING",json.dumps({"source_seconds":[source_start,source_end],
+        "blender_action_frames":[af0,af1],
+        "actions":[{"name":a.name,"frame_range":list(a.frame_range),"slots":len(a.slots)} for a in bpy.data.actions],
+        "animation_data":[{"name":obj.name,
+            "active_action":obj.animation_data.action.name if obj.animation_data and obj.animation_data.action else None,
+            "nla_tracks":[{"name":track.name,"mute":track.mute,"is_solo":track.is_solo,
+                           "strips":[{"action":strip.action.name if strip.action else None,"start":strip.frame_start,"end":strip.frame_end} for strip in track.strips]}
+                          for track in obj.animation_data.nla_tracks] if obj.animation_data else []}
+                         for obj in bpy.data.objects if obj.type=="ARMATURE"]}),flush=True)
+    assert af1>af0, "imported Blender action has no clock span"
+    frames=sorted(set(int(round(af0+(af1-af0)*step)) for step in [0,0.25,0.5,0.75,1]))
+    assert len(frames)>=4, "native Blender action too short"
     original=[snapshot(f) for f in frames]
-    assert max_delta(original[0],original[1])>0.0001 or max_delta(original[1],original[2])>0.0001, "skin not deforming"
+    deltas=[max_delta(original[i-1],original[i]) for i in range(1,len(original))]
+    print("SKIN_ANIMATION_VERTEX_DELTAS",json.dumps({"frames":frames,"deltas":deltas}),flush=True)
+    assert max(deltas)>0.0001, "skin not deforming across native action timeline"
     # Blender importer may add an Icosphere custom-bone visual helper. It is not
     # a source mesh: retain only mesh objects with a genuine ARMATURE modifier.
     skinned={obj for obj in bpy.data.objects if obj.type=="MESH" and any(m.type=="ARMATURE" for m in obj.modifiers)}
@@ -104,7 +117,7 @@ def main():
      "reimported_skin_count":len(exported["skins"]),
      "reimported_animations":len(exported["animations"]),
      "frames":frames,
-     "source_motion_delta":max_delta(original[0],original[1]),
+     "source_motion_delta":max(deltas),
      "reimported_max_vertex_coordinate_error":max(errors),
      "limitations":"2-bone original CC0 geometry, not a person, full-body rig, VMD/PMX, BVH or MMD parity"
     }
