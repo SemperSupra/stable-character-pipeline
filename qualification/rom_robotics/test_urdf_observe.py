@@ -31,7 +31,7 @@ class OriginalRobotTests(unittest.TestCase):
             read_model(GOOD.replace('mimic joint="hinge"','mimic joint="missing"').encode())
     def test_missing_hard_stop(self):
         with self.assertRaisesRegex(ValueError,"MISSING_HARD_RANGE"):
-            read_model(GOOD.replace('lower="-1" upper="1"','velocity="0.3"',1).encode())
+            read_model(GOOD.replace('lower="-1" upper="1"','',1).encode())
     def test_inverted_joint_stop(self):
         with self.assertRaisesRegex(ValueError,"INVALID_HARD_RANGE"):
             read_model(GOOD.replace('lower="-1" upper="1"','lower="2" upper="1"',1).encode())
