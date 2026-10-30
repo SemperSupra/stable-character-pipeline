@@ -1,0 +1,45 @@
+name: W16-B3 original typed two-leg source
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16b3/**'
+      - '.github/workflows/walk-w16b3-dual-leg.yml'
+permissions:
+  contents: read
+jobs:
+  two-leg:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Exact source-driven two-leg geometry and third oracle
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          cd qualification/walk_w16b3
+          go vet ./...
+          go test -race -count=1 ./...
+          go run . "$PROFILE" "motion-$PROFILE.json" "receipt-$PROFILE.json"
+          python3 independent_fk.py "motion-$PROFILE.json" "receipt-$PROFILE.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16b3-typed-${{ matrix.profile }}
+          path: |
+            qualification/walk_w16b3/motion-*.json
+            qualification/walk_w16b3/receipt-*.json
+          retention-days: 3
+          if-no-files-found: warn
