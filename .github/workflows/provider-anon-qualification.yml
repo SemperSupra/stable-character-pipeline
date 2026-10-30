@@ -1,0 +1,57 @@
+name: Anonymous provider metadata qualification (research-only)
+on:
+  pull_request:
+    paths:
+      - research/providers/main.go
+      - research/providers/main_test.go
+      - research/providers/go.mod
+      - research/providers/cmd/normalize/**
+      - .github/workflows/provider-anon-qualification.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  credential-free-metadata:
+    name: Provider batch ${{ matrix.batch }} (no downloads)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        batch: [A, B, C]
+    defaults:
+      run:
+        working-directory: research/providers
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: research/providers/go.mod
+          cache: false
+      - name: Synthetic controls (no network)
+        run: |
+          go test -race -count=1 . ./cmd/normalize
+          go vet . ./cmd/normalize
+      - name: One bounded GET per provider, no secrets or asset downloads
+        env:
+          BATCH: ${{ matrix.batch }}
+        run: |
+          mkdir -p reports
+          go run . -batch "$BATCH" > "reports/batch-${BATCH}.jsonl"
+          go run ./cmd/normalize -input "reports/batch-${BATCH}.jsonl" -format jsonl > "reports/capabilities-${BATCH}.jsonl"
+          go run ./cmd/normalize -input "reports/batch-${BATCH}.jsonl" -format md > "reports/summary-${BATCH}.md"
+          cat "reports/batch-${BATCH}.jsonl"
+          cat "reports/summary-${BATCH}.md"
+      - name: Preserve exact machine-readable runner evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anonymous-provider-metadata-${{ matrix.batch }}
+          path: research/providers/reports/
+          if-no-files-found: warn
+          retention-days: 14
