@@ -1,0 +1,88 @@
+{
+  "schema": "scp.motion.synthetic_noise_envelope.v10",
+  "status": "RESEARCH_SYNTHETIC_ONLY_NOT_PRODUCT_QUALIFIED",
+  "date_utc": "2026-10-30",
+  "source_pr": "https://github.com/SemperSupra/stable-character-pipeline/pull/162",
+  "source_parent": "https://github.com/SemperSupra/stable-character-pipeline/pull/156",
+  "method": {
+    "camera_model": "parallel_stereo_zero_distortion",
+    "focal_pixels": 800,
+    "baseline_meters": 0.4,
+    "depth_meters": 4,
+    "actor_half_gaps_m": [
+      0.001,
+      0.005,
+      0.02,
+      0.1,
+      1.5
+    ],
+    "noise_sigma_pixels": [
+      0,
+      0.5,
+      2,
+      5
+    ],
+    "trials_per_cell": 200,
+    "cells_per_seed": 20,
+    "right_camera_array_permutation": "alternates even/odd synthetic frame",
+    "prior": "synthetic exact actor x,z positions",
+    "max_error_meters": 0.8,
+    "cost_gap_meters": 0.15,
+    "guard": "externally witnessed sigma pixels, >=3*sqrt(2)*sigma per camera in observed and predicted actor x"
+  },
+  "replicates": [
+    {
+      "seed": 20261030,
+      "trials": 4000,
+      "baseline": {
+        "accepted": 2123,
+        "wrong_accepted": 173,
+        "abstain": 616
+      },
+      "guarded": {
+        "accepted": 1635,
+        "wrong_accepted": 0,
+        "abstain": 1104
+      }
+    },
+    {
+      "seed": 20261031,
+      "trials": 4000,
+      "baseline": {
+        "accepted": 2107,
+        "wrong_accepted": 146,
+        "abstain": 619
+      },
+      "guarded": {
+        "accepted": 1631,
+        "wrong_accepted": 0,
+        "abstain": 1095
+      }
+    },
+    {
+      "seed": 20261101,
+      "trials": 4000,
+      "baseline": {
+        "accepted": 2124,
+        "wrong_accepted": 154,
+        "abstain": 604
+      },
+      "guarded": {
+        "accepted": 1631,
+        "wrong_accepted": 0,
+        "abstain": 1097
+      }
+    }
+  ],
+  "interpretation": "12,000 synthetic candidates: baseline 473 wrong accepted, guard 0; accepted baseline 6354 vs guard 4897; abstentions baseline 1839 vs guard 3296; rejected counts unchanged by guard. Zero wrong observed in these seeds is not a guarantee.",
+  "first_failure": "No explicit camera-pair uncertainty witness in v09; 2px noise led to wrong accepted identities on near-contact pairs; do not promote v09 geometry as real actor association.",
+  "qualifications_not_earned": [
+    "real 2D image detector",
+    "independent noise calibration/uncertainty witness",
+    "frozen v0.8 original corpus comparison",
+    "camera distortion/FOV error envelope",
+    "R009 real people or true foot-contact/pose",
+    "CPE semantic authority",
+    "release"
+  ]
+}
