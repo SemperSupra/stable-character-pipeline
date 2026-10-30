@@ -5,6 +5,7 @@ package motion
 import (
 	"errors"
 	"math"
+	"math/big"
 )
 
 type Status string
@@ -146,9 +147,18 @@ func (t Timestamp) seconds() (float64, error) {
 	return float64(t.Tick) * float64(t.FPSDen) / float64(t.FPSNum), nil
 }
 func Synchronized(a, b Timestamp, maxDeltaSec float64) bool {
-	ta, ea := a.seconds()
-	tb, eb := b.seconds()
-	return ea == nil && eb == nil && finite(ta, tb, maxDeltaSec) && maxDeltaSec >= 0 && math.Abs(ta-tb) <= maxDeltaSec
+	if a.Tick < 0 || b.Tick < 0 || a.FPSNum <= 0 || b.FPSNum <= 0 || a.FPSDen <= 0 || b.FPSDen <= 0 || !finite(maxDeltaSec) || maxDeltaSec < 0 {
+		return false
+	}
+	// Fractional frame timestamps must not collapse at high tick counts.
+	makeTime := func(t Timestamp) *big.Rat {
+		v := new(big.Int).Mul(big.NewInt(t.Tick), big.NewInt(t.FPSDen))
+		return new(big.Rat).SetFrac(v, big.NewInt(t.FPSNum))
+	}
+	delta := new(big.Rat).Sub(makeTime(a), makeTime(b))
+	delta.Abs(delta)
+	limit := new(big.Rat).SetFloat64(maxDeltaSec)
+	return limit != nil && delta.Cmp(limit) <= 0
 }
 
 // ScaleWitness requires measured independently known anchor separation. Without
