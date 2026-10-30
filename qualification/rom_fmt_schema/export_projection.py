@@ -88,7 +88,7 @@ def inspect_source_projection(m):
     if len(usdbounds)!=2 or not math.isclose(math.radians(float(usdbounds[0])),m["hard_min"],abs_tol=1e-11) or not math.isclose(math.radians(float(usdbounds[1])),m["hard_max"],abs_tol=1e-11):
         raise ValueError("USD_ANGLE_UNIT_CONVERSION")
     robot=ET.fromstring(urdf(m));ul=robot.find("./joint/limit")
-    if not ul or not all(math.isclose(float(ul.get(k)),m[mk],abs_tol=1e-12) for k,mk in
+    if ul is None or not all(math.isclose(float(ul.get(k)),m[mk],abs_tol=1e-12) for k,mk in
                          (("lower","hard_min"),("upper","hard_max"),("velocity","max_velocity"),("effort","max_effort"))):
         raise ValueError("URDF_JOINT_LOSS")
     sim=ET.fromstring(mjcf(m));sj=sim.find("./worldbody/body/body/joint")
