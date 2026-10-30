@@ -1,0 +1,21 @@
+name: ROM V1 - original source robot mechanism limits
+on:
+  pull_request:
+    paths:
+      - 'qualification/rom_robotics/**'
+      - '.github/workflows/rom-v1-robotics.yml'
+permissions:
+  contents: read
+jobs:
+  source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify original standalone URDF limits and hostile source controls
+        run: python -m unittest discover -s qualification/rom_robotics -p 'test_urdf_observe.py' -v
