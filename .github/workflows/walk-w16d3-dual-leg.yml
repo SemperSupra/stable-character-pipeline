@@ -1,0 +1,51 @@
+name: W16-D3 dual leg sampled mesh and swept tracks
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16d3/**'
+      - '.github/workflows/walk-w16d3-dual-leg.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Native original two-leg Blender generator
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "w16d3-$PROFILE"
+      - name: Independent 3D swept vertex and triangle negatives
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s qualification/walk_w16d3 -p 'test_*.py' -v
+          python qualification/walk_w16d3/mesh_checks.py --glb "w16d3-$PROFILE/original_two_actors_dual_leg.glb" --truth "w16d3-$PROFILE/native_source_vertex_truth.json" --profile "$PROFILE" --out "w16d3-$PROFILE/dual_leg_mesh_receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16d3-numeric-${{ matrix.profile }}
+          path: |
+            w16d3-${{ matrix.profile }}/dual_leg_mesh_receipt.json
+            w16d3-${{ matrix.profile }}/native_dual_leg_receipt.json
+          retention-days: 3
+          if-no-files-found: warn
