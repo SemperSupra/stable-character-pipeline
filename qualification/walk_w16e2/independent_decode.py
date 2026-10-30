@@ -1,13 +1,14 @@
 """Independent ffmpeg decoded source RGB, PCM and Decimal frame PTS verification."""
 import argparse,hashlib,json,subprocess
 from decimal import Decimal
+from fractions import Fraction
 from pathlib import Path
 W,H=128,72
 def call(args):return subprocess.check_output(args,stderr=subprocess.PIPE)
 def verify(path):
  p=Path(path);src=json.loads((p/"source_manifest.json").read_text())
  if src["source_rights"]!="ORIGINAL_SELF_AUTHORED_SYNTHETIC":raise ValueError("SOURCE_RIGHTS")
- mux=p/"original_mux.mkv"
+ mux=p/"original_mux.nut"
  i=json.loads(call(["ffprobe","-v","error","-show_streams","-of","json",str(mux)]))["streams"]
  vs=[x for x in i if x["codec_type"]=="video"]
  als=[x for x in i if x["codec_type"]=="audio"]
@@ -30,14 +31,20 @@ def verify(path):
  if len(pcm)!=192000 or hashlib.sha256(pcm).hexdigest()!=src["source_pcm_sha256"]:
   raise ValueError("PCM_BYTE_MISMATCH")
  frames=json.loads(call(["ffprobe","-v","error","-select_streams","v:0",
- "-show_frames","-show_entries","frame=best_effort_timestamp_time","-of","json",str(mux)]))["frames"]
+ "-show_frames","-show_entries","frame=best_effort_timestamp_time,best_effort_timestamp","-of","json",str(mux)]))["frames"]
  if len(frames)!=48:raise ValueError("PTS_COVERAGE")
  errors=[abs(Decimal(f["best_effort_timestamp_time"])-Decimal(i)/Decimal(24)) for i,f in enumerate(frames)]
+ # The native tick + stream time base is the lossless timing authority.
+ # Reject any unrepresentable source frame time, irrespective of printed precision.
+ time_base=Fraction(v["time_base"])
+ tick_errors=[abs(Fraction(int(f["best_effort_timestamp"]))*time_base-Fraction(i,24)) for i,f in enumerate(frames)]
+ if any(tick_errors):raise ValueError("PTS_EXACT_TICK_MISMATCH")
  if max(errors)>Decimal("0.0000005"):raise ValueError("PTS_DRIFT")
- r={"schema":"scp.walk_w16e2_decode.v1","status":"PASS_SOURCE_ONLY_REAL_FFV1_PCM_MUX",
+ r={"schema":"scp.walk_w16e2_decode.v1","status":"PASS_SOURCE_ONLY_REAL_FFV1_PCM_NUT_MUX",
  "source_rights":src["source_rights"],"profile":src["profile"],
  "rgb_frames":48,"decoded_pcm_samples":96000,"source_motion_frames":24,
  "maximum_pts_error_decimal":str(max(errors)),
+ "video_time_base":v["time_base"],"maximum_exact_tick_error":"0/1","container":"nut",
  "native_mux_sha256":hashlib.sha256(mux.read_bytes()).hexdigest(),
  "scope":"NOT_C3_VIDEO_NOT_SPEECH_NOT_REAL_LIP_SYNC_NOT_PRIVATE"}
  (p/"decoded_receipt.json").write_text(json.dumps(r,indent=2,sort_keys=True)+"\n")
