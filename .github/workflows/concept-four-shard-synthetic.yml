@@ -30,6 +30,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile qualification/concept_sweep_pilot/parallel_pilot.py
           python3 qualification/concept_sweep_pilot/parallel_pilot.py --shard "${{ matrix.shard }}" --out "out/${{ matrix.shard }}.json"
+          python3 qualification/concept_sweep_pilot/public_source_contracts.py --shard "${{ matrix.shard }}" --out "out/contracts-${{ matrix.shard }}.json"
       - name: Retain source-only receipts
         if: always()
         uses: actions/upload-artifact@v4
