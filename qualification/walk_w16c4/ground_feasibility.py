@@ -55,7 +55,7 @@ def original(profile):
     else:
      u=(phase-6+1)/6
      ay=anchor_y+(next_anchor-anchor_y)*u
-     z=.045*math.sin(math.pi*u)+.025
+     z=.035*math.sin(math.pi*u)+.0205
     hip=(x+sign*.22,root_y,HIP_Z)
     ankle=(hip[0],ay,z)
     pole=(hip[0]+sign*.25,hip[1]+direction*.36,hip[2]-.4)
