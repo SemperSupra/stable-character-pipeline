@@ -1,0 +1,45 @@
+name: W6 source six bone rest verification
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w6b5b/**'
+      - '.github/workflows/walk-w6b5b-rest.yml'
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source six-bone actual native Blender and pure numerical oracle
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb
+          python -m pip install --no-cache-dir 'bpy==4.5.0'
+          python -m unittest discover -s qualification/walk_w6b5b -p 'test_*.py' -v
+          mkdir -p "w6b5b-$PROFILE"
+          python qualification/walk_w16c4/ground_feasibility.py --profile "$PROFILE" --out "w6b5b-$PROFILE"
+          xvfb-run -a python qualification/walk_w6b5b/native_rest.py --source "w6b5b-$PROFILE/source.json" --profile "$PROFILE" --out "w6b5b-$PROFILE/native_rest.json"
+          python qualification/walk_w6b5b/independent_rest.py "w6b5b-$PROFILE/source.json" "w6b5b-$PROFILE/native_rest.json" "w6b5b-$PROFILE/third_oracle.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w6b5b-numeric-${{ matrix.profile }}
+          path: w6b5b-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
