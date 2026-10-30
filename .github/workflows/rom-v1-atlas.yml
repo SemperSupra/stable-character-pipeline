@@ -1,0 +1,21 @@
+name: ROM V1 - empirical provenance atlas source checks
+on:
+  pull_request:
+    paths:
+      - 'qualification/rom_atlas/**'
+      - '.github/workflows/rom-v1-atlas.yml'
+permissions:
+  contents: read
+jobs:
+  evidence-syntax:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify source references and no invented animal human ROM tables
+        run: python -m unittest discover -s qualification/rom_atlas -p 'test_atlas.py' -v
