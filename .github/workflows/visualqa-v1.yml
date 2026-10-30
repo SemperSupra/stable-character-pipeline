@@ -81,3 +81,38 @@ jobs:
           path: visualqa-${{ matrix.profile }}/
           retention-days: 3
           if-no-files-found: warn
+
+  vision-research:
+    needs: rendered-video
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Obtain public original exact-run video artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: visualqa-v1-original-${{ matrix.profile }}
+          path: visualqa-${{ matrix.profile }}
+      - name: Pinned CPU image model actual rendered-frame observations — research only
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --no-cache-dir 'mediapipe==0.10.32'
+          python qualification/visualqa/vision_pose.py --video "visualqa-$PROFILE/original_two_actors_dual_leg_preview.mp4" --native-receipt "visualqa-$PROFILE/native_dual_leg_receipt.json" --out "visualqa-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-v1-l3-research-${{ matrix.profile }}
+          path: visualqa-${{ matrix.profile }}/l3_model_observations.json
+          retention-days: 3
+          if-no-files-found: warn
