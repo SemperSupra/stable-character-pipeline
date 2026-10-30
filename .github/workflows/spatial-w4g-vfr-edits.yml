@@ -1,0 +1,74 @@
+name: Spatial W4g actual cut-edited VFR FFV1 and exact PCM observer
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4g-vfr-edits.yml'
+      - 'spatial-contract/interop/generate_vfr_edits.py'
+      - 'spatial-contract/interop/observe_vfr_edits.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-vfr-edited:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Native free CPU media runtime and source version
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 750 sudo apt-get install -y --no-install-recommends ffmpeg python3
+          ffmpeg -version | head -n 1
+      - name: Generate actual original cut-only VFR Matroska AV
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          python3 spatial-contract/interop/generate_vfr_edits.py "$RUNNER_TEMP/w4g-vfr"
+          test -f "$RUNNER_TEMP/w4g-vfr/vfr_cut_master.mkv"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w4g-native-vfr-cut-original-media
+          path: ${{ runner.temp }}/w4g-vfr/
+          retention-days: 1
+          if-no-files-found: warn
+  independent-decoder:
+    needs: native-vfr-edited
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Strict completed producer prerequisite
+        env:
+          NATIVE: ${{ needs.native-vfr-edited.result }}
+        run: test "$NATIVE" = success
+      - name: Independent media decoder tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          timeout 750 sudo apt-get install -y --no-install-recommends ffmpeg python3
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4g-native-vfr-cut-original-media
+          path: native
+      - name: Independent all PCM samples and 50 decoded video frames with actual timestamp deltas
+        run: |
+          set -euo pipefail
+          mkdir result
+          python3 spatial-contract/interop/observe_vfr_edits.py native result/w4g_vfr_numeric.json
+          sha256sum result/w4g_vfr_numeric.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w4g-independent-vfr-numeric
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
