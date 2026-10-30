@@ -1,0 +1,42 @@
+name: W16-B4 typed dual-leg source rest and rational clock
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16b4/**'
+      - '.github/workflows/walk-w16b4-rest.yml'
+permissions:
+  contents: read
+jobs:
+  rest-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Generate exact B3 and validate independent B4 rest plus clock
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          mkdir -p "w16b4-$PROFILE"
+          (cd qualification/walk_w16b3 && go vet ./... && go test -race -count=1 ./... && go run . "$PROFILE" "$GITHUB_WORKSPACE/w16b4-$PROFILE/motion.json" "$GITHUB_WORKSPACE/w16b4-$PROFILE/source_receipt.json")
+          python3 qualification/walk_w16b4/rest_clock.py --source "w16b4-$PROFILE/motion.json" --out "w16b4-$PROFILE/rest_clock.json"
+          B3_SOURCE="$GITHUB_WORKSPACE/w16b4-$PROFILE/motion.json" python3 -m unittest discover -s qualification/walk_w16b4 -p 'test_*.py' -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16b4-numeric-${{ matrix.profile }}
+          path: w16b4-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
