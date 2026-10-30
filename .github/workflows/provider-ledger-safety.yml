@@ -24,6 +24,7 @@ jobs:
           cache: false
       - name: Independent offline test with race detector
         run: |
+          set -euo pipefail
           go test -race -count=1 -v ./ledger | tee ledger-test.log
           go vet ./ledger
       - name: Capture native result
