@@ -1,0 +1,42 @@
+name: W16-D original synthetic geometric falsification
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16d/**'
+      - '.github/workflows/walk-w16d-geometric-negatives.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  geometric-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      GO111MODULE: 'off'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Go race, vet and genuine 3D hostile negatives
+        run: |
+          set -euo pipefail
+          cd qualification/walk_w16d
+          go vet .
+          go test -race -count=1 -v .
+          go run . ${{ matrix.profile }} ${{ matrix.profile }}.json
+          python3 check_receipt.py ${{ matrix.profile }} ${{ matrix.profile }}.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16d-geometric-${{ matrix.profile }}
+          path: qualification/walk_w16d/*.json
+          retention-days: 3
+          if-no-files-found: warn
