@@ -1,0 +1,44 @@
+name: WALK W6B - Native 24-Frame Joint Geometry and Temporal Rates
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w6b/**'
+      - '.github/workflows/walk-w6b-joint.yml'
+permissions:
+  contents: read
+jobs:
+  actual-joints:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source pin 24 C4 poses, independently measure real native six-bone Blender knee and derivatives
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python qualification/walk_w16c4/ground_feasibility.py --profile "$PROFILE" --out "walk-w6b-$PROFILE"
+          xvfb-run -a python qualification/walk_w16c5a/w5d_grounded_native.py --profile "$PROFILE" --source "walk-w6b-$PROFILE/source.json" --out "walk-w6b-$PROFILE"
+          xvfb-run -a python qualification/walk_w6b/native_joint_rom.py --folder "walk-w6b-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: walk-w6b-original-24joint-${{ matrix.profile }}
+          path: walk-w6b-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
