@@ -1,0 +1,36 @@
+name: ROMFMT V2 D - Native Blender skinned GLB custom annotation survival
+on:
+  pull_request:
+    paths:
+      - 'qualification/rom_fmt_blender/**'
+      - '.github/workflows/romfmt-blender-export.yml'
+permissions:
+  contents: read
+jobs:
+  native-export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original source Blender real weighted mesh and skinned GLB exporter
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq xvfb libegl1 libgl1 libgl1-mesa-dri
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/rom_fmt_blender/export_glb.py --out romfmt-native-export
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: romfmt-v2-original-native-blender-glb
+          path: romfmt-native-export/
+          retention-days: 3
+          if-no-files-found: warn
