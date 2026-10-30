@@ -1,0 +1,21 @@
+name: ROMFMT V1 A - GLB embedded joint annotation roundtrip
+on:
+  pull_request:
+    paths:
+      - 'qualification/rom_fmt_gltf/**'
+      - '.github/workflows/romfmt-glb.yml'
+permissions:
+  contents: read
+jobs:
+  source-original:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Actual GLB binary roundtrip and hostile missing/altered joint limit controls
+        run: python -m unittest discover -s qualification/rom_fmt_gltf -p 'test_annotation.py' -v
