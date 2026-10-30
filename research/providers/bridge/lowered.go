@@ -16,6 +16,7 @@ type Lowered struct {
  TargetCapabilityProfileRef string `json:"target_capability_profile_ref"`
  PreflightStatus string `json:"preflight_status"`
  Requests []LoweredRequest `json:"requests"`
+ NotLowered []json.RawMessage `json:"not_lowered"`
  Privacy LoweredPrivacy `json:"privacy"`
 }
 type LoweredRequest struct {
@@ -36,7 +37,7 @@ type LoweredRequest struct {
 type LoweredPrivacy struct {
  PolicyContextForwarded bool `json:"policy_context_forwarded"`
  LocalRequestRefsOutbound bool `json:"local_request_refs_are_outbound_parameters"`
- ExternalDisclosure string `json:"external_disclosure"`
+ ExternalDisclosure json.RawMessage `json:"external_disclosure"`
 }
 type LoweredReceipt struct {
  Schema string `json:"schema"`
@@ -60,9 +61,9 @@ func ValidateLowered(data []byte,expectedExecutionID,expectedTargetRef,targetOri
  if err:=dec.Decode(&packet);err!=nil{return deny("unrecognized source adapter packet")}
  if dec.More(){return deny("trailing unknown input")}
  if packet.SchemaVersion!="experimental-v0"||packet.ExecutionID!=expectedExecutionID||
-  packet.TargetCapabilityProfileRef!=expectedTargetRef||packet.PreflightStatus=="blocked"||
+  packet.TargetCapabilityProfileRef!=expectedTargetRef||packet.PreflightStatus!="ready"||len(packet.NotLowered)!=0||
   len(packet.Requests)==0||len(packet.Requests)>maxQueries {return deny("source adapter revision, preflight or budget not admitted")}
- if packet.Privacy.PolicyContextForwarded||packet.Privacy.LocalRequestRefsOutbound||packet.Privacy.ExternalDisclosure=="" {return deny("source adapter privacy contract not verified")}
+ if packet.Privacy.PolicyContextForwarded||packet.Privacy.LocalRequestRefsOutbound||len(packet.Privacy.ExternalDisclosure)==0||string(packet.Privacy.ExternalDisclosure)=="null" {return deny("source adapter privacy contract not verified")}
  seen:=map[string]bool{}
  for _,r:=range packet.Requests {
   if r.LocalRef==""||r.Method!="GET"||r.Purpose!="candidate_retrieval"||
