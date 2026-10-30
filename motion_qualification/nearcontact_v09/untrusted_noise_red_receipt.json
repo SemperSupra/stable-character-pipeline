@@ -1,0 +1,65 @@
+{
+  "schema": "scp.motion.untrusted_noise_adversarial.v01",
+  "status": "RED_REAL_IDENTITY_UNQUALIFIED",
+  "date_utc": "2026-10-30",
+  "scope": "original synthetic parallel stereo only",
+  "protocol": {
+    "seeds": [
+      20261102,
+      20261103,
+      20261104
+    ],
+    "per_seed": 3000,
+    "actor_half_gaps_m": [
+      0.02,
+      0.05,
+      0.1
+    ],
+    "declared_noise_sigma_pixels": 0.5,
+    "actual_noise": "per independently sampled synthetic camera actor point 90% Gaussian sigma .5px / 10% Gaussian sigma 6px",
+    "guard": "optional v10 witness source is untrusted upstream claim",
+    "no_other_model": "no pose detector/tracker or third-party models"
+  },
+  "results": [
+    {
+      "seed": 20261102,
+      "trials": 3000,
+      "accepted": 2326,
+      "wrong_accepted": 12,
+      "abstained": 20,
+      "rejected": 654
+    },
+    {
+      "seed": 20261103,
+      "trials": 3000,
+      "accepted": 2303,
+      "wrong_accepted": 7,
+      "abstained": 31,
+      "rejected": 666
+    },
+    {
+      "seed": 20261104,
+      "trials": 3000,
+      "accepted": 2368,
+      "wrong_accepted": 11,
+      "abstained": 18,
+      "rejected": 614
+    }
+  ],
+  "total": {
+    "trials": 9000,
+    "accepted": 6997,
+    "wrong_accepted": 30,
+    "abstained": 69,
+    "rejected": 1934
+  },
+  "interpretation": "three-source-only adversarial seed results demonstrate uncalibrated/understated sensor sigma can bypass v10 separation admission. This is a FAILING SCIENTIFIC SOURCE-ASSUMPTION though Go tests may PASS when they positively preserve known-bad negative behavior.",
+  "next_required": [
+    "independent uncertainty witness/coverage calibration",
+    "outlier and tail bounds from source-native observed pixels",
+    "wrong-prior/occlusion/clock-bias independent challenge",
+    "held-out actual videos and approved real data",
+    "separate frozen v08 original comparison"
+  ],
+  "no_permission_changes": true
+}
