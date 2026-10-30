@@ -1,0 +1,37 @@
+name: Provider origin quota ledger (same-host) offline qualification
+on:
+  pull_request:
+    paths:
+      - research/providers/ledger/**
+      - .github/workflows/provider-ledger-safety.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    defaults:
+      run:
+        working-directory: research/providers
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: research/providers/go.mod
+          cache: false
+      - name: Independent offline test with race detector
+        run: |
+          set -euo pipefail
+          go test -race -count=1 -v ./ledger | tee ledger-test.log
+          go vet ./ledger
+      - name: Capture native result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-ledger-offline-evidence
+          path: research/providers/ledger-test.log
+          retention-days: 14
+          if-no-files-found: warn
