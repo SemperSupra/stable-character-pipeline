@@ -1,0 +1,51 @@
+name: W16-D4 original sole event and native camera ray
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16d4/**'
+      - '.github/workflows/walk-w16d4-contact-ray.yml'
+permissions:
+  contents: read
+jobs:
+  source-contact-and-ray:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original native C2 geometry generation
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "w16d4-$PROFILE"
+      - name: Native ray-triangle observer and separate heel/toe hostile tests
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s qualification/walk_w16d4 -p 'test_*.py' -v
+          python qualification/walk_w16d4/contact_rays.py --glb "w16d4-$PROFILE/original_two_actors_dual_leg.glb" --truth "w16d4-$PROFILE/native_source_vertex_truth.json" --profile "$PROFILE" --out "w16d4-$PROFILE/native_ray_separate_contact_receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16d4-numeric-${{ matrix.profile }}
+          path: |
+            w16d4-${{ matrix.profile }}/native_ray_separate_contact_receipt.json
+            w16d4-${{ matrix.profile }}/native_dual_leg_receipt.json
+          retention-days: 3
+          if-no-files-found: warn
