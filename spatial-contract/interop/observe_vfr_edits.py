@@ -26,7 +26,7 @@ def inspect(root,out):
  for path,key in ((src,"original_sha256"),(edit,"edited_sha256"),(mux,"master_sha256")):
   if sha(path)!=m[key]:raise ValueError("source/media hash")
  original=getwave(src,192000);reference=getwave(edit,144000)
- if reference!=original[:72000]+original[96000:168000]:raise ValueError("cut-only byte provenance not exact")
+ if reference!=original[:72000*2]+original[96000*2:168000*2]:raise ValueError("cut-only byte provenance not exact")
  nonzero=[(i,struct.unpack_from("<h",original,i*2)[0]) for i in range(192000)
           if original[i*2:i*2+2]!=b"\0\0"]
  if nonzero!=list(zip(ORIGINAL,AMPS)):raise ValueError("invalid original event inventory")
