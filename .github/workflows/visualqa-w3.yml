@@ -1,0 +1,218 @@
+name: VisualQA W3 same-source video independent observer fanout
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w2a/**'
+      - 'qualification/visualqa_w2b/**'
+      - 'qualification/visualqa_w2c/**'
+      - '.github/workflows/visualqa-w3.yml'
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: qualification/visualqa/go.mod
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original source single native renderer plus source and exact video witnesses
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          mkdir -p "w3-$PROFILE"
+          xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "w3-$PROFILE"
+          xvfb-run -a python qualification/visualqa/probe_blend.py --blend "w3-$PROFILE/original_two_actors_dual_leg.blend" --out "w3-$PROFILE/pose_observed.json"
+          xvfb-run -a python qualification/visualqa_w2b/probe_projection.py --blend "w3-$PROFILE/original_two_actors_dual_leg.blend" --video "w3-$PROFILE/original_two_actors_dual_leg_preview.mp4" --native "w3-$PROFILE/native_dual_leg_receipt.json" --out "w3-$PROFILE/source_camera_projection.json"
+          (cd qualification/visualqa && go run . --input "../../w3-$PROFILE/pose_observed.json" --source "../../w3-$PROFILE/original_two_actors_dual_leg.blend") > "w3-$PROFILE/knee_report.json"
+          PROFILE="$PROFILE" PYTHONPATH=qualification/visualqa python -c 'import json,os,pathlib,qa_video;p=os.environ["PROFILE"];r=pathlib.Path("w3-"+p);d=qa_video.inspect(r/"original_two_actors_dual_leg_preview.mp4",r);assert d["status"]=="FAIL",d;print("W3_PARENT_L1_EXPECTED_FAIL",p)'
+          python -c 'import hashlib,json,os,pathlib; p=os.environ["PROFILE"];root=pathlib.Path("w3-"+p);video=root/"original_two_actors_dual_leg_preview.mp4";native=json.load(open(root/"native_dual_leg_receipt.json"));assert hashlib.sha256(video.read_bytes()).hexdigest()==native["video_sha256"]; print("W3_ONE_ORIGINAL_VIDEO_SOURCE_SHA",native["video_sha256"])'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w3-native-same-source-${{ matrix.profile }}
+          path: w3-${{ matrix.profile }}/
+          retention-days: 2
+          if-no-files-found: warn
+  independent-temporal:
+    needs: native
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pinned exact original W2A source negative tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python3 -m unittest discover -s qualification/visualqa_w2a -p test_temporal.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: w3-native-same-source-${{ matrix.profile }}
+          path: native
+      - name: Independent all-pixels W2A source-versus-motion on SAME video
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 qualification/visualqa_w2a/temporal.py --video native/original_two_actors_dual_leg_preview.mp4 --poses native/pose_observed.json --native-receipt native/native_dual_leg_receipt.json --out result/w2a_temporal.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w3-observed-temporal-${{ matrix.profile }}
+          path: result/
+          retention-days: 2
+          if-no-files-found: warn
+  independent-camera:
+    needs: native
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Original W2B source projection falsifiers
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python3 -m unittest discover -s qualification/visualqa_w2b -p test_projection.py -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: w3-native-same-source-${{ matrix.profile }}
+          path: native
+      - name: Independent actual decoded image versus native 3D camera projection
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 qualification/visualqa_w2b/projection.py --manifest native/source_camera_projection.json --video native/original_two_actors_dual_leg_preview.mp4 --native native/native_dual_leg_receipt.json --out result/w2b_projection.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w3-observed-camera-${{ matrix.profile }}
+          path: result/
+          retention-days: 2
+          if-no-files-found: warn
+  independent-image-model:
+    needs: native
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: w3-native-same-source-${{ matrix.profile }}
+          path: native
+      - name: Pinned model actual input no remote private images
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'mediapipe==0.10.32'
+          python qualification/visualqa/vision_pose.py --video native/original_two_actors_dual_leg_preview.mp4 --native-receipt native/native_dual_leg_receipt.json --out result
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w3-observed-image-model-${{ matrix.profile }}
+          path: result/l3_model_observations.json
+          retention-days: 2
+          if-no-files-found: warn
+  independent-final-gate:
+    needs: [native,independent-temporal,independent-camera,independent-image-model]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: qualification/visualqa_w2c/go.mod
+          cache: false
+      - name: All independent witnesses must finish successfully
+        env:
+          NATIVE: ${{ needs.native.result }}
+          TEMPORAL: ${{ needs.independent-temporal.result }}
+          CAMERA: ${{ needs.independent-camera.result }}
+          MODEL: ${{ needs.independent-image-model.result }}
+        run: |
+          test "$NATIVE" = success
+          test "$TEMPORAL" = success
+          test "$CAMERA" = success
+          test "$MODEL" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: w3-native-same-source-${{ matrix.profile }}
+          path: native
+      - uses: actions/download-artifact@v4
+        with:
+          name: w3-observed-temporal-${{ matrix.profile }}
+          path: temporal
+      - uses: actions/download-artifact@v4
+        with:
+          name: w3-observed-camera-${{ matrix.profile }}
+          path: camera
+      - uses: actions/download-artifact@v4
+        with:
+          name: w3-observed-image-model-${{ matrix.profile }}
+          path: model
+      - name: Original Go W2C hostile controls and fail-closed exact-video decision
+        run: |
+          set -euo pipefail
+          (cd qualification/visualqa_w2c && go vet ./... && go test -race -count=1 ./... && go build -o "$RUNNER_TEMP/visualqa-w2c" .)
+          mkdir -p result
+          set +e
+          "$RUNNER_TEMP/visualqa-w2c" --native native/native_dual_leg_receipt.json --l1 native/video_qa.json --l2 native/knee_report.json --l3 model/l3_model_observations.json --w2a temporal/w2a_temporal.json --w2b camera/w2b_projection.json --target full_human --out result/decision.json
+          rc=$?
+          set -e
+          test "$rc" -eq 2
+          python3 -c 'import json; d=json.load(open("result/decision.json")); assert d["status"]=="FAIL" and d["image_quality"]=="FAIL" and d["human_anatomy"]=="UNKNOWN_UNQUALIFIED" and d["publication"]=="HELD_NO_AUTOMATIC_RELEASE" and "RENDERED_PIXEL_QA_FAILURE" in d["reasons"],d; print("W3_SAME_VIDEO_FAIL_CLOSED_EXPECTED",d["video_sha256"])'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w3-same-video-final-fail-gate-${{ matrix.profile }}
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
