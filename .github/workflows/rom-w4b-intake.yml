@@ -1,0 +1,23 @@
+name: ROM W4B - Anatomy Source Evidence Admission
+on:
+  pull_request:
+    paths:
+      - 'qualification/rom_atlas/**'
+      - '.github/workflows/rom-w4b-intake.yml'
+permissions:
+  contents: read
+jobs:
+  offline-evidence-intake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Attribution and hostile source population coordinate context gates
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s qualification/rom_atlas -p 'test_*.py' -v
