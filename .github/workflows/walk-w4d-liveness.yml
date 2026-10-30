@@ -1,0 +1,49 @@
+name: WALK W4D - Real GLB Animation Liveness Witness
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16c5a/**'
+      - '.github/workflows/walk-w4d-liveness.yml'
+permissions:
+  contents: read
+jobs:
+  binary-adversarial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Actual GLB binary accessor time, joint target and false animation controls
+        run: python -m unittest discover -s qualification/walk_w16c5a -p 'test_w4d_liveness.py' -v
+  native-animated-glb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source-original six-bone native 24-frame animation smoke and independent GLB observation
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/walk_w16c5a/w4d_anim_smoke.py --out walk-w4d-smoke
+          python qualification/walk_w16c5a/w4d_liveness.py walk-w4d-smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: walk-w4d-sixbone-animation-fixture
+          path: walk-w4d-smoke/
+          retention-days: 3
+          if-no-files-found: warn

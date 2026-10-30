@@ -1,0 +1,3 @@
+# W4D real skin animation temporal gate
+
+Independent literal GLB accessor buffer parser verifies 24 source 12fps timestamps and nonconstant rotation channels on lower bones for BOTH actual skinned actors, and real Blender sampled vertex movement. Negative controls single-key animation object, invalid clock, wrong joint, broken accessor and source rights. Intentionally original synthetic sinusoidal leg movement is NOT a C5B grounded gait, heel/sole, anatomy, full-body human, or decoded video quality pass. The earlier original C5A GLB has exactly 1 timestamp per animation channel and remains first-frame only; this gate must reject promoting those files to animated walking. Synthetic CI/Git/DLE only, large GLB to private Drive after SHA custody; no merge/release/deploy.
