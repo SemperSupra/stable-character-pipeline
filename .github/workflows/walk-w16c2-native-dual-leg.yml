@@ -1,0 +1,52 @@
+name: W16-C2 original weighted dual-leg native qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16c2/**'
+      - '.github/workflows/walk-w16c2-native-dual-leg.yml'
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build native dual-leg weighted Blender and H264
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "w16c2-$PROFILE"
+      - name: Independent W15 reader and media verification
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          export W15_GLB="$GITHUB_WORKSPACE/w16c2-$PROFILE/original_two_actors_dual_leg.glb"
+          export W15_TMP="$RUNNER_TEMP"
+          (cd qualification/walk_w15 && python -m unittest -v test_glb_reader)
+          python qualification/walk_w15/pure_glb_reader.py --glb "$W15_GLB" --truth "w16c2-$PROFILE/native_source_vertex_truth.json" --out "w16c2-$PROFILE/third_gltf_vertex_receipt.json"
+          python qualification/walk_w16c2/verify.py "w16c2-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16c2-original-${{ matrix.profile }}
+          path: w16c2-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
