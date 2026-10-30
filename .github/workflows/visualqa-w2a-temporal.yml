@@ -1,0 +1,72 @@
+name: VisualQA W2A - Independent source versus actual pixel temporal research
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w2a/**'
+      - '.github/workflows/visualqa-w2a-temporal.yml'
+permissions:
+  contents: read
+jobs:
+  adversarial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Real H264, black, altered source and synthetic motion falsifiers
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+          python -m unittest discover -s qualification/visualqa_w2a -p 'test_temporal.py' -v
+  native-rep:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source-original W16C2 independent native Blender/H264 rep
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/walk_w16c2/dual_leg.py --profile "$PROFILE" --out "w2a-$PROFILE"
+          xvfb-run -a python qualification/visualqa/probe_blend.py --blend "w2a-$PROFILE/original_two_actors_dual_leg.blend" --out "w2a-$PROFILE/pose_observed.json"
+      - name: Independently analyze ALL actual H264 pixels versus source bones
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          python qualification/visualqa_w2a/temporal.py --video "w2a-$PROFILE/original_two_actors_dual_leg_preview.mp4" --poses "w2a-$PROFILE/pose_observed.json" --native-receipt "w2a-$PROFILE/native_dual_leg_receipt.json" --out "w2a-$PROFILE/w2a_temporal.json"
+          set +e
+          python qualification/visualqa/qa_video.py --video "w2a-$PROFILE/original_two_actors_dual_leg_preview.mp4" --out "w2a-$PROFILE"
+          state=$?
+          set -e
+          echo "INHERITED_L1_QUALITY_EXIT=$state (0=video-only pass, 2=visual failure, 3=unknown)"
+          test "$state" -eq 0 -o "$state" -eq 2
+          python -c 'import json,sys; r=json.load(open(sys.argv[1]));assert r["status"]=="OBSERVED_RESEARCH_ONLY";assert r["anatomical_acceptance"]=="UNKNOWN_NOT_PERFORMED";print("W2A_SOURCE_VS_PIXEL_OBSERVATION_ONLY",r["suspect_intervals"])' "w2a-$PROFILE/w2a_temporal.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-w2a-original-${{ matrix.profile }}
+          path: w2a-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
