@@ -59,7 +59,7 @@ def float_accessor(doc,binary,index,shape):
     return values
 
 def liveness(doc,binary,receipt):
-    if receipt.get("schema")!="scp.walk_w4d_native_24frame_smoke.v1" or        receipt.get("rights")!="ORIGINAL_SELF_AUTHORED_SYNTHETIC" or        receipt.get("frame_count")!=24 or receipt.get("fps_num")!=12:
+    if receipt.get("schema") not in ("scp.walk_w4d_native_24frame_smoke.v1","scp.walk_w5d_native_grounded.v1") or        receipt.get("rights")!="ORIGINAL_SELF_AUTHORED_SYNTHETIC" or        receipt.get("frame_count")!=24 or receipt.get("fps_num")!=12:
         raise ValueError("SOURCE_RIGHTS_OR_CLOCK")
     skinsets=[set(s.get("joints",[])) for s in doc.get("skins",[])]
     if len(skinsets)!=2 or any(len(s)<6 for s in skinsets):
