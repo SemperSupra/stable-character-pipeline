@@ -1,0 +1,42 @@
+name: W16-E2 decoded AV PTS source synthetic
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w16e2/**'
+      - '.github/workflows/walk-w16e2-decoder.yml'
+permissions:
+  contents: read
+jobs:
+  decode:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Source and observed decoded FFV1 PCM
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+          python3 -m unittest discover -s qualification/walk_w16e2 -p 'test_*.py' -v
+          python3 qualification/walk_w16e2/source.py --out "w16e2-$PROFILE" --profile "$PROFILE"
+          ffmpeg -hide_banner -loglevel error -y -framerate 24 -start_number 0 -i "w16e2-$PROFILE/frame_%03d.ppm" -i "w16e2-$PROFILE/source_48k_mono.wav" -c:v ffv1 -c:a pcm_s16le -f nut -map 0:v:0 -map 1:a:0 -shortest "w16e2-$PROFILE/original_mux.nut"
+          python3 qualification/walk_w16e2/independent_decode.py --folder "w16e2-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w16e2-numeric-${{ matrix.profile }}
+          path: |
+            w16e2-${{ matrix.profile }}/source_manifest.json
+            w16e2-${{ matrix.profile }}/decoded_receipt.json
+            w16e2-${{ matrix.profile }}/original_mux.nut
+            w16e2-${{ matrix.profile }}/source_48k_mono.wav
+          retention-days: 3
+          if-no-files-found: warn

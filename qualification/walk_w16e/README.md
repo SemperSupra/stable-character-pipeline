@@ -1,0 +1,5 @@
+# W16-E source-only exact rational clock
+
+The original W16-C2 motion source is synthetic 12 fps, while the independent spatial A/V #39 produces 24fps and 48000Hz PCM. This experiment qualifies exact arithmetic only, using Go math/big.Rat and an independent Python Fraction calculation. Exactly 4000 PCM samples per motion frame and 2000 PCM samples per video frame at zero offset; 30000/1001 frame time is 8008/5 PCM samples and must never be rounded silently. A 2^60 plus one tick at 30fps must remain one-thirtieth second apart even though float64 fails. Signed time origins, invalid denominators, noncanonical fields, fraction values and clock offsets are negative controls.
+
+This is not a produced synchronized audiovisual output, real captured frame provenance, proven lip-sync, MMD/VMD acceptance, or R009 character admission. Separate source clock crosswalk and frame PTS/mux independent decoding must be qualified before any system-level A/V claim. No protected media or sovereign specifics, merge, release, deployment, paid runner or concept promotion. Public Git/DLE source and receipts; private Drive only for future large original media artifacts.
