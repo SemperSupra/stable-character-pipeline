@@ -6,6 +6,7 @@ on:
       - '.github/workflows/visualqa-w9a-normative.yml'
 permissions:
   contents: read
+  actions: read
 jobs:
   normative-only-source:
     runs-on: ubuntu-24.04
@@ -30,10 +31,14 @@ jobs:
       - name: Original immutable W7A source, human JCS and normative ROM ABSTAIN
         env:
           PROFILE: ${{ matrix.profile }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p "w9a-$PROFILE"
-          python qualification/walk_w7a/approach_source.py --profile "$PROFILE" --out "w9a-$PROFILE"
+          # Immutable original W7A source, no nondeterministic new generation under a different runner.
+          gh run download 41172356301 --repo "$GITHUB_REPOSITORY" --name "walk-w7a-original-approach-$PROFILE" --dir "w9a-$PROFILE"
+          test -s "w9a-$PROFILE/source.json"
+          sha256sum "w9a-$PROFILE/source.json"
           go run qualification/visualqa_w9a/policy.go "w9a-$PROFILE/source.json" qualification/visualqa_w9a/normative_policy.json "w9a-$PROFILE/decision.json"
           python - "$PROFILE" <<'PY'
           import json,sys
