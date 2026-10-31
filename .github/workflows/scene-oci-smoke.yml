@@ -1,0 +1,41 @@
+name: Source-safe CPU OCI packaging and first install smoke
+on:
+  pull_request:
+    paths:
+      - 'deploy/scenecontract/**'
+      - 'scenecontract/**'
+      - '.github/workflows/scene-oci-smoke.yml'
+permissions:
+  contents: read
+concurrency:
+  group: scene-oci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  local-image-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: scenecontract/go.mod
+          cache: false
+      - name: Build and runtime preflight (no registry, no private assets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd scenecontract && go test -race -count=1 ./... && go vet ./...)
+          (cd scenecontract && CGO_ENABLED=0 go build -trimpath -ldflags='-buildid=' -o ../deploy/scenecontract/scenecontract-bin ./cmd/scenecontract)
+          cp scenecontract/sample.synthetic.json deploy/scenecontract/sample.synthetic.json
+          docker build --pull=false --network=none --tag scp-scenecontract:rc0 --file deploy/scenecontract/Dockerfile deploy/scenecontract
+          docker image inspect scp-scenecontract:rc0 --format '{{.Id}} {{.Config.User}}'
+          OUT="$(docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=64 --memory=256m --cpus=1 scp-scenecontract:rc0)"
+          python3 -c 'import json,sys;a=json.loads(sys.argv[1]);assert a["status"]=="PASS" and a["code"]=="STRUCTURAL_CONTRACT_ONLY";print("SOURCE_SAFE_OCI_LOCAL_CLI_SMOKE_PASS")' "$OUT"
+          set +e
+          docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges --memory=256m scp-scenecontract:rc0 validate /fixtures/missing.json >/dev/null 2>&1
+          FAIL=$?
+          set -e
+          test "$FAIL" -ne 0
+          echo "MISSING_FIXTURE_FAIL_CLOSED"
