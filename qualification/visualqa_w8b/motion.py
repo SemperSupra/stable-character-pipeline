@@ -23,7 +23,7 @@ def measure(frames):
 def observe(path,profile,cam):
  path=Path(path)
  if path.is_symlink() or not (1024<=path.stat().st_size<100000000) or sha(path)!=EXPECTED[profile][cam]:
-  raise ValueError("W8B_ORIGINAL_CLEAN_VIDEO_SHA")
+  raise ValueError("W8B_ORIGINAL_CLEAN_VIDEO_SHA "+str({"camera":cam,"size":path.stat().st_size,"actual":sha(path),"expected":EXPECTED[profile][cam]}))
  capture=cv2.VideoCapture(str(path))
  if not capture.isOpened():raise ValueError("W8B_VIDEO_OPEN")
  rate=capture.get(cv2.CAP_PROP_FPS);frames=[]
