@@ -1,0 +1,30 @@
+name: Scene contract three-audience conformance
+on:
+  pull_request:
+    paths:
+      - 'scenecontract/**'
+      - '.github/workflows/scenecontract.yml'
+permissions:
+  contents: read
+concurrency:
+  group: scene-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  three-audience-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: scenecontract/go.mod
+          cache: false
+      - name: Contract and positive/negative UI/HTTP/agent checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd scenecontract
+          go test -race -count=1 ./...
+          go vet ./...
+          go build ./cmd/scenecontract
+          ./scenecontract validate sample.synthetic.json
