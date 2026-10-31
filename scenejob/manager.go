@@ -175,14 +175,16 @@ func(m *Manager)Run(ctx context.Context,r Request)(Result,error){
   return verified,nil
  }
  var path string
+ created:=false
  for i:=1;i<=1000;i++{
   path=filepath.Join(m.root,fmt.Sprintf("attempt-%04d",i))
   err:=os.Mkdir(path,0700)
   if os.IsExist(err){continue}
   if err!=nil{return zero,err}
+  created=true
   break
  }
- if _,err:=os.Stat(path);err!=nil{return zero,errors.New("OUTPUT_ATTEMPT_LIMIT")}
+ if !created{return zero,errors.New("OUTPUT_ATTEMPT_LIMIT")}
  if err:=m.engine.Run(ctx,path,m.revision);err!=nil{
   return zero,err // NEVER delete failed attempt or first failed media
  }
