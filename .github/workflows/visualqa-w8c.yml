@@ -1,0 +1,44 @@
+name: VisualQA W8-C source GT diagnostic review copies
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w8c/**'
+      - '.github/workflows/visualqa-w8c.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  derived-debug-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install --no-cache-dir 'numpy==1.26.4' 'opencv-python-headless==4.10.0.84'
+          python -m unittest discover -s qualification/visualqa_w8c -p 'test_*.py' -v
+      - name: Rehydrate exact W7A CLEAN originals, render separate QA-only H264
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+          gh run download 41172356301 --repo "$GITHUB_REPOSITORY" --name "walk-w7a-original-approach-$PROFILE" --dir "original-$PROFILE"
+          python qualification/visualqa_w8c/annotate.py --artifact "original-$PROFILE" --profile "$PROFILE" --out "debug-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-w8c-ephemeral-debug-${{ matrix.profile }}
+          path: debug-${{ matrix.profile }}/
+          retention-days: 1
+          if-no-files-found: warn

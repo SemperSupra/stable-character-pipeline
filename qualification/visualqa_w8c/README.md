@@ -1,0 +1,3 @@
+# W8-C disposable 3D-ground-truth debug overlays
+
+Separately projects original W7A 24f × 2 actors × front/oblique cameras from exact current authored source. Reads exact frozen original W7A H264 SHA before drawing. Provides QA-only H264 with solid GT landmarks, bone axes, stance symbols, event time, and typed JSONL sidecar; no detector cues fabricated. Camera proof compares independent XYZ→UV calculation to source Blender sample probes. Unknown occlusion is retained. Neither clean video nor source GT is overwritten. W8-B clean independent acceptance remains separate. Large binary QA review is transient GitHub 1-day artifact pending private Google Drive full-byte custody; code and small manifests Git/DLE. No humans/private R009/merge/release/CPE/deploy/paid resources.
