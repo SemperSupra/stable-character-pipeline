@@ -1,0 +1,29 @@
+name: R0b independent issuer and original-byte evidence qualification
+on:
+  pull_request:
+    paths:
+      - 'releaseproof/**'
+      - '.github/workflows/releaseproof.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r0b-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synthetic-signers-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: releaseproof/go.mod
+          cache: false
+      - name: R0 structural and independently signed exact byte tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd releasegate && go test -race -count=1 ./... && go vet ./...)
+          (cd releaseproof && go test -race -count=1 ./... && go vet ./... && go build ./cmd/releaseproof)
