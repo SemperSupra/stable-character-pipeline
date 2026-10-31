@@ -1,0 +1,75 @@
+name: R19 actual Blender semantic comparison on existing R15 public synthetic scenes
+on:
+  pull_request:
+    paths:
+      - 'qualification/review_r19/**'
+      - '.github/workflows/r19-blender-semantic.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r19-native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-public-blend-semantic-witness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Source-safe comparator negative controls
+        run: python3 -m unittest discover -s qualification/review_r19 -p 'test_*.py' -v
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: r9-native-3audience-original-synthetic-media
+          run-id: 41237673021
+          github-token: ${{ github.token }}
+          repository: SemperSupra/stable-character-pipeline
+          path: r19-original-public-media
+      - name: Bind original two immutable native scenes before opening in Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f r19-original-public-media/r9-cli/attempt-0001/forward/original_source_grounded_24frame_native.blend
+          test -f r19-original-public-media/r9-http/attempt-0001/forward/original_source_grounded_24frame_native.blend
+          printf '%s  %s\n' \
+            '4229cd002c9651f56c73fe8a7258dd0ebfa5d5a3848123f08aa3dccbf4110f36' \
+            'r19-original-public-media/r9-cli/attempt-0001/forward/original_source_grounded_24frame_native.blend' \
+            '6b63a5d4b46586d717848a542fc604366f4e628d3e4ed6c465810938e73a56cd' \
+            'r19-original-public-media/r9-http/attempt-0001/forward/original_source_grounded_24frame_native.blend' | sha256sum --check
+      - name: Native public Blender 4.5 runtime (unreleased source-safe OCI)
+        run: |
+          set -euo pipefail
+          docker build --pull=false --tag scp-r19-native:local --file deploy/native-worker/Dockerfile deploy/native-worker
+      - name: Independent 24-frame evaluated geometry and transform comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p r19-evidence
+          for kind in cli http; do
+            src="$PWD/r19-original-public-media/r9-$kind/attempt-0001/forward/original_source_grounded_24frame_native.blend"
+            docker run --rm --network none --read-only --tmpfs /tmp:rw,size=128m \
+              --security-opt no-new-privileges --cap-drop ALL \
+              --user "$(id -u):$(id -g)" \
+              --volume "$PWD:/src:ro" --volume "$PWD/r19-evidence:/out:rw" \
+              --workdir /src --entrypoint python scp-r19-native:local \
+              qualification/review_r19/semantic_scene.py "$src" "/out/$kind.json"
+          done
+          python3 qualification/review_r19/compare_witness.py r19-evidence/cli.json r19-evidence/http.json > r19-evidence/result.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('r19-evidence/result.json').read_text())
+          if not r['scene_semantic_equal']:
+            raise SystemExit('FIRST_RED_PUBLIC_BLEND_SEMANTIC_MISMATCH')
+          assert r['private_r009']=='HELD_NOT_RUN'
+          print('R19_SEMANTIC_PARITY_NATIVE_PASS_BYTE_DETERMINISM_NOT_CLAIMED')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r19-native-blender-original-synthetic-semantic-witness
+          path: r19-evidence/*.json
+          retention-days: 3
+          if-no-files-found: warn
