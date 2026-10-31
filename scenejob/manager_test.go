@@ -76,7 +76,7 @@ func TestActualCoreAPICLIAndHumanMediaOneManager(t *testing.T){
   w:=httptest.NewRecorder();srv.ServeHTTP(w,h)
   var report Result
   if err:=json.Unmarshal(w.Body.Bytes(),&report);err!=nil{t.Fatal(err)}
-  if w.Code!=200||report!=got && report.Release!=got.Release{
+  if w.Code!=200||report.Release!=got.Release||report.SourceSHA!=got.SourceSHA||report.GLBSHA!=got.GLBSHA{
    t.Fatalf("HTTP job != same core: %d %+v",w.Code,report)
   }
  }
