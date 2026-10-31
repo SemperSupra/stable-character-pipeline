@@ -83,7 +83,7 @@ class OriginalCrossRunTests(unittest.TestCase):
             p=Path(d);a,ae=archive(p,"baseline");b,be=archive(p,"candidate",source_rights="ORIGINAL_SELF_AUTHORED_SYNTHETIC")
             with zipfile.ZipFile(be,"a") as z:
                 z.writestr("forward/source.json",b"replaced")
-            with self.assertRaises(ValueError):
+            with self.assertRaisesRegex(ValueError,"DUPLICATE_ORIGINAL_ZIP_MEMBER"):
                 crossrun.compare(a,ae,b,be)
 
 if __name__=="__main__":unittest.main()
