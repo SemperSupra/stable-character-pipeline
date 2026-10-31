@@ -9,7 +9,7 @@ def pip():
                        "cython==3.3.0","requests==2.34.2","zstandard==0.25.0",
                        "urllib3==2.8.0","idna==3.20","charset-normalizer==3.5.2"])+"\n"
 def deb():
-    return "\n".join(["ffmpeg\t7:5.1.9","libdummy"+str(i)+":amd64\t1.0-1" for i in range(149)])
+    return "\n".join(["ffmpeg\t7:5.1.9"]+["libdummy"+str(i)+":amd64\t1.0-1" for i in range(149)])
 def model(pip_text=None,deb_text=None,base=None):
     return inv.create(pip() if pip_text is None else pip_text,
         deb() if deb_text is None else deb_text,"a"*40,
