@@ -1,0 +1,50 @@
+name: Public original synthetic native AV PTS C9
+on:
+  pull_request:
+    paths:
+      - 'qualification/score_video_pts/**'
+      - '.github/workflows/original-synthetic-av-pts-c9.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-bound-native-av:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/editable/go.mod
+      - name: Install native Csound and FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends csound ffmpeg
+          ffprobe -version | head -1
+      - name: Emit exact upstream C5 original synthetic evidence
+        working-directory: audio-foundry/editable
+        run: |
+          set -euo pipefail
+          go run ./cmd/scorewitness -out c9-original
+          csound -d -W -s -o c9-original/csound-target.wav c9-original/original-synthetic-csound-transport.csd > c9-original/csound.stdout 2> c9-original/csound.stderr
+          python3 score_tempo_witness_oracle.py c9-original
+      - name: Native 224-frame H264+PCM mux and independent PTS/decoded pixel verifier
+        run: |
+          set -euo pipefail
+          python3 qualification/score_video_pts/native_av_pts.py audio-foundry/editable/c9-original
+      - name: Retain original synthetic native AV, receipts and negative controls
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-synthetic-native-av-pts-c9
+          path: |
+            audio-foundry/editable/c9-original/av-pts-evidence.json
+            audio-foundry/editable/c9-original/original-synthetic-proxy-h264.mp4
+            audio-foundry/editable/c9-original/original-synthetic-native-av.mkv
+            audio-foundry/editable/c9-original/original-synthetic-truncated-control.mp4
+            audio-foundry/editable/c9-original/receipt.json
+            audio-foundry/editable/c9-original/time-map.json
+          if-no-files-found: warn
+          retention-days: 7
