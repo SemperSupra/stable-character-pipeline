@@ -24,7 +24,7 @@ func execute(args []string,w io.Writer)error{
  if *capability{if *fixture||*projectPath!=""||*requestPath!=""{return errors.New("capability mode accepts no other input")};return enc.Encode(editable.Capability())}
  if *fixture {
   if *projectPath!=""||*requestPath!=""{return errors.New("fixture cannot override user inputs")}
-  p:=editable.Default();p.Beats=32
+  p:=editable.EightBarFixtureProject()
   tempo:=[]editable.TempoPoint{{AtTick:0,BPM:120},{AtTick:16*editable.PPQ,BPM:90}}
   events:=[]editable.ChoreographyEvent{
    {ID:"intro",ActorID:"actor-a",Role:"leader",Action:"step",Tick:0},
