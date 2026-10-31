@@ -1,0 +1,45 @@
+{
+  "schema": "scp.release-manifest.v1",
+  "phase": "candidate",
+  "scope": "public-synthetic",
+  "source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "gates": {
+    "build": {
+      "status": "PASS",
+      "receipt_sha": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "contract": {
+      "status": "PASS",
+      "receipt_sha": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "source_motion": {
+      "status": "PASS",
+      "receipt_sha": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "render": {
+      "status": "PASS",
+      "receipt_sha": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "behavior": {
+      "status": "PASS",
+      "receipt_sha": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "audiences": {
+      "status": "PASS",
+      "receipt_sha": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "security": {
+      "status": "PASS",
+      "receipt_sha": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "custody": {
+      "status": "PASS",
+      "receipt_sha": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "deployment": {
+      "status": "PASS",
+      "receipt_sha": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  }
+}

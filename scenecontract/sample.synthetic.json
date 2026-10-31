@@ -1,0 +1,23 @@
+{
+  "schema": "scp.scene.v1",
+  "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "action": "walk_approach",
+  "fps": 12,
+  "frames": 72,
+  "actors": [
+    {
+      "id": "left",
+      "asset_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_class": "public-synthetic"
+    },
+    {
+      "id": "right",
+      "asset_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "source_class": "public-synthetic"
+    }
+  ],
+  "cameras": [
+    "front",
+    "oblique"
+  ]
+}
