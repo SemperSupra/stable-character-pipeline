@@ -1,0 +1,44 @@
+name: R20 source-bound original public synthetic media and receipt cold hash witness
+on:
+  pull_request:
+    paths:
+      - 'qualification/review_r20/**'
+      - '.github/workflows/r20-media-proof.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  hash-original-r9-public-archives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Independent synthetic negative fixture tests
+        run: python3 -m unittest discover -s qualification/review_r20 -p 'test_*.py' -v
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: r9-native-3audience-original-synthetic-media
+          run-id: 41237673021
+          github-token: ${{ github.token }}
+          repository: SemperSupra/stable-character-pipeline
+          path: r20-original-media
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: r9-native-3audience-original-synthetic-evidence
+          run-id: 41237673021
+          github-token: ${{ github.token }}
+          repository: SemperSupra/stable-character-pipeline
+          path: r20-original-evidence
+      - name: Hash and reconcile actual complete original synthetic media
+        run: |
+          set -euo pipefail
+          python3 qualification/review_r20/media_proof.py --media r20-original-media --evidence r20-original-evidence > r20-cold-result.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open("r20-cold-result.json"))
+          assert r["decision"]=="HOLD_RELEASE_AND_CPE_PROMOTION"
+          assert len(r["verified_transport_media_sha"])==3
+          print("R20_ORIGINAL_NATIVE_MEDIA_HASHES_RECONFIRMED_RELEASE_STILL_HELD")
+          PY
