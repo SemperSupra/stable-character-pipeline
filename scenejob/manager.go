@@ -163,7 +163,9 @@ func NewManager(revision,outputRoot string,engine Engine)(*Manager,error){
  if err:=os.MkdirAll(p,0700);err!=nil{return nil,err}
  stat,err:=os.Lstat(p)
  if err!=nil||!stat.IsDir()||stat.Mode()&os.ModeSymlink!=0{return nil,errors.New("OUTPUT_ROOT_INVALID")}
- return &Manager{revision:revision,root:p,engine:engine},nil
+ recovered,dir,err:=recoverVerifiedComplete(p,revision)
+ if err!=nil{return nil,err}
+ return &Manager{revision:revision,root:p,engine:engine,completed:recovered,completeDir:dir},nil
 }
 func(m *Manager)Run(ctx context.Context,r Request)(Result,error){
  var zero Result
@@ -173,6 +175,18 @@ func(m *Manager)Run(ctx context.Context,r Request)(Result,error){
   verified,err:=readResult(m.completeDir,m.revision)
   if err!=nil{return zero,err}
   return verified,nil
+ }
+ release,err:=acquireExclusiveWriter(m.root)
+ if err!=nil{return zero,err}
+ defer release()
+ // Another process may have completed the same exact source-bound request
+ // while this Manager was alive; never fork a second native render.
+ restored,dir,err:=recoverVerifiedComplete(m.root,m.revision)
+ if err!=nil{return zero,err}
+ if restored!=nil{
+  m.completed=restored
+  m.completeDir=dir
+  return *restored,nil
  }
  var path string
  created:=false
