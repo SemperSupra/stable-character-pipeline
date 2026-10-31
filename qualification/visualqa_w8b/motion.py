@@ -3,7 +3,7 @@ import argparse,hashlib,json
 from pathlib import Path
 import cv2,numpy as np
 EXPECTED={
- "forward":{"OriginalFront":"8da6f11403972d772af36a2b2a76435994f7699839bab43839cd1cfaad12af84","OriginalOblique":"1109a06cecb7edd53a59bd7d02433a683897eef541ecfb1ed43c586bea0bf"},
+ "forward":{"OriginalFront":"8da6f11403972d772af36a2b2a76435994f7699839bab43839cd1cfaad12af84","OriginalOblique":"1109a06cecb7edd53a59bd7d02433a32a683897eef541ecfb1ed43c586bea0bf"},
  "outward":{"OriginalFront":"03b2cb6d26ff044f942773b83961d44bb03dfdbdf776017d254ab04c430dc3a2","OriginalOblique":"e5d557423538e59e9b4cd035ad0cc5538152822895901e309a01bc3f2dea05bf"}}
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def measure(frames):
@@ -22,9 +22,7 @@ def measure(frames):
  return observations
 def observe(path,profile,cam):
  path=Path(path)
- if path.is_symlink() and not path.resolve(strict=True).is_relative_to(path.parents[1].resolve(strict=True)):
-  raise ValueError("W8B_UNSAFE_SYMLINK_ESCAPES_ARCHIVE")
- if not (1024<=path.stat().st_size<100000000) or sha(path)!=EXPECTED[profile][cam]:
+ if path.is_symlink() or not (1024<=path.stat().st_size<100000000) or sha(path)!=EXPECTED[profile][cam]:
   raise ValueError("W8B_ORIGINAL_CLEAN_VIDEO_SHA "+str({"camera":cam,"size":path.stat().st_size,"actual":sha(path),"expected":EXPECTED[profile][cam]}))
  capture=cv2.VideoCapture(str(path))
  if not capture.isOpened():raise ValueError("W8B_VIDEO_OPEN")
@@ -39,7 +37,7 @@ def observe(path,profile,cam):
   "profile":profile,"camera":cam,"frame_count":len(frames),"fps":rate,
   "optical_flow":"opencv_farneback_cpu","opencv_version":cv2.__version__,
   "source_gt_available_to_observer":False,
-  "archive_pointer":"BOUNDED_INTERNAL_SYMLINK" if path.is_symlink() else "REGULAR_FILE","transitions":measure(frames),
+  "archive_pointer":"REGULAR_FILE_REQUIRED","transitions":measure(frames),
   "human_pose":"NOT_RUN_UNAPPROVED_MODEL","animal_pose":"NOT_RUN_WRONG_SUBJECT",
   "rendered_behavior":"UNKNOWN_MOTION_FEATURES_NOT_GAIT_PRIOR"}
 def main():
