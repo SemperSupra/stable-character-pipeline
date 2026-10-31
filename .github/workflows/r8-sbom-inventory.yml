@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Offline parser and supply-chain negative controls
         shell: bash
         run: |
@@ -28,6 +29,7 @@ jobs:
           SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           grep -Fqx 'FROM python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd' deploy/native-worker/Dockerfile
           docker build --pull=false --tag scp-r8-native:inventory --file deploy/native-worker/Dockerfile deploy/native-worker
           mkdir -p inventory-results
