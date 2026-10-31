@@ -25,6 +25,7 @@ func run(args []string)error{
  if e!=nil{return e}
  wav,midi,xml,receipt,e:=editable.RenderOriginalSyntheticTempoWitness(p,r)
  if e!=nil{return e}
+ csd,e:=editable.CsoundTempoDiagnostic(p,r);if e!=nil{return e}
  source,e:=p.Bytes();if e!=nil{return e}
  plan,e:=editable.AlignOriginalSynthetic(p,r);if e!=nil{return e}
  planJSON,e:=json.MarshalIndent(plan,"","  ");if e!=nil{return e}
@@ -36,6 +37,7 @@ func run(args []string)error{
   {"source.json",source},{"original-synthetic-tempo.mid",midi},
   {"original-synthetic-tempo.musicxml",xml},{"original-synthetic-onsets.wav",wav},
   {"time-map.json",append(planJSON,'\n')},{"receipt.json",append(receiptJSON,'\n')},
+  {"original-synthetic-csound-transport.csd",csd},
  }
  for _,f:=range files{if e:=editable.WriteNew(filepath.Join(*out,f.name),f.content);e!=nil{return e}}
  success=true
