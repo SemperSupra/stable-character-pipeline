@@ -1,0 +1,56 @@
+name: R21 public original synthetic source-to-pixel approach qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/review_r21/**'
+      - '.github/workflows/r21-synthetic-pixel-approach.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-source-and-two-camera-pixel-approach:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Source and colour segmentation falsifiers
+        run: python3 -m unittest discover -s qualification/review_r21 -p 'test_*.py' -v
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: r9-native-3audience-original-synthetic-media
+          run-id: 41237673021
+          github-token: ${{ github.token }}
+          repository: SemperSupra/stable-character-pipeline
+          path: r21-original-media
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: r9-native-3audience-original-synthetic-evidence
+          run-id: 41237673021
+          github-token: ${{ github.token }}
+          repository: SemperSupra/stable-character-pipeline
+          path: r21-original-evidence
+      - name: Install observed native video inspection dependency when absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ffprobe >/dev/null 2>&1 || ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          ffprobe -version | head -n 1
+      - name: Actual FFmpeg original two-view 24f color-centroid and source-root witness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 qualification/review_r21/pixel_approach.py \
+            --source r21-original-evidence/r9-cli/attempt-0001/forward/source.json \
+            --media r21-original-media > r21-witness.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open("r21-witness.json"))
+          assert a["visual_evidence"]=="PASS_SYNTHETIC_TWO_COLOUR_APPROACH_ONLY"
+          assert a["r009_private"]=="HELD_R009_NOT_RUN_NOT_ADMITTED"
+          print("R21_PIXEL_ONLY_APPROACH_PASS_HUMAN_GAIT_STILL_FAIL")
+          PY
