@@ -49,6 +49,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p r7-outputs
+          docker image inspect scp-native-oci:r7 --format '{{.Id}}' > r7-outputs/observed-local-image-id.txt
+          docker run --rm --network=none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --entrypoint python scp-native-oci:r7 \
+            -m pip freeze > r7-outputs/observed-python-packages.txt
+          docker run --rm --network=none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --entrypoint dpkg-query scp-native-oci:r7 \
+            -W > r7-outputs/observed-debian-packages.txt
           (cd releasegate && go build -o ../releasegate-bin ./cmd/releasegate)
           (cd scenecontract && go build -o ../scenecontract-bin ./cmd/scenecontract)
           docker run --rm --user "$(id -u):$(id -g)" --network=none --read-only \
@@ -81,9 +88,24 @@ jobs:
           name: r7-native-oci-original-synthetic-compact
           path: |
             r7-outputs/receipt/
+            r7-outputs/observed-local-image-id.txt
+            r7-outputs/observed-python-packages.txt
+            r7-outputs/observed-debian-packages.txt
             r7-outputs/forward/source.json
             r7-outputs/forward/source_motion_receipt.json
             r7-outputs/forward/rendered/native_render_receipt.json
             r7-outputs/forward/rendered/independent_cross_camera_rollup.json
+          retention-days: 3
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r7-native-oci-original-synthetic-media
+          path: |
+            r7-outputs/forward/original_synthetic_24frame_skinned.glb
+            r7-outputs/forward/original_source_grounded_24frame_native.blend
+            r7-outputs/forward/rendered/OriginalFront.mp4
+            r7-outputs/forward/rendered/OriginalOblique.mp4
           retention-days: 3
           if-no-files-found: warn
