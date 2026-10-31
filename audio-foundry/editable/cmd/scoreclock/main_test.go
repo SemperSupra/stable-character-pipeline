@@ -18,6 +18,8 @@ func TestCLIParityAndNegative(t *testing.T){
  if !bytes.Equal(b,out.Bytes()){t.Fatal("fixture not idempotent")}
  var p map[string]any;if err:=json.Unmarshal(b,&p);err!=nil{t.Fatal(err)}
  if p["audio_verification"]!="SYNTHETIC_SCORE_TIMEMAP_ONLY_AUDIO_WAVEFORM_NOT_CHECKED"{t.Fatal("fabricated audio proof")}
+ if p["clock_alignment_status"]!="DETERMINISTIC_SOURCE_CLOCK_DIVERGENCE_NOT_RENDERED_AUDIO" {t.Fatal("score-audio mismatch not surfaced")}
+ if p["score_minus_audio_end_samples"]!="128000"||p["performed_audio_accepted"]!=false {t.Fatal("incorrect waveform acceptance")}
  out.Reset()
  for _,args:=range [][]string{{"-project","missing.json"},{"-fixture","-capabilities"},{"-request","missing.json"},{"-project","missing.json","-request","missing.json"}}{
   if err:=execute(args,&out);err==nil{t.Fatal("invalid command passed")}
