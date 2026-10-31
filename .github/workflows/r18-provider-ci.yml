@@ -1,0 +1,20 @@
+name: R18 independently observed public provider CI source binding
+on:
+  pull_request:
+    paths:
+      - 'qualification/review_r18/**'
+      - '.github/workflows/r18-provider-ci.yml'
+permissions:
+  contents: read
+jobs:
+  observed-source-ci-and-falsifiers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Offline negative tests of provider record binding
+        run: python3 -m unittest discover -s qualification/review_r18 -p 'test_*.py' -v
+      - name: Read original public GitHub run records and retain release HOLD
+        run: python3 qualification/review_r18/provider_runs.py
