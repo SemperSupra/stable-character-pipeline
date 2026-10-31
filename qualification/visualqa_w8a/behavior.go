@@ -92,7 +92,7 @@ func Evaluate(s Source, digest string) Receipt {
     want:="Left";if li==1 {want="Right"}
     if leg.ID!=want {fail("W8_SWAPPED_LEFT_RIGHT",a.ID,leg.ID,i);continue}
     if !vec3(leg.Hip)||!vec3(leg.Knee)||!vec3(leg.Ankle)||!vec3(leg.Heel)||!vec3(leg.Toe) {fail("W8_NONFINITE_OR_MISSING_GEOMETRY",a.ID,leg.ID,i);continue}
-    if leg.Ankle[2]<-0.0001||leg.Heel[2]<-0.0001||leg.Toe[2]<-0.0001 {fail("W8_GROUND_PENETRATION",a.ID,leg.ID,i)}
+    if leg.Ankle[2]< -0.0001||leg.Heel[2]< -0.0001||leg.Toe[2]< -0.0001 {fail("W8_GROUND_PENETRATION",a.ID,leg.ID,i)}
     if leg.State=="stance" {
      if !vec3(leg.Anchor) {fail("W8_MISSING_STANCE_ANCHOR",a.ID,leg.ID,i);continue}
      if dist(leg.Ankle,leg.Anchor)>.001||math.Abs(leg.Heel[2])>.0001||math.Abs(leg.Toe[2])>.0001 {
@@ -132,8 +132,7 @@ func main() {
  digest:=sha256.Sum256(raw)
  r:=Evaluate(s,hex.EncodeToString(digest[:]))
  out,e:=json.MarshalIndent(r,"","  ");if e!=nil {panic(e)}
- if e=os.WriteFile(os.Args[2],append(out,'
-'),0644);e!=nil {panic(e)}
+ if e=os.WriteFile(os.Args[2],append(out, byte(10)),0644);e!=nil {panic(e)}
  fmt.Println(r.SourceIntegrity,r.SourceBehavior,r.HumanGait)
  if r.SourceIntegrity=="FAIL" {os.Exit(1)}
 }
