@@ -5,7 +5,7 @@ Read original public-synthetic W7A 24-frame source plus two R9 H264 images.
 Match per-frame colour identities as source-safe fixtures only; no arbitrary
 human/identity recognition, anatomical JCS, fullbody or photoreal acceptance.
 """
-import argparse,json,subprocess,sys
+import argparse,json,math,subprocess,sys
 from pathlib import Path
 ACTORS=("CobaltOriginal","MarigoldOriginal")
 CAMERAS=("OriginalFront","OriginalOblique")
@@ -37,11 +37,20 @@ def geometry(source):
    all(fr.get("index")==i and fr.get("time_num")==i and fr.get("time_den")==12 for i,fr in enumerate(frames)),
    "INCOMPLETE_SOURCE_FRAME_CLOCK")
  gaps=[]
- for frame in (0,23):
-  a,b=(float(x["frames"][frame]["root_x"]) for x in actors)
-  gaps.append(abs(a-b))
- need(gaps[0]-gaps[1]>0.5,"NO_SIGNIFICANT_ROOT_APPROACH")
- return gaps
+ previous=None
+ for frame in range(24):
+  values=[]
+  for actor in actors:
+   position=float(actor["frames"][frame]["root_x"])
+   need(math.isfinite(position),"SOURCE_NONFINITE_FRAME")
+   values.append(position)
+  if previous is not None:
+   need(all(abs(values[i]-previous[i])<=0.5 for i in range(2)),
+        "SOURCE_FRAME_TELEPORT")
+  previous=values
+  gaps.append(abs(values[0]-values[1]))
+ need(gaps[0]-gaps[-1]>0.5,"NO_SIGNIFICANT_ROOT_APPROACH")
+ return [gaps[0],gaps[-1]]
 def raw_h264(video):
  meta=json.loads(subprocess.check_output(["ffprobe","-v","error","-select_streams","v:0",
   "-show_entries","stream=width,height,nb_frames,r_frame_rate,codec_name","-of","json",str(video)],timeout=15))
@@ -52,7 +61,7 @@ def raw_h264(video):
   "-f","rawvideo","-pix_fmt","rgb24","-"],timeout=50)
  size=640*360*3
  need(len(raw)==24*size,"DECODED_FRAME_COUNT_MISMATCH")
- return [raw[:size],raw[23*size:24*size]]
+ return [memoryview(raw)[i*size:(i+1)*size] for i in range(24)]
 def source_bound_approach(source,video_paths):
  roots=geometry(source)
  cameras={}
@@ -64,10 +73,12 @@ def source_bound_approach(source,video_paths):
    brown=centroid(frame,640,360,"brown")
    need(blue<brown,"SOURCE_SYNTHETIC_COLOUR_ORDER_CHANGED")
    gap.append(brown-blue)
-  change=gap[0]-gap[1]
+   if len(gap)>1:
+    need(abs(gap[-1]-gap[-2])<=90,"SYNTHETIC_PIXEL_FRAME_DISCONTINUITY")
+  change=gap[0]-gap[-1]
   need(change>40,"ORIGINAL_TWO_VIEW_PIXEL_APPROACH_UNQUALIFIED")
   cameras[name]={"first_pixel_gap":round(gap[0],3),
-    "last_pixel_gap":round(gap[1],3),"pixel_convergence":round(change,3)}
+    "last_pixel_gap":round(gap[-1],3),"pixel_convergence":round(change,3)}
  return {"schema":"scp.r21.synthetic_2d_approach.v1","scope":"PUBLIC_ORIGINAL_SYNTHETIC_ONLY",
   "root_world_gap":roots,"views":cameras,
   "visual_evidence":"PASS_SYNTHETIC_TWO_COLOUR_APPROACH_ONLY",
