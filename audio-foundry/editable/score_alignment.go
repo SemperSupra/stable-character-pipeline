@@ -28,7 +28,7 @@ type ChoreographyEvent struct {
 type ScoreRequest struct {
  Schema string `json:"schema"`
  Origin string `json:"origin"`
- AudioProjectSHA256 string [[audio_project_sha256]]
+ AudioProjectSHA256 string `json:"audio_project_sha256"`
  Tempo []TempoPoint `json:"tempo"`
  Events []ChoreographyEvent `json:"events"`
 }
@@ -40,7 +40,7 @@ type ScoreEvent struct {
 }
 type ScoreTimeMap struct {
  Schema string `json:"schema"`
- SourceAudioProjectSHA256 string [[source_audio_project_sha256]]
+ SourceAudioProjectSHA256 string `json:"source_audio_project_sha256"`
  Meter string `json:"meter"`
  Timebase string `json:"timebase"`
  AudioVerification string `json:"audio_verification"`
