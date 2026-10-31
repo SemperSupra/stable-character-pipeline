@@ -48,8 +48,11 @@ def structural_scene():
      "head":vec(b.head_local),"tail":vec(b.tail_local),"matrix":matrix(b.matrix_local)}
      for b in sorted(obj.data.bones,key=lambda b:b.name)]
   items.append(value)
- if not any(x["type"]=="MESH" for x in items) or sum(x["type"]=="CAMERA" for x in items)<2:
-  raise ValueError("ORIGINAL_TWO_VIEW_GEOMETRY_MISSING")
+ # The original source .blend records the two rigged actors; R9 makes
+ # its two H264 view cameras in a separate native rendering process.
+ # Do not invent Blender-internal cameras in this scene witness.
+ if sum(x["type"]=="MESH" for x in items)<2 or sum(x["type"]=="ARMATURE" for x in items)<2:
+  raise ValueError("ORIGINAL_TWO_ACTOR_RIG_MISSING")
  return {"render":{"fps":scene.render.fps,"fps_base":scalar(scene.render.fps_base),
    "resolution_x":scene.render.resolution_x,"resolution_y":scene.render.resolution_y},
    "frame_start":scene.frame_start,"frame_end":scene.frame_end,"objects":items}
