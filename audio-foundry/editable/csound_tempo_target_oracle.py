@@ -5,6 +5,7 @@ Go note author, csd score text or receipt as a sufficient onset oracle.
 """
 from pathlib import Path
 import json
+import hashlib
 import sys
 import struct
 import wave
@@ -35,12 +36,15 @@ def verify(root):
         "schema": "scp.original-synthetic-csound-transport-review.v0",
         "source_project_sha256": receipt["source_project_sha256"],
         "actual_pcm_samples": n,
+        "native_wav_sha256": hashlib.sha256(file.read_bytes()).hexdigest(),
+        "replay_independent_wav_sha256": hashlib.sha256((root / "csound-target-replay.wav").read_bytes()).hexdigest(),
         "tested_note_events": len(attacks),
         "maximum_absolute_onset_error_samples": max(errors),
         "status": "PASS_ORIGINAL_SYNTHETIC_EXTERNAL_CSOUND_DIAGNOSTIC_NOT_HISTORICAL_OR_R009",
         "performance_rights": "ORIGINAL_SYNTHETIC_ONLY",
         "true_human_motion": "NOT_RUN",
     }
+    assert result["native_wav_sha256"] == result["replay_independent_wav_sha256"], "native engine replay differs"
     print(json.dumps(result, sort_keys=True))
     return result
 
