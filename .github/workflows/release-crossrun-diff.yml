@@ -1,0 +1,31 @@
+name: Release original H264 cross-run decoded-video differential
+on:
+  pull_request:
+    paths:
+      - 'qualification/release_crossrun/**'
+      - '.github/workflows/release-crossrun-diff.yml'
+permissions:
+  contents: read
+concurrency:
+  group: release-crossrun-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-original-h264-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Bound image decoder dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+          ffmpeg -version | head -1
+      - name: Independent original-only synthetic positives and hostile falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/release_crossrun -p 'test_*.py' -v
