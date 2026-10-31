@@ -58,7 +58,8 @@ def observe(root,video=None,onset_shift=0):
     if count!=896000 or len(onsets)!=20 or max(abs(x-y) for x,y in zip(onsets,original))>2:raise Reject("native PCM differs from source oracle")
     if onset_shift:onsets=[x+onset_shift for x in onsets]
     src=video or root/"original-synthetic-native-av.mkv"
-    entries=json.loads(run(["ffprobe","-v","error","-select_streams","v:0","-show_entries","frame=best_effort_timestamp_time","-of","json",str(src)])).decode()).get("frames",[])
+    probe=run(["ffprobe","-v","error","-select_streams","v:0","-show_entries","frame=best_effort_timestamp_time","-of","json",str(src)])
+    entries=json.loads(probe.decode()).get("frames",[])
     if len(entries)!=224:raise Reject("frame dropped/duplicated/truncated")
     times=[float(e["best_effort_timestamp_time"]) for e in entries]
     tolerance=.000501 if src.suffix==".mkv" else .00001
