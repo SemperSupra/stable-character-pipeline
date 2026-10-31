@@ -1,0 +1,59 @@
+name: WALK W7A - source original approach and unchanged L1
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w7a/**'
+      - '.github/workflows/walk-w7a-approach.yml'
+permissions:
+  contents: read
+jobs:
+  native-approach:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source-original approach, actual weighted Blender and required-view L1
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python -m unittest discover -s qualification/walk_w7a -p 'test_*.py' -v
+          python qualification/walk_w7a/approach_source.py --profile "$PROFILE" --out "walk-w7a-$PROFILE"
+          xvfb-run -a python qualification/walk_w7a/native_approach.py --profile "$PROFILE" --source "walk-w7a-$PROFILE/source.json" --out "walk-w7a-$PROFILE"
+          python qualification/walk_w7a/independent_approach.py "walk-w7a-$PROFILE"
+          python qualification/walk_w16c5a/w4d_liveness.py "walk-w7a-$PROFILE"
+          xvfb-run -a python qualification/walk_w6a/proxy_multiview.py --source "walk-w7a-$PROFILE" --out "walk-w7a-$PROFILE/rendered"
+          for CAM in OriginalFront OriginalOblique; do
+            set +e
+            python qualification/walk_w6a/qa_video.py --video "walk-w7a-$PROFILE/rendered/$CAM.mp4" --out "walk-w7a-$PROFILE/rendered/qa-$CAM"
+            RET=$?
+            set -e
+            if [ "$RET" -ne 0 ] && [ "$RET" -ne 2 ]; then
+              echo "L1_NOT_EVALUABLE"; exit 1
+            fi
+            python -c 'import json,sys;p=json.load(open(sys.argv[2]));assert (int(sys.argv[1])==0 and p["status"]=="PASS_L1_VIDEO_ONLY") or (int(sys.argv[1])==2 and p["status"]=="FAIL");print("W7A_OBSERVED_IMMUTABLE_L1",p["status"],p["failures"])' "$RET" "walk-w7a-$PROFILE/rendered/qa-$CAM/video_qa.json"
+          done
+          python qualification/walk_w6a/multiview_rollup.py --folder "walk-w7a-$PROFILE/rendered"
+          python -c 'import json,sys;r=json.load(open(sys.argv[1]));print("W7A_REQUIRED_VIEWS_GATE",r["status"]);assert r["status"]=="PASS_ALL_REQUIRED_VIEWS_L1_ONLY","RETAIN_RED_REQUIRED_VIEW_L1"' "walk-w7a-$PROFILE/rendered/independent_cross_camera_rollup.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: walk-w7a-original-approach-${{ matrix.profile }}
+          path: walk-w7a-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
