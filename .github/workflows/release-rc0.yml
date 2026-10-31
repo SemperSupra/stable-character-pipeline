@@ -1,0 +1,83 @@
+name: RC0 source-safe native integration, expected release HOLD
+on:
+  pull_request:
+    paths:
+      - 'releasegate/**'
+      - 'scenecontract/**'
+      - 'qualification/release_rc0/**'
+      - '.github/workflows/release-rc0.yml'
+permissions:
+  contents: read
+concurrency:
+  group: rc0-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  negative-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Independent source-safe suites
+        run: |
+          set -euo pipefail
+          (cd releasegate && go test -race -count=1 ./... && go vet ./...)
+          (cd scenecontract && go test -race -count=1 ./... && go vet ./...)
+          python3 -m unittest discover -s qualification/release_rc0 -p 'test_*.py' -v
+  native-original:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Native source -> actual clean H264 -> draft admission HOLD
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          (cd releasegate && go build -o ../releasegate-bin ./cmd/releasegate)
+          (cd scenecontract && go build -o ../scenecontract-bin ./cmd/scenecontract)
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python qualification/walk_w7a/approach_source.py --profile forward --out rc0-forward
+          xvfb-run -a python qualification/walk_w7a/native_approach.py --profile forward --source rc0-forward/source.json --out rc0-forward
+          python qualification/walk_w7a/independent_approach.py rc0-forward
+          python qualification/walk_w16c5a/w4d_liveness.py rc0-forward
+          xvfb-run -a python qualification/walk_w6a/proxy_multiview.py --source rc0-forward --out rc0-forward/rendered
+          for CAM in OriginalFront OriginalOblique; do
+            python qualification/walk_w6a/qa_video.py --video "rc0-forward/rendered/$CAM.mp4" --out "rc0-forward/rendered/qa-$CAM"
+          done
+          python qualification/walk_w6a/multiview_rollup.py --folder rc0-forward/rendered
+          python qualification/release_rc0/bridge.py --folder rc0-forward --revision "$SOURCE_SHA" --release-binary ./releasegate-bin --output rc0-receipt
+          ./scenecontract-bin validate rc0-receipt/scene.json > rc0-receipt/scene-validation.json
+          set +e
+          ./releasegate-bin rc0-receipt/manifest.draft.json > rc0-receipt/release-admission.json
+          exitcode=$?
+          set -e
+          python3 -c 'import json,sys;p=json.load(open("rc0-receipt/release-admission.json"));v=json.load(open("rc0-receipt/scene-validation.json"));assert int(sys.argv[1])==1 and p=={"status":"UNKNOWN","code":"DRAFT_NOT_PROMOTED"} and v["status"]=="PASS";print("RC0_RELEASE_HELD_AS_EXPECTED",p)' "$exitcode"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: rc0-original-synthetic-forward-compact-evidence
+          path: |
+            rc0-receipt/
+            rc0-forward/source.json
+            rc0-forward/source_motion_receipt.json
+            rc0-forward/rendered/native_render_receipt.json
+            rc0-forward/rendered/independent_cross_camera_rollup.json
+          retention-days: 3
+          if-no-files-found: warn
