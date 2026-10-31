@@ -73,6 +73,10 @@ async function journey(mode){
   scenario=mode;posted=0;postValid=true;
   await command("Page.navigate",{url:origin+"/?scenario="+mode});
   await ready();
+  assert.equal(await expression("document.getElementById('job').getAttribute('role')"),"status");
+  assert.equal(await expression("document.getElementById('job').getAttribute('aria-live')"),"polite");
+  assert.equal(await expression("document.getElementById('front').hasAttribute('controls')"),true);
+  assert.equal(await expression("document.getElementById('oblique').hasAttribute('controls')"),true);
   if(mode==="keyboard")await keyboardSubmit();else await click();
   for(let i=0;i<100;i++){
     const state=await pageState();
@@ -111,10 +115,6 @@ try{
     if(pendingMessage){pending.delete(msg.id);pendingMessage.resolve(msg)}
   });
   await command("Page.enable");await command("Runtime.enable");
-  assert.equal(await expression("document.getElementById('job').getAttribute('role')"),"status");
-  assert.equal(await expression("document.getElementById('job').getAttribute('aria-live')"),"polite");
-  assert.equal(await expression("document.getElementById('front').hasAttribute('controls')"),true);
-  assert.equal(await expression("document.getElementById('oblique').hasAttribute('controls')"),true);
   for(const mode of ["ok","keyboard","forged-cap","forged-result","http-fail"])await journey(mode);
   console.log("R15_BROWSER_SOURCE_SAFE_UI_ONLY_NO_REAL_R009_OR_ACCESSIBILITY_ADMISSION");
 }finally{
