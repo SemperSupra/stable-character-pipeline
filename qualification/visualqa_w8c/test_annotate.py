@@ -1,6 +1,10 @@
 import unittest,copy
-from annotate import project,sidecar,CAMERAS,camera_receipt
+from annotate import project,sidecar,CAMERAS,camera_receipt,EXPECTED
 class SourceProjection(unittest.TestCase):
+ def test_full_length_source_hash_pins(self):
+  for profile,cameras in EXPECTED.items():
+   for camera,digest in cameras.items():
+    self.assertRegex(digest,r"^[0-9a-f]{64}$",f"{profile}/{camera}")
  def test_calibration_wrong_camera_not_self_pass(self):
   p=(.4,.2,1.3)
   self.assertGreater(sum(abs(a-b) for a,b in zip(project(p,"OriginalFront"),project(p,"OriginalOblique"))),.001)
