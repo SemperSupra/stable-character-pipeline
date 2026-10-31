@@ -15,7 +15,7 @@ from native_sole import add_actor,ACTORS,LEGS,SOURCE
 def animate(source,profile,out):
     if (source.get("schema")!="scp.walk_w7a_original_approach.v1" or
         source.get("rights")!=SOURCE or source.get("profile")!=profile or
-        len(source.get("actors",[]))!=2 or source.get("fps_num")!=12 or source.get("root_x_travel_per_actor")!=.40):
+        len(source.get("actors",[]))!=2 or source.get("fps_num")!=12 or source.get("root_x_travel_per_actor")!=.33):
         raise ValueError("C4_SOURCE_CONTRACT_OR_RIGHTS")
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene=bpy.context.scene;scene.frame_start=0;scene.frame_end=23;scene.render.fps=12
@@ -128,7 +128,7 @@ def animate(source,profile,out):
             "max_native_planted_heel_slip":max_native_stance_slip,
             "min_native_sole_z":min_native_sole,
             "human_anatomy":"UNKNOWN_NO_INDEPENDENT_JCS_OR_ROM",
-            "original_w7a_actor_root_motion":"SOURCE_X_APPROACH_0.40_EACH",
+            "original_w7a_actor_root_motion":"SOURCE_X_APPROACH_0.33_EACH",
             "true_natural_knee_rom":"UNKNOWN_SOURCE_SAGITTAL_POLE_ONLY",
             "force_dynamics":"UNKNOWN_NO_TORQUE_OR_FORCE_MODEL",
             "actual_multi_camera_video":"NOT_RENDERED",
