@@ -1,0 +1,53 @@
+name: VisualQA W8-A source behavior invariant controls
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w8a/**'
+      - '.github/workflows/visualqa-w8a.yml'
+permissions:
+  contents: read
+jobs:
+  source-invariants:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Independent source-only hostile Go controls
+        run: |
+          set -euo pipefail
+          cd qualification/visualqa_w8a
+          go test -race -v behavior.go behavior_test.go
+          go vet behavior.go
+      - name: Original W7A source; kinematic PASS but human ABSTAIN
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          mkdir -p "w8a-$PROFILE"
+          python qualification/walk_w7a/approach_source.py --profile "$PROFILE" --out "w8a-$PROFILE"
+          go run qualification/visualqa_w8a/behavior.go "w8a-$PROFILE/source.json" "w8a-$PROFILE/decision.json"
+          python - "$PROFILE" <<'PY'
+          import json,sys
+          r=json.load(open("w8a-"+sys.argv[1]+"/decision.json"))
+          assert r["source_integrity"]=="PASS_SOURCE_CONTRACT_KINEMATIC_ONLY"
+          assert r["source_behavior"]=="ABSTAIN_INSUFFICIENT_ANATOMICAL_INPUT"
+          assert r["human_gait"].startswith("ABSTAIN")
+          assert r["rendered_behavior"]=="NOT_RUN_CLEAN_VIDEO_SEPARATE"
+          print("W8A_EXECUTION_PASS_HUMAN_BEHAVIOR_NOT_ACCEPTED",r["source_sha256"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-w8a-numeric-${{ matrix.profile }}
+          path: w8a-${{ matrix.profile }}/decision.json
+          retention-days: 3
+          if-no-files-found: warn
