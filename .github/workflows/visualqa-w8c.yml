@@ -31,6 +31,8 @@ jobs:
           PROFILE: ${{ matrix.profile }}
         run: |
           set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
           gh run download 41172356301 --repo "$GITHUB_REPOSITORY" --name "walk-w7a-original-approach-$PROFILE" --dir "original-$PROFILE"
           python qualification/visualqa_w8c/annotate.py --artifact "original-$PROFILE" --profile "$PROFILE" --out "debug-$PROFILE"
       - uses: actions/upload-artifact@v4
