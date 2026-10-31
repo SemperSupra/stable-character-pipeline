@@ -86,6 +86,9 @@ def adjudicate(profile,source_raw,native,render,rollup,prior,views,hog,geometry,
      for i,x in enumerate(rows)),"W9_I_MODEL_FRAME_CLOCK")
   require(all(x.get("candidate_count")==len(x.get("candidates",[]))
     for x in rows),"W9_I_MODEL_BOX_COUNT")
+  require(m.get("frames_with_candidates")==sum(x.get("candidate_count",0)>0 for x in rows) and
+    m.get("frames_with_more_than_two_candidates")==sum(x.get("candidate_count",0)>2 for x in rows),
+    "W9_I_MODEL_AGGREGATE_MISMATCH")
   d=decodes[camera]
   require(d.get("frames_decoded")==24 and d.get("source_sha256")==vsha and d.get("fps")=="12/1",
     "W9_I_INDEPENDENT_CODEC_DECODE")
