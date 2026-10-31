@@ -36,7 +36,7 @@ def camera_receipt(source,render):
    if actor is None:raise ValueError("W8C_ACTOR_ID")
    z={"Head":2.17,"Torso":1.5,"Pelvis":1.09}.get(item["part"])
    if z is None:raise ValueError("W8C_BODY_PROBE")
-   f=actor["frames"][0]
+   f=actor["frames"][0 if name=="OriginalFront" else 23]
    uv=project((f["root_x"],f["root_y"],z),name)
    error=math.dist(uv,item["uv"])
    if error>.002:raise ValueError("W8C_SOURCE_CAMERA_CALIBRATION_MISMATCH")
@@ -118,6 +118,7 @@ def main():
    "camera":camera,"source_sha256":sha(source_file),"clean_video_sha256":sha(clean),
    "qa_only_video_sha256":sha(review),"clean_input_modified":False,
    "camera_independent_xyz_to_uv_max_error":residuals[camera],
+   "original_native_camera_probe_tick":0 if camera=="OriginalFront" else 23,
    "rendered_behavior":"NOT_EVALUATED_USING_OVERLAY",
    "anatomy":"UNKNOWN_NO_APPROVED_HUMAN_JCS_OR_RIG"},indent=2,sort_keys=True)+chr(10))
  print("W8C_ANNOTATED_QA_ONLY_NOT_ACCEPTANCE",o.profile,residuals)
