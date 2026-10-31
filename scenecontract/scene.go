@@ -11,7 +11,8 @@ import(
 const Schema="scp.scene.v1"
 var revisionRE=regexp.MustCompile("^[a-f0-9]{40}$")
 var shaRE=regexp.MustCompile("^sha256:[a-f0-9]{64}$")
-var idRE=regexp.MustCompile("^[a-z][a-z0-9_-]{0,63}$")
+var actorIDRE=regexp.MustCompile("^[A-Za-z][A-Za-z0-9_-]{0,63}$")
+var cameraIDRE=regexp.MustCompile("^[a-z][a-z0-9_-]{0,63}$")
 type Actor struct {
  ID string `json:"id"`
  AssetDigest string `json:"asset_digest"`
@@ -73,15 +74,16 @@ func Validate(s Scene)Decision{
  if len(s.Cameras)<2||len(s.Cameras)>4{return fail("INVALID_CAMERA_COUNT")}
  ids:=map[string]bool{}
  for _,a:=range s.Actors{
-  if !idRE.MatchString(a.ID){return fail("INVALID_ACTOR_ID")}
-  if ids[a.ID]{return fail("DUPLICATE_ACTOR")}
-  ids[a.ID]=true
+  if !actorIDRE.MatchString(a.ID){return fail("INVALID_ACTOR_ID")}
+  canonical:=strings.ToLower(a.ID)
+  if ids[canonical]{return fail("DUPLICATE_ACTOR")}
+  ids[canonical]=true
   if !shaRE.MatchString(a.AssetDigest){return fail("INVALID_ASSET_DIGEST")}
   if a.SourceClass!="public-synthetic"&&a.SourceClass!="protected-product"{return fail("INVALID_SOURCE_CLASS")}
  }
  cameras:=map[string]bool{}
  for _,c:=range s.Cameras{
-  if !idRE.MatchString(c){return fail("INVALID_CAMERA_ID")}
+  if !cameraIDRE.MatchString(c){return fail("INVALID_CAMERA_ID")}
   if cameras[c]{return fail("DUPLICATE_CAMERA")}
   cameras[c]=true
  }
