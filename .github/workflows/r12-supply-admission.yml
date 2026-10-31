@@ -1,0 +1,27 @@
+name: R12 public original-only supply admission fail-closed tests
+on:
+  pull_request:
+    paths:
+      - 'qualification/sbom_inventory/**'
+      - '.github/workflows/r12-supply-admission.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r12-supply-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  supply-hold-negatives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Test exact original observed-BOM parser and independent release holds
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          python3 -m unittest discover -s qualification/sbom_inventory -p 'test_*.py' -v
+          python3 -m py_compile qualification/sbom_inventory/release_admission.py
