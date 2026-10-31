@@ -30,6 +30,8 @@ jobs:
           (cd scenecontract && CGO_ENABLED=0 go build -trimpath -ldflags='-buildid=' -o ../deploy/scenecontract/scenecontract-bin ./cmd/scenecontract)
           cp scenecontract/sample.synthetic.json deploy/scenecontract/sample.synthetic.json
           docker build --pull=false --network=none --tag scp-scenecontract:rc0 --file deploy/scenecontract/Dockerfile deploy/scenecontract
+          IMAGE_USER="$(docker image inspect scp-scenecontract:rc0 --format '{{.Config.User}}')"
+          test "$IMAGE_USER" = '65532:65532'
           docker image inspect scp-scenecontract:rc0 --format '{{.Id}} {{.Config.User}}'
           OUT="$(docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=64 --memory=256m --cpus=1 scp-scenecontract:rc0)"
           python3 -c 'import json,sys;a=json.loads(sys.argv[1]);assert a["status"]=="PASS" and a["code"]=="STRUCTURAL_CONTRACT_ONLY";print("SOURCE_SAFE_OCI_LOCAL_CLI_SMOKE_PASS")' "$OUT"
@@ -37,5 +39,5 @@ jobs:
           docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges --memory=256m scp-scenecontract:rc0 validate /fixtures/missing.json >/dev/null 2>&1
           FAIL=$?
           set -e
-          test "$FAIL" -ne 0
+          test "$FAIL" -eq 2
           echo "MISSING_FIXTURE_FAIL_CLOSED"
