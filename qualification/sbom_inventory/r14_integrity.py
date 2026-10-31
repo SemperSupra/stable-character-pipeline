@@ -22,7 +22,13 @@ def verify(bom):
       raise ValueError("UNVERIFIED_RIGHTS_OR_BINARY_DIGEST_CLAIM")
     states=c.get("properties")
     if not isinstance(states,list):raise ValueError("COMPONENT_PROVENANCE_ABSENT")
-    observed={item.get("name"):item.get("value") for item in states if isinstance(item,dict)}
+    observed={}
+    for item in states:
+      if (not isinstance(item,dict) or set(item)!={"name","value"}
+          or type(item["name"]) is not str or type(item["value"]) is not str
+          or item["name"] in observed):
+        raise ValueError("COMPONENT_DUPLICATE_OR_MALFORMED_PROVENANCE")
+      observed[item["name"]]=item["value"]
     if observed.get("scp:binary-hash-admission")!="UNKNOWN_NOT_CAPTURED" or observed.get("scp:license-admission")!="UNKNOWN_NOT_REVIEWED":
       raise ValueError("COMPONENT_SOURCE_ADMISSION_FORGED")
   return dict(verdict,git_source=component["version"],supply_provenance="UNKNOWN_ORIGINAL_BINARY_AND_RIGHTS")
