@@ -1,0 +1,44 @@
+name: VisualQA W9-B clean original source independent HOG detector
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w9b/**'
+      - '.github/workflows/visualqa-w9b-clean-hog.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-hog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Frozen independent CPU model, original negative controls
+        run: |
+          set -euo pipefail
+          python -m pip install --no-cache-dir 'numpy==2.3.5' 'opencv-python-headless==4.13.0.92'
+          python -m unittest discover -s qualification/visualqa_w9b -p 'test_*.py' -v
+      - name: Read EXACT original #201 CLEAN H264 source, before GT custody join
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          gh run download 41203195774 --repo "$GITHUB_REPOSITORY" --name "w8-visual-original-$PROFILE" --dir "original-$PROFILE"
+          python qualification/visualqa_w9b/clean_hog.py --artifact "original-$PROFILE" --profile "$PROFILE" --out "w9b-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-w9b-clean-hog-numeric-${{ matrix.profile }}
+          path: w9b-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
