@@ -1,0 +1,64 @@
+name: R8 source-safe observed native package CycloneDX inventory
+on:
+  pull_request:
+    paths:
+      - 'qualification/sbom_inventory/**'
+      - '.github/workflows/r8-sbom-inventory.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r8-inventory-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-public-source-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Offline parser and supply-chain negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/sbom_inventory -p 'test_*.py' -v
+      - name: Observe actual native CPU OCI image and record unresolved admission
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          grep -Fqx 'FROM python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd' deploy/native-worker/Dockerfile
+          docker build --pull=false --tag scp-r8-native:inventory --file deploy/native-worker/Dockerfile deploy/native-worker
+          mkdir -p inventory-results
+          docker image inspect scp-r8-native:inventory --format '{{.Id}}' > inventory-results/local-image-id.txt
+          docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges \
+            --entrypoint python scp-r8-native:inventory -m pip freeze > inventory-results/pip-freeze.txt
+          docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges \
+            --entrypoint dpkg-query scp-r8-native:inventory -W > inventory-results/dpkg-w.txt
+          python3 qualification/sbom_inventory/observed.py \
+            --pip inventory-results/pip-freeze.txt --deb inventory-results/dpkg-w.txt \
+            --out inventory-results/sbom.cdx.json --source-sha "$SOURCE_SHA" \
+            --base-digest 'sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd' \
+            --image-id "$(cat inventory-results/local-image-id.txt)"
+          python3 - <<'PY'
+          import json
+          p=json.load(open("inventory-results/sbom.cdx.json"))
+          assert p["bomFormat"]=="CycloneDX" and p["specVersion"]=="1.6"
+          assert len(p["components"])>150
+          assert any(x["name"]=="bpy" and x["version"]=="4.5.0" for x in p["components"])
+          assert any(x["name"]=="ffmpeg" for x in p["components"])
+          assert any(x["value"]=="UNKNOWN_NOT_RELEASE_QUALIFIED" for x in p["metadata"]["properties"])
+          assert all("hashes" not in x and "licenses" not in x for x in p["components"])
+          print("R8_INVENTORY_CAPTURED_BUT_ORIGINAL_BINARY_LICENSES_UNKNOWN",len(p["components"]))
+          PY
+          sha256sum inventory-results/* > inventory-results/sha256sum.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r8-observed-public-synthetic-oci-inventory
+          path: inventory-results/
+          retention-days: 3
+          if-no-files-found: warn
