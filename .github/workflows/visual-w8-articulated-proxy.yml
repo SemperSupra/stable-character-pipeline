@@ -1,0 +1,98 @@
+name: W8 full body proxy articulated arms two camera clean-video QA
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/visual-w8-articulated-proxy.yml'
+      - 'qualification/visual_w8/**'
+permissions:
+  contents: read
+jobs:
+  native-original-two-camera:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Actual source-original Blender articulated upper proxy and unannotated video
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb ffmpeg
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python qualification/walk_w7a/approach_source.py --profile "$PROFILE" --out "visual-w8-$PROFILE"
+          xvfb-run -a python qualification/walk_w7a/native_approach.py --profile "$PROFILE" --source "visual-w8-$PROFILE/source.json" --out "visual-w8-$PROFILE"
+          python qualification/walk_w7a/independent_approach.py "visual-w8-$PROFILE"
+          xvfb-run -a python qualification/visual_w8/animated_proxy_multiview.py --source "visual-w8-$PROFILE" --out "visual-w8-$PROFILE/rendered"
+          for CAM in OriginalFront OriginalOblique; do
+            set +e
+            python qualification/walk_w6a/qa_video.py --video "visual-w8-$PROFILE/rendered/$CAM.mp4" --out "visual-w8-$PROFILE/rendered/qa-$CAM"
+            CODE=$?
+            set -e
+            if [ "$CODE" -ne 0 ] && [ "$CODE" -ne 2 ]; then echo "W8_L1_NOT_EVALUABLE"; exit 3; fi
+          done
+          python qualification/walk_w6a/multiview_rollup.py --folder "visual-w8-$PROFILE/rendered"
+          python qualification/visual_w8/behavior_guard.py "visual-w8-$PROFILE" "visual-w8-$PROFILE/rendered/w8_behavior_receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w8-visual-original-${{ matrix.profile }}
+          path: |
+            visual-w8-${{ matrix.profile }}/source.json
+            visual-w8-${{ matrix.profile }}/source_motion_receipt.json
+            visual-w8-${{ matrix.profile }}/rendered/*.mp4
+            visual-w8-${{ matrix.profile }}/rendered/native_render_receipt.json
+            visual-w8-${{ matrix.profile }}/rendered/observed_blender_upper_arm_24frame.json
+            visual-w8-${{ matrix.profile }}/rendered/independent_cross_camera_rollup.json
+            visual-w8-${{ matrix.profile }}/rendered/qa-OriginalFront/video_qa.json
+            visual-w8-${{ matrix.profile }}/rendered/qa-OriginalOblique/video_qa.json
+            visual-w8-${{ matrix.profile }}/rendered/w8_behavior_receipt.json
+          retention-days: 2
+          if-no-files-found: warn
+  independent-video-behavior:
+    needs: native-original-two-camera
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Independent negative-control unit suite
+        run: python3 -m unittest discover -s qualification/visual_w8 -p 'test_behavior_guard.py' -v
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: w8-visual-original-*
+          path: original
+          merge-multiple: false
+      - name: Revalidate SAME clean original video SHA and frozen L1 for both profiles
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          for PROFILE in forward outward; do
+            DIR="original/w8-visual-original-$PROFILE"
+            python3 qualification/visual_w8/behavior_guard.py "$DIR" "result/w8-$PROFILE-behavior.json"
+            python3 -c 'import json,sys;x=json.load(open(sys.argv[1]));assert x["status"]=="FAIL_FULLBODY_HUMAN_BEHAVIOR_PROXY_UNQUALIFIED";assert x["original_video_L1"]=="PASS_VIDEO_ONLY";assert x["independent_vision_video_behavior_critic"].startswith("NOT_RUN")' "result/w8-$PROFILE-behavior.json"
+            sha256sum "result/w8-$PROFILE-behavior.json"
+          done
+      - name: Require native source and both visual profile jobs
+        env:
+          NATIVE: ${{ needs.native-original-two-camera.result }}
+        run: test "$NATIVE" = success
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w8-independent-fail-closed-behavior-qa
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
