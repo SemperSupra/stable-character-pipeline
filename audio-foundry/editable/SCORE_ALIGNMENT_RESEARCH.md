@@ -84,3 +84,31 @@ engine, physical dance motion, full human/agent UX or an upgrade of the
 existing Audio Foundry renderer. The previous `performed_audio_accepted=false`
 for its fixed-tempo source clock remains correct and unchanged. Further
 real-world/DAW timing qualification is separate and HELD.
+
+## Native Csound external-engine diagnostic qualification
+
+This increment also tests the **real Csound executable** as a separate native
+engine rather than taking in-process synthetic WAV generation as its own
+ground truth. Run `go run ./cmd/scorewitness -out new-dir` and qualify
+`original-synthetic-csound-transport.csd` using Csound's 48-kHz,
+one-sample-block original diagnostic voice. The source MIDI, MusicXML,
+synthetic Go PCM and Csound WAV come from the same immutable original-only
+score/project, but are checked by independent parsing and decoded PCM.
+
+The public $0 native qualification tests 20 expected onset times at 48 kHz,
+including the 120→90 BPM transition, independently verifies actual Csound
+PCM and saves a separate verdict. Two independent Csound executions from
+the same source must generate **byte-identical WAVs**, recorded as two SHA-256
+values. Refuse a changed source digest, invalid tempo, unexpected onset,
+non-PCM result or changed replay bytes. Native engine diagnostic artifact is
+stored in expiring GHA results; retain in controlled Drive only with actual
+SHA read-back and explicit source-rights disposition if durable custody is
+later required.
+
+**Scientific scope:** Csound diagnostic note/click onset equivalence is NOT
+the production Audio Foundry music-voice timing qualification, a human
+performance, genuine source musical score, rig animation, native mobile
+media playback or release admission. The existing fixed-BPM source audio's
+128,000-sample end-of-score mismatch with the *proposed* tempo model
+remains explicitly documented, and `performed_audio_accepted=false`
+for that original renderer is unchanged.
