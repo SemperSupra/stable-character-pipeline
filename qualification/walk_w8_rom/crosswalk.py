@@ -37,7 +37,7 @@ def audit(source_raw,receipt,native,sole):
             source.get("rights")==RIGHTS and
             source.get("scenario")=="ORIGINAL_2ACTOR_WORLD_X_APPROACH_NOT_HUMAN_GAIT",
             "W8_SOURCE_SCENARIO_RIGHTS")
-    require(source.get("fps_num")==FPS and len(source.get("actors",[]))==2,
+    require(source.get("fps_num")==FPS and source.get("fps_den")==1 and len(source.get("actors",[]))==2,
             "W8_SOURCE_PROFILE_CLOCK")
     sh=hashlib.sha256(source_raw).hexdigest()
     require(receipt.get("source_sha256")==sh and native.get("source_sha256")==sh and
