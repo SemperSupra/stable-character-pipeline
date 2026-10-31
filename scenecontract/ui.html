@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Stable Character Scene Contract</title></head>
+<body><main><h1>Scene structure preflight</h1><p>Reference validation only. This does not render footage or certify rights, anatomy, identity, or natural motion.</p>
+<form id="validate"><label for="scene">Scene JSON</label><textarea id="scene" name="scene" rows="20" cols="70" required aria-describedby="hint"></textarea>
+<p id="hint">Provide two actor asset digests, two distinct camera IDs and a revision.</p><button type="submit">Validate structure</button></form>
+<h2>Result</h2><output id="result" aria-live="polite" aria-atomic="true">No scene submitted.</output></main>
+<script src="/ui.js" defer></script></body></html>
