@@ -5,7 +5,6 @@ import (
  "encoding/hex"
  "encoding/json"
  "fmt"
- "math"
  "os"
 )
 const rights="ORIGINAL_SELF_AUTHORED_SYNTHETIC"
