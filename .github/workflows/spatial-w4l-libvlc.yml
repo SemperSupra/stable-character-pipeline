@@ -1,0 +1,70 @@
+name: W4l B4 native libVLC original PCM callback
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/spatial-w4l-libvlc.yml'
+      - 'spatial-contract/interop/libvlc_w4l_original.c'
+      - 'spatial-contract/interop/observe_w4l_libvlc.py'
+      - 'spatial-contract/interop/test_w4l_libvlc.py'
+      - 'spatial-contract/interop/W4L_LIBVLC_README.md'
+permissions:
+  contents: read
+jobs:
+  native-libvlc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install distro-native libVLC and record version
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc pkg-config libvlc-dev vlc-plugin-base
+          pkg-config --modversion libvlc
+          dpkg-query -W libvlc5 vlc-plugin-base
+      - name: Native isolated PCM callback producer
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/libvlc-native"
+          cc -std=c11 -O2 -Wall -Wextra -Werror -pthread \
+            spatial-contract/interop/libvlc_w4l_original.c \
+            $(pkg-config --cflags --libs libvlc) \
+            -o "$RUNNER_TEMP/w4l-libvlc"
+          timeout 12s "$RUNNER_TEMP/w4l-libvlc" "$RUNNER_TEMP/libvlc-native"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w4l-original-libvlc-native
+          path: ${{ runner.temp }}/libvlc-native/
+          retention-days: 2
+          if-no-files-found: warn
+  independent-pcm:
+    needs: native-libvlc
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Independent hostile mutation controls
+        run: python3 -m unittest discover -s spatial-contract/interop -p 'test_w4l_libvlc.py' -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: w4l-original-libvlc-native
+          path: native-libvlc
+      - name: Verify original source and entire native callback (never trim)
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          python3 spatial-contract/interop/observe_w4l_libvlc.py native-libvlc result/libvlc_independent.json
+          sha256sum result/libvlc_independent.json
+      - name: Require producer success
+        env:
+          PRODUCER_STATUS: ${{ needs.native-libvlc.result }}
+        run: test "$PRODUCER_STATUS" = success
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w4l-libvlc-independent-numeric
+          path: result/
+          retention-days: 2
+          if-no-files-found: warn
