@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'qualification/review_r17/**'
+      - 'qualification/sbom_inventory/r14_integrity.py'
       - '.github/workflows/r17-sbom-provenance-review.yml'
 permissions:
   contents: read
