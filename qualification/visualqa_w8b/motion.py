@@ -22,7 +22,9 @@ def measure(frames):
  return observations
 def observe(path,profile,cam):
  path=Path(path)
- if path.is_symlink() or not (1024<=path.stat().st_size<100000000) or sha(path)!=EXPECTED[profile][cam]:
+ if path.is_symlink() and not path.resolve(strict=True).is_relative_to(path.parents[1].resolve(strict=True)):
+  raise ValueError("W8B_UNSAFE_SYMLINK_ESCAPES_ARCHIVE")
+ if not (1024<=path.stat().st_size<100000000) or sha(path)!=EXPECTED[profile][cam]:
   raise ValueError("W8B_ORIGINAL_CLEAN_VIDEO_SHA "+str({"camera":cam,"size":path.stat().st_size,"actual":sha(path),"expected":EXPECTED[profile][cam]}))
  capture=cv2.VideoCapture(str(path))
  if not capture.isOpened():raise ValueError("W8B_VIDEO_OPEN")
@@ -36,7 +38,8 @@ def observe(path,profile,cam):
  return {"schema":"scp.visualqa_w8b.clean_motion.v1","video_sha256":sha(path),
   "profile":profile,"camera":cam,"frame_count":len(frames),"fps":rate,
   "optical_flow":"opencv_farneback_cpu","opencv_version":cv2.__version__,
-  "source_gt_available_to_observer":False,"transitions":measure(frames),
+  "source_gt_available_to_observer":False,
+  "archive_pointer":"BOUNDED_INTERNAL_SYMLINK" if path.is_symlink() else "REGULAR_FILE","transitions":measure(frames),
   "human_pose":"NOT_RUN_UNAPPROVED_MODEL","animal_pose":"NOT_RUN_WRONG_SUBJECT",
   "rendered_behavior":"UNKNOWN_MOTION_FEATURES_NOT_GAIT_PRIOR"}
 def main():
