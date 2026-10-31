@@ -15,6 +15,7 @@ import (
  "sort"
 )
 const bookHash="7294644f1fc26490f8a0aed415afc01b8278294e4373169e1407986c56cb0961"
+const projectHash="0e7e1752427569a97e293cb974258db4071e52f3274adfde75fff9cfe706465c"
 const edition="pg:12926@1d5ca33372491509805a64cd0425a5164d3108fa"
 func object(x any)map[string]any{v,_:=x.(map[string]any);return v}
 func field(m map[string]any,k string)string{v,_:=m[k].(string);return v}
@@ -80,7 +81,10 @@ func validFigure(f map[string]any)error{
 func validScore(s map[string]any)error{
  hash:=field(s,"source_audio_project_sha256")
  decoded,e:=hex.DecodeString(hash)
- if e!=nil||len(decoded)!=32||hex.EncodeToString(decoded)!=hash||field(s,"schema")!="scp.synthetic.score-audio-time-map.v0"||field(s,"timebase")!="480_MIDI_TICKS_PER_QUARTER_EXACT_RATIONAL"||field(s,"audio_verification")!="SYNTHETIC_SCORE_TIMEMAP_ONLY_AUDIO_WAVEFORM_NOT_CHECKED"||s["performed_audio_accepted"]!=false||number(s,"original_source_audio_rate")!=48000{return errors.New("score provenance/time scope inconsistent")}
+ if e!=nil||len(decoded)!=32||hex.EncodeToString(decoded)!=hash||field(s,"schema")!="scp.synthetic.score-audio-time-map.v0"||field(s,"timebase")!="480_MIDI_TICKS_PER_QUARTER_EXACT_RATIONAL"||field(s,"audio_verification")!="SYNTHETIC_SCORE_TIMEMAP_ONLY_AUDIO_WAVEFORM_NOT_CHECKED"||s["performed_audio_accepted"]!=false||number(s,"original_source_audio_rate")!=48000||field(s,"source_audio_project_sha256")!=projectHash||
+  number(s,"original_source_audio_bpm")!=120||field(s,"meter")!="4/4_SOURCE_PROJECT_ONLY"||
+  field(s,"clock_alignment_status")!="DETERMINISTIC_SOURCE_CLOCK_DIVERGENCE_NOT_RENDERED_AUDIO"||
+  field(s,"score_minus_audio_end_samples")!="128000"||field(s,"original_source_audio_end_samples")!="768000"||field(s,"proposed_score_end_samples")!="896000"{return errors.New("score provenance/time scope inconsistent")}
  ev:=array(s,"events");if len(ev)<1||len(ev)>256{return errors.New("score event count")}
  seen:=map[string]bool{}
  for _,v:=range ev{
@@ -90,6 +94,13 @@ func validScore(s map[string]any)error{
   seconds,ok:=new(big.Rat).SetString(field(x,"exact_seconds"));if !ok||seconds.Sign()<0{return errors.New("invalid rational seconds")}
   samples,ok:=new(big.Rat).SetString(field(x,"exact_sample_position"));if !ok||samples.Sign()<0{return errors.New("invalid rational samples")}
   if new(big.Rat).Mul(seconds,big.NewRat(48000,1)).Cmp(samples)!=0{return errors.New("sample/seconds mismatch")}
+  if tick>15360{return errors.New("tick exceeds eight bars")}
+  // Verify the actual two-segment source clock, not only the self-consistent claimed sample/seconds pair.
+  expected:=new(big.Rat)
+  if tick<=7680{expected.SetFrac(big.NewInt(tick),big.NewInt(960))}else{
+   expected.Add(big.NewRat(8,1),new(big.Rat).SetFrac(big.NewInt(tick-7680),big.NewInt(720)))
+  }
+  if seconds.Cmp(expected)!=0{return errors.New("source tick/tempo/rational seconds mismatch")}
  }
  return nil
 }
