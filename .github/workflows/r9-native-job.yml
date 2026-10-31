@@ -1,0 +1,133 @@
+name: R9 actual original synthetic render through CLI, API, agent and human UI
+on:
+  pull_request:
+    paths:
+      - 'scenejob/**'
+      - 'qualification/render_job/**'
+      - '.github/workflows/r9-native-job.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r9-three-audience-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  three-audience-negative-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: scenejob/go.mod
+          cache: false
+      - name: Reuse canonical scene and exercise actual job manager race-falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd scenecontract && go test -race -count=1 ./... && go vet ./...)
+          (cd scenejob && go test -race -count=1 ./... && go vet ./...)
+          python3 -m py_compile qualification/render_job/native.py
+  actual-native-two-audience-transports:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: scenejob/go.mod
+          cache: false
+      - name: Build fixed source-safe Blender OCI and actual Go job transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull=false --tag scp-native-oci:r9 --file deploy/native-worker/Dockerfile deploy/native-worker
+          test "$(docker image inspect scp-native-oci:r9 --format '{{.Config.User}}')" = '65532:65532'
+          (cd scenejob && go build -trimpath -o ../scenejob-bin ./cmd/scenejob)
+      - name: Actually render original W7A via Go CLI and source-bound agent HTTP UI
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p r9-cli r9-http r9-observed
+          ./scenejob-bin run --revision "$SOURCE_SHA" --repo "$PWD" --output "$PWD/r9-cli" > r9-observed/cli-result.json
+          ./scenejob-bin serve --revision "$SOURCE_SHA" --repo "$PWD" --output "$PWD/r9-http" > r9-observed/server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 20); do
+            if curl -fsS --max-time 2 http://127.0.0.1:8766/v1/capabilities > r9-observed/capabilities.json; then break; fi
+            sleep 1
+          done
+          python3 -c 'import json;p=json.load(open("r9-observed/capabilities.json"));assert p["agent_execute"]=="POST /v1/jobs" and p["scope"]=="public-synthetic" and p["release"]=="HELD_R009_NOT_RUN_NOT_ADMITTED"'
+          printf '{"schema":"scp.native-job-request.v1","job_id":"w7a-forward-24","revision":"%s","source_class":"public-synthetic"}' "$SOURCE_SHA" > r9-observed/request.json
+          curl -fsS --max-time 330 -H 'Content-Type: application/json' \
+            -d @r9-observed/request.json http://127.0.0.1:8766/v1/jobs > r9-observed/http-result.json
+          curl -fsS http://127.0.0.1:8766/v1/jobs/w7a-forward-24 > r9-observed/http-readback.json
+          curl -fsS http://127.0.0.1:8766/ > r9-observed/human-ui.html
+          curl -fsS http://127.0.0.1:8766/ui.js > r9-observed/human-ui.js
+          for CAM in OriginalFront OriginalOblique; do
+            curl -fsS http://127.0.0.1:8766/v1/jobs/w7a-forward-24/media/$CAM > "r9-observed/http-$CAM.mp4"
+          done
+          curl -fsS --max-time 5 -H 'Content-Type: application/json' \
+            -d @r9-observed/request.json http://127.0.0.1:8766/v1/jobs > r9-observed/idempotent-result.json
+          python3 - <<'PY'
+          import hashlib,json,pathlib,subprocess
+          p=pathlib.Path("r9-observed")
+          cli=json.loads((p/"cli-result.json").read_text())
+          api=json.loads((p/"http-result.json").read_text())
+          readback=json.loads((p/"http-readback.json").read_text())
+          idem=json.loads((p/"idempotent-result.json").read_text())
+          assert api==readback==idem
+          for r in (cli,api):
+            assert r["schema"]=="scp.native-job-result.v1"
+            assert r["rights"]=="ORIGINAL_SELF_AUTHORED_SYNTHETIC"
+            assert r["human_behavior"]=="FAIL_ABSTRACT_LIMBS_ONLY"
+            assert r["human_anatomy"]=="UNKNOWN_NO_INDEPENDENT_JCS_OR_ROM"
+            assert r["release"]=="HELD_R009_NOT_RUN_NOT_ADMITTED"
+            assert r["frames"]==24 and r["fps"]==12
+          assert cli["source_sha256"]==api["source_sha256"]
+          assert cli["glb_sha256"]==api["glb_sha256"]
+          assert 'aria-live' in (p/"human-ui.html").read_text()
+          assert '/v1/jobs' in (p/"human-ui.js").read_text()
+          for camera in ("OriginalFront","OriginalOblique"):
+            raw=(p/("http-"+camera+".mp4")).read_bytes()
+            assert hashlib.sha256(raw).hexdigest()==api["video_sha256"][camera]
+            info=json.loads(subprocess.check_output(["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=nb_frames,r_frame_rate,width,height","-of","json",str(p/("http-"+camera+".mp4"))]))
+            stream=info["streams"][0]
+            assert stream["nb_frames"]=="24" and stream["r_frame_rate"]=="12/1"
+          print("R9_CLI_HTTP_AGENT_HUMAN_REAL_NATIVE_PARITY_WITH_FULLBODY_FAIL_AND_RELEASE_HELD")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r9-native-3audience-original-synthetic-evidence
+          path: |
+            r9-observed/*.json
+            r9-observed/*.html
+            r9-observed/*.js
+            r9-observed/server.log
+            r9-cli/attempt-0001/result.json
+            r9-http/attempt-0001/result.json
+            r9-cli/attempt-0001/forward/source.json
+            r9-http/attempt-0001/forward/source.json
+          retention-days: 3
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r9-native-3audience-original-synthetic-media
+          path: |
+            r9-cli/attempt-0001/forward/original_synthetic_24frame_skinned.glb
+            r9-cli/attempt-0001/forward/original_source_grounded_24frame_native.blend
+            r9-cli/attempt-0001/forward/rendered/OriginalFront.mp4
+            r9-cli/attempt-0001/forward/rendered/OriginalOblique.mp4
+            r9-http/attempt-0001/forward/original_synthetic_24frame_skinned.glb
+            r9-http/attempt-0001/forward/original_source_grounded_24frame_native.blend
+            r9-http/attempt-0001/forward/rendered/OriginalFront.mp4
+            r9-http/attempt-0001/forward/rendered/OriginalOblique.mp4
+          retention-days: 3
+          if-no-files-found: warn
