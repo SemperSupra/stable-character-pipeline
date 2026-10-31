@@ -1,0 +1,3 @@
+# W8-B clean optical observer
+
+Original W7A #193 run 41172356301 only, full video SHA pins from #150. Reads unannotated H264 BEFORE any scene sidecar; Farneback feature motion is independent pixel evidence, not pose or normative gait. Model licensing/admission for independent human pose is NOT_RUN; rendered behavior UNKNOWN. Do not substitute fresh rerenders for original hashes. Original public GHA expires 2026-11-03 UTC; original binaries are separately in private Drive under existing custody. Code/compact numeric receipts Git and #150; no private inputs, merges/releases/deploy/CPE/paid jobs.
