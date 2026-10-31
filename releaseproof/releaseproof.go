@@ -89,6 +89,7 @@ func Verify(m releasegate.Manifest,p TrustPolicy,proofDir,evidenceDir string)Dec
  decision:=releasegate.Validate(m)
  if decision.Status=="UNKNOWN"{return Decision{Status:"UNKNOWN",Code:"DRAFT_NOT_PROMOTED"}}
  if decision.Status!="PASS"{return fail("STRUCTURAL_MANIFEST_"+decision.Code)}
+ if len(m.Gates)!=len(releasegate.RequiredGates){return fail("UNDECLARED_GATE")}
  if p.Schema!=PolicySchema||len(p.Assignments)!=len(releasegate.RequiredGates){return fail("TRUST_POLICY_INVALID")}
  for _,g:=range releasegate.RequiredGates{
   signer,ok:=p.Assignments[g]
