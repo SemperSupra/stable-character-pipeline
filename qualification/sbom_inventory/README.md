@@ -1,0 +1,13 @@
+# R8 — observed source-safe native-worker CycloneDX inventory
+
+This branch **does not release a package**. It adds a deterministic offline CycloneDX 1.6 JSON generator for exact package inventories captured from the actual public-self-authored R7 native Blender worker image. The generator records pip-distribution versions, Debian installed-package versions, observed local image ID, pinned base-manifest digest, exact build source SHA, and SHA-256 of the two original text inventories. The GHA image itself is never pushed or published.
+
+Original source baseline is [R7 draft PR #210](https://github.com/SemperSupra/stable-character-pipeline/pull/210), exact parent `9a32c0d377952b985b014402328297bede3b05c8`. Base-manifest SHA-256 `94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd` is fixed, but **pip wheel hashes, Debian original package hashes, licenses, CVE admission, independent provenance and SBOM schema-validation against an external trust root are not yet qualified**. Therefore the generated BOM is explicitly marked `UNKNOWN_NOT_RELEASE_QUALIFIED`; it has **no invented component hash or license values**. Original self-authored synthetic only; no R009 protected models, sources, Drive IDs, credentials or infrastructure.
+
+The workflow uses standard free public GitHub-hosted Ubuntu CPU, read-only/nonroot OCI introspection and pinned checkout/action SHAs, no private GHA minutes. It runs independent positive and falsifying tests for duplicate/conflicting Python names, unpinned/direct URL dependencies, wrong bpy version, malformed Debian inventory, forged base/image digest and missing required FFmpeg. The exact generated BOM + source inventory hashes are ephemeral GHA artifacts until independent owner-private custody is recorded separately; never infer Drive custody from an Actions success.
+
+Run locally:
+`python3 -m unittest discover -s qualification/sbom_inventory -p 'test_*.py' -v`
+`python3 qualification/sbom_inventory/observed.py --pip pip-freeze.txt --deb dpkg-w.txt --out bom.cdx.json --source-sha GIT40 --base-digest sha256:BASE64 --image-id sha256:IMAGE64`.
+
+CycloneDX 1.6 format based on the [published specification](https://cyclonedx.org/specification/overview/) and [official JSON schema](https://github.com/CycloneDX/specification/blob/master/schema/bom-1.6.schema.json). A valid-looking inventory is **not automatically a licensed or complete SBOM**. Further review must lock original wheel and package bytes, verify vulnerable packages/licensing, generate external independent supply-chain evidence and sign a preapproved exact SHA/digest candidate. R009 character/skin/contact/scientific acceptance, trusted executor, source rights, merges, CPE promotions and release/deployment remain HELD.
