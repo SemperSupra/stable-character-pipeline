@@ -43,6 +43,13 @@ jobs:
           assert x['events'][1]['exact_sample_position']=='12000'
           assert x['events'][2]['exact_sample_position']=='384000'
           assert x['events'][3]['exact_sample_position']=='416000'
+          assert x['events'][3]['source_audio_sample_position']=='408000'
+          assert x['events'][3]['score_minus_source_samples']=='8000'
+          assert x['original_source_audio_end_samples']=='768000'
+          assert x['proposed_score_end_samples']=='896000'
+          assert x['score_minus_audio_end_samples']=='128000'
+          assert x['clock_alignment_status']=='DETERMINISTIC_SOURCE_CLOCK_DIVERGENCE_NOT_RENDERED_AUDIO'
+          assert x['performed_audio_accepted'] is False
           assert all(e['evidence_status']=='ORIGINAL_SYNTHETIC_TIME_PROPOSAL_NO_MEASURED_MOTION' for e in x['events'])
           print('PASS original synthetic 8bar dual actor time map',x['content_id'])
           PY
