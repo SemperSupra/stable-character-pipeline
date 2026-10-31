@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: audio-foundry/editable/go.mod
+      - name: Python syntax compile before native package installation
+        run: python3 -m py_compile qualification/score_video_pts/native_av_pts.py
       - name: Install native Csound and FFmpeg
         run: |
           sudo apt-get update -qq
