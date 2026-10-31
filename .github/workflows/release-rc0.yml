@@ -84,3 +84,15 @@ jobs:
             rc0-forward/rendered/independent_cross_camera_rollup.json
           retention-days: 3
           if-no-files-found: warn
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: rc0-original-synthetic-forward-native-media
+          path: |
+            rc0-forward/original_synthetic_24frame_skinned.glb
+            rc0-forward/original_source_grounded_24frame_native.blend
+            rc0-forward/rendered/OriginalFront.mp4
+            rc0-forward/rendered/OriginalOblique.mp4
+          retention-days: 3
+          if-no-files-found: warn
