@@ -1,0 +1,37 @@
+name: Motion W7B source-independent reference gate
+on:
+  pull_request:
+    paths:
+      - 'motion_qualification/nearcontact_v09/**'
+      - '.github/workflows/motion-w7b-independent-reference.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-source-oracle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Full Go source original hostile false-prior and independent reference regressions
+        working-directory: motion_qualification/nearcontact_v09
+        run: |
+          set -euo pipefail
+          go vet ./...
+          go test -race -count=1 -v ./... | tee /tmp/w7b-native.log
+          grep 'W7B_BLUE_REFERENCE_REJECTS_PREVIOUS_WRONG_IDENTITY' /tmp/w7b-native.log
+          grep 'W7B_BLUE_WRONG_FOCAL_REJECTED_WITH_INDEPENDENT_CAMERA_REFERENCE' /tmp/w7b-native.log
+          grep 'RED_SCIENTIFIC_FALSE_PRIOR' /tmp/w7b-native.log
+          grep 'RED_SCIENTIFIC_BAD_CALIBRATION' /tmp/w7b-native.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: motion-w7b-original-native-log
+          path: /tmp/w7b-native.log
+          retention-days: 3
+          if-no-files-found: warn
