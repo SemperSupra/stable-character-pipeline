@@ -8,6 +8,8 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"walk_w16c5a"))
 import bpy
 from mathutils import Vector, Quaternion
 from native_sole import add_actor,ACTORS,LEGS,SOURCE
