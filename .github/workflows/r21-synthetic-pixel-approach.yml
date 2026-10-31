@@ -31,6 +31,15 @@ jobs:
           github-token: ${{ github.token }}
           repository: SemperSupra/stable-character-pipeline
           path: r21-original-evidence
+      - name: Install observed native video inspection dependency when absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ffprobe >/dev/null 2>&1 || ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          ffprobe -version | head -n 1
       - name: Actual FFmpeg original two-view 24f color-centroid and source-root witness
         shell: bash
         run: |
