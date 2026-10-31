@@ -48,7 +48,7 @@ jobs:
           set -euo pipefail
           mkdir -p r19-evidence
           for kind in cli http; do
-            src="$PWD/r19-original-public-media/r9-$kind/attempt-0001/forward/original_source_grounded_24frame_native.blend"
+            src="/src/r19-original-public-media/r9-$kind/attempt-0001/forward/original_source_grounded_24frame_native.blend"
             docker run --rm --network none --read-only --tmpfs /tmp:rw,size=128m \
               --security-opt no-new-privileges --cap-drop ALL \
               --user "$(id -u):$(id -g)" \
