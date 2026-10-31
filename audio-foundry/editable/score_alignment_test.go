@@ -8,7 +8,7 @@ import (
 )
 func eightBar(t *testing.T)(Project,ScoreRequest){
  t.Helper()
- p:=Default();p.Beats=32 // eight original synthetic 4/4 bars
+ p:=EightBarFixtureProject() // full original synthetic 8-bar source, still constant-BPM audio
  tempo:=[]TempoPoint{{0,120},{16*PPQ,90}}
  events:=[]ChoreographyEvent{
   {ID:"intro",ActorID:"actor-a",Role:"leader",Action:"step",Tick:0},
@@ -24,6 +24,12 @@ func TestEightBarTwoActorExactClock(t *testing.T){
  p,r:=eightBar(t)
  a,e:=AlignOriginalSynthetic(p,r);if e!=nil{t.Fatal(e)}
  if len(a.Events)!=5||!TimeMapIsNotPerformanceProof(a){t.Fatalf("incorrect claims %+v",a)}
+ if len(p.Notes)!=20||p.Notes[len(p.Notes)-1].StartTick!=30*PPQ{t.Fatal("second-half music not authored")}
+ if a.ClockAlignmentStatus!="DETERMINISTIC_SOURCE_CLOCK_DIVERGENCE_NOT_RENDERED_AUDIO"||a.PerformedAudioAccepted{
+  t.Fatal("false acceptance of variable score against constant BPM audio")
+ }
+ if a.OriginalSourceAudioEndSamples!="768000"||a.ProposedScoreEndSamples!="896000"||a.ScoreMinusAudioEndSamples!="128000"{t.Fatalf("end clock drift omitted %+v",a)}
+ if a.Events[3].SourceAudioSamplePosition!="408000"||a.Events[3].ScoreMinusSourceSamples!="8000"{t.Fatalf("bar5 mismatch hidden %+v",a.Events[3])}
  want:=[]string{"0","12000","384000","416000","896000"} // exact 48k sample clock at 120 -> 90 BPM
  for i,v:=range want{if a.Events[i].ExactSamplePosition!=v{t.Fatalf("event %d sample %s != %s",i,a.Events[i].ExactSamplePosition,v)}}
  if _,ok:=new(big.Rat).SetString(a.Events[3].ExactSeconds);!ok{t.Fatal("seconds not rational")}
