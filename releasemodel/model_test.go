@@ -61,3 +61,11 @@ func TestDraftNeverPromotedByFakeOwnerFlags(t *testing.T){
  got:=Evaluate(m,releaseproof.TrustPolicy{},t.TempDir(),t.TempDir(),OwnerState{true,true,true,true,true})
  if got.Status!="HOLD"||got.Code!="DRAFT_UNPROMOTABLE"{t.Fatal(got)}
 }
+
+func TestIntegratedR0bDeniesUndeclaredClaims(t *testing.T){
+ m:=baseline()
+ m.Gates["unauthenticated_extra"]=releasegate.Evidence{Status:"PASS",ReceiptSHA:"sha256:"+strings.Repeat("d",64)}
+ if got:=releasegate.Validate(m);got.Status!="PASS"{t.Fatalf("unexpected structural baseline: %+v",got)}
+ verified:=releaseproof.Verify(m,releaseproof.TrustPolicy{},t.TempDir(),t.TempDir())
+ if verified.Code!="UNDECLARED_GATE"{t.Fatalf("stale or bypassed independent source: %+v",verified)}
+}
