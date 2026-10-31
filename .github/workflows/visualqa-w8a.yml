@@ -47,7 +47,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: visualqa-w8a-numeric-+"{{ matrix.profile }}"+
-          path: w8a-+"{{ matrix.profile }}"+/decision.json
+          name: visualqa-w8a-numeric-${{ matrix.profile }}
+          path: w8a-${{ matrix.profile }}/decision.json
           retention-days: 3
           if-no-files-found: warn
