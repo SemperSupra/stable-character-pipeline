@@ -39,6 +39,11 @@ jobs:
           test -s csound-evidence/original-synthetic-csound-transport.csd
           csound -d -W -s -o csound-evidence/csound-target.wav csound-evidence/original-synthetic-csound-transport.csd > csound-evidence/csound.stdout 2> csound-evidence/csound.stderr
           test -s csound-evidence/csound-target.wav
+          # Same original-score input, independent second native Csound process.
+          csound -d -W -s -o csound-evidence/csound-target-replay.wav csound-evidence/original-synthetic-csound-transport.csd > csound-evidence/csound-replay.stdout 2> csound-evidence/csound-replay.stderr
+          test -s csound-evidence/csound-target-replay.wav
+          cmp csound-evidence/csound-target.wav csound-evidence/csound-target-replay.wav
+          sha256sum csound-evidence/csound-target.wav csound-evidence/csound-target-replay.wav > csound-evidence/csound-digests.txt
       - name: Independent native PCM onset and source limits review
         working-directory: audio-foundry/editable
         shell: bash
