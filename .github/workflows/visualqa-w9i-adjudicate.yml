@@ -1,0 +1,54 @@
+name: VisualQA W9-I exact-source third-party fail-dominant evidence join
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w9i/**'
+      - '.github/workflows/visualqa-w9i-adjudicate.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  third-process-arbiter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Exact original public-only evidence intake, independent FFmpeg decode
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+          python -m unittest discover -s qualification/visualqa_w9i -p 'test_*.py' -v
+          gh run download 41203195774 --repo "$GITHUB_REPOSITORY" --name "w8-visual-original-$PROFILE" --dir "original-$PROFILE"
+          gh run download 41208928927 --repo "$GITHUB_REPOSITORY" --name "visualqa-w9b-clean-hog-numeric-$PROFILE" --dir "w9b-$PROFILE"
+          gh run download 41208887046 --repo "$GITHUB_REPOSITORY" --name "visualqa-w9c-independent-numeric" --dir "w9c"
+          mkdir -p "w9i-$PROFILE"
+          python qualification/visualqa_w9i/adjudicate.py --original "original-$PROFILE" --model "w9b-$PROFILE" --geometry "w9c/$PROFILE.json" --profile "$PROFILE" --out "w9i-$PROFILE/decision.json"
+          python - "$PROFILE" <<'PY'
+          import json,sys
+          r=json.load(open("w9i-"+sys.argv[1]+"/decision.json"))
+          assert r["overall"]=="FAIL_FULLBODY_HUMAN_BEHAVIOR_PROXY_UNQUALIFIED"
+          assert r["rendered_human_behavior"].startswith("UNKNOWN")
+          assert r["exact_video_pixel_correspondence"].startswith("UNKNOWN")
+          assert r["can_merge_release_deploy_or_promote"] is False
+          print("W9I_CORRECT_SCIENTIFIC_FAIL_WITH_EXECUTION_SUCCESS",r["profile"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-w9i-numeric-${{ matrix.profile }}
+          path: w9i-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
