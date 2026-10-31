@@ -1,0 +1,52 @@
+name: Public original-synthetic tempo PCM qualification C5
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/editable/score_tempo_witness*'
+      - 'audio-foundry/editable/cmd/scorewitness/**'
+      - '.github/workflows/score-tempo-witness-c5.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-tempo-pcm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/editable/go.mod
+      - name: Go tests race and vet
+        working-directory: audio-foundry/editable
+        run: |
+          go test -count=2 ./...
+          go test -race ./...
+          go vet ./...
+      - name: Emit new non-overwriting original-synthetic evidence
+        working-directory: audio-foundry/editable
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./cmd/scorewitness -out score-evidence
+          if go run ./cmd/scorewitness -out score-evidence; then
+            echo 'existing evidence was overwritten' >&2
+            exit 1
+          fi
+          test -s score-evidence/original-synthetic-onsets.wav
+          test -s score-evidence/original-synthetic-tempo.mid
+          test -s score-evidence/original-synthetic-tempo.musicxml
+      - name: Independent standard library PCM MIDI MusicXML oracle
+        working-directory: audio-foundry/editable
+        run: |
+          python3 score_tempo_witness_oracle.py score-evidence
+      - name: Preserve original-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-synthetic-tempo-audio-c5
+          path: audio-foundry/editable/score-evidence/
+          if-no-files-found: warn
+          retention-days: 7

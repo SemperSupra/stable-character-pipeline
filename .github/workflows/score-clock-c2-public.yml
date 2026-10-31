@@ -1,0 +1,62 @@
+name: Public original-synthetic score clock C2
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/editable/score_alignment*'
+      - 'audio-foundry/editable/cmd/scoreclock/**'
+      - '.github/workflows/score-clock-c2-public.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  score-clock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/editable/go.mod
+      - name: Exact rational score and source invariants
+        working-directory: audio-foundry/editable
+        run: |
+          go test -count=2 ./...
+          go test -race ./...
+          go vet ./...
+      - name: Independent original two-actor plan replay and native JSON evidence
+        working-directory: audio-foundry/editable
+        run: |
+          mkdir -p score-evidence
+          go run ./cmd/scoreclock -capabilities > score-evidence/capabilities.json
+          go run ./cmd/scoreclock -fixture > score-evidence/plan1.json
+          go run ./cmd/scoreclock -fixture > score-evidence/plan2.json
+          cmp score-evidence/plan1.json score-evidence/plan2.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('score-evidence/plan1.json'))
+          assert x['schema']=='scp.synthetic.score-audio-time-map.v0'
+          assert x['meter']=='4/4_SOURCE_PROJECT_ONLY'
+          assert x['audio_verification']=='SYNTHETIC_SCORE_TIMEMAP_ONLY_AUDIO_WAVEFORM_NOT_CHECKED'
+          assert x['events'][0]['exact_sample_position']=='0'
+          assert x['events'][1]['exact_sample_position']=='12000'
+          assert x['events'][2]['exact_sample_position']=='384000'
+          assert x['events'][3]['exact_sample_position']=='416000'
+          assert x['events'][3]['source_audio_sample_position']=='408000'
+          assert x['events'][3]['score_minus_source_samples']=='8000'
+          assert x['original_source_audio_end_samples']=='768000'
+          assert x['proposed_score_end_samples']=='896000'
+          assert x['score_minus_audio_end_samples']=='128000'
+          assert x['clock_alignment_status']=='DETERMINISTIC_SOURCE_CLOCK_DIVERGENCE_NOT_RENDERED_AUDIO'
+          assert x['performed_audio_accepted'] is False
+          assert all(e['evidence_status']=='ORIGINAL_SYNTHETIC_TIME_PROPOSAL_NO_MEASURED_MOTION' for e in x['events'])
+          print('PASS original synthetic 8bar dual actor time map',x['content_id'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-score-clock-c2-research
+          path: audio-foundry/editable/score-evidence/
+          if-no-files-found: warn
+          retention-days: 7

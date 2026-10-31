@@ -1,0 +1,60 @@
+name: Public original-synthetic native Csound transport C5
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/editable/csound_tempo_*'
+      - 'audio-foundry/editable/cmd/scorewitness/**'
+      - '.github/workflows/score-native-csound-c5.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  target-csound-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/editable/go.mod
+      - name: Install native public Csound engine
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends csound
+          csound --version
+      - name: Exact-source Go tests and negative controls
+        working-directory: audio-foundry/editable
+        run: |
+          go test -count=2 ./...
+          go test -race ./...
+          go vet ./...
+      - name: New immutable diagnostic project and native Csound render
+        working-directory: audio-foundry/editable
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./cmd/scorewitness -out csound-evidence
+          test -s csound-evidence/original-synthetic-csound-transport.csd
+          csound -d -W -s -o csound-evidence/csound-target.wav csound-evidence/original-synthetic-csound-transport.csd > csound-evidence/csound.stdout 2> csound-evidence/csound.stderr
+          test -s csound-evidence/csound-target.wav
+          # Same original-score input, independent second native Csound process.
+          csound -d -W -s -o csound-evidence/csound-target-replay.wav csound-evidence/original-synthetic-csound-transport.csd > csound-evidence/csound-replay.stdout 2> csound-evidence/csound-replay.stderr
+          test -s csound-evidence/csound-target-replay.wav
+          cmp csound-evidence/csound-target.wav csound-evidence/csound-target-replay.wav
+          sha256sum csound-evidence/csound-target.wav csound-evidence/csound-target-replay.wav > csound-evidence/csound-digests.txt
+      - name: Independent native PCM onset and source limits review
+        working-directory: audio-foundry/editable
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 score_tempo_witness_oracle.py csound-evidence
+          python3 csound_tempo_target_oracle.py csound-evidence | tee csound-evidence/csound-qa.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: original-synthetic-csound-native-transport-c5
+          path: audio-foundry/editable/csound-evidence/
+          if-no-files-found: warn
+          retention-days: 7
