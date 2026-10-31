@@ -32,6 +32,8 @@ def content(z, path):
 
 def verify_zip(z):
     members = z.infolist()
+    if len({i.filename for i in members}) != len(members):
+        refuse("DUPLICATE_ORIGINAL_ZIP_MEMBER")
     if len(members) > 100 or sum(i.file_size for i in members) > MAX_ZIP_UNCOMPRESSED:
         refuse("ARCHIVE_SIZE_OR_MEMBER_COUNT")
     for i in members:
