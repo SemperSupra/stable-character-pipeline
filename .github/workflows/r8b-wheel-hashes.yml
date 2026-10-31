@@ -46,6 +46,7 @@ jobs:
           set -euo pipefail
           python3 qualification/wheel_lock/acquire.py \
             --freeze wheel-audit/native-pip-freeze.txt --out wheel-audit
+          cmp qualification/wheel_lock/requirements-hashed.txt wheel-audit/requirements-hashed.txt
           python3 - <<'PY'
           import json,pathlib,hashlib
           p=pathlib.Path("wheel-audit")
@@ -77,13 +78,43 @@ jobs:
           sha256sum wheel-audit/native-image-id.txt wheel-audit/native-pip-freeze.txt \
             wheel-audit/requirements-hashed.txt wheel-audit/wheel-lock-candidate.json \
             wheel-audit/offline-install.txt > wheel-audit/sha256sum.txt
+      - name: Build second OCI image using exact Git-pinned wheel hashes and offline pip
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p wheel-lock-context
+          cp wheel-audit/requirements-hashed.txt wheel-lock-context/
+          cp -a wheel-audit/wheelhouse wheel-lock-context/wheelhouse
+          DOCKER_BUILDKIT=1 docker build --pull=false --tag scp-r8b-native:hashlocked \
+            --file deploy/native-worker/Dockerfile.wheel-hashed wheel-lock-context
+          test "$(docker image inspect scp-r8b-native:hashlocked --format '{{.Config.User}}')" = '65532:65532'
+          docker image inspect scp-r8b-native:hashlocked --format '{{.Id}}' > wheel-audit/wheel-locked-image-id.txt
+          docker run --rm --network=none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --pids-limit=128 --memory=4g --cpus=2 \
+            --tmpfs /tmp:rw,exec,size=512m \
+            scp-r8b-native:hashlocked -c "import bpy; assert bpy.app.version[:2]==(4,5); print('ACTUAL_HASHED_WHEEL_OCI_BPY',bpy.app.version_string)"
+          docker run --rm --network=none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --entrypoint python scp-r8b-native:hashlocked \
+            -m pip freeze > wheel-audit/wheel-locked-image-freeze.txt
+          python3 - <<'PY'
+          import pathlib
+          a=pathlib.Path("wheel-audit/native-pip-freeze.txt").read_text().splitlines()
+          b=pathlib.Path("wheel-audit/wheel-locked-image-freeze.txt").read_text().splitlines()
+          def normalize(lines):
+              return sorted((x.split("==")[0].lower().replace("_","-"),x.split("==")[1]) for x in lines if "==" in x)
+          assert normalize(a)==normalize(b),(normalize(a),normalize(b))
+          print("R8B_HASHED_NATIVE_OCI_REPRODUCES_OBSERVED_10_PYTHON_VERSIONS")
+          PY
+          sha256sum wheel-audit/wheel-locked-image-id.txt wheel-audit/wheel-locked-image-freeze.txt >> wheel-audit/sha256sum.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: r8b-original-public-wheel-sha-only-evidence
           path: |
             wheel-audit/native-image-id.txt
+            wheel-audit/wheel-locked-image-id.txt
             wheel-audit/native-pip-freeze.txt
+            wheel-audit/wheel-locked-image-freeze.txt
             wheel-audit/requirements-hashed.txt
             wheel-audit/wheel-lock-candidate.json
             wheel-audit/offline-install.txt
