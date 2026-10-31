@@ -61,6 +61,11 @@ async function click(){
   await command("Input.dispatchMouseEvent",{type:"mousePressed",x:rect.x,y:rect.y,button:"left",clickCount:1});
   await command("Input.dispatchMouseEvent",{type:"mouseReleased",x:rect.x,y:rect.y,button:"left",clickCount:1});
 }
+async function keyboardSubmit(){
+  await expression("document.getElementById('submit').focus()");
+  await command("Input.dispatchKeyEvent",{type:"keyDown",key:"Enter",code:"Enter",windowsVirtualKeyCode:13,nativeVirtualKeyCode:13});
+  await command("Input.dispatchKeyEvent",{type:"keyUp",key:"Enter",code:"Enter",windowsVirtualKeyCode:13,nativeVirtualKeyCode:13});
+}
 async function pageState(){
  return expression("({job:document.getElementById('job').textContent,hidden:document.getElementById('output').hidden,disabled:document.getElementById('submit').disabled,front:document.getElementById('front').getAttribute('src'),oblique:document.getElementById('oblique').getAttribute('src')})");
 }
@@ -68,12 +73,12 @@ async function journey(mode){
   scenario=mode;posted=0;postValid=true;
   await command("Page.navigate",{url:origin+"/?scenario="+mode});
   await ready();
-  await click();
+  if(mode==="keyboard")await keyboardSubmit();else await click();
   for(let i=0;i<100;i++){
     const state=await pageState();
     if(!state.disabled&&(state.job.startsWith("Original two-view")||state.job.startsWith("Run not accepted"))){
       assert.equal(postValid,true);
-      if(mode==="ok"){
+      if(mode==="ok"||mode==="keyboard"){
        assert.equal(posted,1);assert.equal(state.hidden,false);
        assert.equal(state.front,"/v1/jobs/w7a-forward-24/media/OriginalFront");
        assert.equal(state.oblique,"/v1/jobs/w7a-forward-24/media/OriginalOblique");
@@ -106,7 +111,11 @@ try{
     if(pendingMessage){pending.delete(msg.id);pendingMessage.resolve(msg)}
   });
   await command("Page.enable");await command("Runtime.enable");
-  for(const mode of ["ok","forged-cap","forged-result","http-fail"])await journey(mode);
+  assert.equal(await expression("document.getElementById('job').getAttribute('role')"),"status");
+  assert.equal(await expression("document.getElementById('job').getAttribute('aria-live')"),"polite");
+  assert.equal(await expression("document.getElementById('front').hasAttribute('controls')"),true);
+  assert.equal(await expression("document.getElementById('oblique').hasAttribute('controls')"),true);
+  for(const mode of ["ok","keyboard","forged-cap","forged-result","http-fail"])await journey(mode);
   console.log("R15_BROWSER_SOURCE_SAFE_UI_ONLY_NO_REAL_R009_OR_ACCESSIBILITY_ADMISSION");
 }finally{
   ws?.close();chrome.kill("SIGTERM");
