@@ -1,0 +1,22 @@
+name: W8 ROM independent source clock falsifier
+on:
+  pull_request:
+    paths:
+      - 'qualification/walk_w8_rom/**'
+      - '.github/workflows/w8-rom-clock-review.yml'
+permissions:
+  contents: read
+jobs:
+  exact-source-clock-admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Independent synthetic original source clock negative tests
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          python3 -m unittest discover -s qualification/walk_w8_rom -p 'test_*.py' -v
