@@ -68,7 +68,7 @@ func Validate(s Source,p Policy) error{
   s.FPSNum!=12||s.FPSDen!=1||(s.Profile!="forward"&&s.Profile!="outward"){
   return fmt.Errorf("W9A_SOURCE_RIGHTS_CLOCK")
  }
- if len(s.Actors)!=2{return fmt.Errorf("W9A_ACTOR_COVERAGE")}
+ if len(s.Actors)!=2||s.Actors[0].ID!="CobaltOriginal"||s.Actors[1].ID!="MarigoldOriginal"{return fmt.Errorf("W9A_ACTOR_COVERAGE_OR_IDENTITY")}
  for _,a:=range s.Actors{
   if len(a.Frames)!=24||a.ID==""{return fmt.Errorf("W9A_FRAME_COVERAGE")}
   for i,f:=range a.Frames{
