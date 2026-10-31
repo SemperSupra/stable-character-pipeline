@@ -1,0 +1,81 @@
+name: VisualQA W9-C synchronized native 24-tick two-camera witness
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w9c/**'
+      - '.github/workflows/visualqa-w9c-synced.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  native-multicam:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Genuine original W7 native model, bounded Blender CPU 24-tick camera witness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          gh run download 41172356301 --repo "$GITHUB_REPOSITORY" --name "walk-w7a-original-approach-$PROFILE" --dir "native-$PROFILE"
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb
+          python -m pip install --no-cache-dir 'bpy==4.5.0'
+          xvfb-run -a python qualification/visualqa_w9c/native_sync.py --artifact "native-$PROFILE" --out "w9c-$PROFILE"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-w9c-native-numeric-${{ matrix.profile }}
+          path: w9c-${{ matrix.profile }}/
+          retention-days: 3
+          if-no-files-found: warn
+  independent-fresh-process:
+    needs: native-multicam
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pure stdlib independent hostile XYZ/UV/clock controls
+        run: python3 -m unittest discover -s qualification/visualqa_w9c -p 'test_*.py' -v
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: visualqa-w9c-native-numeric-*
+          merge-multiple: false
+      - name: Original source + separate native artifacts; independent non-Blender projection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p independent
+          for PROFILE in forward outward; do
+            gh run download 41172356301 --repo "$GITHUB_REPOSITORY" --name "walk-w7a-original-approach-$PROFILE" --dir "original-$PROFILE"
+            python qualification/visualqa_w9c/verify_projection.py --original "original-$PROFILE" --native "visualqa-w9c-native-numeric-$PROFILE/native_same_tick.json" --out "independent/$PROFILE.json"
+          done
+      - name: Native provenance admission
+        env:
+          NATIVE_STATE: ${{ needs.native-multicam.result }}
+        run: test "$NATIVE_STATE" = success
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-w9c-independent-numeric
+          path: independent/
+          retention-days: 3
+          if-no-files-found: warn
