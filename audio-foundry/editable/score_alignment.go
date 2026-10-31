@@ -36,6 +36,8 @@ type ScoreEvent struct {
  ChoreographyEvent
  ExactSamplePosition string `json:"exact_sample_position"`
  ExactSeconds string `json:"exact_seconds"`
+ SourceAudioSamplePosition string `json:"source_audio_sample_position"`
+ ScoreMinusSourceSamples string `json:"score_minus_source_samples"`
  EvidenceStatus string `json:"evidence_status"`
 }
 type ScoreTimeMap struct {
@@ -44,8 +46,37 @@ type ScoreTimeMap struct {
  Meter string `json:"meter"`
  Timebase string `json:"timebase"`
  AudioVerification string `json:"audio_verification"`
+ OriginalSourceAudioBPM int `json:"original_source_audio_bpm"`
+ OriginalSourceAudioRate int `json:"original_source_audio_rate"`
+ OriginalSourceAudioEndSamples string `json:"original_source_audio_end_samples"`
+ ProposedScoreEndSamples string `json:"proposed_score_end_samples"`
+ ScoreMinusAudioEndSamples string `json:"score_minus_audio_end_samples"`
+ ClockAlignmentStatus string `json:"clock_alignment_status"`
+ PerformedAudioAccepted bool `json:"performed_audio_accepted"`
  Events []ScoreEvent `json:"events"`
  ContentID string `json:"content_id"`
+}
+// EightBarFixtureProject extends the original Audio Foundry score with authored
+// notes through bar eight. It is still a constant-BPM SOURCE recording project.
+func EightBarFixtureProject() Project{
+ p:=Default()
+ p.Beats=32
+ p.Notes=append(append([]Note(nil),p.Notes...),
+  Note{Pitch:60,StartTick:16*PPQ,LengthTick:PPQ,Velocity:80},
+  Note{Pitch:64,StartTick:18*PPQ,LengthTick:PPQ,Velocity:78},
+  Note{Pitch:67,StartTick:20*PPQ,LengthTick:PPQ,Velocity:82},
+  Note{Pitch:65,StartTick:22*PPQ,LengthTick:PPQ,Velocity:77},
+  Note{Pitch:64,StartTick:24*PPQ,LengthTick:PPQ,Velocity:80},
+  Note{Pitch:62,StartTick:26*PPQ,LengthTick:PPQ,Velocity:79},
+  Note{Pitch:60,StartTick:28*PPQ,LengthTick:PPQ,Velocity:83},
+  Note{Pitch:67,StartTick:30*PPQ,LengthTick:PPQ,Velocity:78},
+ )
+ return p
+}
+func exactSourceSamples(tick int64,p Project)*big.Rat{
+ numerator:=new(big.Int).Mul(big.NewInt(tick),big.NewInt(60*int64(p.Rate)))
+ denominator:=new(big.Int).Mul(big.NewInt(int64(p.BPM)),big.NewInt(PPQ))
+ return new(big.Rat).SetFrac(numerator,denominator)
 }
 func PublicAudioHash(p Project)(string,error){
  b,err:=p.Bytes();if err!=nil{return "",err}
@@ -96,11 +127,26 @@ func AlignOriginalSynthetic(p Project,r ScoreRequest)(ScoreTimeMap,error){
  if err:=validRequest(p,r);err!=nil{return ScoreTimeMap{},err}
  ordered:=append([]ChoreographyEvent(nil),r.Events...)
  sort.Slice(ordered,func(i,j int)bool{if ordered[i].Tick!=ordered[j].Tick{return ordered[i].Tick<ordered[j].Tick};return ordered[i].ID<ordered[j].ID})
- out:=ScoreTimeMap{Schema:AlignmentSchema,SourceAudioProjectSHA256:r.AudioProjectSHA256,Meter:"4/4_SOURCE_PROJECT_ONLY",Timebase:"480_MIDI_TICKS_PER_QUARTER_EXACT_RATIONAL",AudioVerification:"SYNTHETIC_SCORE_TIMEMAP_ONLY_AUDIO_WAVEFORM_NOT_CHECKED",Events:[]ScoreEvent{}}
+ out:=ScoreTimeMap{Schema:AlignmentSchema,SourceAudioProjectSHA256:r.AudioProjectSHA256,Meter:"4/4_SOURCE_PROJECT_ONLY",Timebase:"480_MIDI_TICKS_PER_QUARTER_EXACT_RATIONAL",AudioVerification:"SYNTHETIC_SCORE_TIMEMAP_ONLY_AUDIO_WAVEFORM_NOT_CHECKED",
+  OriginalSourceAudioBPM:p.BPM,OriginalSourceAudioRate:p.Rate,ClockAlignmentStatus:"CLOCK_MAP_ONLY_AUDIO_WAVEFORM_UNVERIFIED",
+  PerformedAudioAccepted:false,Events:[]ScoreEvent{}}
+ endTick:=int64(p.Beats)*PPQ
+ scoreEnd,err:=ExactSecondsAt(endTick,r.Tempo);if err!=nil{return ScoreTimeMap{},err}
+ proposedEnd:=new(big.Rat).Mul(scoreEnd,new(big.Rat).SetInt64(int64(p.Rate)))
+ sourceEnd:=exactSourceSamples(endTick,p)
+ endDifference:=new(big.Rat).Sub(proposedEnd,sourceEnd)
+ out.ProposedScoreEndSamples=proposedEnd.RatString()
+ out.OriginalSourceAudioEndSamples=sourceEnd.RatString()
+ out.ScoreMinusAudioEndSamples=endDifference.RatString()
+ if endDifference.Sign()!=0{out.ClockAlignmentStatus="DETERMINISTIC_SOURCE_CLOCK_DIVERGENCE_NOT_RENDERED_AUDIO"}
  for _,e:=range ordered{
   seconds,err:=ExactSecondsAt(e.Tick,r.Tempo);if err!=nil{return ScoreTimeMap{},err}
   samples:=new(big.Rat).Mul(seconds,new(big.Rat).SetInt64(int64(p.Rate)))
-  out.Events=append(out.Events,ScoreEvent{ChoreographyEvent:e,ExactSeconds:seconds.RatString(),ExactSamplePosition:samples.RatString(),EvidenceStatus:"ORIGINAL_SYNTHETIC_TIME_PROPOSAL_NO_MEASURED_MOTION"})
+  originalSource:=exactSourceSamples(e.Tick,p)
+  divergence:=new(big.Rat).Sub(samples,originalSource)
+  out.Events=append(out.Events,ScoreEvent{ChoreographyEvent:e,ExactSeconds:seconds.RatString(),ExactSamplePosition:samples.RatString(),
+    SourceAudioSamplePosition:originalSource.RatString(),ScoreMinusSourceSamples:divergence.RatString(),
+    EvidenceStatus:"ORIGINAL_SYNTHETIC_TIME_PROPOSAL_NO_MEASURED_MOTION"})
  }
  canonical,err:=json.Marshal(out);if err!=nil{return ScoreTimeMap{},err}
  sum:=sha256.Sum256(canonical)
