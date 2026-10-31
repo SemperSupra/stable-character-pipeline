@@ -63,3 +63,12 @@ func TestHumanAndAgentDiscovery(t *testing.T){
   if w.Code!=200||!strings.Contains(w.Body.String(),tc.needle){t.Fatalf("%s %d %s",tc.path,w.Code,w.Body.String())}
  }
 }
+
+func TestSourceNativeActorLabelsAndCasefoldCollision(t *testing.T){
+ s:=scene()
+ s.Actors[0].ID="CobaltOriginal"
+ s.Actors[1].ID="MarigoldOriginal"
+ if v:=Validate(s);v.Status!="PASS"{t.Fatalf("native source ID rejected: %+v",v)}
+ s.Actors[1].ID="cobaltoriginal"
+ if v:=Validate(s);v.Code!="DUPLICATE_ACTOR"{t.Fatalf("casefold collision accepted: %+v",v)}
+}
