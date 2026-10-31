@@ -1,0 +1,82 @@
+name: W8 original six-bone Blender to independent ROM crosswalk
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/walk-w8-rom-crosswalk.yml'
+      - 'qualification/walk_w8_rom/**'
+permissions:
+  contents: read
+jobs:
+  native-sixbone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Actual original source, Blender six-bone evaluated native witness
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1 libgl1-mesa-dri xvfb
+          python -m pip install --disable-pip-version-check --no-cache-dir 'bpy==4.5.0'
+          python qualification/walk_w7a/approach_source.py --profile "$PROFILE" --out "w8-native-$PROFILE"
+          xvfb-run -a python qualification/walk_w7a/native_approach.py --profile "$PROFILE" --source "w8-native-$PROFILE/source.json" --out "w8-native-$PROFILE"
+          python qualification/walk_w7a/independent_approach.py "w8-native-$PROFILE"
+          xvfb-run -a python qualification/walk_w8_rom/native_bones.py "w8-native-$PROFILE"
+          python qualification/walk_w8_rom/crosswalk.py "w8-native-$PROFILE" "w8-native-$PROFILE/w8_crosswalk_receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w8-native-${{ matrix.profile }}
+          path: w8-native-${{ matrix.profile }}/
+          retention-days: 2
+          if-no-files-found: warn
+  independent-receiver:
+    needs: native-sixbone
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Independent source/negative suite (no Blender, no native producer import)
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/walk_w8_rom -p 'test_crosswalk.py' -v
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: w8-native-*
+          path: native
+          merge-multiple: false
+      - name: Re-verify both exact-source original native Blender outputs
+        run: |
+          set -euo pipefail
+          mkdir -p result
+          for PROFILE in forward outward; do
+            DIR="native/w8-native-$PROFILE"
+            python3 qualification/walk_w8_rom/crosswalk.py "$DIR" "result/w8-$PROFILE-independent.json"
+            sha256sum "result/w8-$PROFILE-independent.json"
+          done
+      - name: Require both native producers successful
+        env:
+          PRODUCER: ${{ needs.native-sixbone.result }}
+        run: test "$PRODUCER" = success
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: w8-independent-sixbone-rom-math
+          path: result/
+          retention-days: 3
+          if-no-files-found: warn
