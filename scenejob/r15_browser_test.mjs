@@ -64,7 +64,7 @@ async function click(){
 async function keyboardSubmit(){
   await expression("document.getElementById('submit').focus()");
   assert.equal(await expression("document.activeElement.id"),"submit");
-  await command("Input.dispatchKeyEvent",{type:"keyDown",key:"Enter",code:"Enter",windowsVirtualKeyCode:13,nativeVirtualKeyCode:13,text:"\\r",unmodifiedText:"\\r"});
+  await command("Input.dispatchKeyEvent",{type:"keyDown",key:"Enter",code:"Enter",windowsVirtualKeyCode:13,nativeVirtualKeyCode:13,text:"\r",unmodifiedText:"\r"});
   await command("Input.dispatchKeyEvent",{type:"keyUp",key:"Enter",code:"Enter",windowsVirtualKeyCode:13,nativeVirtualKeyCode:13});
 }
 async function pageState(){
