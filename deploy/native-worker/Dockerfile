@@ -1,7 +1,7 @@
 # SOURCE-SAFE synthetic-only runtime qualification. Protected R009 sources NOT admitted.
-# Research image base tag is mutable until a separately qualified digest is pinned;
-# therefore this image is expressly NOT APPROVED FOR RELEASE/PUBLICATION.
-FROM python:3.11-slim-bookworm
+# Base manifest digest observed on exact public GHA 41215531781 (amd64).
+# Debian apt and pip dependency bytes remain unlocked: NOT APPROVED FOR RELEASE.
+FROM python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
 ENV PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
     HOME=/tmp XDG_CONFIG_HOME=/tmp/config XDG_CACHE_HOME=/tmp/cache \
     LIBGL_ALWAYS_SOFTWARE=1 OMP_NUM_THREADS=2

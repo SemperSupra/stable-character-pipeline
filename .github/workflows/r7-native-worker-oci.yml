@@ -35,6 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          grep -Fqx 'FROM python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd' deploy/native-worker/Dockerfile
           docker build --pull=false --tag scp-native-oci:r7 --file deploy/native-worker/Dockerfile deploy/native-worker
           test "$(docker image inspect scp-native-oci:r7 --format '{{.Config.User}}')" = '65532:65532'
           docker image inspect scp-native-oci:r7 --format 'R7_LOCAL_IMAGE_ID {{.Id}}; USER {{.Config.User}}'
