@@ -1,0 +1,22 @@
+name: W9I independent HOG aggregate trust falsifiers
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w9i/**'
+      - '.github/workflows/w9i-aggregate-review.yml'
+permissions:
+  contents: read
+jobs:
+  independent-observation-aggregate-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Preserve original independent evidence aggregation failures
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          python3 -m unittest discover -s qualification/visualqa_w9i -p 'test_*.py' -v
