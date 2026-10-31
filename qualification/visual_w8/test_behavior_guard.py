@@ -11,7 +11,7 @@ def fixture():
     source=(json.dumps(generate("forward"),sort_keys=True)+"\n").encode()
     sh=hashlib.sha256(source).hexdigest()
     blend="b"*64
-    native={"source_sha256":sh,"blend_sha256":blend}
+    native={"source_sha256":sh,"blend_sha256":blend,"rights":"ORIGINAL_SELF_AUTHORED_SYNTHETIC"}
     cameras=[];checks=[];views={}
     for cam in CAMERAS:
         video=(cam.encode()*300)[:2500]
