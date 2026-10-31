@@ -82,3 +82,10 @@ func TestSymlinkEvidenceRejected(t *testing.T){
  if err:=os.Symlink(real,bad);err!=nil{t.Fatal(err)}
  if v:=Verify(m,p,d,e);v.Code!="EVIDENCE_UNAVAILABLE_BEHAVIOR"{t.Fatal(v)}
 }
+
+func TestUndeclaredGateCannotLaunderUnsignedClaim(t *testing.T){
+ m,p,d,e:=fixture(t)
+ m.Gates["unreviewed_quality"]=releasegate.Evidence{Status:"PASS",ReceiptSHA:"sha256:"+strings.Repeat("d",64)}
+ if v:=releasegate.Validate(m);v.Status!="PASS"{t.Fatalf("raw R0 behavior changed: %+v",v)}
+ if v:=Verify(m,p,d,e);v.Code!="UNDECLARED_GATE"{t.Fatalf("unsigned extra gate accepted: %+v",v)}
+}
