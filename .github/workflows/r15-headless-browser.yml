@@ -1,0 +1,27 @@
+name: R15 actual headless Chrome human button click
+on:
+  pull_request:
+    paths:
+      - 'scenejob/r15_browser_test.mjs'
+      - 'scenejob/ui.html'
+      - 'scenejob/ui.js'
+      - '.github/workflows/r15-headless-browser.yml'
+permissions:
+  contents: read
+jobs:
+  source-safe-real-chrome-click:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Actual Chrome original synthetic UI click and negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          command -v google-chrome
+          node --version
+          timeout 90s node scenejob/r15_browser_test.mjs
