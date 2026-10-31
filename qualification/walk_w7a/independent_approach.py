@@ -29,7 +29,7 @@ def observe(folder):
   raise ValueError("W7_SOURCE_NOT_APPROACHING")
  z={"schema":"scp.walk_w7a_third_native_approach_source.v1","status":"PASS_ORIGINAL_NATIVE_24FRAME_WORLD_FOOT_AND_ROOT_SOURCE_ONLY",
  "source_sha256":native["source_sha256"],"max_native_world_heel_toe_error":maxerr,
- "source_actor_separation_start":3.3,"source_actor_separation_end":2.5,
+ "source_actor_separation_start":3.3,"source_actor_separation_end":2.64,
  "full_body_anatomy":"UNKNOWN_NOT_HUMAN","visual_acceptance":"SEPARATE_L1_REQUIRED"}
  (p/"third_native_source_receipt.json").write_text(json.dumps(z,sort_keys=True,indent=2)+"\n")
  print("W7_THIRD_24FRAME_NATIVE_WORLD_APPROACH_PASS",maxerr)
