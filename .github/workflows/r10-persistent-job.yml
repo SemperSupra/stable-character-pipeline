@@ -1,0 +1,32 @@
+name: R10 public source-safe durable recovery independent qualification
+on:
+  pull_request:
+    paths:
+      - 'scenejob/**'
+      - '.github/workflows/r10-persistent-job.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r10-source-only-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-bound-race-and-hostile-cold-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: scenejob/go.mod
+          cache: false
+      - name: Run exact original public Go tests + race/vet
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          (cd scenecontract && go test -race -count=1 ./... && go vet ./...)
+          (cd scenejob && go test -race -count=1 -v ./... && go vet ./...)
+          printf 'R10_CODE_ONLY_PASS_NOT_R009_SCIENTIFIC_ACCEPTANCE\n'
