@@ -1,0 +1,21 @@
+name: R22 independent full-sequence temporal falsifiers
+on:
+  pull_request:
+    paths:
+      - 'qualification/review_r22/**'
+      - 'qualification/review_r21/**'
+      - '.github/workflows/r22-temporal-review.yml'
+permissions:
+  contents: read
+jobs:
+  source-safe-temporal-negative-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Original temporal reviewer hostile tests, preserve first RED
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/review_r22 -p 'test_*.py' -v
