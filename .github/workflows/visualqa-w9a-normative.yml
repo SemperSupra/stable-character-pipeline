@@ -1,0 +1,57 @@
+name: VisualQA W9-A taxon action conditional normative admission
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w9a/**'
+      - '.github/workflows/visualqa-w9a-normative.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  normative-only-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [forward, outward]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Independent Go taxon/JCS provenance and counterfeit ROM hostile controls
+        run: |
+          set -euo pipefail
+          go test -race -v qualification/visualqa_w9a/policy.go qualification/visualqa_w9a/policy_test.go
+          go vet qualification/visualqa_w9a/policy.go
+      - name: Original immutable W7A source, human JCS and normative ROM ABSTAIN
+        env:
+          PROFILE: ${{ matrix.profile }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "w9a-$PROFILE"
+          # Immutable original W7A source, no nondeterministic new generation under a different runner.
+          gh run download 41172356301 --repo "$GITHUB_REPOSITORY" --name "walk-w7a-original-approach-$PROFILE" --dir "w9a-$PROFILE"
+          test -s "w9a-$PROFILE/source.json"
+          sha256sum "w9a-$PROFILE/source.json"
+          go run qualification/visualqa_w9a/policy.go "w9a-$PROFILE/source.json" qualification/visualqa_w9a/normative_policy.json "w9a-$PROFILE/decision.json"
+          python - "$PROFILE" <<'PY'
+          import json,sys
+          r=json.load(open("w9a-"+sys.argv[1]+"/decision.json"))
+          assert r["human_natural_gait"].startswith("ABSTAIN")
+          assert r["normative_rom"].startswith("UNKNOWN")
+          assert r["source_ground_truth_is_normative_oracle"] is False
+          print("W9A_PASS_SOURCE_ONLY_HUMAN_BIOLOGY_UNQUALIFIED",r["source_sha256"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visualqa-w9a-normative-numeric-${{ matrix.profile }}
+          path: w9a-${{ matrix.profile }}/decision.json
+          retention-days: 3
+          if-no-files-found: warn

@@ -1,0 +1,13 @@
+{
+  "schema": "scp.visualqa.w9a_policy.v1",
+  "subject_kind": "human",
+  "action": "walking",
+  "style": "typical",
+  "normative_ref_ids": [
+    "ISB_2002_JCS_REFERENCE_ONLY",
+    "NMS_VV_2014_VALIDATION_GUIDANCE_ONLY"
+  ],
+  "numeric_limits": {},
+  "use_source_pole_as_anatomical_jcs": false,
+  "source_rig_has_anatomical_upper_body": false
+}
