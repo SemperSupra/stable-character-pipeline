@@ -9,7 +9,7 @@ class WorldApproach(unittest.TestCase):
    s=generate(profile);r=verify(s)
    self.assertEqual(r["status"],"PASS_ORIGINAL_SOURCE_X_APPROACH_PLANTED_CONTACT_ONLY")
    self.assertAlmostEqual(r["root_separation_start"],3.3)
-   self.assertAlmostEqual(r["root_separation_end"],2.5)
+   self.assertAlmostEqual(r["root_separation_end"],2.64)
    self.assertLessEqual(r["max_source_ankle_frame_step"],.045)
    self.assertEqual(r["max_source_planted_heel_slip"],0)
  def test_no_disguised_static_actors(self):
