@@ -1,0 +1,92 @@
+name: R8b original public wheel hashes and offline Python 3.11 qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/wheel_lock/**'
+      - '.github/workflows/r8b-wheel-hashes.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r8b-wheels-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-public-wheel-bytes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Independent synthetic wheel hash and original-byte falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/sbom_inventory -p 'test_*.py' -v
+          python3 -m unittest discover -s qualification/wheel_lock -p 'test_*.py' -v
+      - name: Capture real original public Python 3.11 installed package set
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          docker build --pull=false --tag scp-r8b-native:original --file deploy/native-worker/Dockerfile deploy/native-worker
+          mkdir -p wheel-audit
+          docker image inspect scp-r8b-native:original --format '{{.Id}}' > wheel-audit/native-image-id.txt
+          docker run --rm --network=none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --entrypoint python scp-r8b-native:original \
+            -m pip freeze > wheel-audit/native-pip-freeze.txt
+      - name: Download original public wheel files and derive exact SHA-only lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 qualification/wheel_lock/acquire.py \
+            --freeze wheel-audit/native-pip-freeze.txt --out wheel-audit
+          python3 - <<'PY'
+          import json,pathlib,hashlib
+          p=pathlib.Path("wheel-audit")
+          r=json.loads((p/"wheel-lock-candidate.json").read_text())
+          assert r["package_count"]==10
+          assert r["status"]=="WHEEL_ORIGINAL_BYTES_CAPTURED_OFFLINE_INSTALL_PENDING"
+          assert all(len(x["sha256"])==64 and x["bytes"]>100 for x in r["packages"])
+          assert len(list((p/"wheelhouse").glob("*.whl")))==10
+          print("R8B_ORIGINAL_PUBLIC_WHEELS_HASHED_NO_LICENSE_ADMISSION",r["total_wheel_bytes"])
+          PY
+      - name: Fully offline hash-enforced Python dependency reinstall and headless bpy test
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network=none --read-only \
+            --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 \
+            --memory=5g --cpus=2 --tmpfs /tmp:rw,exec,size=3g \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD/wheel-audit/wheelhouse:/wheels:ro" \
+            -v "$PWD/wheel-audit/requirements-hashed.txt:/requirements.txt:ro" \
+            --entrypoint /bin/sh scp-r8b-native:original -ec '
+              python -m venv /tmp/pinned
+              /tmp/pinned/bin/python -m pip install --no-index --disable-pip-version-check \
+                --only-binary=:all: --find-links=/wheels --require-hashes -r /requirements.txt
+              /tmp/pinned/bin/python -m pip check
+              /tmp/pinned/bin/python -c "import bpy; assert bpy.app.version[:2]==(4,5); print(\"OFFLINE_BPY_WHEEL_HASHES_VERIFIED\",bpy.app.version_string)"
+            ' | tee wheel-audit/offline-install.txt
+          grep -F 'OFFLINE_BPY_WHEEL_HASHES_VERIFIED' wheel-audit/offline-install.txt
+          sha256sum wheel-audit/native-image-id.txt wheel-audit/native-pip-freeze.txt \
+            wheel-audit/requirements-hashed.txt wheel-audit/wheel-lock-candidate.json \
+            wheel-audit/offline-install.txt > wheel-audit/sha256sum.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r8b-original-public-wheel-sha-only-evidence
+          path: |
+            wheel-audit/native-image-id.txt
+            wheel-audit/native-pip-freeze.txt
+            wheel-audit/requirements-hashed.txt
+            wheel-audit/wheel-lock-candidate.json
+            wheel-audit/offline-install.txt
+            wheel-audit/sha256sum.txt
+          retention-days: 3
+          if-no-files-found: warn
