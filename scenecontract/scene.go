@@ -12,7 +12,7 @@ const Schema="scp.scene.v1"
 var revisionRE=regexp.MustCompile("^[a-f0-9]{40}$")
 var shaRE=regexp.MustCompile("^sha256:[a-f0-9]{64}$")
 var actorIDRE=regexp.MustCompile("^[A-Za-z][A-Za-z0-9_-]{0,63}$")
-var cameraIDRE=regexp.MustCompile("^[a-z][a-z0-9_-]{0,63}$")
+var cameraIDRE=regexp.MustCompile("^[A-Za-z][A-Za-z0-9_-]{0,63}$")
 type Actor struct {
  ID string `json:"id"`
  AssetDigest string `json:"asset_digest"`
@@ -84,8 +84,9 @@ func Validate(s Scene)Decision{
  cameras:=map[string]bool{}
  for _,c:=range s.Cameras{
   if !cameraIDRE.MatchString(c){return fail("INVALID_CAMERA_ID")}
-  if cameras[c]{return fail("DUPLICATE_CAMERA")}
-  cameras[c]=true
+  cameraKey:=strings.ToLower(c)
+  if cameras[cameraKey]{return fail("DUPLICATE_CAMERA")}
+  cameras[cameraKey]=true
  }
  return Decision{Status:"PASS",Code:"STRUCTURAL_CONTRACT_ONLY",Revision:s.Revision}
 }
