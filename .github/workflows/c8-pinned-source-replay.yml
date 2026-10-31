@@ -1,0 +1,57 @@
+name: C8 original public source and score replay
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/c8-pinned-source-replay.yml'
+      - 'qualification/bridge_e2e/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: false
+      - name: Pinned independent C1 and C5 original public source receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p qualification/bridge_e2e/_evidence "$RUNNER_TEMP/bce" "$RUNNER_TEMP/morris"
+          git -C "$RUNNER_TEMP/bce" init -q
+          git -C "$RUNNER_TEMP/bce" remote add origin https://github.com/mark-e-deyoung/bitmagnet-concept-explorer.git
+          git -C "$RUNNER_TEMP/bce" fetch -q --depth 1 origin 6a057b210f611a613e05ce057c3412654eb036d2
+          git -C "$RUNNER_TEMP/bce" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/bce" rev-parse HEAD)" = 6a057b210f611a613e05ce057c3412654eb036d2
+          git -C "$RUNNER_TEMP/morris" init -q
+          git -C "$RUNNER_TEMP/morris" remote add origin https://github.com/GITenberg/The-Morris-Book-Part-1--13-A-History-of-Morris-Dancing-With-a-Description-of-Eleven-Dances-as__12926.git
+          git -C "$RUNNER_TEMP/morris" fetch -q --depth 1 origin 1d5ca33372491509805a64cd0425a5164d3108fa
+          git -C "$RUNNER_TEMP/morris" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/morris" hash-object 12926.txt)" = 08984be691ebd69f92a7a271217612f0056cea37
+          echo "7294644f1fc26490f8a0aed415afc01b8278294e4373169e1407986c56cb0961  $RUNNER_TEMP/morris/12926.txt" | sha256sum -c -
+          cd "$RUNNER_TEMP/bce"
+          go run ./research/gutenbergmotion/context -cross-over-first-pass -source "$RUNNER_TEMP/morris/12926.txt" > "$GITHUB_WORKSPACE/qualification/bridge_e2e/_evidence/c1.json"
+          cd "$GITHUB_WORKSPACE/audio-foundry/editable"
+          go run ./cmd/scorewitness -out "$GITHUB_WORKSPACE/qualification/bridge_e2e/_evidence/c5"
+          cd "$GITHUB_WORKSPACE/qualification/motion_source_bridge"
+          go run . -figure "$GITHUB_WORKSPACE/qualification/bridge_e2e/_evidence/c1.json" -score "$GITHUB_WORKSPACE/qualification/bridge_e2e/_evidence/c5/time-map.json" > "$GITHUB_WORKSPACE/qualification/bridge_e2e/_evidence/c8.json"
+      - name: Independent actual source status plus three hostile mutations
+        run: python3 qualification/bridge_e2e/verify.py qualification/bridge_e2e/_evidence
+      - name: Preserve metadata only, not binary music/media
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c8-pinned-source-replay-metadata
+          path: |
+            qualification/bridge_e2e/_evidence/c1.json
+            qualification/bridge_e2e/_evidence/c5/time-map.json
+            qualification/bridge_e2e/_evidence/c8.json
+            qualification/bridge_e2e/_evidence/independent.json
+          if-no-files-found: warn
+          retention-days: 7
