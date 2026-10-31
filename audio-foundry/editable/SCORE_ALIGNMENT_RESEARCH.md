@@ -2,7 +2,8 @@
 
 This child workcell **reuses** the original public `editable_audio.v1`
 source project, its 480-PPQ MIDI and 48 kHz audio source constraints. It does
-not introduce a new music editor, DAW, scheduler, CPE ontology or renderer.
+not introduce a new music editor, DAW, scheduler or CPE ontology; a separate
+original-only diagnostic PCM renderer is described below.
 
 ```sh
 cd audio-foundry/editable
@@ -49,3 +50,37 @@ independent alignment experiment is still required.
 This is a correction to *evidence legibility*, not native audio-to-dance
 qualification, general swing/rubato handling, body motion, browser acceptance
 or a release.
+
+## C5 diagnostic PCM performance witness — new incremental capability
+
+This workcell now also has a **separate original-only, deterministic diagnostic
+sound renderer**. It does **not modify or claim to fix** the existing Audio
+Foundry Csound project, which remains constant-tempo and independently
+qualified under its own contract. The new diagnostic executable is:
+
+```sh
+cd audio-foundry/editable
+go run ./cmd/scorewitness -out score-evidence
+python3 score_tempo_witness_oracle.py score-evidence
+```
+
+From the same immutable eight-bar synthetic project it emits original-source
+JSON, a MusicXML 4.0 score with 120/90 BPM directions at bars 1/5, a
+480-PPQ MIDI file with corresponding tempo meta events, a **real rendered
+48-kHz mono PCM16 WAV** of synthetic pitched notes with diagnostic onset
+markers, the original clock map and SHA-pinned qualification receipt. Its
+sample count is 896000 and it contains **20 actually rendered note onsets**.
+The independent stdlib Python oracle reopens bytes, parses XML and MIDI,
+detects attack markers in the actual PCM samples, verifies 20 note onsets and
+checks sample positions against independently decoded MIDI tempo events
+within two samples (MIDI tempo uses integer microseconds/quarter).
+The operation refuses to overwrite existing evidence and produces no
+protected character or commercial/personal recording.
+
+**Scientific acceptance remains bounded:** `ORIGINAL_SYNTHETIC_WAV_GENERATED_EXTERNAL_ONSET_REVIEW_REQUIRED`.
+This is a synthetic onset diagnostic; not a faithful acoustic performer,
+source-verified historical musical score, global meter/expressive retiming
+engine, physical dance motion, full human/agent UX or an upgrade of the
+existing Audio Foundry renderer. The previous `performed_audio_accepted=false`
+for its fixed-tempo source clock remains correct and unchanged. Further
+real-world/DAW timing qualification is separate and HELD.
