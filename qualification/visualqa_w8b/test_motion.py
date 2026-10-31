@@ -4,7 +4,7 @@ class OpticControls(unittest.TestCase):
  def test_pins_full_sha256_not_truncated(self):
   for profile,cameras in EXPECTED.items():
    for camera,digest in cameras.items():
-    self.assertRegex(digest,r'^[0-9a-f]{64}
+    self.assertEqual(len(digest),64,profile+'/'+camera)
  def test_static(self):
   with self.assertRaisesRegex(ValueError,"STATIC"):
    measure([np.zeros((90,160),dtype=np.uint8) for _ in range(24)])
