@@ -1,0 +1,88 @@
+name: R7 source-safe native Blender/FFmpeg OCI worker smoke
+on:
+  pull_request:
+    paths:
+      - 'deploy/native-worker/**'
+      - '.github/workflows/r7-native-worker-oci.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r7-native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-safe-native-oci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      OMP_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Strict contract unit and native bridge hostile tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd releasegate && go test -race -count=1 ./... && go vet ./...)
+          (cd scenecontract && go test -race -count=1 ./... && go vet ./...)
+          python3 -m unittest discover -s qualification/release_rc0 -p 'test_*.py' -v
+      - name: Build source-safe native runtime and prove nonroot image user
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull=false --tag scp-native-oci:r7 --file deploy/native-worker/Dockerfile deploy/native-worker
+          test "$(docker image inspect scp-native-oci:r7 --format '{{.Config.User}}')" = '65532:65532'
+          docker image inspect scp-native-oci:r7 --format 'R7_LOCAL_IMAGE_ID {{.Id}}; USER {{.Config.User}}'
+          docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=128 --memory=3g --cpus=2 --tmpfs /tmp:rw,exec,size=512m \
+            scp-native-oci:r7 -c "import bpy,subprocess; assert bpy.app.version[0:2]==(4,5); print('BLENDER_PIN',bpy.app.version_string); print('FFMPEG_PIN',subprocess.check_output(['ffmpeg','-version'],text=True).splitlines()[0])"
+      - name: Original W7A native worker, actual clean two-camera media, fail-closed release join
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p r7-outputs
+          (cd releasegate && go build -o ../releasegate-bin ./cmd/releasegate)
+          (cd scenecontract && go build -o ../scenecontract-bin ./cmd/scenecontract)
+          docker run --rm --user "$(id -u):$(id -g)" --network=none --read-only \
+            --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 \
+            --memory=5g --cpus=2 --tmpfs /tmp:rw,exec,size=768m \
+            -e HOME=/tmp -e XDG_CONFIG_HOME=/tmp/config -e XDG_CACHE_HOME=/tmp/cache \
+            -e LIBGL_ALWAYS_SOFTWARE=1 -e OMP_NUM_THREADS=2 -e PYTHONDONTWRITEBYTECODE=1 \
+            -v "$PWD:/src:ro" -v "$PWD/r7-outputs:/out:rw" \
+            --workdir /src --entrypoint /bin/sh scp-native-oci:r7 -ec '
+              python qualification/walk_w7a/approach_source.py --profile forward --out /out/forward
+              xvfb-run -a python qualification/walk_w7a/native_approach.py --profile forward --source /out/forward/source.json --out /out/forward
+              python qualification/walk_w7a/independent_approach.py /out/forward
+              python qualification/walk_w16c5a/w4d_liveness.py /out/forward
+              xvfb-run -a python qualification/walk_w6a/proxy_multiview.py --source /out/forward --out /out/forward/rendered
+              for CAM in OriginalFront OriginalOblique; do
+                python qualification/walk_w6a/qa_video.py --video "/out/forward/rendered/$CAM.mp4" --out "/out/forward/rendered/qa-$CAM"
+              done
+              python qualification/walk_w6a/multiview_rollup.py --folder /out/forward/rendered
+            '
+          python qualification/release_rc0/bridge.py --folder r7-outputs/forward --revision "$SOURCE_SHA" --release-binary ./releasegate-bin --output r7-outputs/receipt
+          ./scenecontract-bin validate r7-outputs/receipt/scene.json > r7-outputs/receipt/scene-validation.json
+          set +e
+          ./releasegate-bin r7-outputs/receipt/manifest.draft.json > r7-outputs/receipt/release-admission.json
+          rc=$?
+          set -e
+          python3 -c 'import json,sys;r=json.load(open("r7-outputs/receipt/release-admission.json"));s=json.load(open("r7-outputs/receipt/scene-validation.json"));assert int(sys.argv[1])==1 and r["status"]=="UNKNOWN" and r["code"]=="DRAFT_NOT_PROMOTED" and s["status"]=="PASS";print("R7_ACTUAL_NATIVE_OCI_W7A_SOURCE_SAFE_AND_RELEASE_HELD")' "$rc"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r7-native-oci-original-synthetic-compact
+          path: |
+            r7-outputs/receipt/
+            r7-outputs/forward/source.json
+            r7-outputs/forward/source_motion_receipt.json
+            r7-outputs/forward/rendered/native_render_receipt.json
+            r7-outputs/forward/rendered/independent_cross_camera_rollup.json
+          retention-days: 3
+          if-no-files-found: warn
