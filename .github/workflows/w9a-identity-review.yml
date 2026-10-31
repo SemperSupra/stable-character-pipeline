@@ -1,0 +1,27 @@
+name: W9A independent actor-identity falsifier
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_w9a/**'
+      - '.github/workflows/w9a-identity-review.yml'
+permissions:
+  contents: read
+jobs:
+  independent-source-identity-red:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Preserve real first RED on policy identity bypass
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          go test -race -count=1 -v qualification/visualqa_w9a/policy.go qualification/visualqa_w9a/policy_test.go qualification/visualqa_w9a/identity_review_test.go
