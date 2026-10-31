@@ -72,3 +72,11 @@ func TestSourceNativeActorLabelsAndCasefoldCollision(t *testing.T){
  s.Actors[1].ID="cobaltoriginal"
  if v:=Validate(s);v.Code!="DUPLICATE_ACTOR"{t.Fatalf("casefold collision accepted: %+v",v)}
 }
+
+func TestSourceCameraLabelParity(t *testing.T){
+ s:=scene()
+ s.Cameras=[]string{"OriginalFront","OriginalOblique"}
+ if v:=Validate(s);v.Status!="PASS"{t.Fatalf("native camera label rejected: %+v",v)}
+ s.Cameras[1]="originalfront"
+ if v:=Validate(s);v.Code!="DUPLICATE_CAMERA"{t.Fatalf("camera alias accepted: %+v",v)}
+}
