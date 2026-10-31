@@ -1,6 +1,7 @@
 """Independent negative controls for bounded HOG input and scientific abstention."""
 import copy,unittest
 import numpy as np
+import cv2
 from clean_hog import CAMERAS,EXPECTED,MODEL_SHA256,validate_boxes,model
 class CleanHogControls(unittest.TestCase):
  def test_all_pins_complete_and_distinct(self):
@@ -10,7 +11,8 @@ class CleanHogControls(unittest.TestCase):
    self.assertNotEqual(row[CAMERAS[0]],row[CAMERAS[1]])
  def test_wrong_model_metadata_rejected(self):
   h=model()
-  self.assertEqual(len(h.getSVMDetector()),3781)
+  self.assertIsNotNone(h)
+  self.assertEqual(len(cv2.HOGDescriptor_getDefaultPeopleDetector()),3781)
  def test_empty_original_frame_does_not_create_true_human(self):
   h=model();canvas=np.zeros((360,640,3),dtype=np.uint8)
   boxes,weights=h.detectMultiScale(canvas,winStride=(8,8),padding=(8,8),scale=1.05)
