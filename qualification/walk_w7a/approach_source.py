@@ -10,7 +10,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"walk_w16c4"))
 import ground_feasibility as c4
 RIGHTS=c4.RIGHTS
 SCHEMA="scp.walk_w7a_original_approach.v1"
-MAX_X_TRAVEL=.40
+MAX_X_TRAVEL=.33
 def generate(profile):
  p=copy.deepcopy(c4.original(profile))
  direction=1 if profile=="forward" else -1
@@ -38,12 +38,13 @@ def generate(profile):
      u=(phase-6+1)/6
      axle_x=last+(future-last)*u
     hip=(new_x+sign*.22,leg["hip"][1],c4.HIP_Z)
-    ankle=(axle_x,leg["ankle"][1],leg["ankle"][2])
+    z=(.020*math.sin(math.pi*(phase-6+1)/6)+.0205) if leg["state"]=="swing" else 0.
+    ankle=(axle_x,leg["ankle"][1],z)
     pole=(hip[0],hip[1]+direction*.42,hip[2]-.40)
     knee=c4.solve(hip,ankle,pole)
     leg["hip"]=hip;leg["ankle"]=ankle;leg["knee"]=knee;leg["pole"]=pole
-    leg["heel"]=(axle_x,leg["heel"][1],leg["heel"][2])
-    leg["toe"]=(axle_x,leg["toe"][1],leg["toe"][2])
+    leg["heel"]=(axle_x,leg["heel"][1],z)
+    leg["toe"]=(axle_x,leg["toe"][1],z)
  return p
 
 def verify(p):
@@ -76,7 +77,7 @@ def verify(p):
     seen.append(lateral)
   samples.append(max(seen))
  root_distances=[p["actors"][1]["frames"][i]["root_x"]-p["actors"][0]["frames"][i]["root_x"] for i in range(24)]
- if abs(root_distances[0]-3.3)>1e-10 or abs(root_distances[-1]-2.5)>1e-10:
+ if abs(root_distances[0]-3.3)>1e-10 or abs(root_distances[-1]-2.64)>1e-10:
   raise ValueError("W7_ACTOR_APPROACH_NOT_MEASURED")
  if any(root_distances[i+1]>=root_distances[i] for i in range(23)):
   raise ValueError("W7_NOT_STRICT_APPROACH")
