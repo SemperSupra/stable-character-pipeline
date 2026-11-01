@@ -27,6 +27,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/r23-src" "$RUNNER_TEMP/r23-media"
           gh run download 41225967024 --repo SemperSupra/stable-character-pipeline --name r9-native-3audience-original-synthetic-evidence --dir "$RUNNER_TEMP/r23-src"
           gh run download 41225967024 --repo SemperSupra/stable-character-pipeline --name r9-native-3audience-original-synthetic-media --dir "$RUNNER_TEMP/r23-media"
+      - name: Install native FFmpeg decoder after fast source preflight
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffprobe -version | head -1
       - name: Decode 24 actual H264 frames and reject five source/camera forgeries
         run: |
           set -euo pipefail
