@@ -125,8 +125,7 @@ func Main(args []string)error{
  f,e:=os.OpenFile(*out,os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{return e}
  if _,e=io.Copy(f,bytes.NewReader(data));e!=nil{f.Close();os.Remove(*out);return e};if e=f.Close();e!=nil{os.Remove(*out);return e}
  rf,e:=os.OpenFile(*receipt,os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{os.Remove(*out);return e}
- if _,e=rf.Write(append(js,'
-'));e!=nil{rf.Close();os.Remove(*receipt);os.Remove(*out);return e};if e=rf.Close();e!=nil{os.Remove(*receipt);os.Remove(*out);return e}
+ if _,e=rf.Write(append(js,byte(10)));e!=nil{rf.Close();os.Remove(*receipt);os.Remove(*out);return e};if e=rf.Close();e!=nil{os.Remove(*receipt);os.Remove(*out);return e}
  return nil
 }
 func main(){if e:=Main(os.Args[1:]);e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(1)}}
