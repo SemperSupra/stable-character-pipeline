@@ -1,0 +1,46 @@
+name: R23 exact original public source and two-camera role bytes
+on:
+  pull_request:
+    paths:
+      - 'qualification/r23_original_bytejoin/**'
+      - '.github/workflows/r23-source-camera-bytes.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-native-role-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fast syntax and agent read-only capabilities preflight
+        run: |
+          python3 -m py_compile qualification/r23_original_bytejoin/verify.py qualification/r23_original_bytejoin/negative_native.py
+          python3 qualification/r23_original_bytejoin/verify.py --capabilities
+      - name: Read pinned public original artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r23-src" "$RUNNER_TEMP/r23-media"
+          gh run download 41225967024 --repo SemperSupra/stable-character-pipeline --name r9-native-3audience-original-synthetic-evidence --dir "$RUNNER_TEMP/r23-src"
+          gh run download 41225967024 --repo SemperSupra/stable-character-pipeline --name r9-native-3audience-original-synthetic-media --dir "$RUNNER_TEMP/r23-media"
+      - name: Decode 24 actual H264 frames and reject five source/camera forgeries
+        run: |
+          set -euo pipefail
+          SRC="$RUNNER_TEMP/r23-src/r9-cli/attempt-0001/forward/source.json"
+          FRONT="$RUNNER_TEMP/r23-media/r9-cli/attempt-0001/forward/rendered/OriginalFront.mp4"
+          OBL="$RUNNER_TEMP/r23-media/r9-cli/attempt-0001/forward/rendered/OriginalOblique.mp4"
+          python3 qualification/r23_original_bytejoin/verify.py --source "$SRC" --front "$FRONT" --oblique "$OBL" | tee qualification/r23_original_bytejoin/receipt.json
+          python3 qualification/r23_original_bytejoin/negative_native.py "$SRC" "$FRONT" "$OBL" | tee qualification/r23_original_bytejoin/hostile.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r23-original-synthetic-camera-byte-roles
+          path: |
+            qualification/r23_original_bytejoin/receipt.json
+            qualification/r23_original_bytejoin/hostile.json
+          retention-days: 7
+          if-no-files-found: warn
