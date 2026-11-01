@@ -1,0 +1,46 @@
+name: Original authored portable VMD v2 structural roundtrip (public CPU)
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/portable_vmd_v1/**'
+      - '.github/workflows/portable-vmd-structural-qual.yml'
+permissions:
+  contents: read
+jobs:
+  vmd-original-bytes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: false
+      - name: Fast Go and independent Python syntax preflight
+        working-directory: mmd/qualification/portable_vmd_v1
+        run: |
+          python3 -m py_compile verify.py
+          go test -count=2 ./...
+          go vet ./...
+      - name: Go race plus actual original VMD bytes and second reader
+        working-directory: mmd/qualification/portable_vmd_v1
+        run: |
+          set -euo pipefail
+          go test -race ./...
+          go run . -capabilities
+          go run . -out motion-original.vmd -receipt evidence.json
+          if go run . -out motion-original.vmd -receipt evidence.json; then exit 4; fi
+          python3 verify.py motion-original.vmd evidence.json | tee independent.json
+      - name: Preserve only authored synthetic binary and nonpromoting receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-synthetic-vmd-v2-structural
+          path: |
+            mmd/qualification/portable_vmd_v1/motion-original.vmd
+            mmd/qualification/portable_vmd_v1/evidence.json
+            mmd/qualification/portable_vmd_v1/independent.json
+          retention-days: 7
+          if-no-files-found: warn
