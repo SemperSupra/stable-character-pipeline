@@ -40,7 +40,7 @@ func TestTimeRedControls(t *testing.T){
   {"nonunit_rotation",func(k []Key){k[8].Local[0].W=2},60,30},
   {"missing_rotation",func(k []Key){k[8].Local=nil},60,30},
   {"nan_position",func(k []Key){k[8].Root.X=math.NaN()},60,30},
-  {"silent_end_truncation",func(k []Key){k[60].Frame=60},60,29},
+
  }
  for _,tc:=range cases {t.Run(tc.name,func(t *testing.T){
   k:=make([]Key,len(base))
@@ -48,4 +48,20 @@ func TestTimeRedControls(t *testing.T){
   tc.mutate(k)
   if _,err:=ResampleSourceClock(k,tc.source,tc.target);err==nil{t.Fatal("invalid clock/motion accepted")}
  })}
+}
+
+// Two clips differ by one SOURCE sample: [0..60]/60 spans exactly 1 second,
+// while [0..59]/60 ends at 59/60 second. Only the first endpoint has an
+// exact integer target index at 29fps. The previous RED test accidentally used
+// a 61-frame, full-second input as the supposed truncated counterexample.
+func TestTimeExactAndUnrepresentable60To29(t *testing.T){
+ full:=makeSyntheticKeys(60)
+ got,err:=ResampleSourceClock(full,60,29)
+ if err!=nil||len(got)!=30||got[29].Frame!=29||!almost(got[29].Root.X,60){
+  t.Fatalf("61 source frames at 60fps MUST map full one-second endpoint to frame 29: len=%d err=%v",len(got),err)
+ }
+ short:=full[:len(full)-1]
+ if _,err:=ResampleSourceClock(short,60,29);err==nil{
+  t.Fatal("RED: 60 source frames end at 59/60s, not representable at 29fps")
+ }
 }
