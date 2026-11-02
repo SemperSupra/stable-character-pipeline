@@ -1,0 +1,7 @@
+# Actual upstream MMD Tools VMD import and native Blender skinned mesh test
+
+Source-safe W15/VMD next rung. Uses original authored 93-keyframe VMD from stacked #246, original VMD serializer and independent structure parser. Downloads **official original Blender 4.5.15 binary** with vendor SHA256 file and **MMD-Blender/blender_mmd_tools v4.5.14** exact commit `fc6411d0fb0dd690cae8cf8eb1fae14311e756cc` (GPL-3.0+). Sources: https://download.blender.org/release/Blender4.5/ and https://github.com/MMD-Blender/blender_mmd_tools/tree/v4.5.14. External tools are installed transiently into standard public GHA runner, never vendored into project.
+
+Calls actual `mmd_tools.core.vmd.File.load()` and `VMDImporter.assign()` on a real temporary `bpy` armature with authored Center/L_Ankle/R_Ankle bone names; adds two actual skinned quads, checks native frame 0→30 bone displacement and deformed mesh vertices, rewinds to frame 0, and independently validates the receipt and scientific HOLDs. Exact native GHA running and scientific result must be observed, not assumed.
+
+This **does NOT** import any protected Naomi/Alison or original human capture; it does not qualify PMX-specific rig metadata, independent MMD application playback, production interpolators or IK, anatomical plausibility, skinning of real human meshes, or private R009 acceptance. The official plugin notes Blender IK and quaternion interpolation can differ from MMD; no real biophysical claims. Git/DLE source/receipts; public GHA only retains generated synthetic JSON; no original protected media.

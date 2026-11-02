@@ -1,0 +1,59 @@
+name: Native Blender 4.5 + MMD Tools v4.5.14 authored VMD and skin import
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/native_vmd_import/**'
+      - '.github/workflows/mmd-vmd-native-plugin-import.yml'
+permissions:
+  contents: read
+jobs:
+  native-plugin-import:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: false
+      - name: Fast fail source, syntax and generated VMD byte structure
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/native_vmd_import/*.py
+          (cd mmd/qualification/portable_vmd_v1 && go test ./... && go run . -out "$RUNNER_TEMP/source.vmd" -receipt "$RUNNER_TEMP/source-receipt.json")
+          python3 mmd/qualification/portable_vmd_v1/verify.py "$RUNNER_TEMP/source.vmd" "$RUNNER_TEMP/source-receipt.json"
+      - name: Pin actual upstream MMD Tools GPL source, no vendor/fork publication
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth=1 --branch v4.5.14 https://github.com/MMD-Blender/blender_mmd_tools.git "$RUNNER_TEMP/mmd-tools"
+          test "$(git -C "$RUNNER_TEMP/mmd-tools" rev-parse HEAD)" = fc6411d0fb0dd690cae8cf8eb1fae14311e756cc
+          test -e "$RUNNER_TEMP/mmd-tools/LICENSE"
+      - name: Download and SHA-verify original vendor Blender 4.5.15 standard Linux x64 binary
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz \
+            -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-expr 'import bpy; assert bpy.app.version[:2] == (4,5); print(bpy.app.version_string)'
+      - name: Genuine Blender bpy third-party VMDImporter and armature mesh deformation
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup \
+            --python mmd/qualification/native_vmd_import/actual_import.py \
+            -- "$RUNNER_TEMP/source.vmd" "$RUNNER_TEMP/mmd-tools" \
+                 "$RUNNER_TEMP/native_blender_receipt.json"
+          python3 mmd/qualification/native_vmd_import/verify_receipt.py "$RUNNER_TEMP/native_blender_receipt.json"
+          cp "$RUNNER_TEMP/native_blender_receipt.json" mmd/qualification/native_vmd_import/evidence-native.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: authored-vmd-native-blender-mmdtools-evidence-only
+          path: mmd/qualification/native_vmd_import/evidence-native.json
+          retention-days: 7
+          if-no-files-found: warn
