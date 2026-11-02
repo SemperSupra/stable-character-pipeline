@@ -38,9 +38,9 @@ jobs:
         run: |
           set -euo pipefail
           base=(--trace "$RUNNER_TEMP/vis/trace.json" --front "$RUNNER_TEMP/vis/front.mp4" --oblique "$RUNNER_TEMP/vis/oblique.mp4")
-          python3 qualification/visibility72/observe_pixels.py "\${base[@]}" --fault baseline --out "$RUNNER_TEMP/vis/pixel-receipt.json"
+          python3 qualification/visibility72/observe_pixels.py "${base[@]}" --fault baseline --out "$RUNNER_TEMP/vis/pixel-receipt.json"
           for fault in occlude alias_camera short_clock; do
-            if python3 qualification/visibility72/observe_pixels.py "\${base[@]}" --fault "$fault" --out "$RUNNER_TEMP/vis/REJECT_$fault.json"; then
+            if python3 qualification/visibility72/observe_pixels.py "${base[@]}" --fault "$fault" --out "$RUNNER_TEMP/vis/REJECT_$fault.json"; then
               echo "FIRST_RED_FALSE_ACCEPT_$fault"; exit 4
             fi
           done
@@ -49,8 +49,8 @@ jobs:
         with:
           name: r009-public-synthetic-all72-visibility-receipts
           path: |
-            \${{ runner.temp }}/vis/pixel-receipt.json
-            \${{ runner.temp }}/vis/source-review.json
-            \${{ runner.temp }}/vis/native/native_receipt.json
+            ${{ runner.temp }}/vis/pixel-receipt.json
+            ${{ runner.temp }}/vis/source-review.json
+            ${{ runner.temp }}/vis/native/native_receipt.json
           retention-days: 7
           if-no-files-found: warn
