@@ -55,7 +55,7 @@ cube("OriginalParkGround",(0,0,-.2),(15,7,.30),grass)
 cube("OriginalPath",(0,0,-.035),(14,1.65,.055),path)
 
 # Original authored environment shapes; no stock/protected asset downloads.
-for index,(x,y,spread) in enumerate([(-5,-2.5,1.),(-2.4,2.2,.9),(2.8,2.3,1.),(5.1,-2.1,1.1)]):
+for index,(x,y,spread) in enumerate([(-5,3.1,1.),(-2.4,2.2,.9),(2.8,2.3,1.),(5.1,3.1,1.1)]):
  cube("Tree%dTrunk"%index,(x,y,.62),(.16,.18,1.26),trunk)
  bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1,radius=spread,location=(x,y,1.65))
  bpy.context.object.name="Tree%dCrown"%index
@@ -189,6 +189,35 @@ for name,cam in cameras.items():
   scene.render.filepath=str(folder/("frame_%03d.png"%frame))
   bpy.ops.render.render(write_still=True)
 
+# Debug-time source-truth visualization uses the very same Blender viewport
+# with colored planted-foot vs swing markers. Create AFTER both clean views
+# have rendered; debug graphics can never contaminate clean evaluation video.
+stance_color=material("TraceFootPlantedGreen",(.05,.90,.09,1))
+swing_color=material("TraceFootInSwingYellow",(.98,.77,.08,1))
+markers=[]
+for actor in trace["actor_ids"]:
+ for side in ("left","right"):
+  for is_contact in (True,False):
+   bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1,radius=.085,location=(0,0,-3))
+   obj=bpy.context.object
+   obj.name=actor+"_"+side+("_ground_truth_PLANTED" if is_contact else "_ground_truth_SWING")
+   obj.data.materials.append(stance_color if is_contact else swing_color)
+   markers.append(obj)
+   for record in trace["frames"]:
+    frame=record["frame"]
+    foot=record["actors"][actor]["feet"][side]
+    obj.location=foot["ankle"]
+    obj.keyframe_insert(data_path="location",frame=frame)
+    obj.hide_render=bool(foot["contact"]) != is_contact
+    obj.keyframe_insert(data_path="hide_render",frame=frame)
+scene.camera=cameras["front"]
+debug_folder=output/"debug_front"
+debug_folder.mkdir()
+for frame in range(72):
+ scene.frame_set(frame)
+ scene.render.filepath=str(debug_folder/("frame_%03d.png"%frame))
+ bpy.ops.render.render(write_still=True)
+
 receipt={
  "schema":"scp.shadow.original-native-blender-park.v1",
  "status":"PASS_PUBLIC_ORIGINAL_SYNTHETIC_SKIN_AND_2CAMERA_RENDER_ONLY",
@@ -200,6 +229,8 @@ receipt={
  "maximum_source_to_bpy_head_m":worst_head,
  "maximum_source_to_bpy_tail_m":worst_tail,
  "rendered_frames_each_view":72,"render_views":list(cameras),
+ "debug_source_ground_truth_markers":len(markers),
+ "debug_front_frames":72,"debug_only_markers_not_clean_views":True,
  "source_rights":"ORIGINAL_SELF_AUTHORED_SYNTHETIC",
  "human_identity":"NOT_VERIFIED","physical_anatomy":"UNKNOWN_NOT_INDEPENDENTLY_MEASURED",
  "true_hierarchical_ik":"NOT_RUN_UNPARENTED_PROXY_CONTROLS",
