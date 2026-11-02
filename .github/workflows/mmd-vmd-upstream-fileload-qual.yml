@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           git clone --quiet --depth=1 --branch v4.5.14 https://github.com/MMD-Blender/blender_mmd_tools.git "$RUNNER_TEMP/mmd-tools"
-          test "$(git -C "$RUNNER_TEMP/mmd-tools" rev-parse HEAD)" = fc6411d0fb0dd690cae8cf8eb1fae14311e756cc
+          test "$(git -C "$RUNNER_TEMP/mmd-tools" rev-parse HEAD)" = f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
           test -f "$RUNNER_TEMP/mmd-tools/mmd_tools/core/vmd/__init__.py"
       - name: Execute actual unmodified upstream File.load on generated 93 original keys
         run: |
