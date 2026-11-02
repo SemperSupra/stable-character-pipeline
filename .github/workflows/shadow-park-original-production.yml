@@ -1,0 +1,108 @@
+name: Two-actor authored park shadow production with adversarial QA (public CPU)
+on:
+  pull_request:
+    paths:
+      - 'qualification/shadow_park/**'
+      - '.github/workflows/shadow-park-original-production.yml'
+permissions:
+  contents: read
+concurrency:
+  group: shadowpark-${{ github.event.pull_request.number }}-${{ github.sha }}
+  cancel-in-progress: true
+jobs:
+  red-blue-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        fault: [baseline, sliding, hyperextension, root_only, swapped_cameras, claimed_human, aliased_actor, wrong_clock]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Original-authored source and independent hostile oracle
+        env:
+          FAULT: ${{ matrix.fault }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/shadow_park/*.py
+          mkdir -p "$RUNNER_TEMP/s"
+          python3 qualification/shadow_park/produce.py --capabilities
+          python3 qualification/shadow_park/produce.py --out "$RUNNER_TEMP/s/trace.json"
+          python3 qualification/shadow_park/review.py --input "$RUNNER_TEMP/s/trace.json" \
+            --fault "$FAULT" --out "$RUNNER_TEMP/s/$FAULT.json"
+          if python3 qualification/shadow_park/produce.py --out "$RUNNER_TEMP/s/trace.json"; then
+            echo "FORGED_OUTPUT_OVERWRITE_ACCEPTED"; exit 3
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shadow-source-oracle-${{ matrix.fault }}
+          path: ${{ runner.temp }}/s/*.json
+          retention-days: 2
+          if-no-files-found: warn
+  native:
+    runs-on: ubuntu-24.04
+    needs: red-blue-matrix
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Original producer and independent baseline before expensive render
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/shadow"
+          python3 -m py_compile qualification/shadow_park/*.py
+          python3 qualification/shadow_park/produce.py --out "$RUNNER_TEMP/shadow/trace.json" > "$RUNNER_TEMP/shadow/source-receipt.json"
+          python3 qualification/shadow_park/review.py --input "$RUNNER_TEMP/shadow/trace.json" \
+            --fault baseline --out "$RUNNER_TEMP/shadow/review-baseline.json"
+      - name: Official Blender 4.5.15 SHA-verified and full FFmpeg
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            ffmpeg xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz \
+            -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Native two articulated actors, actual skin, 144 source-frame camera renders
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup \
+            --python-exit-code 8 --python qualification/shadow_park/render_native.py \
+            -- "$RUNNER_TEMP/shadow/trace.json" "$RUNNER_TEMP/shadow/native"
+      - name: Encode two H264 videos and independently verify all 72 decoded frames
+        run: |
+          set -euo pipefail
+          for CAMERA in front oblique; do
+            ffmpeg -hide_banner -loglevel error -y -framerate 12 \
+              -i "$RUNNER_TEMP/shadow/native/$CAMERA/frame_%03d.png" \
+              -c:v libx264 -crf 24 -pix_fmt yuv420p -movflags +faststart \
+              "$RUNNER_TEMP/shadow/$CAMERA.mp4"
+          done
+          ffmpeg -hide_banner -loglevel error -y -i "$RUNNER_TEMP/shadow/front.mp4" \
+            -vf 'fps=1,scale=480:270,tile=3x2' -frames:v 1 "$RUNNER_TEMP/shadow/contact-sheet.png"
+          python3 qualification/shadow_park/verify_native.py \
+            --root "$RUNNER_TEMP/shadow" --out "$RUNNER_TEMP/shadow/video-receipt.json"
+          cp "$RUNNER_TEMP/shadow/native/native_receipt.json" "$RUNNER_TEMP/shadow/native-receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shadowpark-original-two-actors-72f-two-cameras
+          path: |
+            ${{ runner.temp }}/shadow/source-receipt.json
+            ${{ runner.temp }}/shadow/review-baseline.json
+            ${{ runner.temp }}/shadow/native-receipt.json
+            ${{ runner.temp }}/shadow/video-receipt.json
+            ${{ runner.temp }}/shadow/front.mp4
+            ${{ runner.temp }}/shadow/oblique.mp4
+            ${{ runner.temp }}/shadow/contact-sheet.png
+          retention-days: 2
+          if-no-files-found: warn
