@@ -52,10 +52,17 @@ func Write(frames []Frame)([]byte,error){
   binary.Write(&b,binary.LittleEndian,f.Index)
   for _,x:=range f.Position{binary.Write(&b,binary.LittleEndian,x)}
   for _,q:=range f.Rotation{binary.Write(&b,binary.LittleEndian,q)}
-  // Conservative reproducible 64-byte linear-looking curve placeholder;
-  // interpolation semantics and MMD runtime interpretation NOT qualified.
+  // Four 16-byte axis/rotation banks. MMD Tools v4.5.14 reads
+  // bank[0:16:4] at offsets 0,16,32,48 for X/Y/Z/Rotation.
+  // This is a bounded authored source encoding, NOT native engine acceptance.
   interp:=make([]byte,64)
-  for k:=0;k<4;k++{interp[4*k]=20;interp[4*k+1]=20;interp[4*k+2]=107;interp[4*k+3]=107}
+  for ch:=0;ch<4;ch++{
+   start:=ch*16
+   interp[start+0]=20
+   interp[start+4]=20
+   interp[start+8]=107
+   interp[start+12]=107
+  }
   b.Write(interp)
  }
  // Newer files may include five zero-count trailing sections. No non-bone data.
@@ -85,10 +92,15 @@ func Parse(data []byte)([]Frame,error){
   if e:=valid(f);e!=nil{return nil,e}
   if old,ok:=seen[f.Name];ok&&old>=f.Index{return nil,errors.New("duplicate or reversed bone timeline")}
   seen[f.Name]=f.Index
-  for k:=0;k<4;k++{
-   if block[47+k*4]!=20||block[48+k*4]!=20||block[49+k*4]!=107||block[50+k*4]!=107{return nil,errors.New("unexpected interpolation placeholder")}
+  // Reject unreviewed Bezier controls in every axis bank.
+  for ch:=0;ch<4;ch++{
+   start:=47+ch*16
+   for j:=0;j<16;j++{
+    want:=byte(0)
+    switch j{case 0,4:want=20;case 8,12:want=107}
+    if block[start+j]!=want{return nil,errors.New("unreviewed VMD channel interpolation byte")}
+   }
   }
-  for _,x:=range block[63:]{if x!=0{return nil,errors.New("nonzero unsupported interpolation payload")}}
   out[i]=f
  }
  for at:=54+int(n)*recordSize;at<len(data);at+=4{
