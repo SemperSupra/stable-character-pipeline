@@ -13,8 +13,7 @@ ROOT Hips {
  CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
  JOINT Knee {
   OFFSET 0 -1 0
-  CHANNELS 3 Zrotation Xrotation Yrotation
-  JOINT Foot {
+  CHANNELS 3 Zrotation Xrotation Yrotation\n  JOINT Foot {
    OFFSET 0 -1 0
    CHANNELS 3 Zrotation Xrotation Yrotation
    End Site { OFFSET 0 -0.1 0 }
@@ -88,12 +87,8 @@ func TestStrictAdversarialControls(t *testing.T) {
 		"extra_channel":      originalFixture + "0",
 		"duplicate_node":     strings.Replace(originalFixture, "JOINT Foot", "JOINT Knee", 1),
 		"nonfinite_frame":    strings.Replace(originalFixture, "0.5 0 0", "NaN 0 0", 1),
-		"unknown_channel":    strings.Replace(originalFixture, "Zrotation Xrotation Yrotation
-  JOINT Foot", "Zrotation Xrotation Unknown
-  JOINT Foot", 1),
-		"duplicate_channel":  strings.Replace(originalFixture, "Zrotation Xrotation Yrotation
-  JOINT Foot", "Zrotation Xrotation Zrotation
-  JOINT Foot", 1),
+		"unknown_channel":    strings.Replace(originalFixture, "Zrotation Xrotation Yrotation\n  JOINT Foot", "Zrotation Xrotation Unknown\n  JOINT Foot", 1),
+		"duplicate_channel":  strings.Replace(originalFixture, "Zrotation Xrotation Yrotation\n  JOINT Foot", "Zrotation Xrotation Zrotation\n  JOINT Foot", 1),
 		"unbounded_size":     originalFixture + strings.Repeat("X", MaxBytes),
 		"bad_frame_time":     strings.Replace(originalFixture, "Frame Time: 0.016666666666666667", "Frame Time: 0", 1),
 		"missing_brace":      strings.Replace(originalFixture, "End Site { OFFSET 0 -0.1 0 }", "End Site { OFFSET 0 -0.1 0", 1),
