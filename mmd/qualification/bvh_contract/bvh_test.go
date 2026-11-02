@@ -13,7 +13,8 @@ ROOT Hips {
  CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
  JOINT Knee {
   OFFSET 0 -1 0
-  CHANNELS 3 Zrotation Xrotation Yrotation\n  JOINT Foot {
+  CHANNELS 3 Zrotation Xrotation Yrotation
+  JOINT Foot {
    OFFSET 0 -1 0
    CHANNELS 3 Zrotation Xrotation Yrotation
    End Site { OFFSET 0 -0.1 0 }
