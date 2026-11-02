@@ -20,7 +20,7 @@ jobs:
           persist-credentials: false
       - name: Fail-closed synthetic structural and ROM-envelope matrix
         env:
-          FAULT: \${{ matrix.fault }}
+          FAULT: ${{ matrix.fault }}
         run: |
           set -euo pipefail
           python3 -m py_compile qualification/hier_skin/*.py
@@ -59,7 +59,7 @@ jobs:
         with:
           name: r009-original-hierarchical-synthetic-skin-source-and-native-receipt
           path: |
-            \${{ runner.temp }}/hier.json
-            \${{ runner.temp }}/native.json
+            ${{ runner.temp }}/hier.json
+            ${{ runner.temp }}/native.json
           retention-days: 7
           if-no-files-found: warn
