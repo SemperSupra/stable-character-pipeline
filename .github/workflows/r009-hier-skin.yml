@@ -1,0 +1,65 @@
+name: R009 original-synthetic hierarchical Blender skin and fixture ROM
+on:
+  pull_request:
+    paths:
+      - 'qualification/hier_skin/**'
+      - '.github/workflows/r009-hier-skin.yml'
+permissions:
+  contents: read
+jobs:
+  authored-falsifiers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        fault: [baseline,hyper_knee,hip_outside,bad_weights,false_human,short_clock,degenerate]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fail-closed synthetic structural and ROM-envelope matrix
+        env:
+          FAULT: ${{ matrix.fault }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/hier_skin/*.py
+          if [ "$FAULT" = baseline ]; then
+            python3 qualification/hier_skin/source_guard.py --fault baseline
+          else
+            if python3 qualification/hier_skin/source_guard.py --fault "$FAULT"; then
+              echo "UNEXPECTED_SCIENCE_FALSE_ACCEPT_$FAULT"; exit 2
+            fi
+          fi
+  native-hierarchical:
+    runs-on: ubuntu-24.04
+    needs: authored-falsifiers
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Admit original authored fixture, not real performers
+        run: |
+          set -euo pipefail
+          python3 qualification/hier_skin/source_guard.py --out "$RUNNER_TEMP/hier.json"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Native parented hierarchy and dual-influence evaluated skin
+        run: |
+          set -euo pipefail
+          LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/hier_skin/native_blender.py -- "$RUNNER_TEMP/hier.json" "$RUNNER_TEMP/native.json"
+          python3 -c 'import json,os; r=json.load(open(os.environ["RUNNER_TEMP"]+"/native.json")); assert r["status"]=="PASS_SYNTHETIC_BLENDER_HIERARCHY_AND_MULTIWEIGHT_ONLY"; assert r["human_rom"]=="UNKNOWN"; assert len(r["actors"])==2'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-hierarchical-synthetic-skin-source-and-native-receipt
+          path: |
+            ${{ runner.temp }}/hier.json
+            ${{ runner.temp }}/native.json
+          retention-days: 7
+          if-no-files-found: warn
