@@ -1,0 +1,73 @@
+name: Original synthetic BVH paired-source FK qualification (public CPU only)
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/bvh_contract/**'
+      - '.github/workflows/bvh-authored-paired-fk-qualification.yml'
+permissions:
+  contents: read
+jobs:
+  authored-go-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Go source-only format, unit, clock, FK, and adversarial controls
+        working-directory: mmd/qualification/bvh_contract
+        run: |
+          set -euo pipefail
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test -count=1 ./...
+          go test -race -count=1 ./...
+      - name: Verify exact authored source sha and coupled JSON receipts
+        working-directory: mmd/qualification/bvh_contract
+        run: |
+          set -euo pipefail
+          go run ./cmd/bvhqual -capabilities > capabilities.json
+          go run ./cmd/bvhqual -source examples/original-synthetic-A.bvh \
+            -other examples/original-synthetic-B.bvh -meters-per-unit 0.05 -out receipt.json
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          a=pathlib.Path("examples/original-synthetic-A.bvh").read_bytes()
+          b=pathlib.Path("examples/original-synthetic-B.bvh").read_bytes()
+          r=json.loads(pathlib.Path("receipt.json").read_text())
+          p=r["pair"]
+          assert r["status"]=="PASS_ORIGINAL_SYNTHETIC_BVH_FK_ONLY"
+          assert r["original_mocap_file"]=="NOT_ADMITTED" and r["private_R009"]=="HELD_NOT_ACCEPTED"
+          assert r["source_sha256"]==hashlib.sha256(a).hexdigest()
+          assert p["actor_b_sha256"]==hashlib.sha256(b).hexdigest()
+          assert p["synchronized_original_take_verified"] is False
+          assert p["status"]=="CLOCK_COMPATIBLE_ORIGINAL_SYNTHETIC_ONLY_SESSION_SYNC_UNKNOWN"
+          assert p["frames"]==3 and p["frame_time_seconds"]=="16666666666666667/1000000000000000000"
+          assert len(r["joints"])==3
+          c=json.loads(pathlib.Path("capabilities.json").read_text())
+          assert c["private_R009"]=="HELD"
+          print("PASS_ORIGINAL_BVH_SOURCE_BYTES_CLOCK_FK_NONPROMOTING")
+          PY
+          if go run ./cmd/bvhqual -source examples/original-synthetic-A.bvh \
+             -other examples/original-synthetic-B.bvh -meters-per-unit 0.05 -out receipt.json; then
+             echo "SOURCE_OVERWRITE_FALSE_ACCEPT"; exit 5
+          fi
+          cp examples/original-synthetic-A.bvh corrupted.bvh
+          printf ' ' >> corrupted.bvh
+          if go run ./cmd/bvhqual -source corrupted.bvh -other examples/original-synthetic-B.bvh \
+             -meters-per-unit 0.05 -out corrupt-receipt.json; then
+             echo "UNADMITTED_BYTE_FALSE_ACCEPT"; exit 6
+          fi
+          test ! -e corrupt-receipt.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: authored-bvh-source-only-receipts
+          path: |
+            mmd/qualification/bvh_contract/receipt.json
+            mmd/qualification/bvh_contract/capabilities.json
+          if-no-files-found: warn
+          retention-days: 7
