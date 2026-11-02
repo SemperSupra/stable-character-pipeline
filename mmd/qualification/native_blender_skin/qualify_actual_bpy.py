@@ -14,12 +14,22 @@ if sha!="3b20c6822337dab0078d32a2d65f7ead2d11716db5e5500b619d3218b4439b94":
  raise RuntimeError("NATIVE_BLENDER_UNADMITTED_ORIGINAL_VMD_SHA")
 
 import bpy
-# Blender CLI does not install an extension's manifest-declared wheels.
-# Import the exact bundled pure-Python wheel directly from the pinned
-# upstream source archive without pip/network changes or vendoring.
+import tempfile,zipfile
+# The unmodified add-on manifest declares this exact bundled wheel. Its
+# OpenCC dictionary loader uses filesystem paths (not zipimport paths), so
+# extract it into an ephemeral sandbox rather than import the .whl directly.
 wheel=upstream/"mmd_tools"/"wheels"/"opencc_python_reimplemented-0.1.7-py2.py3-none-any.whl"
 if not wheel.is_file():raise RuntimeError("PINNED_UPSTREAM_OPENCC_WHEEL_MISSING")
-sys.path.insert(0,str(wheel.resolve()))
+wheel_root=pathlib.Path(tempfile.mkdtemp(prefix="scp-mmd-opencc-"))
+with zipfile.ZipFile(wheel) as archive:
+ members=archive.infolist()
+ if len(members)>3000:raise RuntimeError("UNBOUNDED_UPSTREAM_WHEEL_MEMBERS")
+ for member in members:
+  p=pathlib.PurePosixPath(member.filename)
+  if p.is_absolute() or ".." in p.parts or member.file_size>10_000_000:
+   raise RuntimeError("UPSTREAM_WHEEL_EXTRACTION_UNSAFE")
+ archive.extractall(wheel_root)
+sys.path.insert(0,str(wheel_root))
 sys.path.insert(0,str(upstream.resolve()))
 from mmd_tools.core.vmd.importer import VMDImporter
 from mmd_tools.core import vmd as upstream_reader
