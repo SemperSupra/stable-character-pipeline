@@ -4,7 +4,8 @@ Format-reader interoperability only. Does not run Blender or MMD animation.
 """
 import argparse,hashlib,importlib.util,json,math,pathlib,sys
 EXPECTED="3b20c6822337dab0078d32a2d65f7ead2d11716db5e5500b619d3218b4439b94"
-SOURCE_COMMIT="fc6411d0fb0dd690cae8cf8eb1fae14311e756cc"
+SOURCE_COMMIT="f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14"
+SOURCE_ANNOTATED_TAG_OBJECT="fc6411d0fb0dd690cae8cf8eb1fae14311e756cc"
 LABELS=("Center","L_Ankle","R_Ankle")
 CANON=(20,20,107,107)
 
@@ -49,7 +50,7 @@ def check(data_path,upstream):
    raise AssertionError("UNQUALIFIED_NON_BONE_SECTION_"+x)
  return {"schema":"scp.mmd.vmd_upstream_fileload.v1",
   "status":"PASS_UNMODIFIED_PINNED_UPSTREAM_VMD_FORMAT_READER_ONLY",
-  "source_vmd_sha256":sha,"upstream_commit":SOURCE_COMMIT,
+  "source_vmd_sha256":sha,"upstream_commit":SOURCE_COMMIT,"upstream_tag_object":SOURCE_ANNOTATED_TAG_OBJECT,
   "upstream_entrypoint":"mmd_tools.core.vmd.File.load","bone_keyframes":lengths,
   "keyframe_count":sum(lengths.values()),"bezier_channels_per_key":4,
   "start_end_source_positions":endpoints,
