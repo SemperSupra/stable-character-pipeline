@@ -1,0 +1,5 @@
+# Unmodified upstream MMD Tools VMD File.load qualification
+
+Runs the actual unmodified MMD Tools v4.5.14 (`f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14` (commit, from annotated tag object `fc6411d0fb0dd690cae8cf8eb1fae14311e756cc`) VMD file-format parser, **not Blender itself**. Pins the original external source commit and never vendors GPL source. The only VMD input is SHA-pinned original-authored 93-keyframe synthetic data from corrected public PR #250. The verifier inspects each decoded bone track and 4×16-byte Bezier banks, frame count, identity quaternions, source positions and non-bone sections, then produces non-overwriting JSON for automation.
+
+Human audience: README and public CI. Automation: typed JSON receipts. Agent audience: read-only `--capabilities` plus inspect-only CLI. `NOT_ADMITTED` original human recordings; `NOT_RUN` actual bpy/Blender import, MMD runtime, PMX mappings, skin deformation or gait. Engineering format compatibility is **not** scientific, rights, protected character or CPE acceptance. Preserve the RED from #248 and original producer holds; no merge/release/deploy.
