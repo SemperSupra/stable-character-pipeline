@@ -1,0 +1,59 @@
+name: Original synthetic VMD actual Blender 4.5 MMD Tools skin (public CPU)
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/native_blender_skin/**'
+      - '.github/workflows/mmd-vmd-actual-blender45-skin.yml'
+permissions:
+  contents: read
+jobs:
+  actual-bpy-original-synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Fast original-only source and Python syntax checks
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/native_blender_skin/*.py
+          (cd mmd/qualification/portable_vmd_v1 && go test -count=1 ./... && go run . -out "$RUNNER_TEMP/original.vmd" -receipt "$RUNNER_TEMP/source-receipt.json")
+          python3 mmd/qualification/portable_vmd_v1/verify.py "$RUNNER_TEMP/original.vmd" "$RUNNER_TEMP/source-receipt.json"
+      - name: Pin original vendor Blender and upstream plugin without repository vendoring
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth=1 --branch v4.5.14 https://github.com/MMD-Blender/blender_mmd_tools.git "$RUNNER_TEMP/mmd-tools"
+          test "$(git -C "$RUNNER_TEMP/mmd-tools" rev-parse HEAD)" = f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 \
+            -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz \
+            -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup \
+            --python-exit-code 9 --python-expr \
+            'import bpy; assert bpy.app.version[:2] == (4,5); print(bpy.app.version_string)'
+      - name: Actual pinned MMD Tools native bpy armature animation and mesh evaluation
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup \
+            --python-exit-code 9 \
+            --python mmd/qualification/native_blender_skin/qualify_actual_bpy.py \
+            -- "$RUNNER_TEMP/original.vmd" "$RUNNER_TEMP/mmd-tools" \
+               "$RUNNER_TEMP/native-evidence.json"
+          python3 mmd/qualification/native_blender_skin/verify_receipt.py "$RUNNER_TEMP/native-evidence.json"
+          cp "$RUNNER_TEMP/native-evidence.json" mmd/qualification/native_blender_skin/native-evidence.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: original-vmd-native-bpy-skin-evidence-only
+          path: mmd/qualification/native_blender_skin/native-evidence.json
+          retention-days: 7
+          if-no-files-found: warn
