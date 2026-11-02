@@ -1,0 +1,63 @@
+name: Pinned upstream MMD Tools actual VMD File.load (public synthetic CPU)
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/upstream_vmd_reader/**'
+      - '.github/workflows/mmd-vmd-upstream-fileload-qual.yml'
+permissions:
+  contents: read
+jobs:
+  source-vmd-upstream-parser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Fail fast: original generated VMD, Go and Python byte reader
+        run: |
+          set -euo pipefail
+          python3 -m py_compile mmd/qualification/upstream_vmd_reader/verify_actual_upstream.py
+          (cd mmd/qualification/portable_vmd_v1 && go vet ./... && go test -count=1 ./... && go run . -out "$RUNNER_TEMP/source.vmd" -receipt "$RUNNER_TEMP/source-receipt.json")
+          python3 mmd/qualification/portable_vmd_v1/verify.py "$RUNNER_TEMP/source.vmd" "$RUNNER_TEMP/source-receipt.json"
+      - name: Independently fetch exact pinned original GPL MMD Tools source (transient)
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth=1 --branch v4.5.14 https://github.com/MMD-Blender/blender_mmd_tools.git "$RUNNER_TEMP/mmd-tools"
+          test "$(git -C "$RUNNER_TEMP/mmd-tools" rev-parse HEAD)" = fc6411d0fb0dd690cae8cf8eb1fae14311e756cc
+          test -f "$RUNNER_TEMP/mmd-tools/mmd_tools/core/vmd/__init__.py"
+      - name: Execute actual unmodified upstream File.load on generated 93 original keys
+        run: |
+          set -euo pipefail
+          python3 mmd/qualification/upstream_vmd_reader/verify_actual_upstream.py --capabilities
+          python3 mmd/qualification/upstream_vmd_reader/verify_actual_upstream.py \
+             --vmd "$RUNNER_TEMP/source.vmd" --upstream "$RUNNER_TEMP/mmd-tools" \
+             --out mmd/qualification/upstream_vmd_reader/native-receipt.json
+          python3 - <<'PY'
+          import json
+          p="mmd/qualification/upstream_vmd_reader/native-receipt.json"
+          r=json.load(open(p))
+          assert r["status"]=="PASS_UNMODIFIED_PINNED_UPSTREAM_VMD_FORMAT_READER_ONLY"
+          assert r["keyframe_count"]==93
+          assert r["human_capture"]=="NOT_ADMITTED"
+          assert r["native_blender_bpy"]=="NOT_RUN"
+          assert r["native_mmd_animation"]=="NOT_RUN"
+          assert r["private_r009"]=="HELD_NOT_ACCEPTED"
+          print("PASS_UPSTREAM_ORIGINAL_VMD_PARSER_ONLY_NO_SCIENTIFIC_PROMOTION")
+          PY
+          if python3 mmd/qualification/upstream_vmd_reader/verify_actual_upstream.py \
+            --vmd "$RUNNER_TEMP/source.vmd" --upstream "$RUNNER_TEMP/mmd-tools" \
+            --out mmd/qualification/upstream_vmd_reader/native-receipt.json; then
+            echo "UNAUTHORIZED_OVERWRITE"; exit 6
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: original-vmd-native-upstream-format-reader-evidence
+          path: mmd/qualification/upstream_vmd_reader/native-receipt.json
+          retention-days: 7
+          if-no-files-found: warn
