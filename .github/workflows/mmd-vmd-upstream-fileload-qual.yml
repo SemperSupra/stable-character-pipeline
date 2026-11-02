@@ -18,7 +18,7 @@ jobs:
         with:
           go-version: '1.23.2'
           cache: false
-      - name: Fail fast: original generated VMD, Go and Python byte reader
+      - name: "Fail fast: original generated VMD, Go and Python byte reader"
         run: |
           set -euo pipefail
           python3 -m py_compile mmd/qualification/upstream_vmd_reader/verify_actual_upstream.py
