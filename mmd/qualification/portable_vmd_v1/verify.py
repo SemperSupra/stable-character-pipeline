@@ -21,7 +21,11 @@ for i in range(n):
     assert pos[1]==0
     expected_z={"Center":0.,"L_Ankle":-.35,"R_Ankle":.35}
     assert name in expected_z and abs(pos[2]-expected_z[name])<1e-6
-    assert raw[at+47:at+51]==bytes([20,20,107,107])
+    # Independently decode the maintained importer four real 16-byte banks.
+    for channel in range(4):
+        bank=raw[at+47+16*channel:at+47+16*(channel+1)]
+        assert bytes(bank[k] for k in (0,4,8,12))==bytes([20,20,107,107])
+        assert all(bank[k]==0 for k in range(16) if k%4)
     groups.setdefault(name,[]).append(frame)
 assert set(groups)=={"Center","L_Ankle","R_Ankle"}
 assert all(v==list(range(31)) for v in groups.values())
