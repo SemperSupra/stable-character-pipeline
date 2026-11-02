@@ -62,7 +62,8 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends ffmpeg
+          sudo apt-get install -y --no-install-recommends \
+            ffmpeg xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
           curl --fail --location --retry 3 --silent --show-error \
             https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
           curl --fail --location --retry 3 --silent --show-error \
@@ -73,7 +74,8 @@ jobs:
       - name: Native two articulated actors, actual skin, 144 source-frame camera renders
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup \
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup \
             --python-exit-code 8 --python qualification/shadow_park/render_native.py \
             -- "$RUNNER_TEMP/shadow/trace.json" "$RUNNER_TEMP/shadow/native"
       - name: Encode two H264 videos and independently verify all 72 decoded frames
