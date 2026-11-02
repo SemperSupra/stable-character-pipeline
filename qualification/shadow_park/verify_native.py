@@ -32,6 +32,9 @@ def main():
  assert native["actors"]==["CobaltOriginal","MarigoldOriginal"]
  assert native["actual_armature_modifiers"]==26
  assert native["proxy_meshes"]==26
+ assert native["debug_source_ground_truth_markers"]==8
+ assert native["debug_front_frames"]==72
+ assert native["debug_only_markers_not_clean_views"] is True
  assert native["articulated_segments_per_actor"]==13
  assert len(native["actual_skinned_moving_samples"])==10
  assert all(math.isfinite(v) and v>.035 for v in native["actual_skinned_moving_samples"].values())
@@ -47,6 +50,10 @@ def main():
   assert len({sha(pngs[n]) for n in (0,12,24,36,48,60,71)})>=5,"STATIC_VIDEO_FALSE_ACCEPT"
   media[view]=decoded(root/(view+".mp4"))
  assert media["front"]["sha256"]!=media["oblique"]["sha256"],"FALSE_MULTI_CAMERA_VIDEO_ALIAS"
+ debug_pngs=sorted((root/"native"/"debug_front").glob("frame_*.png"))
+ assert len(debug_pngs)==72,"MISSING_GROUNDTRUTH_DEBUG_FRAMES"
+ media["debug_front"]=decoded(root/"debug_front.mp4")
+ assert media["debug_front"]["sha256"]!=media["front"]["sha256"],"DEBUG_OVERLAY_NOT_SEPARATE_FROM_CLEAN"
  contact=root/"contact-sheet.png"
  assert contact.stat().st_size>1000
  report={
@@ -58,6 +65,7 @@ def main():
   "actual_actor_identity":"NOT_VERIFIED",
   "real_human_mocap":"NOT_ADMITTED",
   "biophysical_rom":"UNKNOWN_NOT_INDEPENDENTLY_MEASURED",
+  "debug_foot_markers":"SOURCE_GROUNDTRUTH_PLANTED_GREEN_SWING_YELLOW_NOT_CLEAN_RENDER",
   "true_hierarchical_ik":"NOT_RUN",
   "protected_r009":"HELD_NOT_ACCEPTED",
   "CPE":"NOT_PROMOTED"}
