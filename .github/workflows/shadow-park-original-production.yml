@@ -81,7 +81,7 @@ jobs:
       - name: Encode two H264 videos and independently verify all 72 decoded frames
         run: |
           set -euo pipefail
-          for CAMERA in front oblique; do
+          for CAMERA in front oblique debug_front; do
             ffmpeg -hide_banner -loglevel error -y -framerate 12 \
               -i "$RUNNER_TEMP/shadow/native/$CAMERA/frame_%03d.png" \
               -c:v libx264 -crf 24 -pix_fmt yuv420p -movflags +faststart \
@@ -103,6 +103,7 @@ jobs:
             ${{ runner.temp }}/shadow/video-receipt.json
             ${{ runner.temp }}/shadow/front.mp4
             ${{ runner.temp }}/shadow/oblique.mp4
+            ${{ runner.temp }}/shadow/debug_front.mp4
             ${{ runner.temp }}/shadow/contact-sheet.png
           retention-days: 2
           if-no-files-found: warn
