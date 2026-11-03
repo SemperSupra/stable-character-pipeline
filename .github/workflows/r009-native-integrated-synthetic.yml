@@ -76,7 +76,7 @@ jobs:
           curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
           (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
           tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
-      - name: Actual composed native bpy: VMD importer, hierarchical dual weight rigs, 72f two clean cameras plus debug
+      - name: Actual composed native bpy VMD importer, hierarchical dual weight rigs, 72f two clean cameras plus debug
         run: |
           set -euo pipefail
           xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/native_integrated/render_native.py -- "$RUNNER_TEMP/combined/trace.json" "$RUNNER_TEMP/combined/hier.json" "$RUNNER_TEMP/combined/source.vmd" "$RUNNER_TEMP/mmd-tools" "$RUNNER_TEMP/combined/vmd-crosswalk.json" "$RUNNER_TEMP/combined/fk.json" "$RUNNER_TEMP/combined/native"
