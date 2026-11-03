@@ -59,11 +59,11 @@ func produce(args []string) error {
 	if math.Abs(dt-1./60.)>1e-12{return failClass(errors.New("UNADMITTED_SOURCE_CLOCK"))}
 	if *fault=="alias"{m.Joints[1].Name="L_Ankle"}
 	if *fault=="short_source"{m.Frames=m.Frames[:2]}
-	if *fault=="bad_axis"{m.Frames[2][3]=math.Inf(1)}
-	// Deliberately modify only originally authored in-memory SOURCE frame2:
+		// Deliberately modify only originally authored in-memory SOURCE frame2:
 	// Z90/X90/Y0 -> synthetic noncommutative quaternion [0.5,0.5,0.5,0.5].
 	// Never pretend this derived test is the immutable A fixture itself.
 	m.Frames[2][3],m.Frames[2][4],m.Frames[2][5]=90,90,0
+	if *fault=="bad_axis"{m.Frames[2][3]=math.Inf(1)}
 	framebytes,e:=json.Marshal(m.Frames);if e!=nil{return failClass(e)}
 	derivedHash:=fmt.Sprintf("%x",sha256.Sum256(framebytes))
 	loss,e:=m.SourceSynthetic60To30();if e!=nil{return failClass(e)}
@@ -100,12 +100,9 @@ func produce(args []string) error {
 		}
 	}
 	if len(keys)!=6{return failClass(errors.New("MISSING_VMD_SOURCE_KEYS"))}
-	if keys[1].Rotation!=[4]float32{.5,.5,.5,.5}{
-		// Float32 of the exactly ninety-degree source quaternion is stable
-		// to 1ulp; compare numerically without assuming exact binary parity.
-		for i,x:=range keys[1].Rotation{
-			if math.Abs(float64(x)-.5)>1e-6{return failClass(fmt.Errorf("WRONG_COMPOUND_ROOT_QUATERNION_%d",i))}
-		}
+	// Compare numerically without assuming exact binary parity after float32 conversion.
+	for i,x:=range keys[1].Rotation{
+		if math.Abs(float64(x)-.5)>1e-6{return failClass(fmt.Errorf("WRONG_COMPOUND_ROOT_QUATERNION_%d",i))}
 	}
 	data,e:=Write(keys);if e!=nil{return failClass(e)}
 	parsed,e:=Parse(data);if e!=nil{return failClass(e)}
