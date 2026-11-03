@@ -28,20 +28,11 @@ jobs:
               ;;
             agent-capabilities)
               python3 qualification/integration_contract/verify_evidence.py --capabilities | tee "$RUNNER_TEMP/receipts/capabilities.json"
-              python3 - "$RUNNER_TEMP/receipts/capabilities.json" <<'PY'
-              import json,sys
-              j=json.load(open(sys.argv[1]))
-              assert j["private_R009"]=="HELD_NOT_ACCEPTED"
-              assert j["owner_authorized_promotions"] is False
-              assert j["actions"]==["capabilities","verify_public_synthetic_only"]
-              PY
+              python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); assert j["private_R009"]=="HELD_NOT_ACCEPTED"; assert j["owner_authorized_promotions"] is False; assert j["actions"]==["capabilities","verify_public_synthetic_only"]' "$RUNNER_TEMP/receipts/capabilities.json"
               ;;
             syntax-static)
               python3 -m py_compile qualification/integration_contract/*.py
-              python3 - "$GITHUB_SHA" <<'PY'
-              import sys
-              assert len(sys.argv[1])==40
-              PY
+              python3 -c 'import sys; assert len(sys.argv[1])==40' "$GITHUB_SHA"
               ;;
           esac
       - uses: actions/upload-artifact@v4
