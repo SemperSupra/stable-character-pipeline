@@ -22,7 +22,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags --depth=1 origin review/r009-batch-provenance-evidence-20261103
-          test "$(git rev-parse FETCH_HEAD)" = f21f9808c15dc8958df353c16919908afcbddb3a
+          test "$(git rev-parse FETCH_HEAD)" = 2a0c3a6af98e5bb2b335ced036a05cb15ea0b01d
           git archive FETCH_HEAD qualification/integration_contract/verify_evidence.py | tar -x
           git fetch --no-tags --depth=1 origin qualification/r009-bvh-to-vmd-to-bpy-20261103
           test "$(git rev-parse FETCH_HEAD)" = 7f891612a708df13b6f161d1361ebba81b0c38c5
