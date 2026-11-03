@@ -28,23 +28,42 @@ func main() {
 		fail("MISSING_OR_ALIASED_INPUT_OUTPUT")
 	}
 	raw, e := os.ReadFile(*src)
-	if e != nil { fail("UNREADABLE_SOURCE") }
+	if e != nil {
+		fail("UNREADABLE_SOURCE")
+	}
 	if fmt.Sprintf("%x", sha256.Sum256(raw)) != expectedSourceHash {
 		fail("UNADMITTED_SOURCE_SHA")
 	}
 	m, e := bvh.Parse(raw, "ORIGINAL_SELF_AUTHORED_SYNTHETIC", 1.)
-	if e != nil { fail("SOURCE_PARSER_REJECT") }
+	if e != nil {
+		fail("SOURCE_PARSER_REJECT")
+	}
 	res, e := m.SourceSynthetic60To30()
-	if e != nil { fail("NON_60_TO_30_SOURCE") }
+	if e != nil {
+		fail("NON_60_TO_30_SOURCE")
+	}
 	if res.ProtectedR009 != "HELD_NOT_ACCEPTED" || res.HumanROM != "UNKNOWN" || res.PhysicalRetarget != "NOT_RUN_SOURCE_QUATERNIONS_ONLY" {
 		fail("FALSE_BIOLOGICAL_OR_PROTECTED_CLAIM")
 	}
 	data, e := json.MarshalIndent(res, "", "  ")
-	if e != nil { fail("SOURCE_JSON_MARSHAL") }
-	if _, e = os.Stat(*out); e == nil { fail("NO_OVERWRITE") }
+	if e != nil {
+		fail("SOURCE_JSON_MARSHAL")
+	}
+	if _, e = os.Stat(*out); e == nil {
+		fail("NO_OVERWRITE")
+	}
 	f, e := os.OpenFile(*out, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if e != nil { fail("NO_CREATE_OR_OVERWRITE") }
-	if _, e = f.Write(append(data, 10)); e != nil { _ = f.Close(); _ = os.Remove(*out); fail("WRITE_FAILED") }
-	if e = f.Close(); e != nil { _ = os.Remove(*out); fail("CLOSE_FAILED") }
+	if e != nil {
+		fail("NO_CREATE_OR_OVERWRITE")
+	}
+	if _, e = f.Write(append(data, 10)); e != nil {
+		_ = f.Close()
+		_ = os.Remove(*out)
+		fail("WRITE_FAILED")
+	}
+	if e = f.Close(); e != nil {
+		_ = os.Remove(*out)
+		fail("CLOSE_FAILED")
+	}
 	fmt.Printf("PASS_ORIGINAL_SYNTHETIC_BVH_ORDERED_QUATERNION_SOURCE_ONLY sha256=%x keys=%d\n", sha256.Sum256(raw), len(res.Keyframes))
 }
