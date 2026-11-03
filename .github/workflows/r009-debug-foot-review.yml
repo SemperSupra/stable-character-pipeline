@@ -1,0 +1,62 @@
+name: R009 original-synthetic clean-to-debug H264 foot-marker visual witness
+on:
+  pull_request:
+    paths:
+      - 'qualification/debug_foot_review/**'
+      - '.github/workflows/r009-debug-foot-review.yml'
+permissions:
+  contents: read
+jobs:
+  source-and-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Preflight original authored fixture
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/debug_foot_review/verify_debug_video.py qualification/shadow_park/*.py
+          mkdir -p "$RUNNER_TEMP/vis"
+          python3 qualification/shadow_park/produce.py --out "$RUNNER_TEMP/vis/trace.json"
+          python3 qualification/shadow_park/review.py --input "$RUNNER_TEMP/vis/trace.json" --fault baseline --out "$RUNNER_TEMP/vis/source-review.json"
+      - name: Reproduce native public-synthetic clean two-view clips
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/shadow_park/render_native.py -- "$RUNNER_TEMP/vis/trace.json" "$RUNNER_TEMP/vis/native"
+          for cam in front oblique debug_front; do
+            ffmpeg -hide_banner -loglevel error -y -framerate 12 -i "$RUNNER_TEMP/vis/native/$cam/frame_%03d.png" -c:v libx264 -crf 24 -pix_fmt yuv420p "$RUNNER_TEMP/vis/$cam.mp4"
+          done
+      - name: Source declared contacts and actual decoded 72-frame debug foot markers
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/debug_foot_review/verify_debug_video.py
+          python3 qualification/debug_foot_review/verify_debug_video.py --capabilities --source "$RUNNER_TEMP/vis/trace.json" --front "$RUNNER_TEMP/vis/front.mp4" --debug "$RUNNER_TEMP/vis/debug_front.mp4" --out "$RUNNER_TEMP/vis/caps-unused.json"
+          set -- --source "$RUNNER_TEMP/vis/trace.json" --front "$RUNNER_TEMP/vis/front.mp4" --debug "$RUNNER_TEMP/vis/debug_front.mp4"
+          python3 qualification/debug_foot_review/verify_debug_video.py "$@" --out "$RUNNER_TEMP/vis/foot-debug-visual-receipt.json"
+          for fault in alias_clean erase_debug shift_clock false_human; do
+            if python3 qualification/debug_foot_review/verify_debug_video.py "$@" --fault "$fault" --out "$RUNNER_TEMP/vis/INCORRECT_$fault.json" 2>"$RUNNER_TEMP/vis/reject-$fault.log"; then
+              echo "DEBUG_VIDEO_FAULT_FALSE_ACCEPT_$fault"; exit 4
+            fi
+            grep -F "DEBUG_FOOT_VIDEO_REJECT:" "$RUNNER_TEMP/vis/reject-$fault.log"
+          done
+          sha256sum "$RUNNER_TEMP/vis/front.mp4" "$RUNNER_TEMP/vis/debug_front.mp4" > "$RUNNER_TEMP/vis/debug-source-h264-sha256.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-synthetic-debug-foot-h264-72f-witness
+          path: |
+            ${{ runner.temp }}/vis/foot-debug-visual-receipt.json
+            ${{ runner.temp }}/vis/source-review.json
+            ${{ runner.temp }}/vis/native/native_receipt.json
+            ${{ runner.temp }}/vis/debug-source-h264-sha256.txt
+            ${{ runner.temp }}/vis/reject-*.log
+          retention-days: 7
+          if-no-files-found: warn
