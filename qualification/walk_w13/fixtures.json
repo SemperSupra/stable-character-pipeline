@@ -1,0 +1,114 @@
+{
+  "schema": "scp.ik3d.fixtures.v1",
+  "source_rights": "ORIGINAL_PROGRAMMATIC_PROCEDURAL_ONLY",
+  "coordinate_basis": "RIGHT_HANDED_XYZ_Y_UP_UNCALIBRATED",
+  "units": "SOURCE_SCENE_UNCALIBRATED",
+  "algorithm": "ANALYTIC_3D_TWO_SEGMENT_POLE_SELECTED_NO_JOINT_LIMITS",
+  "cases": [
+    {
+      "id": "forward-left",
+      "start": [
+        0,
+        1.15,
+        0
+      ],
+      "target": [
+        0.24,
+        0.16,
+        0.14
+      ],
+      "pole": [
+        0.08,
+        1.23,
+        1
+      ],
+      "upper": 0.64,
+      "lower": 0.59,
+      "soften_margin": 0.02
+    },
+    {
+      "id": "forward-right",
+      "start": [
+        0,
+        1.15,
+        0
+      ],
+      "target": [
+        0.33,
+        0.18,
+        -0.18
+      ],
+      "pole": [
+        0,
+        1.2,
+        -0.9
+      ],
+      "upper": 0.64,
+      "lower": 0.59,
+      "soften_margin": 0.02
+    },
+    {
+      "id": "side-step",
+      "start": [
+        -0.25,
+        1.2,
+        0.15
+      ],
+      "target": [
+        0.32,
+        0.31,
+        0.59
+      ],
+      "pole": [
+        0.14,
+        1.45,
+        -0.8
+      ],
+      "upper": 0.69,
+      "lower": 0.63,
+      "soften_margin": 0.03
+    },
+    {
+      "id": "rotated-start",
+      "start": [
+        0.5,
+        1.35,
+        -0.3
+      ],
+      "target": [
+        0.37,
+        0.38,
+        0.16
+      ],
+      "pole": [
+        1.2,
+        1.6,
+        0.8
+      ],
+      "upper": 0.73,
+      "lower": 0.62,
+      "soften_margin": 0.02
+    },
+    {
+      "id": "softened-unreachable",
+      "start": [
+        0,
+        1.13,
+        0
+      ],
+      "target": [
+        2,
+        1.12,
+        0.23
+      ],
+      "pole": [
+        0,
+        1.6,
+        1
+      ],
+      "upper": 0.62,
+      "lower": 0.58,
+      "soften_margin": 0.025
+    }
+  ]
+}
