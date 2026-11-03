@@ -85,8 +85,14 @@ def check(native,visual,foot,crosswalk,media,direct_heads,negative):
         require(isinstance(raw,(bytes,bytearray)) and len(raw)>1000 and
                 raw[4:8]==b"ftyp","MISSING_OR_NOT_MP4:"+view)
     require(len({sha(raw) for raw in media.values()})==3,"ALIASED_ENCODED_VIDEOS")
+    # Independent producer contracts spell the hold status differently:
+    # original renderer private_r009, motion reviewers private_R009,
+    # and debug-foot observer protected_R009. Do not synthesize an absent hold.
+    # Explicitly require at least one and reject every conflicting extra field.
     for evidence in (native,visual,foot,crosswalk):
-        require(evidence.get("private_R009",evidence.get("private_r009"))=="HELD_NOT_ACCEPTED","PROTECTED_R009_UNAUTHORIZED_PROMOTION")
+        declared=[evidence[k] for k in ("private_R009","private_r009","protected_R009") if k in evidence]
+        require(bool(declared) and all(v=="HELD_NOT_ACCEPTED" for v in declared),
+                "PROTECTED_R009_UNAUTHORIZED_PROMOTION")
     require(native.get("physical_biomechanics")=="UNKNOWN" and
             native.get("original_identity")=="NOT_ADMITTED" and
             visual.get("human_anatomy_ROM_JCS")=="UNKNOWN" and
