@@ -74,6 +74,25 @@ class OriginalOnlyContract(unittest.TestCase):
         self.assertEqual(out["agent"]["can_merge_release_deploy_cpe"],False)
         self.assertEqual(out["science"]["human_identity"],"NOT_ADMITTED")
         self.assertEqual(out["status"],"PASS_REPRODUCIBLE_ORIGINAL_SYNTHETIC_EVIDENCE_PROJECTION_ONLY")
+    def test_independent_foot_protected_status_schema_and_conflicts(self):
+        # Actual independently verified foot observer emits protected_R009, not
+        # the fixture's former private_R009. Never invent an absent hold.
+        valid=fixtures()
+        valid[2].pop("private_R009")
+        valid[2]["protected_R009"]="HELD_NOT_ACCEPTED"
+        self.assertEqual(v.check(*valid)["private_R009"],"HELD_NOT_ACCEPTED")
+        for case in ("missing","false","contradictory"):
+            test=copy.deepcopy(valid)
+            if case=="missing":
+                test[2].pop("protected_R009")
+            elif case=="false":
+                test[2]["protected_R009"]="ACCEPTED"
+            else:
+                test[2]["private_R009"]="ACCEPTED"
+            with self.subTest(case=case):
+                with self.assertRaises(v.Reject) as reason:
+                    v.check(*test)
+                self.assertEqual(str(reason.exception),"PROTECTED_R009_UNAUTHORIZED_PROMOTION")
     def test_mutant_separately_fails_specific_cause(self):
         cases=[
           ("forged_donor",5,"vmd_native","0"*40,"MUTABLE_OR_UNQUALIFIED_DONOR_HEAD"),
