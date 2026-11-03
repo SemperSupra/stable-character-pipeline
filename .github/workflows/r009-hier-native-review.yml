@@ -1,0 +1,65 @@
+name: R009 independent 72-frame native hierarchy and skin adversarial audit
+on:
+  pull_request:
+    paths:
+      - 'qualification/hier_skin_review/**'
+      - '.github/workflows/r009-hier-native-review.yml'
+permissions:
+  contents: read
+jobs:
+  native-independent-72f:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Bounded self-authored source preflight
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/hier_skin/source_guard.py qualification/hier_skin/native_blender.py qualification/hier_skin_review/native_72f_audit.py
+          python3 qualification/hier_skin/source_guard.py --out "$RUNNER_TEMP/fixture.json"
+      - name: SHA-verifiable official native Blender without protected sources
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Baseline 72 native frame independent FK and weighted skin witness
+        run: |
+          set -euo pipefail
+          LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/hier_skin_review/native_72f_audit.py -- "$RUNNER_TEMP/fixture.json" qualification/hier_skin/native_blender.py "$RUNNER_TEMP/base-native.json" "$RUNNER_TEMP/independent-72f.json" baseline
+          python3 - "$RUNNER_TEMP/independent-72f.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          assert r["status"]=="PASS_ORIGINAL_SYNTHETIC_NATIVE_72F_FK_AND_SKIN_ONLY"
+          assert r["actors"]==2 and r["frame_count"]==72
+          assert r["real_biological_rom"]=="UNKNOWN"
+          PY
+      - name: Native fault injections must produce typed causal rejections
+        run: |
+          set -euo pipefail
+          for fault in knee_rotation skin_denominator false_science; do
+            err="$RUNNER_TEMP/reject-$fault.log"
+            if LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/hier_skin_review/native_72f_audit.py -- "$RUNNER_TEMP/fixture.json" qualification/hier_skin/native_blender.py "$RUNNER_TEMP/base-$fault.json" "$RUNNER_TEMP/DO_NOT_ACCEPT-$fault.json" "$fault" >"$RUNNER_TEMP/stdout-$fault.log" 2>"$err"; then
+              echo "NATIVE_FAULT_FALSE_ACCEPT_$fault"; exit 4
+            fi
+            case "$fault" in
+              knee_rotation) grep -F "NATIVE_RIG_REJECT:SOURCE_ANGLE_TO_BPY_FK_MISMATCH" "$err" ;;
+              skin_denominator) grep -F "NATIVE_RIG_REJECT:SOURCE_VERTEX_WEIGHT_DENOMINATOR" "$err" ;;
+              false_science) grep -F "NATIVE_RIG_REJECT:FALSE_HUMAN_SCIENCE_PROMOTION" "$err" ;;
+            esac
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-independent-public-original-native72-hierarchy-witness
+          path: |
+            ${{ runner.temp }}/independent-72f.json
+            ${{ runner.temp }}/base-native.json
+            ${{ runner.temp }}/reject-*.log
+          retention-days: 7
+          if-no-files-found: warn
