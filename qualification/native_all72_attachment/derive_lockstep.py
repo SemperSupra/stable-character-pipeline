@@ -46,7 +46,7 @@ def main():
     text=base.read_text()
     for old in (old_frame,old_receipt,old_range,old_end):
         if text.count(old)!=1:raise SystemExit("UNSAFE_AMBIGUOUS_PATCH:"+old)
-    text=text.replace(old_frame,"for testframe in range(72)",1)
+    text=text.replace(old_frame,"for testframe in range(72):",1)
     text=text.replace(old_receipt,'r[actor]["source_root_audit_frames"]=list(range(72))',1)
     text=text.replace(old_range,'not math.isfinite(offset) or offset>.2',1)
     text=text.replace(old_end,old_end+extra,1)
