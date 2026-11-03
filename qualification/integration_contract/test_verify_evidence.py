@@ -80,7 +80,7 @@ class OriginalOnlyContract(unittest.TestCase):
           ("human_promotion",0,"private_R009","ACCEPTED","PROTECTED_R009_UNAUTHORIZED_PROMOTION"),
           ("skipped_frame",0,"views",{"front":71,"oblique":72,"debug_front":72},"NATIVE_VIDEO_FRAME_BUDGET"),
           ("missing_rig",0,"parented_real_multiweight_rigs",{},"TWO_ACTOR_INTEGRATED_RIG_ROSTER"),
-          ("frozen_skin",0,"parented_real_multiweight_rigs","FROZEN","NATIVE_MOTION_OR_REWIND"),
+          ("frozen_skin",0,"parented_real_multiweight_rigs","FROZEN","NATIVE_MOTION_OR_REWIND:CobaltOriginal"),
           ("missing_visual",1,"observed_clean_views",["front"],"TWO_CAMERA_OR_ROLE_ALIAS"),
           ("false_human",1,"human_anatomy_ROM_JCS","PASS","UNAUTHORIZED_BIOPHYSICAL_CLAIM"),
           ("clock_loss",3,"source_frame_1","DROPPED_IMPLICIT","UNDECLARED_BVH_TEMPORAL_LOSS"),
@@ -95,10 +95,10 @@ class OriginalOnlyContract(unittest.TestCase):
                 a=copy.deepcopy(fixtures())
                 if val=="FROZEN":
                     a[0]["parented_real_multiweight_rigs"]["CobaltOriginal"]["actual_evaluated_skin_motion_f0_f6_m"]=0
-                elif val=="ALIAS":
-                    a[4]["oblique"]=a[4]["front"]
                 elif index==1 and key=="decoded_rgb_sha256":
                     a[1]["decoded_rgb_sha256"]["oblique"]=a[1]["decoded_rgb_sha256"]["front"]
+                elif val=="ALIAS":
+                    a[4]["oblique"]=a[4]["front"]
                 else:
                     a[index][key]=val
                 with self.assertRaises(v.Reject) as caught:
