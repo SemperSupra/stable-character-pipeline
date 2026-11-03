@@ -1,0 +1,47 @@
+name: R009 independent original-synthetic BVH compound rotation order and FK audit
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/bvh_contract/bvh_compound_rotation_review_test.go'
+      - '.github/workflows/r009-bvh-compound-rotation-review.yml'
+permissions:
+  contents: read
+jobs:
+  source-neutral-go-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Source-only independent original synthesis and full Go/race/vet
+        run: |
+          set -euo pipefail
+          cd mmd/qualification/bvh_contract
+          go test -count=1 -race -v ./... | tee "$RUNNER_TEMP/rotation-fk-native.log"
+          go vet ./...
+          go test -json -count=1 -run 'TestCompoundXZRotationOrderedFK|TestReorderingSameNumericChannelsChangesPose|TestPositiveYRotationAndNestedOffsetSigns|TestChildRotationAppliedOnlyToDescendants|TestDeclaredScaleOnCompoundRotation' . > "$RUNNER_TEMP/rotation-fk-typed.jsonl"
+          go run ./cmd/bvhqual -capabilities > "$RUNNER_TEMP/agent-capabilities.json"
+          python3 - "$RUNNER_TEMP/agent-capabilities.json" "$RUNNER_TEMP/rotation-fk-typed.jsonl" <<'PY'
+          import json,sys
+          caps=json.load(open(sys.argv[1]))
+          assert caps["private_R009"]=="HELD"
+          rows=[json.loads(line) for line in open(sys.argv[2])]
+          good=[r for r in rows if r.get("Action")=="pass" and r.get("Test","").startswith("Test")]
+          assert len(good)==5,("MISSING_NATIVE_COMPOUND_CASES",good)
+          assert not any(r.get("Action")=="fail" for r in rows)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-synthetic-bvh-compound-rotation-review
+          path: |
+            ${{ runner.temp }}/rotation-fk-native.log
+            ${{ runner.temp }}/rotation-fk-typed.jsonl
+            ${{ runner.temp }}/agent-capabilities.json
+          retention-days: 7
+          if-no-files-found: warn
