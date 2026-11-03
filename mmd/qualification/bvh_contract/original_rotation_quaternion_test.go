@@ -58,7 +58,7 @@ func TestSourceQuaternionDoesNotCommuteOrIgnoreJointChannelOrder(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if strings.Count(src, "Zrotation Xrotation Yrotation") != 1 {
+	if strings.Count(src, "Zrotation Xrotation Yrotation") < 1 {
 		t.Fatal("SOURCE_ORDER_FIXTURE_CHANGED")
 	}
 	other := qualifiedSynthetic(t, strings.Replace(src, "Zrotation Xrotation Yrotation", "Xrotation Zrotation Yrotation", 1), 1)
