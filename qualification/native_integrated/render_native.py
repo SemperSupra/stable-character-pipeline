@@ -131,6 +131,12 @@ for actor,off in (("CobaltOriginal",-.085),("MarigoldOriginal",.085)):
 
 debug_markers=[o for o in bpy.data.objects if o.name.endswith("_ground_truth_PLANTED") or o.name.endswith("_ground_truth_SWING")]
 guard(len(debug_markers)==8,"DEBUG_FOOT_MARKER_ROSTER")
+# The upstream authored renderer keys hide_render on every frame. Blender may
+# reevaluate that FCurve while rendering, overriding manually chosen clean/debug
+# visibility. Remove animation only on the eight debug-only marker objects;
+# their locations and booleans are rebuilt from the ORIGINAL immutable trace
+# for every debug frame. Actor motions and the two native rigs stay unchanged.
+for marker in debug_markers:marker.animation_data_clear()
 cameras={"front":bpy.data.objects["front_OriginalCamera"],
          "oblique":bpy.data.objects["oblique_OriginalCamera"]}
 # Rerender original clean views WITH the newly added real weighted hierarchy,
@@ -140,6 +146,8 @@ for cam in ("front","oblique"):
     for i in range(72):
         scene.frame_set(i)
         for o in debug_markers:o.hide_render=True
+        bpy.context.view_layer.update()
+        guard(all(o.hide_render for o in debug_markers),"CLEAN_CAMERA_DEBUG_MARKER_LEAK")
         scene.render.filepath=str(output/cam/("frame_%03d.png"%i))
         bpy.ops.render.render(write_still=True)
 for cam in ("front","oblique"):
@@ -155,7 +163,10 @@ for i,frame in enumerate(trace["frames"]):
         side="left" if "_left_" in o.name else "right"
         is_contact=o.name.endswith("_ground_truth_PLANTED")
         state=frame["actors"][actor]["feet"][side]
+        o.location=state["ankle"]
         o.hide_render=(state["contact"] != is_contact)
+    bpy.context.view_layer.update()
+    guard(sum(not o.hide_render for o in debug_markers)==4,"DEBUG_FOOT_VISIBILITY_STATE_MISSING")
     scene.render.filepath=str(output/"debug_front"/("frame_%03d.png"%i))
     bpy.ops.render.render(write_still=True)
 
