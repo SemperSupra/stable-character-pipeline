@@ -1,0 +1,179 @@
+name: R009 independent real native synthetic three-audience evidence verification
+on:
+  pull_request:
+    paths:
+      - 'qualification/native_gate/**'
+      - '.github/workflows/r009-native-real-evidence-3audience.yml'
+permissions:
+  contents: read
+jobs:
+  source-and-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 34
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Fetch immutable public source, retarget and native verifier inputs
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin review/r009-batch-provenance-evidence-20261103
+          test "$(git rev-parse FETCH_HEAD)" = f21f9808c15dc8958df353c16919908afcbddb3a
+          git archive FETCH_HEAD qualification/integration_contract/verify_evidence.py | tar -x
+          git fetch --no-tags --depth=1 origin qualification/r009-bvh-to-vmd-to-bpy-20261103
+          test "$(git rev-parse FETCH_HEAD)" = 7f891612a708df13b6f161d1361ebba81b0c38c5
+          git archive FETCH_HEAD qualification/bvh_vmd_bridge mmd/qualification/portable_vmd_v1 | tar -x
+          git fetch --no-tags --depth=1 origin qualification/r009-hierarchical-multiweight-skin-20261103
+          test "$(git rev-parse FETCH_HEAD)" = 62937340a789e20d9466fe6ac3feaedb54488f49
+          git archive FETCH_HEAD qualification/hier_skin | tar -x
+          git fetch --no-tags --depth=1 origin qualification/r009-allframe-pixel-visibility-20261103
+          test "$(git rev-parse FETCH_HEAD)" = ec584628b31f7765e8e4b985765dc0ff5e914efc
+          git archive FETCH_HEAD qualification/visibility72 | tar -x
+          git fetch --no-tags --depth=1 origin review/r009-h264-real-pixel-occlusion-20261103
+          test "$(git rev-parse FETCH_HEAD)" = 7318dcc3036c8ced3a8557bfde5510e8ffe4fb73
+          git archive FETCH_HEAD qualification/visibility72_review | tar -x
+          git fetch --no-tags --depth=1 origin qualification/bvh-source-authored-paired-20261102
+          test "$(git rev-parse FETCH_HEAD)" = e2184d09d3a35e8359c34810c53d74af83ccea86
+          mkdir -p "$RUNNER_TEMP/bvh"
+          git archive FETCH_HEAD mmd/qualification/bvh_contract | tar -x -C "$RUNNER_TEMP/bvh"
+      - name: Original authored 72f source safety, all prior negative matrices and BVH
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/native_integrated/render_native.py qualification/hier_skin/source_guard.py qualification/shadow_park/*.py qualification/debug_foot_review/verify_debug_video.py qualification/visibility72/observe_pixels.py
+          mkdir -p "$RUNNER_TEMP/combined"
+          python3 qualification/shadow_park/produce.py --out "$RUNNER_TEMP/combined/trace.json"
+          python3 qualification/shadow_park/review.py --input "$RUNNER_TEMP/combined/trace.json" --fault baseline --out "$RUNNER_TEMP/combined/shadow-source-review.json"
+          python3 qualification/hier_skin/source_guard.py --out "$RUNNER_TEMP/combined/hier.json"
+          mkdir -p "$RUNNER_TEMP/bvh/mmd/qualification/bvh_contract/cmd/crosswalk"
+          cp qualification/bvh_vmd_bridge/export_main.go "$RUNNER_TEMP/bvh/mmd/qualification/bvh_contract/cmd/crosswalk/main.go"
+          (cd "$RUNNER_TEMP/bvh/mmd/qualification/bvh_contract"; go test -count=1 ./...; go run ./cmd/crosswalk --source examples/original-synthetic-A.bvh --out "$RUNNER_TEMP/combined/fk.json")
+      - name: Reuse corrected source VMD binary producer and preserve intermediate clock loss
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vmd-bridge"
+          python3 - "$GITHUB_WORKSPACE/mmd/qualification/portable_vmd_v1/main.go" "$RUNNER_TEMP/vmd-bridge/serializer.go" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          assert s.count("func main(){")==1
+          pathlib.Path(sys.argv[2]).write_text(s.replace("func main(){","func qualifiedSerializerMain(){",1))
+          PY
+          cp qualification/bvh_vmd_bridge/bridge_vmd.go "$RUNNER_TEMP/vmd-bridge/bridge.go"
+          (cd "$RUNNER_TEMP/vmd-bridge"; go run serializer.go bridge.go -fk "$RUNNER_TEMP/combined/fk.json" -out "$RUNNER_TEMP/combined/source.vmd" -receipt "$RUNNER_TEMP/combined/vmd-crosswalk.json")
+          for fault in wrong_units wrong_clock forged_source short_source joint_alias; do
+            if (cd "$RUNNER_TEMP/vmd-bridge"; go run serializer.go bridge.go -fk "$RUNNER_TEMP/combined/fk.json" -out "$RUNNER_TEMP/combined/BAD_$fault.vmd" -receipt "$RUNNER_TEMP/combined/BAD_$fault.json" -fault "$fault"); then
+              echo "VMD_CROSSWALK_FALSE_ACCEPT_$fault"; exit 5
+            fi
+          done
+      - name: SHA-verified official Blender and unmodified upstream MMD Tools on standard public CPU
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth=1 --branch v4.5.14 https://github.com/MMD-Blender/blender_mmd_tools.git "$RUNNER_TEMP/mmd-tools"
+          test "$(git -C "$RUNNER_TEMP/mmd-tools" rev-parse HEAD)" = f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Actual composed native bpy VMD importer, hierarchical dual weight rigs, 72f two clean cameras plus debug
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/native_integrated/render_native.py -- "$RUNNER_TEMP/combined/trace.json" "$RUNNER_TEMP/combined/hier.json" "$RUNNER_TEMP/combined/source.vmd" "$RUNNER_TEMP/mmd-tools" "$RUNNER_TEMP/combined/vmd-crosswalk.json" "$RUNNER_TEMP/combined/fk.json" "$RUNNER_TEMP/combined/native"
+          python3 - "$RUNNER_TEMP/combined/native/integrated_native_receipt.json" <<'PY'
+          import json,sys,math
+          r=json.load(open(sys.argv[1]))
+          assert r["status"]=="PASS_COMPOSED_ORIGINAL_SYNTHETIC_SOURCE_VMD_CALIBRATION_HIER_SKIN_AND_TWO_CAMERA"
+          assert r["views"]=={"front":72,"oblique":72,"debug_front":72}
+          assert r["vmd_to_hier_usage"]=="SPATIAL_CALIBRATION_ONLY_NO_TEMPORAL_HUMAN_RETARGET"
+          assert len(r["parented_real_multiweight_rigs"])==2
+          assert all(v["connected_edges"]==2 and v["blended_knee_vertices"]==2 for v in r["parented_real_multiweight_rigs"].values())
+          assert r["protected_R009"]=="HELD_NOT_ACCEPTED"
+          PY
+      - name: Reencode integrated native 72f×3 H264 and perform independent original-source pixel witnesses
+        run: |
+          set -euo pipefail
+          for view in front oblique debug_front; do
+            ffmpeg -hide_banner -loglevel error -framerate 12 -i "$RUNNER_TEMP/combined/native/$view/frame_%03d.png" -c:v libx264 -crf 24 -pix_fmt yuv420p "$RUNNER_TEMP/combined/$view.mp4"
+            test "$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/combined/$view.mp4")" = 72
+          done
+          python3 qualification/visibility72/observe_pixels.py --trace "$RUNNER_TEMP/combined/trace.json" --front "$RUNNER_TEMP/combined/front.mp4" --oblique "$RUNNER_TEMP/combined/oblique.mp4" --out "$RUNNER_TEMP/combined/independent-all72-visual.json"
+          python3 qualification/debug_foot_review/verify_debug_video.py --source "$RUNNER_TEMP/combined/trace.json" --front "$RUNNER_TEMP/combined/front.mp4" --debug "$RUNNER_TEMP/combined/debug_front.mp4" --out "$RUNNER_TEMP/combined/independent-foot-visual.json"
+          bash qualification/visibility72_review/alter_video.sh "$RUNNER_TEMP/combined/oblique.mp4" "$RUNNER_TEMP/combined/oblique-mutant.mp4" "$RUNNER_TEMP/combined/trace.json"
+          if python3 qualification/visibility72/observe_pixels.py --trace "$RUNNER_TEMP/combined/trace.json" --front "$RUNNER_TEMP/combined/front.mp4" --oblique "$RUNNER_TEMP/combined/oblique-mutant.mp4" --out "$RUNNER_TEMP/combined/DO_NOT_ACCEPT_MUTANT.json" 2>"$RUNNER_TEMP/combined/reject-encoded-h264.log"; then
+            echo "REAL_H264_VISUAL_FALSE_ACCEPT"; exit 4
+          fi
+          grep -F "VISUAL_OCCLUSION_OR_ACTOR_DROPOUT:oblique/MarigoldOriginal" "$RUNNER_TEMP/combined/reject-encoded-h264.log"
+          sha256sum "$RUNNER_TEMP/combined/"*.mp4 > "$RUNNER_TEMP/combined/video-sha256.txt"
+      - name: Classify actual original synthetic media and native 3-view receipts for human automation and agent
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/integration_contract/verify_evidence.py qualification/native_gate/three_audience_report.py
+          python3 - "$RUNNER_TEMP/combined" <<'PY'
+          import sys,json,pathlib
+          from qualification.integration_contract.verify_evidence import DONORS
+          folder=pathlib.Path(sys.argv[1])
+          (folder/"donors.json").write_text(json.dumps(DONORS,sort_keys=True,indent=2)+"\n")
+          (folder/"negative.json").write_text(json.dumps({
+              "kind":"PHYSICALLY_REENCODED_H264_FRAME36",
+              "rejected":True,
+              "reason":"VISUAL_OCCLUSION_OR_ACTOR_DROPOUT:oblique/MarigoldOriginal",
+              "private_R009":"HELD_NOT_ACCEPTED"},sort_keys=True,indent=2)+"\n")
+          PY
+          C="$RUNNER_TEMP/combined"
+          verify() {
+            python3 qualification/integration_contract/verify_evidence.py \
+              --native "$1" --visual "$2" \
+              --foot "$C/independent-foot-visual.json" \
+              --crosswalk "$C/vmd-crosswalk.json" \
+              --negative "$C/negative.json" --donors "$C/donors.json" \
+              --front "$C/front.mp4" --oblique "$C/oblique.mp4" \
+              --debug_front "$C/debug_front.mp4" --out "$3"
+          }
+          verify "$C/native/integrated_native_receipt.json" "$C/independent-all72-visual.json" "$C/three-audience-verified.json"
+          python3 qualification/native_gate/three_audience_report.py --receipt "$C/three-audience-verified.json" --human "$C/HUMAN.md" --automation "$C/AUTOMATION.json" --agent "$C/AGENT.json"
+          python3 - "$C" <<'PY'
+          import pathlib,json,sys
+          p=pathlib.Path(sys.argv[1])
+          n=json.load((p/"native/integrated_native_receipt.json").open())
+          n["private_R009"]="ACCEPTED"
+          (p/"NEGATIVE-native.json").write_text(json.dumps(n))
+          v=json.load((p/"independent-all72-visual.json").open())
+          v["decoded_rgb_sha256"]["oblique"]=v["decoded_rgb_sha256"]["front"]
+          (p/"NEGATIVE-visual.json").write_text(json.dumps(v))
+          PY
+          if verify "$C/NEGATIVE-native.json" "$C/independent-all72-visual.json" "$C/DO_NOT_ACCEPT_NATIVE.json" 2>"$C/NEGATIVE-native.log"; then
+            echo "FORGED_ORIGINAL_PRODUCT_FALSE_ACCEPT"; exit 6
+          fi
+          grep -F "INTEGRATION_ADMISSION_REJECT:" "$C/NEGATIVE-native.log"
+          if verify "$C/native/integrated_native_receipt.json" "$C/NEGATIVE-visual.json" "$C/DO_NOT_ACCEPT_VISUAL.json" 2>"$C/NEGATIVE-visual.log"; then
+            echo "ALIASED_DECODED_CAMERA_FALSE_ACCEPT"; exit 7
+          fi
+          grep -F "INTEGRATION_ADMISSION_REJECT:" "$C/NEGATIVE-visual.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-public-original-native-3audience-live-evidence
+          path: |
+            ${{ runner.temp }}/combined/trace.json
+            ${{ runner.temp }}/combined/hier.json
+            ${{ runner.temp }}/combined/fk.json
+            ${{ runner.temp }}/combined/source.vmd
+            ${{ runner.temp }}/combined/vmd-crosswalk.json
+            ${{ runner.temp }}/combined/native/native_receipt.json
+            ${{ runner.temp }}/combined/native/integrated_native_receipt.json
+            ${{ runner.temp }}/combined/independent-all72-visual.json
+            ${{ runner.temp }}/combined/independent-foot-visual.json
+            ${{ runner.temp }}/combined/reject-encoded-h264.log
+            ${{ runner.temp }}/combined/video-sha256.txt
+            ${{ runner.temp }}/combined/three-audience-verified.json
+            ${{ runner.temp }}/combined/HUMAN.md
+            ${{ runner.temp }}/combined/AUTOMATION.json
+            ${{ runner.temp }}/combined/AGENT.json
+            ${{ runner.temp }}/combined/NEGATIVE-*.log
+            ${{ runner.temp }}/combined/*.mp4
+          retention-days: 7
+          if-no-files-found: warn
