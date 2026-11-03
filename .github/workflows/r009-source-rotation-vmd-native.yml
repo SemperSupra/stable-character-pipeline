@@ -1,0 +1,131 @@
+name: R009 public original BVH ordered Z-X quaternion into real VMD2 and upstream Blender native
+on:
+  pull_request:
+    paths:
+      - 'qualification/rot_vmd/**'
+      - '.github/workflows/r009-source-rotation-vmd-native.yml'
+permissions:
+  contents: read
+jobs:
+  authored-rotation-source-vmd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Import exact immutable corrected binary VMD serializer and source-author adapter
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin qualification/mmd-vmd-interpolation-blue-20261102
+          test "$(git rev-parse FETCH_HEAD)" = 54b80f1c97a044821ce2ddf81c635885e6db7255
+          git archive FETCH_HEAD mmd/qualification/portable_vmd_v1/main.go | tar -x
+          mkdir -p mmd/qualification/bvh_contract/cmd/rotvmd
+          python3 - "mmd/qualification/portable_vmd_v1/main.go" "mmd/qualification/bvh_contract/cmd/rotvmd/serializer.go" <<'PY'
+          import sys,pathlib
+          raw=pathlib.Path(sys.argv[1]).read_text()
+          assert raw.count("func main(){")==1
+          pathlib.Path(sys.argv[2]).write_text(raw.replace("func main(){","func qualifiedSerializerMain(){",1))
+          PY
+          cp qualification/rot_vmd/native_writer.go mmd/qualification/bvh_contract/cmd/rotvmd/native_writer.go
+          (cd mmd/qualification/bvh_contract && go test ./... && go vet ./...)
+      - name: Real VMD binary rotation roundtrip and injected source admission failures
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rotvmd"
+          cd mmd/qualification/bvh_contract
+          go run ./cmd/rotvmd -source examples/original-synthetic-A.bvh -out "$RUNNER_TEMP/rotvmd/rotation_source.vmd" -receipt "$RUNNER_TEMP/rotvmd/rotation_receipt.json"
+          for fault in bad_source bad_clock short_source alias bad_unit fake_human bad_axis; do
+            if go run ./cmd/rotvmd -source examples/original-synthetic-A.bvh -out "$RUNNER_TEMP/rotvmd/DO_NOT_ACCEPT_$fault.vmd" -receipt "$RUNNER_TEMP/rotvmd/DO_NOT_ACCEPT_$fault.json" -fault "$fault" 2>"$RUNNER_TEMP/rotvmd/reject-$fault.log"; then
+              echo "AUTHORED_QUATERNION_VMD_FAULT_FALSE_ACCEPT_$fault"; exit 5
+            fi
+            grep -F "ORIGINAL_BVH_ROT_VMD_REJECT:" "$RUNNER_TEMP/rotvmd/reject-$fault.log"
+          done
+          python3 - "$RUNNER_TEMP/rotvmd/rotation_source.vmd" "$RUNNER_TEMP/rotvmd/rotation_receipt.json" <<'PY'
+          import json,hashlib,struct,math,sys
+          b=open(sys.argv[1],"rb").read();r=json.load(open(sys.argv[2]))
+          assert r["status"]=="PASS_ORIGINAL_SYNTHETIC_LOCAL_ROTATION_VMD_BINARY_SOURCE_ONLY"
+          assert r["original_a_sha256"]=="ab3a0d712c9c4f21fba0cf0698568dd5f88f1b959cf8aae28173c6435153d760"
+          assert r["derived_source_is_original_a_unchanged"] is False
+          assert r["private_R009"]=="HELD_NOT_ACCEPTED" and r["human_JCS_ROM"]=="UNKNOWN"
+          assert r["source_frame_1"]=="DROPPED_30FPS_RESAMPLE_NOT_INTERPOLATED"
+          assert hashlib.sha256(b).hexdigest()==r["vmd_sha256"]
+          assert b.startswith(b"Vocaloid Motion Data 0002") and struct.unpack_from("<I",b,50)[0]==6
+          assert len(b)==74+6*111
+          q=struct.unpack_from("<4f",b,54+111+31)
+          assert all(abs(x-.5)<1e-5 for x in q),q
+          assert abs(sum(x*x for x in q)-1)<1e-5
+          print("PASS_ACTUAL_VMD_V2_COMPOUND_ROTATION_BYTES")
+          PY
+          sha256sum "$RUNNER_TEMP/rotvmd/rotation_source.vmd" > "$RUNNER_TEMP/rotvmd/vmd-sha256.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-zx-quaternion-to-actual-vmd2-source-receipts
+          path: ${{ runner.temp }}/rotvmd
+          retention-days: 7
+          if-no-files-found: warn
+  upstream-blender-rotation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 34
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Reproduce same exact source quaternion and corrected VMD serializer independently
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin qualification/mmd-vmd-interpolation-blue-20261102
+          test "$(git rev-parse FETCH_HEAD)" = 54b80f1c97a044821ce2ddf81c635885e6db7255
+          git archive FETCH_HEAD mmd/qualification/portable_vmd_v1/main.go | tar -x
+          mkdir -p mmd/qualification/bvh_contract/cmd/rotvmd
+          python3 - "mmd/qualification/portable_vmd_v1/main.go" "mmd/qualification/bvh_contract/cmd/rotvmd/serializer.go" <<'PY'
+          import sys,pathlib
+          raw=pathlib.Path(sys.argv[1]).read_text()
+          assert raw.count("func main(){")==1
+          pathlib.Path(sys.argv[2]).write_text(raw.replace("func main(){","func qualifiedSerializerMain(){",1))
+          PY
+          cp qualification/rot_vmd/native_writer.go mmd/qualification/bvh_contract/cmd/rotvmd/native_writer.go
+          mkdir -p "$RUNNER_TEMP/rotvmd-native"
+          (cd mmd/qualification/bvh_contract && go run ./cmd/rotvmd -source examples/original-synthetic-A.bvh -out "$RUNNER_TEMP/rotvmd-native/rotation_source.vmd" -receipt "$RUNNER_TEMP/rotvmd-native/rotation_receipt.json")
+      - name: SHA-verified official Blender LTS and unmodified upstream MMD Tools on public CPU
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth=1 --branch v4.5.14 https://github.com/MMD-Blender/blender_mmd_tools.git "$RUNNER_TEMP/mmd-tools"
+          test "$(git -C "$RUNNER_TEMP/mmd-tools" rev-parse HEAD)" = f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Actual real upstream VMD importer on Blender pose and evaluated skin
+        run: |
+          set -euo pipefail
+          for fault in baseline static_pose false_human; do
+            out="$RUNNER_TEMP/rotvmd-native/$fault.json"
+            if [ "$fault" = baseline ]; then
+              xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/rot_vmd/native_importer.py -- "$RUNNER_TEMP/rotvmd-native/rotation_source.vmd" "$RUNNER_TEMP/mmd-tools" "$RUNNER_TEMP/rotvmd-native/rotation_receipt.json" "$out" "$fault"
+              test -s "$out"
+            else
+              if xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/rot_vmd/native_importer.py -- "$RUNNER_TEMP/rotvmd-native/rotation_source.vmd" "$RUNNER_TEMP/mmd-tools" "$RUNNER_TEMP/rotvmd-native/rotation_receipt.json" "$out" "$fault" >"$RUNNER_TEMP/rotvmd-native/$fault.out" 2>&1; then
+                echo "ACTUAL_BLENDER_ROTATION_MUTANT_FALSE_ACCEPT_$fault"; exit 5
+              fi
+              grep -F "ROTATION_MMD_NATIVE_REJECT:" "$RUNNER_TEMP/rotvmd-native/$fault.out"
+            fi
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-real-upstream-blender-original-synthetic-zx-rotation
+          path: ${{ runner.temp }}/rotvmd-native
+          retention-days: 7
+          if-no-files-found: warn
