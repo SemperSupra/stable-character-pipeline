@@ -55,8 +55,9 @@ func runBridge(args []string)error{
  }
  // VMD target clock 30 Hz; 0 and 2 at the 60 Hz source endpoints are admitted.
  // Source frame 1 is deliberately dropped and exposed in the loss map.
+ targetNames:=[]string{"Center","L_Ankle","R_Ankle"} // ONLY adapter-qualified synthetic aliases
  keys:=[]Frame{}
- for j,name:=range names{
+ for j,name:=range targetNames{
   for _,idx:=range []int{0,2}{
    var delta [3]float32
    for k:=0;k<3;k++{delta[k]=float32(src.Rows[idx].World[j].Position[k]-src.Rows[0].World[j].Position[k])}
@@ -74,7 +75,7 @@ func runBridge(args []string)error{
   "vmd_sha256":fmt.Sprintf("%x",h),"vmd_keys":6,"source_frames":3,
   "target_frame_pairs":[][]int{{0,0},{2,1}},"source_frame_1":"DROPPED_30FPS_RESAMPLE",
   "source_frame_time_rational":src.Time,"source_meters_per_unit":src.Meter,
-  "target_fps":30,"axis_mapping":"SOURCE_XYZ_TO_TARGET_XYZ_SYNTHETIC_UNVALIDATED_PHYSICAL",
+  "target_fps":30,"synthetic_target_aliases":map[string]string{"Hips":"Center","Knee":"L_Ankle","Foot":"R_Ankle"},"hierarchy_semantics":"LOST_WORLD_TRANSLATION_ONLY_NOT_HUMAN_RETARGETING","axis_mapping":"SOURCE_XYZ_TO_TARGET_XYZ_SYNTHETIC_UNVALIDATED_PHYSICAL",
   "human_biomechanics":"UNKNOWN","actual_human_mocap":"NOT_ADMITTED",
   "native_bpy":"NOT_YET_RUN","private_R009":"HELD_NOT_ACCEPTED"}
  r,e:=json.MarshalIndent(report,"","  ");if e!=nil{return e}
