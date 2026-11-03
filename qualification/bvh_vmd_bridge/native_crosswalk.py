@@ -57,6 +57,7 @@ def sample(frame):
 p0,m0=sample(0);p1,m1=sample(1);p0b,m0b=sample(0)
 deltas={n:math.dist(p0[n],p1[n]) for n in names}
 skin={n:math.dist(m0[n],m1[n]) for n in m0}
+print("NATIVE_BVH_VMD_BPY_POSE_AND_SKIN_DIAGNOSTIC",json.dumps({"joint_deltas":deltas,"skin_deltas":skin,"pose_frame0":p0,"pose_frame1":p1,"source_vmd_sha256":hashlib.sha256(raw).hexdigest()},sort_keys=True),flush=True)
 if any(d<.2 or d>2 for d in deltas.values()):raise RuntimeError("SOURCE_VMD_BPY_MOTION_DISAGREES")
 if any(d<.2 for d in skin.values()):raise RuntimeError("ACTUAL_BPY_SKIN_FROZEN")
 if max(math.dist(p0[n],p0b[n]) for n in names)>1e-6:raise RuntimeError("POSE_REWIND_FAILED")
