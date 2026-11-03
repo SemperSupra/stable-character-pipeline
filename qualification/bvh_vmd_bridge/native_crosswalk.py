@@ -25,16 +25,20 @@ sys.path.insert(0,str(tmp));sys.path.insert(0,str(root.resolve()))
 from mmd_tools.core.vmd.importer import VMDImporter
 from mmd_tools.core import vmd
 motion=vmd.File();motion.load(filepath=str(file.resolve()))
-names=("Center","L_Ankle","R_Ankle")
-if r.get("synthetic_target_aliases")!={"Hips":"Center","Knee":"L_Ankle","Foot":"R_Ankle"} or r.get("hierarchy_semantics")!="LOST_WORLD_TRANSLATION_ONLY_NOT_HUMAN_RETARGETING":
+names=("Hips","Knee","Foot")
+if r.get("synthetic_target_aliases")!={"Hips":"Hips","Knee":"Knee","Foot":"Foot"} or r.get("hierarchy_semantics")!="LOST_WORLD_TRANSLATION_ONLY_NOT_HUMAN_RETARGETING":
  raise RuntimeError("UNDECLARED_TARGET_BONE_ALIAS_OR_HIERARCHY_LOSS")
 if set(motion.boneAnimation)!=set(names) or any(len(motion.boneAnimation[n])!=2 for n in names):
     raise RuntimeError("UPSTREAM_VMD_NAMES_OR_CLOCK_DISAGREE")
 bpy.ops.object.select_all(action="SELECT");bpy.ops.object.delete(use_global=False)
+# Pinned upstream VMDImporter captures bpy.context.scene.frame_current at construction.
+# Factory default is 1; VMD frame0/1 would be imported at Blender 1/2 and sampled 0/1 as static.
+bpy.context.scene.frame_set(0)
+if bpy.context.scene.frame_current!=0:raise RuntimeError("MMD_NATIVE_FRAME_ORIGIN_SHIFT_NOT_ADMITTED")
 armdata=bpy.data.armatures.new("OriginalBVH3");arm=bpy.data.objects.new("OriginalBVH3",armdata)
 bpy.context.scene.collection.objects.link(arm);bpy.context.view_layer.objects.active=arm;arm.select_set(True)
 bpy.ops.object.mode_set(mode="EDIT")
-for name,head,tail in [("Center",(0,0,.4),(0,0,.8)),("L_Ankle",(-.3,0,-.2),(-.3,0,0)),("R_Ankle",(.3,0,-.2),(.3,0,0))]:
+for name,head,tail in [("Hips",(0,0,.4),(0,0,.8)),("Knee",(0,0,0),(0,0,.3)),("Foot",(0,-.4,0),(0,-.2,0))]:
     b=armdata.edit_bones.new(name);b.head=head;b.tail=tail
 bpy.ops.object.mode_set(mode="OBJECT")
 for pb in arm.pose.bones:pb.rotation_mode="QUATERNION"
