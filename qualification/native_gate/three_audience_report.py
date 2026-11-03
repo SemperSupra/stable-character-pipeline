@@ -39,8 +39,8 @@ def main():
       "",
       "## Exact media digests",
       ""
-    ]+[f"- {key}: SHA-256 \`{videos[key]}\`" for key in ("front","oblique","debug_front")]
-    human+=["",f"Typed receipt SHA-256: \`{sourcehash}\`",""]
+    ]+[f"- {key}: SHA-256 `{videos[key]}`" for key in ("front","oblique","debug_front")]
+    human+=["",f"Typed receipt SHA-256: `{sourcehash}`",""]
     pathlib.Path(a.human).write_text("\n".join(human),encoding="utf8")
     automation={
        "schema":"scp.r009.automation-evidence-view.v1",
