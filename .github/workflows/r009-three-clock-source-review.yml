@@ -1,0 +1,90 @@
+name: R009 independent immutable three-clock, morph and explicit loss source adversarial gates
+on:
+  pull_request:
+    paths:
+      - 'qualification/integration_source_review/**'
+      - '.github/workflows/r009-three-clock-source-review.yml'
+permissions:
+  contents: read
+jobs:
+  source-and-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Fetch immutable public source, retarget and native verifier inputs
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin qualification/r009-bvh-to-vmd-to-bpy-20261103
+          test "$(git rev-parse FETCH_HEAD)" = 7f891612a708df13b6f161d1361ebba81b0c38c5
+          git archive FETCH_HEAD qualification/bvh_vmd_bridge mmd/qualification/portable_vmd_v1 | tar -x
+          git fetch --no-tags --depth=1 origin qualification/r009-hierarchical-multiweight-skin-20261103
+          test "$(git rev-parse FETCH_HEAD)" = 62937340a789e20d9466fe6ac3feaedb54488f49
+          git archive FETCH_HEAD qualification/hier_skin | tar -x
+          git fetch --no-tags --depth=1 origin qualification/r009-allframe-pixel-visibility-20261103
+          test "$(git rev-parse FETCH_HEAD)" = ec584628b31f7765e8e4b985765dc0ff5e914efc
+          git archive FETCH_HEAD qualification/visibility72 | tar -x
+          git fetch --no-tags --depth=1 origin review/r009-h264-real-pixel-occlusion-20261103
+          test "$(git rev-parse FETCH_HEAD)" = 7318dcc3036c8ced3a8557bfde5510e8ffe4fb73
+          git archive FETCH_HEAD qualification/visibility72_review | tar -x
+          git fetch --no-tags --depth=1 origin qualification/bvh-source-authored-paired-20261102
+          test "$(git rev-parse FETCH_HEAD)" = e2184d09d3a35e8359c34810c53d74af83ccea86
+          mkdir -p "$RUNNER_TEMP/bvh"
+          git archive FETCH_HEAD mmd/qualification/bvh_contract | tar -x -C "$RUNNER_TEMP/bvh"
+      - name: Original authored 72f source safety, all prior negative matrices and BVH
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/native_integrated/render_native.py qualification/hier_skin/source_guard.py qualification/shadow_park/*.py qualification/debug_foot_review/verify_debug_video.py qualification/visibility72/observe_pixels.py
+          mkdir -p "$RUNNER_TEMP/combined"
+          python3 qualification/shadow_park/produce.py --out "$RUNNER_TEMP/combined/trace.json"
+          python3 qualification/shadow_park/review.py --input "$RUNNER_TEMP/combined/trace.json" --fault baseline --out "$RUNNER_TEMP/combined/shadow-source-review.json"
+          python3 qualification/hier_skin/source_guard.py --out "$RUNNER_TEMP/combined/hier.json"
+          mkdir -p "$RUNNER_TEMP/bvh/mmd/qualification/bvh_contract/cmd/crosswalk"
+          cp qualification/bvh_vmd_bridge/export_main.go "$RUNNER_TEMP/bvh/mmd/qualification/bvh_contract/cmd/crosswalk/main.go"
+          (cd "$RUNNER_TEMP/bvh/mmd/qualification/bvh_contract"; go test -count=1 ./...; go run ./cmd/crosswalk --source examples/original-synthetic-A.bvh --out "$RUNNER_TEMP/combined/fk.json")
+      - name: Reuse corrected source VMD binary producer and preserve intermediate clock loss
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vmd-bridge"
+          python3 - "$GITHUB_WORKSPACE/mmd/qualification/portable_vmd_v1/main.go" "$RUNNER_TEMP/vmd-bridge/serializer.go" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          assert s.count("func main(){")==1
+          pathlib.Path(sys.argv[2]).write_text(s.replace("func main(){","func qualifiedSerializerMain(){",1))
+          PY
+          cp qualification/bvh_vmd_bridge/bridge_vmd.go "$RUNNER_TEMP/vmd-bridge/bridge.go"
+          (cd "$RUNNER_TEMP/vmd-bridge"; go run serializer.go bridge.go -fk "$RUNNER_TEMP/combined/fk.json" -out "$RUNNER_TEMP/combined/source.vmd" -receipt "$RUNNER_TEMP/combined/vmd-crosswalk.json")
+          for fault in wrong_units wrong_clock forged_source short_source joint_alias; do
+            if (cd "$RUNNER_TEMP/vmd-bridge"; go run serializer.go bridge.go -fk "$RUNNER_TEMP/combined/fk.json" -out "$RUNNER_TEMP/combined/BAD_$fault.vmd" -receipt "$RUNNER_TEMP/combined/BAD_$fault.json" -fault "$fault"); then
+              echo "VMD_CROSSWALK_FALSE_ACCEPT_$fault"; exit 5
+            fi
+          done
+      - name: Actual source bound authored clocks and fourteen hostile falsifications
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/integration_source_review/verify_three_clocks.py
+          set -- --shadow "$RUNNER_TEMP/combined/trace.json" --hier "$RUNNER_TEMP/combined/hier.json" --fk "$RUNNER_TEMP/combined/fk.json" --crosswalk "$RUNNER_TEMP/combined/vmd-crosswalk.json" --vmd "$RUNNER_TEMP/combined/source.vmd"
+          python3 qualification/integration_source_review/verify_three_clocks.py "$@" --out "$RUNNER_TEMP/combined/three-clock-accepted.json"
+          for fault in camera_alias false_human clock_shift bad_weights false_MVP short_trace frame_gap joint_range bad_vmd bad_fk alias_bones false_temporal swap_actor false_geometry; do
+            if python3 qualification/integration_source_review/verify_three_clocks.py "$@" --fault "$fault" --out "$RUNNER_TEMP/combined/DO_NOT_ACCEPT-$fault.json" 2>"$RUNNER_TEMP/combined/reject-$fault.log"; then
+              echo "THREE_CLOCK_SOURCE_FALSE_ACCEPT_$fault"; exit 5
+            fi
+            grep -F "THREE_CLOCK_SOURCE_REJECT:" "$RUNNER_TEMP/combined/reject-$fault.log"
+          done
+          sha256sum "$RUNNER_TEMP/combined/trace.json" "$RUNNER_TEMP/combined/hier.json" "$RUNNER_TEMP/combined/fk.json" "$RUNNER_TEMP/combined/vmd-crosswalk.json" "$RUNNER_TEMP/combined/source.vmd" > "$RUNNER_TEMP/combined/source-sha256.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-public-original-independent-three-clock-source-review
+          path: |
+            ${{ runner.temp }}/combined/three-clock-accepted.json
+            ${{ runner.temp }}/combined/source-sha256.txt
+            ${{ runner.temp }}/combined/reject-*.log
+          retention-days: 7
+          if-no-files-found: warn
