@@ -1,0 +1,78 @@
+name: R009 original BVH source 3-axis local-global quaternion and explicit 60Hz rotation-loss qualification
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/bvh_contract/original_rotation_quaternion.go'
+      - 'mmd/qualification/bvh_contract/original_rotation_quaternion_test.go'
+      - 'mmd/qualification/bvh_contract/cmd/quatqual/**'
+      - '.github/workflows/r009-quaternion-loss-source.yml'
+permissions:
+  contents: read
+jobs:
+  original-rotation-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [go-race-and-fk, source-export-and-validation, hostile-source-admission]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Source-only original synthetic quaternion qualification
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rotations"
+          cd mmd/qualification/bvh_contract
+          case "${{ matrix.task }}" in
+            go-race-and-fk)
+              test -z "$(gofmt -l original_rotation_quaternion.go original_rotation_quaternion_test.go cmd/quatqual/main.go)"
+              go test -race -count=1 -run 'TestOriginalQuat|TestSourceQuaternion|TestExplicit60To30|TestSourceQuatRights' -v ./... 2>&1 | tee "$RUNNER_TEMP/rotations/native-race.log"
+              go vet ./...
+              ;;
+            source-export-and-validation)
+              go run ./cmd/quatqual -source examples/original-synthetic-A.bvh -out "$RUNNER_TEMP/rotations/source_rotation_loss.json"
+              python3 - "$RUNNER_TEMP/rotations/source_rotation_loss.json" <<'PY'
+          import json,math,sys
+          p=json.load(open(sys.argv[1]))
+          assert p["Schema"]=="scp.r009.public-original-bvh-ordered-quaternion-loss.v1"
+          assert (p["SourceFPS"],p["TargetFPS"],p["SourceFrames"],p["TargetFrames"])==(60,30,3,2)
+          assert p["SourceFrameOne"]=="DROPPED_30FPS_RESAMPLE_NOT_INTERPOLATED"
+          assert p["PhysicalRetarget"]=="NOT_RUN_SOURCE_QUATERNIONS_ONLY"
+          assert p["HumanROM"]=="UNKNOWN" and p["ProtectedR009"]=="HELD_NOT_ACCEPTED"
+          assert len(p["Keyframes"])==6
+          assert [k["SourceFrame"] for k in p["Keyframes"]]==[0,0,0,2,2,2]
+          for k in p["Keyframes"]:
+              for qn in ("LocalXYZW","WorldXYZW"):
+                  q=k[qn]
+                  assert len(q)==4 and abs(sum(x*x for x in q)-1)<1e-8
+              assert k["Name"] in ("Hips","Knee","Foot")
+          print("PASS_ORIGINAL_AUTHORED_QUATERNION_SOURCE_EXPLICIT_LOSS_ONLY")
+          PY
+              ;;
+            hostile-source-admission)
+              echo 'UNAUTHORIZED HUMAN SOURCE' > "$RUNNER_TEMP/rotations/not-admitted.bvh"
+              if go run ./cmd/quatqual -source "$RUNNER_TEMP/rotations/not-admitted.bvh" -out "$RUNNER_TEMP/rotations/BAD.json" 2>"$RUNNER_TEMP/rotations/reject-forged-source.log"; then
+                echo "UNADMITTED_SOURCE_FALSE_ACCEPT"; exit 5
+              fi
+              grep -F "BVH_QUATERNION_SOURCE_REJECT:UNADMITTED_SOURCE_SHA" "$RUNNER_TEMP/rotations/reject-forged-source.log"
+              if go run ./cmd/quatqual -source examples/original-synthetic-A.bvh -out examples/original-synthetic-A.bvh 2>"$RUNNER_TEMP/rotations/reject-alias.log"; then
+                echo "INPUT_OUTPUT_ALIAS_FALSE_ACCEPT"; exit 5
+              fi
+              grep -F "BVH_QUATERNION_SOURCE_REJECT:MISSING_OR_ALIASED_INPUT_OUTPUT" "$RUNNER_TEMP/rotations/reject-alias.log"
+              go run ./cmd/quatqual -capabilities > "$RUNNER_TEMP/rotations/agent-capabilities.json"
+              python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["private_R009"]=="HELD_NOT_ACCEPTED" and d["physical_retarget"]=="NOT_RUN"' "$RUNNER_TEMP/rotations/agent-capabilities.json"
+              ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-bvh-quaternion-source-${{ matrix.task }}
+          path: ${{ runner.temp }}/rotations
+          retention-days: 7
+          if-no-files-found: warn

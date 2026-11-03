@@ -1,0 +1,40 @@
+name: R009 original Go quaternion source format review artifact only
+on:
+  pull_request:
+    paths:
+      - 'mmd/qualification/bvh_contract/original_rotation_quaternion.go'
+      - 'mmd/qualification/bvh_contract/original_rotation_quaternion_test.go'
+      - 'mmd/qualification/bvh_contract/cmd/quatqual/**'
+      - '.github/workflows/r009-quaternion-goformat-review.yml'
+permissions:
+  contents: read
+jobs:
+  format-source-artifact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Produce canonical formatting on ephemeral public runner without writes to origin
+        run: |
+          set -euo pipefail
+          cd mmd/qualification/bvh_contract
+          gofmt -w original_rotation_quaternion.go original_rotation_quaternion_test.go cmd/quatqual/main.go
+          test -z "$(gofmt -l original_rotation_quaternion.go original_rotation_quaternion_test.go cmd/quatqual/main.go)"
+          git diff --check
+          git diff -- original_rotation_quaternion.go original_rotation_quaternion_test.go cmd/quatqual/main.go > "$RUNNER_TEMP/r009-gofmt-only.patch"
+          mkdir -p "$RUNNER_TEMP/r009-gofmt-output"
+          cp original_rotation_quaternion.go original_rotation_quaternion_test.go cmd/quatqual/main.go "$RUNNER_TEMP/r009-gofmt-output/"
+          sha256sum "$RUNNER_TEMP/r009-gofmt-output/"*.go > "$RUNNER_TEMP/r009-gofmt-output/source-sha256.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r009-original-quaternion-gofmt-nonpublishing-proposal
+          path: |
+            ${{ runner.temp }}/r009-gofmt-only.patch
+            ${{ runner.temp }}/r009-gofmt-output/
+          retention-days: 7
