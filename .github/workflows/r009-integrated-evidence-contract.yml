@@ -1,0 +1,53 @@
+name: R009 source-safe three-audience typed integrated evidence and false promotion gates
+on:
+  pull_request:
+    paths:
+      - 'qualification/integration_contract/**'
+      - '.github/workflows/r009-integrated-evidence-contract.yml'
+permissions:
+  contents: read
+jobs:
+  source-safe-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [unittest, agent-capabilities, syntax-static]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Source-only adversarial contract and deterministic typed projection
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/receipts"
+          case "${{ matrix.mode }}" in
+            unittest)
+              python3 -m unittest discover -s qualification/integration_contract -p 'test_verify_evidence.py' -v 2>&1 | tee "$RUNNER_TEMP/receipts/unittest.log"
+              ;;
+            agent-capabilities)
+              python3 qualification/integration_contract/verify_evidence.py --capabilities | tee "$RUNNER_TEMP/receipts/capabilities.json"
+              python3 - "$RUNNER_TEMP/receipts/capabilities.json" <<'PY'
+              import json,sys
+              j=json.load(open(sys.argv[1]))
+              assert j["private_R009"]=="HELD_NOT_ACCEPTED"
+              assert j["owner_authorized_promotions"] is False
+              assert j["actions"]==["capabilities","verify_public_synthetic_only"]
+              PY
+              ;;
+            syntax-static)
+              python3 -m py_compile qualification/integration_contract/*.py
+              python3 - "$GITHUB_SHA" <<'PY'
+              import sys
+              assert len(sys.argv[1])==40
+              PY
+              ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-integration-evidence-${{ matrix.mode }}
+          path: ${{ runner.temp }}/receipts
+          retention-days: 7
+          if-no-files-found: warn
