@@ -81,7 +81,6 @@ func runBridge(args []string)error{
  vf,e:=os.OpenFile(*out,os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{return e}
  if _,e=vf.Write(data);e!=nil{vf.Close();os.Remove(*out);return e};if e=vf.Close();e!=nil{return e}
  rf,e:=os.OpenFile(*receipt,os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600);if e!=nil{os.Remove(*out);return e}
- if _,e=rf.Write(append(r,'
-'));e!=nil{rf.Close();os.Remove(*receipt);os.Remove(*out);return e};return rf.Close()
+ if _,e=rf.Write(append(r,byte(10)));e!=nil{rf.Close();os.Remove(*receipt);os.Remove(*out);return e};return rf.Close()
 }
 func main(){if err:=runBridge(os.Args[1:]);err!=nil{fmt.Fprintln(os.Stderr,"BVH_VMD_BRIDGE_REJECT:",err);os.Exit(2)}}
