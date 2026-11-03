@@ -1,0 +1,69 @@
+name: R009 independent native encoded H264 obstruction and pixel oracle
+on:
+  pull_request:
+    paths:
+      - 'qualification/visibility72_review/**'
+      - '.github/workflows/r009-real-h264-obstruction.yml'
+permissions:
+  contents: read
+jobs:
+  source-and-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Preflight original authored fixture
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/visibility72/observe_pixels.py qualification/shadow_park/*.py
+          mkdir -p "$RUNNER_TEMP/vis"
+          python3 qualification/shadow_park/produce.py --out "$RUNNER_TEMP/vis/trace.json"
+          python3 qualification/shadow_park/review.py --input "$RUNNER_TEMP/vis/trace.json" --fault baseline --out "$RUNNER_TEMP/vis/source-review.json"
+      - name: Reproduce native public-synthetic clean two-view clips
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/shadow_park/render_native.py -- "$RUNNER_TEMP/vis/trace.json" "$RUNNER_TEMP/vis/native"
+          for cam in front oblique; do
+            ffmpeg -hide_banner -loglevel error -y -framerate 12 -i "$RUNNER_TEMP/vis/native/$cam/frame_%03d.png" -c:v libx264 -crf 24 -pix_fmt yuv420p "$RUNNER_TEMP/vis/$cam.mp4"
+          done
+      - name: Independent full-frame pixel baseline and injected negatives
+        run: |
+          set -euo pipefail
+          base=(--trace "$RUNNER_TEMP/vis/trace.json" --front "$RUNNER_TEMP/vis/front.mp4" --oblique "$RUNNER_TEMP/vis/oblique.mp4")
+          python3 qualification/visibility72/observe_pixels.py "${base[@]}" --fault baseline --out "$RUNNER_TEMP/vis/pixel-receipt.json"
+          for fault in occlude alias_camera short_clock; do
+            if python3 qualification/visibility72/observe_pixels.py "${base[@]}" --fault "$fault" --out "$RUNNER_TEMP/vis/REJECT_$fault.json"; then
+              echo "FIRST_RED_FALSE_ACCEPT_$fault"; exit 4
+            fi
+          done
+      - name: Original H264 re-encode with real frame36 torso blackout and strictly identified rejection
+        run: |
+          set -euo pipefail
+          bash qualification/visibility72_review/alter_video.sh "$RUNNER_TEMP/vis/oblique.mp4" "$RUNNER_TEMP/vis/oblique-mutant.mp4" "$RUNNER_TEMP/vis/trace.json"
+          base=(--trace "$RUNNER_TEMP/vis/trace.json" --front "$RUNNER_TEMP/vis/front.mp4" --oblique "$RUNNER_TEMP/vis/oblique-mutant.mp4")
+          if python3 qualification/visibility72/observe_pixels.py "${base[@]}" --fault baseline --out "$RUNNER_TEMP/vis/REJECT_real_h264.json" 2>"$RUNNER_TEMP/vis/real-obstruction-first-red.txt"; then
+            echo "REAL_H264_PIXEL_MUTANT_WRONGLY_ACCEPTED"; exit 4
+          fi
+          grep -F "VISUAL_OCCLUSION_OR_ACTOR_DROPOUT:oblique/MarigoldOriginal" "$RUNNER_TEMP/vis/real-obstruction-first-red.txt"
+          sha256sum "$RUNNER_TEMP/vis/oblique.mp4" "$RUNNER_TEMP/vis/oblique-mutant.mp4" > "$RUNNER_TEMP/vis/pixel-mutant-shas.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-encoded-h264-obstruction-native-evidence
+          path: |
+            ${{ runner.temp }}/vis/pixel-receipt.json
+            ${{ runner.temp }}/vis/source-review.json
+            ${{ runner.temp }}/vis/native/native_receipt.json
+            ${{ runner.temp }}/vis/real-obstruction-first-red.txt
+            ${{ runner.temp }}/vis/pixel-mutant-shas.txt
+            ${{ runner.temp }}/vis/oblique-mutant.mp4
+          retention-days: 7
+          if-no-files-found: warn
