@@ -59,6 +59,7 @@ func produce(args []string) error {
 	if math.Abs(dt-1./60.)>1e-12{return failClass(errors.New("UNADMITTED_SOURCE_CLOCK"))}
 	if *fault=="alias"{m.Joints[1].Name="L_Ankle"}
 	if *fault=="short_source"{m.Frames=m.Frames[:2]}
+	if len(m.Frames)!=3{return failClass(errors.New("UNSUPPORTED_SOURCE_FRAME_BUDGET"))}
 		// Deliberately modify only originally authored in-memory SOURCE frame2:
 	// Z90/X90/Y0 -> synthetic noncommutative quaternion [0.5,0.5,0.5,0.5].
 	// Never pretend this derived test is the immutable A fixture itself.
