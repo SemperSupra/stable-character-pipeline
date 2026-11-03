@@ -25,14 +25,16 @@ sys.path.insert(0,str(tmp));sys.path.insert(0,str(root.resolve()))
 from mmd_tools.core.vmd.importer import VMDImporter
 from mmd_tools.core import vmd
 motion=vmd.File();motion.load(filepath=str(file.resolve()))
-names=("Hips","Knee","Foot")
+names=("Center","L_Ankle","R_Ankle")
+if r.get("synthetic_target_aliases")!={"Hips":"Center","Knee":"L_Ankle","Foot":"R_Ankle"} or r.get("hierarchy_semantics")!="LOST_WORLD_TRANSLATION_ONLY_NOT_HUMAN_RETARGETING":
+ raise RuntimeError("UNDECLARED_TARGET_BONE_ALIAS_OR_HIERARCHY_LOSS")
 if set(motion.boneAnimation)!=set(names) or any(len(motion.boneAnimation[n])!=2 for n in names):
     raise RuntimeError("UPSTREAM_VMD_NAMES_OR_CLOCK_DISAGREE")
 bpy.ops.object.select_all(action="SELECT");bpy.ops.object.delete(use_global=False)
 armdata=bpy.data.armatures.new("OriginalBVH3");arm=bpy.data.objects.new("OriginalBVH3",armdata)
 bpy.context.scene.collection.objects.link(arm);bpy.context.view_layer.objects.active=arm;arm.select_set(True)
 bpy.ops.object.mode_set(mode="EDIT")
-for name,head,tail in [("Hips",(0,0,.4),(0,0,.8)),("Knee",(0,0,0),(0,0,.3)),("Foot",(0,-.4,0),(0,-.2,0))]:
+for name,head,tail in [("Center",(0,0,.4),(0,0,.8)),("L_Ankle",(-.3,0,-.2),(-.3,0,0)),("R_Ankle",(.3,0,-.2),(.3,0,0))]:
     b=armdata.edit_bones.new(name);b.head=head;b.tail=tail
 bpy.ops.object.mode_set(mode="OBJECT")
 for pb in arm.pose.bones:pb.rotation_mode="QUATERNION"
@@ -67,7 +69,7 @@ result={"schema":"scp.r009.original-bvh-vmd-native-bpy.v1",
 "mmd_tools_commit":"f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14",
 "blender":bpy.app.version_string,"frames":[0,1],
 "bpy_bone_displacement":deltas,"actual_skinned_mesh_displacement":skin,
-"lost_source_frame":"1_of_3_dropped_explicitly","axis_handness_physical_mapping":"UNQUALIFIED",
+"lost_source_frame":"1_of_3_dropped_explicitly","target_bone_aliases":r["synthetic_target_aliases"],"retarget_semantics":r["hierarchy_semantics"],"axis_handness_physical_mapping":"UNQUALIFIED",
 "actual_human_capture":"NOT_ADMITTED","human_JCS_ROM":"UNKNOWN","private_R009":"HELD_NOT_ACCEPTED"}
 with out.open("x") as f:json.dump(result,f,sort_keys=True,indent=2);f.write("\n")
 print(json.dumps(result,sort_keys=True))
