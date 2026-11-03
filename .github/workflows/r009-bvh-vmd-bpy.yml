@@ -1,0 +1,83 @@
+name: R009 original-synthetic BVH to qualified VMD to native Blender bridge
+on:
+  pull_request:
+    paths:
+      - 'qualification/bvh_vmd_bridge/**'
+      - '.github/workflows/r009-bvh-vmd-bpy.yml'
+permissions:
+  contents: read
+jobs:
+  actual-crosswalk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Exact immutable original BVH #249 and original corrected VMD #250
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/bvh_vmd_bridge/native_crosswalk.py
+          git fetch --no-tags --depth=1 origin qualification/bvh-source-authored-paired-20261102
+          test "$(git rev-parse FETCH_HEAD)" = e2184d09d3a35e8359c34810c53d74af83ccea86
+          mkdir -p "$RUNNER_TEMP/bvh"
+          git archive FETCH_HEAD mmd/qualification/bvh_contract | tar -x -C "$RUNNER_TEMP/bvh"
+          mkdir -p "$RUNNER_TEMP/bvh/mmd/qualification/bvh_contract/cmd/crosswalk"
+          cp qualification/bvh_vmd_bridge/export_main.go "$RUNNER_TEMP/bvh/mmd/qualification/bvh_contract/cmd/crosswalk/main.go"
+          cd "$RUNNER_TEMP/bvh/mmd/qualification/bvh_contract"
+          go test -count=1 ./...
+          go run ./cmd/crosswalk --source examples/original-synthetic-A.bvh --out "$RUNNER_TEMP/original-bvh-fk.json"
+      - name: Reuse exact corrected VMD producer and independent structural parser
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vmd-bridge"
+          python3 - "$GITHUB_WORKSPACE/mmd/qualification/portable_vmd_v1/main.go" "$RUNNER_TEMP/vmd-bridge/serializer.go" <<'PY'
+          import pathlib,sys
+          data=pathlib.Path(sys.argv[1]).read_text()
+          assert data.count("func main(){")==1
+          pathlib.Path(sys.argv[2]).write_text(data.replace("func main(){","func qualifiedSerializerMain(){",1))
+          PY
+          cp qualification/bvh_vmd_bridge/bridge_vmd.go "$RUNNER_TEMP/vmd-bridge/bridge.go"
+          (cd "$RUNNER_TEMP/vmd-bridge"; go run serializer.go bridge.go -fk "$RUNNER_TEMP/original-bvh-fk.json" -out "$RUNNER_TEMP/bvh-derived.vmd" -receipt "$RUNNER_TEMP/crosswalk.json")
+          for fault in wrong_units wrong_clock forged_source short_source joint_alias; do
+            if (cd "$RUNNER_TEMP/vmd-bridge"; go run serializer.go bridge.go -fk "$RUNNER_TEMP/original-bvh-fk.json" -out "$RUNNER_TEMP/FAULT-$fault.vmd" -receipt "$RUNNER_TEMP/FAULT-$fault.json" -fault "$fault"); then
+              echo "SOURCE_CLOCK_AXIS_CUSTODY_FALSE_ACCEPT_$fault"; exit 4
+            fi
+          done
+          python3 - "$RUNNER_TEMP/crosswalk.json" "$RUNNER_TEMP/bvh-derived.vmd" <<'PY'
+          import sys,json,hashlib,pathlib
+          r=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert hashlib.sha256(pathlib.Path(sys.argv[2]).read_bytes()).hexdigest()==r["vmd_sha256"]
+          assert r["source_frame_1"]=="DROPPED_30FPS_RESAMPLE"
+          assert r["private_R009"]=="HELD_NOT_ACCEPTED"
+          PY
+      - name: Pin original upstream MMD Tools and official Blender, no private inputs
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth=1 --branch v4.5.14 https://github.com/MMD-Blender/blender_mmd_tools.git "$RUNNER_TEMP/mmd-tools"
+          test "$(git -C "$RUNNER_TEMP/mmd-tools" rev-parse HEAD)" = f1d8a98db5e185cfa73c9b8a8a67fa42d9eb4b14
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Actual native VMDImporter.assign to synthetic 3D bpy + skin
+        run: |
+          set -euo pipefail
+          LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b -noaudio --factory-startup --python-exit-code 8 --python qualification/bvh_vmd_bridge/native_crosswalk.py -- "$RUNNER_TEMP/bvh-derived.vmd" "$RUNNER_TEMP/mmd-tools" "$RUNNER_TEMP/crosswalk.json" "$RUNNER_TEMP/native-bridge.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-public-synthetic-bvh-vmd-bpy-bridge-evidence
+          path: |
+            ${{ runner.temp }}/original-bvh-fk.json
+            ${{ runner.temp }}/crosswalk.json
+            ${{ runner.temp }}/native-bridge.json
+            ${{ runner.temp }}/bvh-derived.vmd
+          retention-days: 7
+          if-no-files-found: warn
