@@ -1,0 +1,119 @@
+name: R009 MIT gait V2 native 72f two-camera corrective candidate
+on:
+  pull_request:
+    paths:
+      - 'qualification/rocketbox_material/**'
+      - 'qualification/rocketbox_park/**'
+      - 'qualification/rocketbox_gait_v2/**'
+      - '.github/workflows/r009-mit-original-textured-park-72f.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-native-mit-textured-park:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Source-only material classification adversarial controls
+        run: |
+          set -euo pipefail
+          cd qualification/rocketbox_material
+          python3 -m unittest -v test_native_material_uv
+      - name: New original park anti-occlusion scene source tests
+        run: |
+          set -euo pipefail
+          cd qualification/rocketbox_park
+          python3 -m unittest -v test_park_72f
+      - name: Independent distance-phased 72-frame gait source controls
+        run: |
+          set -euo pipefail
+          cd qualification/rocketbox_gait_v2
+          python3 -m unittest -v test_gait_v2
+      - name: Retrieve exact original 80-bone animated Blender artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mit-original"
+          curl -fLsS --retry 2 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/SemperSupra/stable-character-pipeline/actions/artifacts/13305643308/zip \
+            -o "$RUNNER_TEMP/mit-source.zip"
+          echo '2bbf1036744e4fcd614cd207bc9e9eb2147b943f59c53d9de7dff1b324320204  '"$RUNNER_TEMP/mit-source.zip" | sha256sum -c -
+          unzip -t "$RUNNER_TEMP/mit-source.zip"
+          unzip -q "$RUNNER_TEMP/mit-source.zip" -d "$RUNNER_TEMP/mit-original"
+          echo '2e5c5fcc826c95d200b06cc2dcd22138944102426a86f1f683689ae458aff7ab  '"$RUNNER_TEMP/mit-original/motion/mit_rocketbox_walk_candidate.blend" | sha256sum -c -
+      - name: Rehydrate four official MIT original source color TGAs
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/mit-original-colors"
+          mkdir -p "$D"
+          SRC=https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/0943055db6ec570bcef9f2c8b41c9e5467c808f9
+          curl -fLsS --retry 2 "$SRC/LICENSE.md" -o "$D/LICENSE.md"
+          grep -F 'MIT License' "$D/LICENSE.md"
+          grep -F 'Copyright (c) 2020 Microsoft' "$D/LICENSE.md"
+          for spec in \
+            '01 f001_body_color.tga 12582956 25852db0db1f44a0de0643ce1e09c88aef587e6f' \
+            '01 f001_head_color.tga 12582956 0cdc62ab47da3dca01aff0bb179159865a559c63' \
+            '01 f001_opacity_color.tga 16777260 de21a9e69c88e539da6a5050eaceadd026e99b62' \
+            '02 f002_body_color.tga 12582956 5eb8ee83281a7526544a80ddf9804507670eb049' \
+            '02 f002_head_color.tga 12582956 8f59bb553f24d3581de68bcf4683695c014bcc0f' \
+            '02 f002_opacity_color.tga 4194348 3d930c42ed476ab3f58548e5ee33e10ea9f02a27'; do
+            read -r ID NAME SIZE BLOB <<< "$spec"
+            curl -fLsS --retry 2 "$SRC/Assets/Avatars/Adults/Female_Adult_$ID/Textures/$NAME" -o "$D/$NAME"
+            test "$(stat -c%s "$D/$NAME")" = "$SIZE"
+            test "$(git hash-object "$D/$NAME")" = "$BLOB"
+          done
+      - name: Install SHA-verified Blender 4.5.15 for CPU Cycles render
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth ffmpeg libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl -fLsS --retry 2 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl -fLsS --retry 2 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Render actual 72-frame original MIT skinned two-actor park in two camera views
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mit-park"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/rocketbox_gait_v2/gait_v2.py \
+            -- "$RUNNER_TEMP/mit-original/motion/mit_rocketbox_walk_candidate.blend" "$RUNNER_TEMP/mit-original-colors" "$RUNNER_TEMP/mit-park"
+          mkdir -p artifacts
+          python3 - "$RUNNER_TEMP/mit-park" <<'PY'
+          import json,hashlib,sys,pathlib,shutil
+          p=pathlib.Path(sys.argv[1])
+          d=json.loads((p/"park_render_receipt.json").read_text())
+          assert d["schema"]=="scp.r009.mit_original_gait_v2_park72.v1"
+          assert d["source_blend_sha256"]=="2e5c5fcc826c95d200b06cc2dcd22138944102426a86f1f683689ae458aff7ab"
+          assert d["frames"]==72 and d["fps"]==12
+          assert set(d["views"])=={"front","oblique"}
+          assert d["product_accepted"] is False and d["true_foot_contact"]=="UNKNOWN"
+          for view in ("front","oblique"):
+            r=d["views"][view]
+            assert r["native_frame_count"]==72 and len(r["all72_native_png_hashes"])==72
+            for frame,digest in enumerate(r["all72_native_png_hashes"]):
+              raw=(p/view/f"frame_{frame:03d}.png").read_bytes()
+              assert hashlib.sha256(raw).hexdigest()==digest,(view,frame)
+            for frame in (0,36,71):
+              shutil.copy2(p/view/f"frame_{frame:03d}.png",pathlib.Path("artifacts")/f"{view}_{frame:03d}.png")
+          shutil.copy2(p/"park_render_receipt.json","artifacts/park_render_receipt.json")
+          shutil.copy2(p/"source-material-preflight/native_material_uv_receipt.json","artifacts/mit_original_material_uv_receipt.json")
+          PY
+          for view in front oblique; do
+            ffmpeg -hide_banner -loglevel error -framerate 12 -i "$RUNNER_TEMP/mit-park/$view/frame_%03d.png" -c:v libx264 -crf 24 -pix_fmt yuv420p "artifacts/$view.mp4"
+            test "$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "artifacts/$view.mp4")" = 72
+          done
+          sha256sum artifacts/*.mp4 > artifacts/videos_sha256.txt
+          echo 'ORIGINAL_MIT_GAIT_V2_72F_X_TWO_CAMERA_NATIVE_SOURCE_CANDIDATE / BIOLOGICAL_CONTACT_UNKNOWN / PRODUCT_NOT_ACCEPTED'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-mit-gait-v2-textured-park-72f-two-camera
+          path: artifacts/
+          retention-days: 7
+          if-no-files-found: warn
