@@ -32,6 +32,11 @@ jobs:
           echo '2bbf1036744e4fcd614cd207bc9e9eb2147b943f59c53d9de7dff1b324320204  '"$RUNNER_TEMP/source.zip" | sha256sum -c -
           unzip -t "$RUNNER_TEMP/source.zip"
           unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/rocketbox-evidence"
+      - name: Install FFprobe for independent H264 clock verification
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Audit actual receipt and immutable two-camera H264
         run: |
           set -euo pipefail
