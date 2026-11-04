@@ -47,7 +47,7 @@ def observe_actor(root, frame, ground_z, deps):
     if len(arm.data.bones) != 80:
         fail("NATIVE_BONE_COUNT_NOT_80:" + root.name)
     skins = [o for o in bpy.data.objects if o.type == "MESH" and
-             any(m.type == "ARMATURE" and m.object is arm for m in o.modifiers)]
+             any(m.type == "ARMATURE" and m.object == arm for m in o.modifiers)]
     if len(skins) != 1:
         fail("UNIQUE_NATIVE_SKIN_REQUIRED:" + root.name)
     ev_arm = arm.evaluated_get(deps)
