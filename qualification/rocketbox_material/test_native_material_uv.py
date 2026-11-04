@@ -76,5 +76,30 @@ class OriginalMaterialTest(unittest.TestCase):
         self.assertTrue(SCHEMA.endswith(".v1"))
 
 
+    def test_original_fbx_parent_directory_opacity_does_not_label_body(self):
+        self.assertEqual(classify_source_material(
+            "f001_body",
+            ["//../rocket/D:/temp/Humans/with_opacity_version/f001/textures/f001_body_color.tga"]
+        ), "body")
+
+    def test_original_fbx_parent_directory_opacity_does_not_label_head(self):
+        self.assertEqual(classify_source_material(
+            "f001_head",
+            ["//../rocket/D:/temp/Humans/with_opacity_version/f001/textures/f001_head_color.tga"]
+        ), "head")
+
+    def test_original_material_and_image_basename_conflict_rejected(self):
+        self.assertEqual(classify_source_material(
+            "f001_body",
+            ["//../rocket/D:/temp/Humans/with_opacity_version/f001/textures/f001_head_color.tga"]
+        ), "UNKNOWN")
+
+    def test_windows_path_basename_normalized(self):
+        self.assertEqual(classify_source_material(
+            "f002_body",
+            ["D:\\Humans\\with_opacity_version\\f002\\textures\\f002_body_color.tga"]
+        ), "body")
+
+
 if __name__ == "__main__":
     unittest.main()
