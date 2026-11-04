@@ -1,0 +1,66 @@
+name: R009 independent frozen MIT 80-bone all72 native foot and skin witness
+on:
+  pull_request:
+    paths:
+      - 'qualification/rocketbox_contact/**'
+      - '.github/workflows/r009-rocketbox-contact-falsification.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  real-native-72f-foot-observer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run source-original all72 negative controls offline
+        run: |
+          set -euo pipefail
+          cd qualification/rocketbox_contact
+          python3 -m unittest -v test_validate_receipt
+          python3 -m py_compile observe_blender.py validate_receipt.py
+      - name: Rehydrate immutable native source blend from existing GHA, not source rerender
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/frozen"
+          curl --fail --location --retry 2 --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/SemperSupra/stable-character-pipeline/actions/artifacts/13305643308/zip \
+            -o "$RUNNER_TEMP/original_mit.zip"
+          echo '2bbf1036744e4fcd614cd207bc9e9eb2147b943f59c53d9de7dff1b324320204  '"$RUNNER_TEMP/original_mit.zip" | sha256sum -c -
+          unzip -t "$RUNNER_TEMP/original_mit.zip"
+          unzip -q "$RUNNER_TEMP/original_mit.zip" -d "$RUNNER_TEMP/frozen"
+          echo '2e5c5fcc826c95d200b06cc2dcd22138944102426a86f1f683689ae458aff7ab  '"$RUNNER_TEMP/frozen/motion/mit_rocketbox_walk_candidate.blend" | sha256sum -c -
+      - name: SHA-verifiable official Blender 4.5.15 CPU install
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 2 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 2 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP";grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Observe every native frame and independently verify receipt
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/witness"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/rocketbox_contact/observe_blender.py \
+            -- "$RUNNER_TEMP/frozen/motion/mit_rocketbox_walk_candidate.blend" "$RUNNER_TEMP/witness"
+          python3 qualification/rocketbox_contact/validate_receipt.py \
+            "$RUNNER_TEMP/witness/native_all72_foot_proxy_receipt.json" \
+            --out "$RUNNER_TEMP/witness/independent_witness.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-mit-all72-native-foot-proxy-no-contact-admission
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/witness/native_all72_foot_proxy_receipt.json
+            ${{ runner.temp }}/witness/independent_witness.json
