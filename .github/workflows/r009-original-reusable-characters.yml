@@ -1,0 +1,59 @@
+name: Original reusable characters — headless 72-frame Blender and video
+on:
+  pull_request:
+    paths:
+      - 'qualification/original_reusable_characters/**'
+      - '.github/workflows/r009-original-reusable-characters.yml'
+permissions:
+  contents: read
+jobs:
+  generate-validate-render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Original source-only negative controls
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 -m unittest -v test_original_glb
+          python3 generate_original_glb.py --out "$RUNNER_TEMP/original.glb" --receipt "$RUNNER_TEMP/source_receipt.json"
+          python3 verify_original_glb.py --input "$RUNNER_TEMP/original.glb" --receipt "$RUNNER_TEMP/independent_receipt.json"
+      - name: Install SHA-verified official Blender and FFmpeg
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Native editable Blender import and 72-frame two-camera render
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum "$RUNNER_TEMP/original.glb" | cut -d' ' -f1)"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/original_reusable_characters/render_blender.py \
+            -- "$RUNNER_TEMP/original.glb" "$RUNNER_TEMP/render" "$sha"
+          for view in front oblique; do
+            ffmpeg -hide_banner -loglevel error -framerate 12 -i "$RUNNER_TEMP/render/$view/frame_%03d.png" \
+              -c:v libx264 -crf 23 -pix_fmt yuv420p "$RUNNER_TEMP/render/$view.mp4"
+            test "$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/render/$view.mp4")" = 72
+          done
+          sha256sum "$RUNNER_TEMP/render/"*.mp4 > "$RUNNER_TEMP/render/video-sha256.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: original-reusable-figures-blender-two-view-technical-only
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/source_receipt.json
+            ${{ runner.temp }}/independent_receipt.json
+            ${{ runner.temp }}/render/native_receipt.json
+            ${{ runner.temp }}/render/video-sha256.txt
+            ${{ runner.temp }}/render/*.mp4
+            ${{ runner.temp }}/render/*.blend
