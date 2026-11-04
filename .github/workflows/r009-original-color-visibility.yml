@@ -1,0 +1,65 @@
+name: R009 independent 72f original-only two-camera occlusion RED-to-BLUE
+on:
+  pull_request:
+    paths:
+      - 'qualification/original_reusable_characters/visibility_guard*.go'
+      - '.github/workflows/r009-original-color-visibility.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  full-72-h264-red-blue:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Five source-only adversarial witness tests
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          GO111MODULE=off go test -v visibility_guard.go visibility_guard_test.go
+      - name: Install native decoder
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg unzip
+      - name: Fetch frozen original RED and exact corrected BLUE without source rerenders
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for label in before after; do
+            if [ "$label" = before ]; then
+              id=13305840215
+              digest=f67e683a505b65a29ccaa0479bc72f0274242d2a9374ec536d16253955fe864e
+            else
+              id=13338275423
+              digest=9a90ed7a8e8a3552e88aac4de3ecc05f532ca3ff6fdb671fde0cf7a77c5340c4
+            fi
+            mkdir -p "$RUNNER_TEMP/$label"
+            curl --fail --location --retry 2 --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/SemperSupra/stable-character-pipeline/actions/artifacts/$id/zip" \
+              -o "$RUNNER_TEMP/$label.zip"
+            printf '%s  %s\n' "$digest" "$RUNNER_TEMP/$label.zip" | sha256sum -c -
+            unzip -t "$RUNNER_TEMP/$label.zip"
+            unzip -q "$RUNNER_TEMP/$label.zip" -d "$RUNNER_TEMP/$label"
+          done
+      - name: Decode actual four H264 videos all 72 frames and falsify color occlusion
+        run: |
+          set -euo pipefail
+          GO111MODULE=off go run qualification/original_reusable_characters/visibility_guard.go \
+            --before-front "$RUNNER_TEMP/before/render/front.mp4" \
+            --before-oblique "$RUNNER_TEMP/before/render/oblique.mp4" \
+            --after-front "$RUNNER_TEMP/after/render/front.mp4" \
+            --after-oblique "$RUNNER_TEMP/after/render/oblique.mp4" \
+            --out "$RUNNER_TEMP/independent_72f_visibility_receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-only-all72-visibility-source-frozen
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/independent_72f_visibility_receipt.json
