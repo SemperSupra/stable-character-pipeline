@@ -103,3 +103,46 @@ class BoundedNativeStanceJacobianSourceTests(unittest.TestCase):
         for J in (((1.,),),((1.,2.),),((1.,2.),(3.,4.),(5.,6.))):
             with self.assertRaisesRegex(ValueError,"BAD_STANCE_JACOBIAN"):
                 damped_joint_update(J,(.1,.1))
+
+
+class SourceStanceReleaseAndAbstainTests(unittest.TestCase):
+    def test_low_moving_stance_is_bounded_by_time(self):
+        from gait_v5 import next_tentative_stance,STANCE_MAX_AGE
+        s={"side":None,"anchor_x":None,"entered":None,"cooldown":{"L":-1,"R":-1}}
+        base={"L":(-2.0,.01),"R":(-2.2,.04)}
+        out=[]
+        for frame in range(15):
+            chosen,s,_=next_tentative_stance(frame,base,s,0.)
+            out.append(chosen)
+        self.assertEqual(out[:STANCE_MAX_AGE+1],["L"]*(STANCE_MAX_AGE+1))
+        self.assertIn(None,out)
+
+    def test_reject_large_x_drift_and_force_swing_abstention(self):
+        from gait_v5 import next_tentative_stance
+        state={"side":"L","anchor_x":-2.0,"entered":0,
+               "cooldown":{"L":-1,"R":-1}}
+        chosen,next_state,reason=next_tentative_stance(
+            3,{"L":(-1.7,.01),"R":(-1.6,.10)},state,0.)
+        self.assertIsNone(chosen)
+        self.assertEqual(reason,"SWING_ABSTAIN_DRIFT")
+        self.assertGreater(next_state["cooldown"]["L"],3)
+
+    def test_ineligible_raised_feet_do_not_get_stance(self):
+        from gait_v5 import next_tentative_stance
+        state={"side":None,"anchor_x":None,"entered":None,
+               "cooldown":{"L":-1,"R":-1}}
+        c,_,reason=next_tentative_stance(
+            9,{"L":(0.,.1),"R":(0.,.09)},state,0.)
+        self.assertIsNone(c)
+        self.assertIn("SWING_ABSTAIN",reason)
+
+    def test_nan_and_wrong_state_fails_closed(self):
+        from gait_v5 import next_tentative_stance
+        state={"side":None,"anchor_x":None,"entered":None,
+               "cooldown":{"L":-1,"R":-1}}
+        for bad in (float("nan"),float("inf")):
+            with self.assertRaisesRegex(ValueError,"V5B_NONFINITE"):
+                next_tentative_stance(
+                    9,{"L":(bad,0.),"R":(0.,0.)},state,0.)
+        with self.assertRaisesRegex(ValueError,"V5B_INVALID_CLOCK"):
+            next_tentative_stance(True,{"L":(0.,0.),"R":(0.,0.)},state,0.)
