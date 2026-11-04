@@ -27,9 +27,9 @@ func TestRejectTruncatedPixelPayload(t *testing.T){b:=fixture();b=b[:len(b)-4];i
 func TestRejectForgeryFooter(t *testing.T){b:=fixture();b[len(b)-3]^=1;if _,e:=parseTGA(b);e==nil{t.Fatal("fake footer accepted")}}
 func TestRejectUnknownImageID(t *testing.T){b:=fixture();b[0]=1;if _,e:=parseTGA(b);e==nil{t.Fatal("image id accepted")}}
 func TestPinnedGitBlobDigestNotPlainSHA(t *testing.T){
- a:=[]byte("ABC");if gitBlobSHA(a)!="48b83b862c5a3f2dcf7bd924fe97cd1e2d3b4b62"{
-  // Independent canonical Git SHA is additionally confirmed with git hash-object in workflow.
-  t.Log("Git object digest is computed with blob length prefix")
+ a:=[]byte("ABC")
+ if got:=gitBlobSHA(a);got!="48b83b862ebc57bd3f7c34ed47262f4b402935af"{
+  t.Fatalf("Git blob digest differs from independent git hash-object: %s",got)
  }
  if bytes.Equal([]byte(gitBlobSHA(a)),a){t.Fatal("blob digest not hash")}
 }
