@@ -1,0 +1,50 @@
+name: R009 independent immutable MIT native artifact audit
+on:
+  pull_request:
+    paths:
+      - 'qualification/rocketbox_audit/**'
+      - '.github/workflows/r009-rocketbox-independent-audit.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  immutable-source-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Original synthetic hostile controls
+        run: |
+          set -euo pipefail
+          cd qualification/rocketbox_audit
+          python3 -m unittest -v test_audit_receipt
+      - name: Download source-run artifact and reject digest drift
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rocketbox-evidence"
+          curl -fLsS --retry 2 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/SemperSupra/stable-character-pipeline/actions/artifacts/13305643308/zip \
+            -o "$RUNNER_TEMP/source.zip"
+          echo '2bbf1036744e4fcd614cd207bc9e9eb2147b943f59c53d9de7dff1b324320204  '"$RUNNER_TEMP/source.zip" | sha256sum -c -
+          unzip -t "$RUNNER_TEMP/source.zip"
+          unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/rocketbox-evidence"
+      - name: Audit actual receipt and immutable two-camera H264
+        run: |
+          set -euo pipefail
+          receipt="$(find "$RUNNER_TEMP/rocketbox-evidence" -type f -name native_motion_receipt.json -print -quit)"
+          test -n "$receipt"
+          test "$(find "$RUNNER_TEMP/rocketbox-evidence" -type f -name native_motion_receipt.json | wc -l)" -eq 1
+          python3 qualification/rocketbox_audit/audit_receipt.py "$receipt" \
+            --media-dir "$RUNNER_TEMP/rocketbox-evidence" \
+            --out "$RUNNER_TEMP/independent_mit_receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-mit-frozen-independent-source-audit-only
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/independent_mit_receipt.json
