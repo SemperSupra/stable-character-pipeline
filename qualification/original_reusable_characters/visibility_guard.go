@@ -107,8 +107,6 @@ func main(){
  }
  if e:=qualify(rec.Before,rec.After);e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(4)}
  output,e:=json.MarshalIndent(rec,"","  ");if e!=nil{panic(e)}
- output=append(output,'
-');if e=os.WriteFile(*target,output,0600);e!=nil{panic(e)}
- fmt.Printf("%s: ORIGINAL_OBLIQUE=%d/72 CORRECTED_FRONT=%d/72 CORRECTED_OBLIQUE=%d/72; product=false
-",rec.Status,rec.Before["oblique"].BothAbove500,rec.After["front"].BothAbove500,rec.After["oblique"].BothAbove500)
+ output=append(output,'\n');if e=os.WriteFile(*target,output,0600);e!=nil{panic(e)}
+ fmt.Printf("%s: ORIGINAL_OBLIQUE=%d/72 CORRECTED_FRONT=%d/72 CORRECTED_OBLIQUE=%d/72; product=false\n",rec.Status,rec.Before["oblique"].BothAbove500,rec.After["front"].BothAbove500,rec.After["oblique"].BothAbove500)
 }
