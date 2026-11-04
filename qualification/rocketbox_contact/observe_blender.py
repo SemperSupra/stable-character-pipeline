@@ -61,8 +61,9 @@ def observe_actor(root, frame, ground_z, deps):
         bone_tails[name] = coords(ev_arm.matrix_world @ bone.tail)
     ev_mesh = skins[0].evaluated_get(deps)
     evaluated = ev_mesh.to_mesh()
+    vertex_count = len(evaluated.vertices) if evaluated else 0
     try:
-        if not evaluated or len(evaluated.vertices) < 1000:
+        if vertex_count < 1000:
             fail("NATIVE_MESH_VERTICES_MISSING:" + root.name)
         zmin = float("inf")
         for vertex in evaluated.vertices:
@@ -96,7 +97,7 @@ def observe_actor(root, frame, ground_z, deps):
         "evaluated_mesh_min_z_m": zmin,
         "evaluated_mesh_min_clearance_m": zmin - ground_z,
         "feet": feet,
-        "sampled_native_mesh_vertices": len(evaluated.vertices),
+        "sampled_native_mesh_vertices": vertex_count,
     }
 
 def main(source, outdir):
