@@ -25,6 +25,8 @@ def main(argv):
     scene.render.resolution_x=640;scene.render.resolution_y=360;scene.render.resolution_percentage=100
     scene.render.image_settings.file_format='PNG';scene.render.film_transparent=False
     scene.render.engine='BLENDER_WORKBENCH';scene.display.shading.light='STUDIO';scene.display.shading.color_type='MATERIAL'
+    if scene.world is None:
+        scene.world=bpy.data.worlds.new('OriginalSyntheticParkWorld')
     scene.world.color=(.18,.23,.19)
     # Original world environment built in Blender; no external image assets.
     def material(n,color):
