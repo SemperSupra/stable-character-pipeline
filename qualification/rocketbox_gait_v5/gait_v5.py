@@ -137,6 +137,55 @@ def damped_joint_update(jacobian, error, damping=.035, limit=.09):
     return tuple(max(-limit,min(limit,v)) for v in (o0,o1))
 
 
+STANCE_MAX_AGE = 6           # bounded producer proxy window; not gait-physics certification
+STANCE_MAX_UNCORRECTED_X = .085
+STANCE_REJECT_FINAL_X = .11
+STANCE_JOINT_LIMIT_RAD = .20
+
+
+def next_tentative_stance(frame, baseline, state, path_top):
+    """Pure conservative support heuristic: release aged/drifting proxy, enter abstention.
+
+    A per-foot release cooldown blocks immediately relocking the same swing foot.
+    No force plate or body-specific anatomical stance inference is claimed.
+    """
+    if type(frame) is not int or not 0 <= frame < FRAMES or not math.isfinite(path_top):
+        raise ValueError("V5B_INVALID_CLOCK_OR_GROUND")
+    if set(baseline) != {"L", "R"} or set(state) != {"side","anchor_x","entered","cooldown"}:
+        raise ValueError("V5B_STANCE_STATE_SCHEMA")
+    for side in ("L","R"):
+        v=baseline[side]
+        if len(v)!=2 or any(not math.isfinite(x) for x in v):
+            raise ValueError("V5B_NONFINITE_STANCE_BASELINE")
+    cd=state["cooldown"]
+    if set(cd)!={"L","R"} or any(type(cd[s]) is not int for s in ("L","R")):
+        raise ValueError("V5B_COOLDOWN_SCHEMA")
+    previous=state["side"]
+    if previous not in (None,"L","R"):
+        raise ValueError("V5B_STANCE_SIDE_UNKNOWN")
+    if previous is not None:
+        if (state["anchor_x"] is None or state["entered"] is None or
+            not math.isfinite(state["anchor_x"]) or
+            type(state["entered"]) is not int or frame<state["entered"]):
+            raise ValueError("V5B_BAD_ANCHOR_STATE")
+        age=frame-state["entered"]
+        drift=abs(baseline[previous][0]-state["anchor_x"])
+        close=baseline[previous][1]<=path_top+.05
+        if age<=STANCE_MAX_AGE and drift<=STANCE_MAX_UNCORRECTED_X and close:
+            return previous,state,"RETAINED"
+        cd={**cd,previous:frame+3}
+        release="AGE" if age>STANCE_MAX_AGE else "DRIFT" if drift>STANCE_MAX_UNCORRECTED_X else "HEIGHT"
+    else:
+        release="NONE"
+    eligible=[s for s in ("L","R") if baseline[s][1]<=path_top+.05 and frame>=cd[s]]
+    chosen=min(eligible,key=lambda s:baseline[s][1]) if eligible else None
+    newstate={"side":chosen,
+              "anchor_x":baseline[chosen][0] if chosen else None,
+              "entered":frame if chosen else None,
+              "cooldown":cd}
+    return chosen,newstate,("ENTERED_AFTER_"+release if chosen else "SWING_ABSTAIN_"+release)
+
+
 def apply_native_stance_jacobian(bpy, actors):
     """Author-candidate per-frame local Z thigh/calf correction from source skin.
 
@@ -185,26 +234,22 @@ def apply_native_stance_jacobian(bpy, actors):
                          {s:len(ids) for s,ids in weights[root.name][1].items()},
                          "source_measured_only_not_independent":True}
              for root,_ in actors}
-    state={root.name:{"side":None,"anchor_x":None} for root,_ in actors}
+    state={root.name:{"side":None,"anchor_x":None,"entered":None,
+                      "cooldown":{"L":-1,"R":-1}} for root,_ in actors}
     for frame in range(FRAMES):
         bpy.context.scene.frame_set(frame)
         for root,arm in actors:
             ob,sides=weights[root.name]
             baseline={s:sole(ob,ids) for s,ids in sides.items()}
-            eligible=[s for s in ("L","R") if baseline[s][1]<=path_top+.05]
-            current=state[root.name]["side"]
-            if current in eligible and (len(eligible)==1 or
-                    baseline[current][1]<=min(baseline[s][1] for s in eligible)+.025):
-                chosen=current
-            else:
-                chosen=min(eligible,key=lambda s:baseline[s][1]) if eligible else None
+            chosen,newstate,decision=next_tentative_stance(frame,baseline,
+                                                          state[root.name],path_top)
+            state[root.name]=newstate
             if chosen is None:
-                state[root.name]={"side":None,"anchor_x":None}
-                results[root.name]["frames"].append({"frame":frame,"selected":"NONE"})
+                results[root.name]["frames"].append({"frame":frame,"selected":"NONE",
+                                                     "decision":decision})
                 continue
-            if chosen!=current:
-                state[root.name]={"side":chosen,"anchor_x":baseline[chosen][0]}
             anchor=state[root.name]["anchor_x"]
+            age=frame-state[root.name]["entered"]
             target_z=min(path_top+.028,max(path_top+.007,baseline[chosen][1]))
             bones=[arm.pose.bones[f"Bip01 {chosen} {part}"] for part in ("Thigh","Calf")]
             originals=[float(b.rotation_euler.z) for b in bones]
@@ -224,16 +269,29 @@ def apply_native_stance_jacobian(bpy, actors):
                 bpy.context.view_layer.update()
                 jac=((jaccols[0][0],jaccols[1][0]),
                      (jaccols[0][1],jaccols[1][1]))
-                deltas=damped_joint_update(jac,err)
+                taper=min(1.,max(0.,(STANCE_MAX_AGE+1-age)/3.))
+                deltas=tuple(taper*x for x in damped_joint_update(jac,err,limit=.065))
                 for bone,original,step in zip(bones,originals,deltas):
-                    bone.rotation_euler.z=max(original-.36,min(original+.36,
+                    bone.rotation_euler.z=max(original-STANCE_JOINT_LIMIT_RAD,min(original+STANCE_JOINT_LIMIT_RAD,
                                            float(bone.rotation_euler.z)+step))
                 bpy.context.view_layer.update();iterations+=1
             post=sole(ob,sides[chosen])
+            rejected=abs(post[0]-anchor)>STANCE_REJECT_FINAL_X
+            if rejected:
+                # Preserve source motion if a near-ground hypothesis cannot be met.
+                for bone,original in zip(bones,originals):
+                    bone.rotation_euler.z=original
+                bpy.context.view_layer.update()
+                post=sole(ob,sides[chosen])
+                state[root.name]["cooldown"][chosen]=frame+3
+                state[root.name]["side"]=None
+                state[root.name]["anchor_x"]=None
+                state[root.name]["entered"]=None
             for bone in bones:
                 bone.keyframe_insert(data_path="rotation_euler",frame=frame,group=bone.name)
             results[root.name]["frames"].append({
-                "frame":frame,"selected":chosen,"producer_iterations":iterations,
+                "frame":frame,"selected":chosen,"decision":decision,
+                "source_proxy_rejected":rejected,"producer_iterations":iterations,
                 "initial_sole_x_m":round(pre[0],6),
                 "initial_min_z_m":round(pre[1],6),
                 "final_sole_x_m":round(post[0],6),
@@ -244,6 +302,10 @@ def apply_native_stance_jacobian(bpy, actors):
                 "local_z_correction_rad":[round(float(b.rotation_euler.z)-orig,6)
                     for b,orig in zip(bones,originals)]})
     return {"source_ground_top_z_m":path_top,
+            "stance_hysteresis_max_age_frames":STANCE_MAX_AGE,
+            "stance_pre_solver_x_admission_m":STANCE_MAX_UNCORRECTED_X,
+            "stance_final_residual_reject_m":STANCE_REJECT_FINAL_X,
+            "stance_joint_limit_rad":STANCE_JOINT_LIMIT_RAD,
             "producer_self_diagnostic_only":True,
             "physical_contact_certified":False,
             "ik_anatomical_certified":False,
@@ -278,7 +340,7 @@ def run(src, tex, output):
     scene.render.film_transparent = False
     scene.camera.data.type = "ORTHO"
     report = {
-        "schema": SCHEMA, "status": "SOURCE_NATIVE_SOURCE_NATIVE_STANCE_JACOBIAN_V5_TWO_VIEW_RESEARCH_CANDIDATE",
+        "schema": SCHEMA, "status": "SOURCE_NATIVE_STANCE_JACOBIAN_V5_TWO_VIEW_RESEARCH_CANDIDATE",
         "source_blend_sha256": SOURCE_BLEND_SHA,
         "source_commit": SOURCE_COMMIT, "source_rights": "MICROSOFT_ROCKETBOX_MIT_WITH_NOTICE",
         "gait_source": "ORIGINAL_NATIVE_MIT_STANCE_JACOBIAN_RESEARCH_CANDIDATE",
