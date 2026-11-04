@@ -15,3 +15,9 @@ Human UI/UX: two camera visual H264 + 6 independent PNG thumbnails and limitatio
 ## Product boundaries
 
 Material/color engineering success does NOT prove human anatomical/physically planted gait, real motion retarget, signed knee JCS/ROM, realistic body deformation, biometric identity, original Naomi/Alison product or CPE release. All remain FAIL/UNKNOWN/NOT_RUN. Producer and rights/trusted runner/owner release/merge/deploy gates separately held. Preserve exact first RED and do not silently substitute source assets.
+
+## 2026-11-04 visual convergence correction — real source-run pending
+
+Independent inspection of six native source frames from verified previous #282 artifact (full-byte Drive verified) showed visibly undersized two-color actors and oversized polygonal tree crowns in both cameras. The corrective patch **retains** the same frozen original 80-bone, six-texture source, roots, timing, motion and source rights. It reduces project-authored tree crowns from 1.17 m to 0.76 m radius and trunks from 2.0 m to 1.45 m, and applies a smooth monotonic two-camera source-authored orthographic 8.4->5.5 scale across all 72 frames. The original f0 wide shot is intentionally unchanged; later source frames enlarge the figures as they approach.
+
+Adversarial camera guards reject boolean/nonintegral/out-of-clock inputs and check exact 72-frame monotonicity. All 72 actual source-authored camera scales per view are in the JSON receipt. These values do NOT constitute frame-pixel visibility, guaranteed no clipping or biological gait acceptance: native revised H264 and independent visual inspection are mandatory before disposition. No restricted media or model inputs added; preserve existing first failures and release holds.

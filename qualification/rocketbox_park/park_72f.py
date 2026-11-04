@@ -17,6 +17,20 @@ from native_material_uv import ACTORS, SOURCE_BLEND_SHA, SOURCE_COMMIT, native_r
 
 FRAMES = 72
 FPS = 12
+# Wide source-establishing shot -> tighter final two-actor composition. This is an
+# authored camera experiment, NOT an anatomical or product acceptance signal.
+CAMERA_WIDE = 8.4
+CAMERA_CLOSE = 5.5
+
+
+def camera_ortho_scale(frame):
+    if type(frame) is not int or not 0 <= frame < FRAMES:
+        raise ValueError("INVALID_CAMERA_FRAME")
+    t = frame / (FRAMES - 1)
+    smooth = t * t * (3.0 - 2.0 * t)
+    return round(CAMERA_WIDE + (CAMERA_CLOSE - CAMERA_WIDE) * smooth, 6)
+
+
 SCHEMA = "scp.r009.original_mit_textured_park72.v1"
 TREE_COORDS = ((-5.6, 3.8), (-4.1, 3.7), (4.1, 3.7), (5.6, 3.8),
                (-4.9, 5.2), (0.0, 5.7), (4.9, 5.2))
@@ -88,18 +102,19 @@ def compose_park(bpy):
     cube(bpy, "OriginalPark_Lawn", (0, 1.2, -0.105), (14, 12, 0.16), grass)
     cube(bpy, "OriginalPark_Walkway", (0, 0.0, -0.024), (12, 2.7, 0.035), path)
     for idx, (x, y) in enumerate(TREE_COORDS):
-        bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.18, depth=2.0,
-                                            location=(x, y, 0.98))
+        bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.13, depth=1.45,
+                                            location=(x, y, 0.73))
         trunk = bpy.context.object
         trunk.name = "OriginalPark_Trunk_%02d" % idx
         trunk.data.materials.append(bark)
-        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1.17,
-                                              location=(x, y, 2.25))
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.76,
+                                              location=(x, y, 1.80))
         crown = bpy.context.object
         crown.name = "OriginalPark_Crown_%02d" % idx
         crown.data.materials.append(canopy)
     return {"path_width_m": 2.7, "trees": len(TREE_COORDS),
             "geometry_source": "PROJECT_AUTHORED_PROCEDURAL",
+            "tree_crown_radius_m": 0.76, "tree_trunk_height_m": 1.45,
             "foreground_tree_rejection": "DETERMINISTIC_Y_GUARD_SOURCE_ONLY"}
 
 
@@ -133,7 +148,7 @@ def run(src, tex, output):
     scene.render.image_settings.file_format = "PNG"
     scene.render.film_transparent = False
     scene.camera.data.type = "ORTHO"
-    scene.camera.data.ortho_scale = 8.4
+    scene.camera.data.ortho_scale = CAMERA_WIDE
     views = [
         ("front", (0.0, -10.0, 2.5)),
         ("oblique", (2.6, -9.5, 3.0)),
@@ -148,6 +163,7 @@ def run(src, tex, output):
                           "native_material_uv_receipt.json").read_bytes()),
         "procedural_scene": park, "actor_roots": list(ACTORS),
         "frames": FRAMES, "fps": FPS, "views": {},
+        "camera_motion": "SOURCE_AUTHORED_SMOOTH_WIDE_TO_CLOSE_NOT_VISUAL_ACCEPTANCE",
         "realistic_human_gait": "UNKNOWN", "true_foot_contact": "UNKNOWN",
         "signed_human_rom": "NOT_RUN", "independent_human_visual_acceptance": "NOT_RUN",
         "real_person_identity": "NOT_APPLICABLE_FICTIONAL_MIT_AVATARS",
@@ -167,8 +183,11 @@ def run(src, tex, output):
         dest = output / view
         dest.mkdir(exist_ok=True)
         hashes = []
+        camera_scales = []
         for frame in range(FRAMES):
             scene.frame_set(frame)
+            scene.camera.data.ortho_scale = camera_ortho_scale(frame)
+            camera_scales.append(scene.camera.data.ortho_scale)
             image_path = dest / ("frame_%03d.png" % frame)
             scene.render.filepath = str(image_path)
             bpy.ops.render.render(write_still=True)
@@ -180,6 +199,7 @@ def run(src, tex, output):
             "camera": [float(v) for v in position], "native_frame_count": len(hashes),
             "first_frame_sha256": hashes[0], "last_frame_sha256": hashes[-1],
             "all72_native_png_hashes": hashes,
+            "all72_source_authored_camera_scales": camera_scales,
         }
         save()
     print(json.dumps({"status": result["status"], "views": {x: len(y["all72_native_png_hashes"])
