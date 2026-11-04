@@ -1,0 +1,70 @@
+name: R009 MIT Rocketbox source-native higher-detail rig probe
+on:
+  pull_request:
+    paths:
+      - 'qualification/rocketbox_quality/**'
+      - '.github/workflows/r009-rocketbox-mit-quality.yml'
+permissions:
+  contents: read
+jobs:
+  native-mit-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pinned official Microsoft MIT license and two small FBX source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/rocket";mkdir -p "$D"
+          SRC=https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/0943055db6ec570bcef9f2c8b41c9e5467c808f9
+          curl -fLsS --retry 2 "$SRC/LICENSE.md" -o "$D/LICENSE.md"
+          grep -F 'Copyright (c) 2020 Microsoft' "$D/LICENSE.md"
+          for id in 01 02; do
+            base="Assets/Avatars/Adults/Female_Adult_$id/Export/Female_Adult_${id}_facial.fbx"
+            curl -fLsS --retry 2 "$SRC/$base" -o "$D/$(basename "$base")"
+          done
+          test "$(stat -c '%s' "$D/Female_Adult_01_facial.fbx")" = 2226864
+          test "$(stat -c '%s' "$D/Female_Adult_02_facial.fbx")" = 2050400
+          test "$(git hash-object "$D/Female_Adult_01_facial.fbx")" = 90c4e00089c5193cb96b9da5db9e043bcae9b019
+          test "$(git hash-object "$D/Female_Adult_02_facial.fbx")" = 8ddd0cbc2a3d706b8246bc2ca7fb7bf557d9d4ce
+          sha256sum "$D/"*.fbx > "$D/source-sha256.txt"
+      - name: SHA-verified upstream Blender + xvfb
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl -fLsS --retry 2 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl -fLsS --retry 2 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender.tar.xz"
+          (cd "$RUNNER_TEMP"; mv blender.tar.xz blender-4.5.15-linux-x64.tar.xz;grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Real native skin and geometry, not forged gait
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/probe"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 \
+            --python qualification/rocketbox_quality/probe_blender.py \
+            -- "$RUNNER_TEMP/rocket/Female_Adult_01_facial.fbx" "$RUNNER_TEMP/rocket/Female_Adult_02_facial.fbx" "$RUNNER_TEMP/probe"
+          python3 - "$RUNNER_TEMP/probe/native_probe.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]));assert len(r['actors'])==2
+          assert r['status']=='NATIVE_STATIC_RIG_PROBE_ONLY' and r['walking']=='NOT_RUN'
+          assert all(i['mesh_vertices']>500 and i['skin_armature_modifiers']>0 and len(i['armatures'])>=1 for i in r['actors'])
+          assert not r['product_accepted']
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-mit-rocketbox-source-native-review-not-walking
+          path: |
+            ${{runner.temp}}/probe/native_probe.json
+            ${{runner.temp}}/probe/*.png
+            ${{runner.temp}}/probe/*.blend
+            ${{runner.temp}}/rocket/LICENSE.md
+            ${{runner.temp}}/rocket/source-sha256.txt
+          retention-days: 7
+          if-no-files-found: warn
