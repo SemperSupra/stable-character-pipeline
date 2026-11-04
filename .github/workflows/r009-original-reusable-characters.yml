@@ -19,6 +19,7 @@ jobs:
           set -euo pipefail
           cd qualification/original_reusable_characters
           python3 -m unittest -v test_original_glb
+          python3 -m unittest -v test_park_layout
           python3 generate_original_glb.py --out "$RUNNER_TEMP/original.glb" --receipt "$RUNNER_TEMP/source_receipt.json"
           python3 verify_original_glb.py --input "$RUNNER_TEMP/original.glb" --receipt "$RUNNER_TEMP/independent_receipt.json"
       - name: Install SHA-verified official Blender and FFmpeg
@@ -56,4 +57,10 @@ jobs:
             ${{ runner.temp }}/render/native_receipt.json
             ${{ runner.temp }}/render/video-sha256.txt
             ${{ runner.temp }}/render/*.mp4
+            ${{ runner.temp }}/render/front/frame_000.png
+            ${{ runner.temp }}/render/front/frame_036.png
+            ${{ runner.temp }}/render/front/frame_071.png
+            ${{ runner.temp }}/render/oblique/frame_000.png
+            ${{ runner.temp }}/render/oblique/frame_036.png
+            ${{ runner.temp }}/render/oblique/frame_071.png
             ${{ runner.temp }}/render/*.blend
