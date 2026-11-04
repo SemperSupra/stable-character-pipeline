@@ -1,0 +1,88 @@
+name: R009 source-pinned MIT native material UV and four-view probe
+on:
+  pull_request:
+    paths:
+      - 'qualification/rocketbox_material/**'
+      - '.github/workflows/r009-mit-native-material-uv.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-native-mit-material:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Source-only material classification adversarial controls
+        run: |
+          set -euo pipefail
+          cd qualification/rocketbox_material
+          python3 -m unittest -v test_native_material_uv
+      - name: Retrieve exact original 80-bone animated Blender artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mit-original"
+          curl -fLsS --retry 2 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/SemperSupra/stable-character-pipeline/actions/artifacts/13305643308/zip \
+            -o "$RUNNER_TEMP/mit-source.zip"
+          echo '2bbf1036744e4fcd614cd207bc9e9eb2147b943f59c53d9de7dff1b324320204  '"$RUNNER_TEMP/mit-source.zip" | sha256sum -c -
+          unzip -t "$RUNNER_TEMP/mit-source.zip"
+          unzip -q "$RUNNER_TEMP/mit-source.zip" -d "$RUNNER_TEMP/mit-original"
+          echo '2e5c5fcc826c95d200b06cc2dcd22138944102426a86f1f683689ae458aff7ab  '"$RUNNER_TEMP/mit-original/motion/mit_rocketbox_walk_candidate.blend" | sha256sum -c -
+      - name: Rehydrate four official MIT original source color TGAs
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/mit-original-colors"
+          mkdir -p "$D"
+          SRC=https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/0943055db6ec570bcef9f2c8b41c9e5467c808f9
+          curl -fLsS --retry 2 "$SRC/LICENSE.md" -o "$D/LICENSE.md"
+          grep -F 'MIT License' "$D/LICENSE.md"
+          grep -F 'Copyright (c) 2020 Microsoft' "$D/LICENSE.md"
+          for spec in \
+            '01 f001_body_color.tga 25852db0db1f44a0de0643ce1e09c88aef587e6f' \
+            '01 f001_head_color.tga 0cdc62ab47da3dca01aff0bb179159865a559c63' \
+            '02 f002_body_color.tga 5eb8ee83281a7526544a80ddf9804507670eb049' \
+            '02 f002_head_color.tga 8f59bb553f24d3581de68bcf4683695c014bcc0f'; do
+            read -r ID NAME BLOB <<< "$spec"
+            curl -fLsS --retry 2 "$SRC/Assets/Avatars/Adults/Female_Adult_$ID/Textures/$NAME" -o "$D/$NAME"
+            test "$(stat -c%s "$D/$NAME")" = 12582956
+            test "$(git hash-object "$D/$NAME")" = "$BLOB"
+          done
+      - name: Install SHA-verified Blender 4.5.15 for CPU Cycles render
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl -fLsS --retry 2 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl -fLsS --retry 2 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Try actual native source-labeled body/head UV binding and four visual frames
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/rocketbox_material/native_material_uv.py \
+            -- "$RUNNER_TEMP/mit-original/motion/mit_rocketbox_walk_candidate.blend" "$RUNNER_TEMP/mit-original-colors" "$GITHUB_WORKSPACE/artifacts"
+          python3 - artifacts/native_material_uv_receipt.json <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          assert d['schema']=='scp.r009.mit_original_native_material_uv_probe.v1'
+          assert d['source_commit']=='0943055db6ec570bcef9f2c8b41c9e5467c808f9'
+          assert d['uv_assignment']=='SOURCE_LABELED_MIT_BODY_HEAD_BINDING_VERIFIED'
+          assert d['artistic_color_render']=='FOUR_NATIVE_CPU_SOURCE_FRAMES_RENDERED'
+          assert len(d['views'])==4 and len(d['actors'])==2 and len(d['textures'])==4
+          assert d['physical_contact']=='UNKNOWN' and d['product_accepted'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-mit-native-material-uv
+          path: artifacts/
+          retention-days: 7
+          if-no-files-found: warn
