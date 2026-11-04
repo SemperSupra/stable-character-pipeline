@@ -1,0 +1,9 @@
+# R009 independent MIT frozen-artifact audit
+
+Authority: [public open-asset DLE #272](https://github.com/SemperSupra/stable-character-pipeline/issues/272); source producer [draft PR #274](https://github.com/SemperSupra/stable-character-pipeline/pull/274), immutable HEAD 8307fb98a1e47083a657a708d27b2ea4420f4b2a.
+
+This reviewer workcell reads the **existing** genuine $0 public GHA artifact 13305643308, rather than re-running/modifying the source producer or fetching private models. It checks whole ZIP SHA256 2bbf1036744e4fcd614cd207bc9e9eb2147b943f59c53d9de7dff1b324320204, ZIP CRC, H264 hashes and ffprobe 72 frames/12fps/6 seconds. The original native motion receipt is independently parsed with duplicate-key and NaN rejection; actor/source IDs, both camera counts, all six actual sampled evaluated mesh center/bounds, finite bone rotations, and UNKNOWN acceptance states are enforced. A new read-only receipt is exported for human reviewers, CLI automation and agents. 15 synthetic hostile controls run offline first.
+
+**Limits:** Six source frames and video-byte checks do not establish biological gait, all-frame foot contact, foot-skate, correct rig rest axes, textures, photorealism or pixel visibility. All protected Naomi/Alison rights, source, binaries, identities, runner, merge, release, deployment and CPE holds persist. This is source integrity/kinematic liveness only. If the 7-day original Actions artifact expires, mark NOT_RUN; never silently substitute it.
+
+**Portable local mode:** From qualification/rocketbox_audit, run python3 -m unittest -v test_audit_receipt. After independently obtaining and authenticating the original ZIP, run python3 audit_receipt.py /path/native_motion_receipt.json --media-dir /path/unzipped --out independent_receipt.json. The Python code needs no network or secrets.
