@@ -61,7 +61,7 @@ def classify_source_material(material_name, image_names):
     """Returns exact body/head/UNKNOWN, rejects contradictory source labels."""
     # Original FBX image paths contain a vendor directory named with_opacity_version
     # even for body/head maps; classify the ORIGINAL MATERIAL and image BASENAMES only.
-    labels = [material_name, *(name.replace("\\\\", "/").rsplit("/", 1)[-1] for name in image_names)]
+    labels = [material_name, *(name.replace("\\", "/").rsplit("/", 1)[-1] for name in image_names)]
     parts = set()
     for label in labels:
         parts.update(p for p in re.split(r"[^a-z0-9]+", label.lower()) if p)
