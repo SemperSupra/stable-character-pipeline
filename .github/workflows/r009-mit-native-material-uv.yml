@@ -43,13 +43,15 @@ jobs:
           grep -F 'MIT License' "$D/LICENSE.md"
           grep -F 'Copyright (c) 2020 Microsoft' "$D/LICENSE.md"
           for spec in \
-            '01 f001_body_color.tga 25852db0db1f44a0de0643ce1e09c88aef587e6f' \
-            '01 f001_head_color.tga 0cdc62ab47da3dca01aff0bb179159865a559c63' \
-            '02 f002_body_color.tga 5eb8ee83281a7526544a80ddf9804507670eb049' \
-            '02 f002_head_color.tga 8f59bb553f24d3581de68bcf4683695c014bcc0f'; do
-            read -r ID NAME BLOB <<< "$spec"
+            '01 f001_body_color.tga 12582956 25852db0db1f44a0de0643ce1e09c88aef587e6f' \
+            '01 f001_head_color.tga 12582956 0cdc62ab47da3dca01aff0bb179159865a559c63' \
+            '01 f001_opacity_color.tga 16777260 de21a9e69c88e539da6a5050eaceadd026e99b62' \
+            '02 f002_body_color.tga 12582956 5eb8ee83281a7526544a80ddf9804507670eb049' \
+            '02 f002_head_color.tga 12582956 8f59bb553f24d3581de68bcf4683695c014bcc0f' \
+            '02 f002_opacity_color.tga 4194348 3d930c42ed476ab3f58548e5ee33e10ea9f02a27'; do
+            read -r ID NAME SIZE BLOB <<< "$spec"
             curl -fLsS --retry 2 "$SRC/Assets/Avatars/Adults/Female_Adult_$ID/Textures/$NAME" -o "$D/$NAME"
-            test "$(stat -c%s "$D/$NAME")" = 12582956
+            test "$(stat -c%s "$D/$NAME")" = "$SIZE"
             test "$(git hash-object "$D/$NAME")" = "$BLOB"
           done
       - name: Install SHA-verified Blender 4.5.15 for CPU Cycles render
@@ -74,9 +76,9 @@ jobs:
           d=json.load(open(sys.argv[1]))
           assert d['schema']=='scp.r009.mit_original_native_material_uv_probe.v1'
           assert d['source_commit']=='0943055db6ec570bcef9f2c8b41c9e5467c808f9'
-          assert d['uv_assignment']=='SOURCE_LABELED_MIT_BODY_HEAD_BINDING_VERIFIED'
+          assert d['uv_assignment']=='SOURCE_LABELED_MIT_BODY_HEAD_OPACITY_BINDING_VERIFIED'
           assert d['artistic_color_render']=='FOUR_NATIVE_CPU_SOURCE_FRAMES_RENDERED'
-          assert len(d['views'])==4 and len(d['actors'])==2 and len(d['textures'])==4
+          assert len(d['views'])==4 and len(d['actors'])==2 and len(d['textures'])==6
           assert d['physical_contact']=='UNKNOWN' and d['product_accepted'] is False
           PY
       - uses: actions/upload-artifact@v4
