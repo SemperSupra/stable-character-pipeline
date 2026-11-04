@@ -1,0 +1,78 @@
+name: R009 MIT Rocketbox two actual skinned human-model walk candidate
+on:
+  pull_request:
+    paths:
+      - 'qualification/rocketbox_motion/**'
+      - '.github/workflows/r009-rocketbox-mit-walk.yml'
+permissions:
+  contents: read
+jobs:
+  actual-blender-walk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pinned official two MIT facial FBX with Git object proof
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/rocket";mkdir -p "$D"
+          SRC=https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/0943055db6ec570bcef9f2c8b41c9e5467c808f9
+          curl -fLsS --retry 2 "$SRC/LICENSE.md" -o "$D/LICENSE.md"
+          grep -F 'Copyright (c) 2020 Microsoft' "$D/LICENSE.md"
+          for id in 01 02; do
+            path="Assets/Avatars/Adults/Female_Adult_$id/Export/Female_Adult_${id}_facial.fbx"
+            curl -fLsS --retry 2 "$SRC/$path" -o "$D/Female_Adult_${id}_facial.fbx"
+          done
+          test "$(git hash-object "$D/Female_Adult_01_facial.fbx")" = 90c4e00089c5193cb96b9da5db9e043bcae9b019
+          test "$(git hash-object "$D/Female_Adult_02_facial.fbx")" = 8ddd0cbc2a3d706b8246bc2ca7fb7bf557d9d4ce
+          sha256sum "$D/"*.fbx > "$D/input-sha256.txt"
+      - name: Verified upstream Blender and FFmpeg on public standard CPU
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl -fLsS --retry 2 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl -fLsS --retry 2 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP";grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Reuse exact parent native inspector, real 80 bone static source
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/static"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 --python qualification/rocketbox_quality/probe_blender.py \
+            -- "$RUNNER_TEMP/rocket/Female_Adult_01_facial.fbx" "$RUNNER_TEMP/rocket/Female_Adult_02_facial.fbx" "$RUNNER_TEMP/static"
+      - name: Actual authored local-bone gait + evaluated vertices + two camera 72-frame video
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/motion"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 --python qualification/rocketbox_motion/walk_blender.py \
+            -- "$RUNNER_TEMP/static/rocketbox_mit_rig_probe.blend" "$RUNNER_TEMP/motion"
+          for view in front oblique; do
+            ffmpeg -hide_banner -loglevel error -framerate 12 -i "$RUNNER_TEMP/motion/$view/frame_%03d.png" -c:v libx264 -crf 24 -pix_fmt yuv420p "$RUNNER_TEMP/motion/$view.mp4"
+            test "$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/motion/$view.mp4")" = 72
+          done
+          python3 - "$RUNNER_TEMP/motion/native_motion_receipt.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]));assert r['status']=='NATIVE_SKINNED_WALK_SOURCE_ONLY_NOT_HUMAN_ACCEPTED'
+          assert r['foot_contact']=='UNKNOWN' and r['human_gait']=='UNKNOWN' and not r['product_accepted']
+          assert r['frame_count']==72 and len(r['samples'])==6 and all(x==72 for x in r['views'].values())
+          PY
+          sha256sum "$RUNNER_TEMP/motion/"*.mp4 > "$RUNNER_TEMP/motion/video-sha256.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-mit-rocketbox-80bone-gait-source-only
+          path: |
+            ${{runner.temp}}/rocket/LICENSE.md
+            ${{runner.temp}}/rocket/input-sha256.txt
+            ${{runner.temp}}/static/native_probe.json
+            ${{runner.temp}}/motion/native_motion_receipt.json
+            ${{runner.temp}}/motion/video-sha256.txt
+            ${{runner.temp}}/motion/*.mp4
+            ${{runner.temp}}/motion/*.blend
+          retention-days: 7
+          if-no-files-found: warn
