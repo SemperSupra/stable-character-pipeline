@@ -115,7 +115,9 @@ class SourceStanceReleaseAndAbstainTests(unittest.TestCase):
             chosen,s,_=next_tentative_stance(frame,base,s,0.)
             out.append(chosen)
         self.assertEqual(out[:STANCE_MAX_AGE+1],["L"]*(STANCE_MAX_AGE+1))
-        self.assertIn(None,out)
+        self.assertEqual(out[STANCE_MAX_AGE+1:2*(STANCE_MAX_AGE+1)],
+                         ["R"]*(STANCE_MAX_AGE+1))
+        self.assertEqual(out[2*(STANCE_MAX_AGE+1)],"L")
 
     def test_reject_large_x_drift_and_force_swing_abstention(self):
         from gait_v5 import next_tentative_stance
