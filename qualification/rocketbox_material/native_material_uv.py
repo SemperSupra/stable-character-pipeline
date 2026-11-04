@@ -17,16 +17,25 @@ ACTORS = ("RB_RB_F01_root", "RB_RB_F02_root")
 SOURCE_BLEND_SHA = "2e5c5fcc826c95d200b06cc2dcd22138944102426a86f1f683689ae458aff7ab"
 SOURCE_COMMIT = "0943055db6ec570bcef9f2c8b41c9e5467c808f9"
 TEXTURES = {
-    "RB_RB_F01_root": {"body": "f001_body_color.tga", "head": "f001_head_color.tga"},
-    "RB_RB_F02_root": {"body": "f002_body_color.tga", "head": "f002_head_color.tga"},
+    "RB_RB_F01_root": {"body": "f001_body_color.tga", "head": "f001_head_color.tga", "opacity": "f001_opacity_color.tga"},
+    "RB_RB_F02_root": {"body": "f002_body_color.tga", "head": "f002_head_color.tga", "opacity": "f002_opacity_color.tga"},
 }
 SOURCE_GIT_BLOBS = {
     "f001_body_color.tga": "25852db0db1f44a0de0643ce1e09c88aef587e6f",
     "f001_head_color.tga": "0cdc62ab47da3dca01aff0bb179159865a559c63",
     "f002_body_color.tga": "5eb8ee83281a7526544a80ddf9804507670eb049",
     "f002_head_color.tga": "8f59bb553f24d3581de68bcf4683695c014bcc0f",
+    "f001_opacity_color.tga": "de21a9e69c88e539da6a5050eaceadd026e99b62",
+    "f002_opacity_color.tga": "3d930c42ed476ab3f58548e5ee33e10ea9f02a27",
 }
-SOURCE_TGA_BYTES = 12582956
+SOURCE_TGA_BYTES = {
+    "f001_body_color.tga": 12582956,
+    "f001_head_color.tga": 12582956,
+    "f001_opacity_color.tga": 16777260,
+    "f002_body_color.tga": 12582956,
+    "f002_head_color.tga": 12582956,
+    "f002_opacity_color.tga": 4194348,
+}
 SCHEMA = "scp.r009.mit_original_native_material_uv_probe.v1"
 
 
@@ -59,6 +68,8 @@ def classify_source_material(material_name, image_names):
         found.add("head")
     if parts.intersection(("body", "torso")):
         found.add("body")
+    if "opacity" in parts:
+        found.add("opacity")
     if len(found) != 1:
         return "UNKNOWN"
     return next(iter(found))
@@ -66,7 +77,7 @@ def classify_source_material(material_name, image_names):
 
 def validate_material_plan(rows):
     """Require real source-labeled polygons AND native UVs for both texture types."""
-    result = {"body": 0, "head": 0}
+    result = {"body": 0, "head": 0, "opacity": 0}
     for row in rows:
         kind = row["classification"]
         count = row["polygons"]
@@ -78,8 +89,8 @@ def validate_material_plan(rows):
             if not row.get("uv_present"):
                 raise ValueError("MISSING_NATIVE_UV:" + row["material"])
             result[kind] += count
-    if not result["body"] or not result["head"]:
-        raise ValueError("UNRESOLVED_BODY_HEAD_NATIVE_SLOT:" + json.dumps(result, sort_keys=True))
+    if any(count == 0 for count in result.values()):
+        raise ValueError("UNRESOLVED_BODY_HEAD_OPACITY_NATIVE_SLOT:" + json.dumps(result, sort_keys=True))
     return result
 
 
@@ -99,7 +110,7 @@ def native_run(source_blend, textures_dir, out):
         raise RuntimeError("FROZEN_SOURCE_BLEND_SHA_MISMATCH")
     for filename, expected_blob in SOURCE_GIT_BLOBS.items():
         path = textures_dir / filename
-        if not path.is_file() or path.is_symlink() or path.stat().st_size != SOURCE_TGA_BYTES:
+        if not path.is_file() or path.is_symlink() or path.stat().st_size != SOURCE_TGA_BYTES[filename]:
             raise RuntimeError("MIT_ORIGINAL_TGA_BYTES_MISSING:" + filename)
         if git_blob_file(path) != expected_blob:
             raise RuntimeError("MIT_ORIGINAL_TGA_GIT_BLOB_MISMATCH:" + filename)
@@ -200,13 +211,16 @@ def native_run(source_blend, textures_dir, out):
             texture = nodes.new("ShaderNodeTexImage")
             texture.image = images[TEXTURES[actor][kind]]
             new_material.node_tree.links.new(texture.outputs["Color"], bsdf.inputs["Base Color"])
+            if kind == "opacity":
+                # Original 32-bit TGA alpha controls native eyebrow/hair transparency.
+                new_material.node_tree.links.new(texture.outputs["Alpha"], bsdf.inputs["Alpha"])
             new_material.node_tree.links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
             bsdf.inputs["Roughness"].default_value = 0.78
             mesh.material_slots[slot_index].material = new_material
         receipt["actors"][actor]["status"] = "SOURCE_LABELED_ORIGINAL_UV_TEXTURES_BOUND"
         receipt["actors"][actor]["source_polygon_coverage"] = coverage
 
-    receipt["uv_assignment"] = "SOURCE_LABELED_MIT_BODY_HEAD_BINDING_VERIFIED"
+    receipt["uv_assignment"] = "SOURCE_LABELED_MIT_BODY_HEAD_OPACITY_BINDING_VERIFIED"
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
     scene.cycles.samples = 8
