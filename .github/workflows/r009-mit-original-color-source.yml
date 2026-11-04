@@ -1,0 +1,53 @@
+name: R009 pinned Microsoft MIT original 4 TGA color source audit
+on:
+  pull_request:
+    paths:
+      - 'qualification/rocketbox_textures/**'
+      - '.github/workflows/r009-mit-original-color-source.yml'
+permissions:
+  contents: read
+jobs:
+  original-mit-texture-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Source-only Git/TGA RED controls (no third-party image input)
+        run: |
+          set -euo pipefail
+          GO111MODULE=off go test -v qualification/rocketbox_textures/source_probe.go qualification/rocketbox_textures/source_probe_test.go
+      - name: Pin official immutable MIT notice and four full native color TGAs
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/rocketbox-color";mkdir -p "$D"
+          SRC=https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/0943055db6ec570bcef9f2c8b41c9e5467c808f9
+          curl --fail --location --retry 2 --silent --show-error "$SRC/LICENSE.md" -o "$D/LICENSE.md"
+          grep -F 'MIT License' "$D/LICENSE.md"
+          grep -F 'Copyright (c) 2020 Microsoft' "$D/LICENSE.md"
+          for pair in \
+            '01 f001_body_color.tga 25852db0db1f44a0de0643ce1e09c88aef587e6f' \
+            '01 f001_head_color.tga 0cdc62ab47da3dca01aff0bb179159865a559c63' \
+            '02 f002_body_color.tga 5eb8ee83281a7526544a80ddf9804507670eb049' \
+            '02 f002_head_color.tga 8f59bb553f24d3581de68bcf4683695c014bcc0f'; do
+            read -r id name sha <<< "$pair"
+            curl --fail --location --retry 2 --silent --show-error \
+              "$SRC/Assets/Avatars/Adults/Female_Adult_$id/Textures/$name" -o "$D/$name"
+            test "$(git hash-object "$D/$name")" = "$sha"
+            test "$(stat -c%s "$D/$name")" = 12582956
+          done
+      - name: Qualify actual original TGA headers, Git blobs and produce bounded receipt
+        run: |
+          set -euo pipefail
+          GO111MODULE=off go run qualification/rocketbox_textures/source_probe.go \
+            --directory "$RUNNER_TEMP/rocketbox-color" \
+            --out "$RUNNER_TEMP/r009_mit_4tga_source_receipt.json"
+          test -s "$RUNNER_TEMP/r009_mit_4tga_source_receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-mit-4-original-colors-source-only
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/r009_mit_4tga_source_receipt.json
