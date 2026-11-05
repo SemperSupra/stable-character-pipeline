@@ -40,6 +40,18 @@ python3 morph_preview_35_v1.py --aster aster.json --juniper juniper.json \
 
 The label map \`SEMANTIC_LABELS_EN_DE_TH.json\` must cover every exact control path so that the same controls can be displayed in English, German and Thai. It is a UI glossary, not certified medical terminology.
 
+## Source-original per-character and per-eye PBR appearance derivative
+
+`appearance_material_v1.py` now clones **original** glTF material records for each actor to bind separately controlled semantic skin melanin/undertone/roughness and hair RGB. It splits each source-original iris triangle group into **left and right eye index subsets** (same untouched source vertex/skin/animation attributes), so changing one eye color does not alter the other eye or the other actor. Changes are opt-in derived GLBs and are SHA-bound to immutable input states. Example after generating `morph_preview.glb`:
+
+```sh
+python3 appearance_material_v1.py --input morph_preview.glb \
+  --aster aster.json --juniper juniper.json \
+  --out appearance_preview.glb --receipt appearance_receipt.json
+```
+
+The numerical skin-albedo curve is **stylized and uncalibrated**, not a validated estimate of real pigmentation or a clinical skin parameter. Hair length/density/curvature/groom geometry and anatomical realism are **not** implemented. PBR material separation does not qualify Blender import/view, camera-calibrated appearance, optical realism, cloth fit, or surgery outcomes. The public workflow tests a hypothetical before/after style event and generates `before_appearance.glb` and `after_appearance.glb` independently of the non-destructive geometry previews. Real-person imagery remains excluded from public CI.
+
 ## Contract and invariants
 1. `character_id` and immutable `identity` coefficients remain stable across time-indexed states.
 2. Semantic controls have explicit paths, units and rough engineering safety guards; they are **not clinical population reference ranges**.
