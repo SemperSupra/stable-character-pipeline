@@ -15,7 +15,7 @@ def main():
     arms=[x for x in bpy.context.scene.objects if x.type=="ARMATURE"]
     if len(arms)!=1:raise RuntimeError("single GLB source rig expected")
     arm=arms[0]
-    all_names=set(arm.data.bones)
+    all_names={bone.name for bone in arm.data.bones}
     observations={f:[] for f in FEET}
     for frame in range(1,49):
         bpy.context.scene.frame_set(frame)
