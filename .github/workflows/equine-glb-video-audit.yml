@@ -69,12 +69,24 @@ jobs:
         run: |
           set -euo pipefail
           cd "visual/$COAT"
-          ffmpeg -hide_banner -loglevel error -nostdin -y -framerate 24 -start_number 1 \
-            -i frames/side_%04d.png -c:v libx264 -crf 22 -preset veryfast \
+          # Workbench exports RGBA PNG with alpha=0 on its background.
+          # Deliberately composite against a diagnostic gray, not implicit black.
+          ffmpeg -hide_banner -loglevel error -nostdin -y \
+            -f lavfi -i color=c=0xd7dee3:s=640x360:r=24:d=2 \
+            -framerate 24 -start_number 1 -i frames/side_%04d.png \
+            -filter_complex '[0:v][1:v]overlay=shortest=1:format=auto,format=yuv420p' \
+            -frames:v 48 -c:v libx264 -crf 22 -preset veryfast \
             -pix_fmt yuv420p -movflags +faststart "shetland_$COAT"_walk_2s.mp4
-          ffmpeg -hide_banner -loglevel error -nostdin -y -framerate 24 -start_number 1 \
-            -i frames/side_%04d.png -vf 'fps=6,scale=320:180,tile=3x4' \
+          ffmpeg -hide_banner -loglevel error -nostdin -y \
+            -i "shetland_$COAT"_walk_2s.mp4 \
+            -vf 'fps=6,scale=320:180,tile=3x4' \
             -frames:v 1 "shetland_$COAT"_contact_sheet.png
+          ffmpeg -hide_banner -loglevel error -nostdin -y \
+            -f lavfi -i color=c=0xd7dee3:s=640x360:r=1:d=1 \
+            -i oblique_frame25.png \
+            -filter_complex '[0:v][1:v]overlay=format=auto' \
+            -frames:v 1 oblique_composited.png
+          mv -f oblique_composited.png oblique_frame25.png
           python3 - <<'PY'
           import hashlib,json,os,pathlib,subprocess
           coat=os.environ["COAT"]
