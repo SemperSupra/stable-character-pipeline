@@ -2,9 +2,10 @@ name: Shetland 30-bone front carpus periodic smoothing native A-B
 on:
   pull_request:
     paths:
-      - "qualification/shetland_pony/footpaths.py"
-      - "qualification/shetland_pony/test_swing_c1.py"
-      - ".github/workflows/shetland-c1-swing.yml"
+      - "qualification/shetland_pony/ik_walk.py"
+      - "qualification/shetland_pony/angle_filter.py"
+      - "qualification/shetland_pony/test_angle_filter.py"
+      - ".github/workflows/shetland-carpus-smoothing.yml"
 permissions:
   contents: read
 jobs:
