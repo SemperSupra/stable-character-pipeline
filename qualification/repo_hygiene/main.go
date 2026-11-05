@@ -62,6 +62,7 @@ type Report struct {
  Findings []Item `json:"findings"`
  Recommendation string `json:"recommendation"`
  Mutations int `json:"mutations"`
+ Stats map[string]int `json:"stats"`
 }
 
 func audit(s Snapshot, staleDays int) (Report,error) {
@@ -92,6 +93,20 @@ func audit(s Snapshot, staleDays int) (Report,error) {
   report.Findings=append(report.Findings,Item{Number:p.Number,Head:p.Head.Ref,Base:p.Base.Ref,Draft:p.Draft,AgeDays:age,Classification:tags,Hold:holds,Action:"RETAIN_AND_REVIEW",URL:p.HTMLURL})
  }
  sort.Slice(report.Findings,func(i,j int)bool{return report.Findings[i].Number>report.Findings[j].Number})
+ report.Stats=map[string]int{"total":len(report.Findings),"draft":0,"stacked_active":0,"nondefault_missing_parent":0,"stale_review":0,"shared_head":0,"default_base":0}
+ for _,p:=range report.Findings {
+  if p.Draft{report.Stats["draft"]++}
+  for _,status:=range p.Classification {
+   switch {
+   case strings.HasPrefix(status,"OPEN_PARENT_PR_"):report.Stats["stacked_active"]++
+   case status=="NONDEFAULT_BASE_NO_OPEN_PARENT_IN_SNAPSHOT":report.Stats["nondefault_missing_parent"]++
+   case status=="STALE_REVIEW_CANDIDATE":report.Stats["stale_review"]++
+   case status=="SHARED_HEAD_COMMIT_REVIEW":report.Stats["shared_head"]++
+   case status=="DEFAULT_BRANCH_BASE":report.Stats["default_base"]++
+   }
+  }
+ }
+
  return report,nil
 }
 
@@ -123,6 +138,9 @@ func renderMD(r Report) string {
  var b strings.Builder
  fmt.Fprintf(&b,"# R009 public repository hygiene audit\n\nSource: `%s` | As of: %s | PRs: %d | Complete: %t | Mutations: %d\n\n",r.Repo,r.AsOf,r.PRsScanned,r.Complete,r.Mutations)
  b.WriteString("**No merges, closes, deletes, branch resets or releases were performed.** All entries default to `RETAIN_AND_REVIEW`. Classification does not waive owner rights, CI, scientific or custody holds.\n\n")
+ fmt.Fprintf(&b,"Summary: **%d open** | **%d draft** | **%d stacked-active** | **%d nondefault bases without open parent** | **%d stale-review** | **%d shared head** | **%d main-based**. All are review-only classifications.\n\n",
+ r.Stats["total"],r.Stats["draft"],r.Stats["stacked_active"],r.Stats["nondefault_missing_parent"],r.Stats["stale_review"],r.Stats["shared_head"],r.Stats["default_base"])
+
  b.WriteString("| PR | Branch base | State | Classification |\n|---|---|---|---|\n")
  safe:=regexp.MustCompile(`[^a-zA-Z0-9_./-]`)
  for _,x:=range r.Findings{
@@ -162,5 +180,5 @@ func main(){
  for _,f:=range []struct{name string; data []byte}{{"snapshot.json",append(original,'\n')},{"report.json",append(report,'\n')},{"audit.md",[]byte(renderMD(r))}} {
   if err=writeNew(filepath.Join(out,f.name),f.data);err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
  }
- fmt.Printf("AUDIT_OK repo=%s PRs=%d complete=%t mutations=0 output=%s\n",repo,r.PRsScanned,r.Complete,out)
+ fmt.Printf("AUDIT_OK repo=%s PRs=%d draft=%d stacked=%d needs_lineage=%d stale=%d complete=%t mutations=0 output=%s\n",repo,r.PRsScanned,r.Stats["draft"],r.Stats["stacked_active"],r.Stats["nondefault_missing_parent"],r.Stats["stale_review"],r.Complete,out)
 }
