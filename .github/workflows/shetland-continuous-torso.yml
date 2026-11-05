@@ -1,0 +1,66 @@
+name: Shetland continuous torso and conformal pinto native morphology
+on:
+  pull_request:
+    paths:
+      - "qualification/shetland_pony/body_surface.py"
+      - "qualification/shetland_pony/test_body_surface.py"
+      - "qualification/shetland_pony/build_blender.py"
+      - "qualification/shetland_pony/appearance_glb_verify.py"
+      - ".github/workflows/shetland-continuous-torso.yml"
+permissions:
+  contents: read
+jobs:
+  torso-three-coat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Source geometric negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/shetland_pony
+          python3 -m unittest -v test_body_surface.py test_footpaths.py
+          python3 -m py_compile body_surface.py build_blender.py appearance_glb_verify.py
+      - name: Disposable hash-qualified official Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/blender.sha256"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Native three-coat source and rigged GLB builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup \
+            --python-exit-code 8 --python qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/results"
+      - name: Exact GLB continuous body and pinto material source verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 qualification/shetland_pony/validate_outputs.py results
+          for coat in black pinto white; do
+            python3 qualification/shetland_pony/appearance_glb_verify.py "results/shetland_"$coat"_ghcr.glb" "$coat"
+          done
+      - name: Retain public source-original proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-continuous-torso-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/*_ghcr.png
+            results/*_ghcr.glb
+            results/manifest.json

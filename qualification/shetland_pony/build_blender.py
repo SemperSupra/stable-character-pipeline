@@ -8,6 +8,7 @@ from mathutils import Vector
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from ik_walk import animate_ik_walk
+from body_surface import create_body_surface
 
 OUT=Path(sys.argv[sys.argv.index('--')+1]) if '--' in sys.argv else Path('/tmp/shetland-results')
 OUT.mkdir(parents=True,exist_ok=True)
@@ -97,10 +98,8 @@ def build_one(coat):
  eye=material('eyes',(.015,.011,.01,1),.14);pink=material('halter',halter_color) if halter_color else None
  if coat=='pinto':white=material('pinto_patches',(.86,.84,.76,1))
  arm=new_armature()
+ create_body_surface(arm,body,white if coat=='pinto' else None)
  for name,p,r,bone,alt,ratio in [
-  ('barrel',(-.05,0,.80),(.60,.31,.32),'body',None,0),
-  ('rump',(-.47,0,.80),(.31,.30,.30),'body',None,0),
-  ('shoulder',(.34,0,.84),(.31,.30,.33),'body','neck',.15),
   ('crest',(.54,0,1.04),(.26,.22,.29),'neck','body',.12),
   ('cheek',(.79,0,1.08),(.18,.16,.23),'head','neck',.08),
   ('muzzle',(.93,0,.84),(.14,.13,.13),'head','jaw',.12),
@@ -125,9 +124,7 @@ def build_one(coat):
   ((-.78,0,.60),(.085,.10,.19),'tail_2'),
   ((-.88,0,.43),(.07,.09,.15),'tail_3')]):
   rigged(ellipsoid('tail_volume_'+str(i),p,sc,hair),arm,bone)
- if coat=='pinto':
-  for k,p,r in [('white_collar',(.14,-.006,.985),(.19,.305,.085)),('white_rump',(-.45,-.018,1.048),(.21,.24,.085)),('white_belly',(.09,0,.55),(.34,.23,.06))]:
-   rigged(ellipsoid(k,p,r,white),arm,'body')
+ # Pinto markings now use material islands on the unified body surface.
  anchors=[]
  for i in range(1100):
   t=rng.random()*math.tau;u=rng.uniform(-1,1);theta=math.acos(u)
