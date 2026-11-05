@@ -48,7 +48,7 @@ class ConsoleTests(unittest.TestCase):
         self.assertEqual(result["argv"][0],"blender")
         self.assertIn("--python-exit-code",result["argv"])
         self.assertIn("--actor",result["argv"])
-        self.assertEqual(result["argv"][-5:],
+        self.assertEqual(result["argv"][-6:],
              ["--actor","AsterOriginal","--out",str(out),"--receipt",str(receipt)])
         self.assertTrue(result["source_unchanged_required"])
         self.assertEqual(path.read_bytes(),b"fake editable source for argv planning")
