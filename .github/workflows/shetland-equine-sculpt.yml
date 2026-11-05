@@ -61,7 +61,7 @@ jobs:
             d=json.loads(raw[20:20+n].decode().strip())
             names=[m.get("name","") for m in d["meshes"]]
             assert names.count("sculpt_equine_brow_bridge_muzzle_mesh")==1,names
-            assert sum("sculpt_sloping_neck" in x for x in names)==1,names
+            assert names.count("sculpt_sloping_neck_mesh")==1,names
             assert sum("_limb_mesh" in x for x in names)==4,names
             assert len(d["animations"])>0 and max(len(s["joints"]) for s in d["skins"])>=26
             o[coat]={"meshes":len(names),"sha256":hashlib.sha256(raw).hexdigest()}
