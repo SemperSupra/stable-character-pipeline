@@ -1,0 +1,57 @@
+{
+  "schema": "equine.contact.v1",
+  "basis": "SYNTHETIC_PLANNED",
+  "actor_id": "pony-black",
+  "gait": "walk",
+  "fps": 24,
+  "sample_rate": 48000,
+  "frames_per_cycle": 24,
+  "cycles": 1,
+  "evaluation": "PLANNED_ONLY_NOT_EVALUATED_HOOF_CONTACT",
+  "events": [
+    {
+      "actor_id": "pony-black",
+      "gait": "walk",
+      "foot": "HL",
+      "kind": "hoof_impact",
+      "contact_state": "planned_contact",
+      "surface": "sand",
+      "frame": 0,
+      "sample": 0,
+      "source": "SYNTHETIC_PLANNED"
+    },
+    {
+      "actor_id": "pony-black",
+      "gait": "walk",
+      "foot": "FL",
+      "kind": "hoof_impact",
+      "contact_state": "planned_contact",
+      "surface": "sand",
+      "frame": 6,
+      "sample": 12000,
+      "source": "SYNTHETIC_PLANNED"
+    },
+    {
+      "actor_id": "pony-black",
+      "gait": "walk",
+      "foot": "HR",
+      "kind": "hoof_impact",
+      "contact_state": "planned_contact",
+      "surface": "sand",
+      "frame": 12,
+      "sample": 24000,
+      "source": "SYNTHETIC_PLANNED"
+    },
+    {
+      "actor_id": "pony-black",
+      "gait": "walk",
+      "foot": "FR",
+      "kind": "hoof_impact",
+      "contact_state": "planned_contact",
+      "surface": "sand",
+      "frame": 18,
+      "sample": 36000,
+      "source": "SYNTHETIC_PLANNED"
+    }
+  ]
+}
