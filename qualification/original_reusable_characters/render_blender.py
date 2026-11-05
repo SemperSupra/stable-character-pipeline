@@ -59,6 +59,21 @@ def main(argv):
             scene.render.filepath=str(folder/f'frame_{frame:03d}.png')
             bpy.ops.render.render(write_still=True)
         counts[view]=72
+    # Independent review close-ups: both directions are rendered because the
+    # original rig's world-facing rest axes have not been clinically calibrated.
+    portraits=out/'portraits';portraits.mkdir(parents=True,exist_ok=True)
+    scene.frame_set(0)
+    camera_data.ortho_scale=1.25
+    portrait_names=[]
+    for actor_x,actor_name in ((-3.35,'aster'),(3.35,'juniper')):
+        for camera_side,viewer_y in (('positive_y',3.0),('negative_y',-3.0)):
+            aim((actor_x,viewer_y,1.70),(actor_x,0,1.64))
+            name=f'{actor_name}_{camera_side}.png'
+            scene.render.filepath=str(portraits/name)
+            bpy.ops.render.render(write_still=True)
+            portrait_names.append(name)
+    camera_data.ortho_scale=8.8
+    aim((4.2,10.5,3.2),(0,0,1.0))
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'original_park_editable.blend'))
     receipt={'schema':'scp.original_reusable_blender.v1','status':'NATIVE_IMPORT_RENDERED_UNREVIEWED',
              'input_sha256':observed,'frames':counts,
@@ -66,7 +81,7 @@ def main(argv):
              'skinned_mesh_objects':[x.name for x in skinned],
              'native_blender_import':True,'camera_corrective':'V2_FACE_SIDE_BACKGROUND_ONLY_FIRST_FAILED_RUN_RETAINED','source_class':'ORIGINAL_SELF_AUTHORED_SYNTHETIC',
              'human_identity':'NOT_APPLICABLE','anatomical_foot_contact':'UNKNOWN',
-             'photorealism':'NOT_ACCEPTED','product_accepted':False}
+             'photorealism':'NOT_ACCEPTED','portrait_views':portrait_names,'facial_detail_accepted':False,'product_accepted':False}
     (out/'native_receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     print(json.dumps(receipt,sort_keys=True))
 
