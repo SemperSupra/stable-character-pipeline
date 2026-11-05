@@ -1,0 +1,66 @@
+name: Shetland skinned 3D winter fur GLB and native renderer
+on:
+  pull_request:
+    paths:
+      - "qualification/shetland_pony/winter_fur.py"
+      - "qualification/shetland_pony/test_winter_fur.py"
+      - "qualification/shetland_pony/build_blender.py"
+      - "qualification/shetland_pony/verify_fur_glb.py"
+      - ".github/workflows/shetland-winter-fur.yml"
+permissions:
+  contents: read
+jobs:
+  native-fur:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Pure deterministic fiber distribution and taper tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd qualification/shetland_pony && python3 -m unittest -v test_winter_fur.py test_body_surface.py test_footpaths.py)
+          python3 -m py_compile qualification/shetland_pony/winter_fur.py
+      - name: Disposable official SHA-pinned Blender 4.5.15
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/blender.sha256"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Build black and pinto real furry meshes, animated GLB and native images
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          env LIBGL_ALWAYS_SOFTWARE=1 SCP_COATS=black,pinto \
+            "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup \
+            --python-exit-code 8 --python qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/results"
+      - name: Independently prove actual export has skinned 3D fur, not smooth PBR only
+        shell: bash
+        run: |
+          set -euo pipefail
+          for coat in black pinto; do
+            python3 qualification/shetland_pony/verify_fur_glb.py \
+              "results/shetland_"$coat"_ghcr.glb" "results/fur_"$coat".json"
+          done
+      - name: Retain exact source-original furry GLBs, PNGs and density receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-native-winter-fur-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/*_ghcr.glb
+            results/*_ghcr.png
+            results/fur_*.json
+            results/manifest.json
