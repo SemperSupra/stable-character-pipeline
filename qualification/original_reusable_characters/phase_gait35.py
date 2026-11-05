@@ -144,8 +144,19 @@ def animate(input_glb,output_glb):
                 values.extend(quat(a))
             track(role,"rotation",values,"VEC4")
     assert controls==42
+    # Exact source-owner heading semantics of unmerged public PR #289:
+    # local forward -Z rotates into +X for Aster, -X for Juniper.
+    for actor,degrees in (("AsterOriginal",-90),("JuniperOriginal",90)):
+        root=nodeids[actor+"_SceneRoot"]
+        if "rotation" in d["nodes"][root] or "matrix" in d["nodes"][root]:
+            raise ValueError("ROOT_ALREADY_ROTATED")
+        if (root,"rotation") in ids:
+            raise ValueError("ANIMATED_ROOT_YAW_REFUSED")
+        angle=math.radians(degrees)/2
+        d["nodes"][root]["rotation"]=[0.0,math.sin(angle),0.0,math.cos(angle)]
     assert all(json.dumps(d[k],sort_keys=True)==before[k] for k in before)
     d["extras"]["gait_profile"]="ORIGINAL_PHASE_AWARE_35JOINT_IK_RESEARCH"
+    d["extras"]["heading_profile"]="OWNER_ORIGINAL_PR289_NEG90_POS90_ROOT_YAW"
     d["extras"]["gait_source_reference"]="public-original #290 @ aeeccaf6b00a55483e8b9e503d8aa7fb4a3c7532"
     d["extras"]["human_gait_acceptance"]="UNKNOWN"
     output=glb_pack(d,buffer)
@@ -155,6 +166,7 @@ def animate(input_glb,output_glb):
         "derived_sha256":hashlib.sha256(output).hexdigest(),
         "actors":2,"rig_joints_each":35,"frames":72,
         "modified_animation_targets":controls,
+        "heading_yaw_deg":{"AsterOriginal":-90,"JuniperOriginal":90},
         "mesh_skin_materials_unchanged":True,
         "foot_phases":"60pct stance / 40pct swing, bounded kinematic proxy",
         "human_gait_acceptance":"UNKNOWN_NOT_QUALIFIED"}
