@@ -46,8 +46,6 @@ func buildWorkset(snapshot Snapshot) (Workset,error){
  roots:=map[int]int{}
  depth:=map[int]int{}
  visiting:=map[int]bool{}
- byNumber:=map[int]*Pull{}
- for i:=range snapshot.PRs {p:=&snapshot.PRs[i];byNumber[p.Number]=p}
  var visit func(*Pull)(int,int,error)
  visit=func(p *Pull)(int,int,error){
   if visiting[p.Number]{return 0,0,fmt.Errorf("CYCLE_AT_PR:%d",p.Number)}
