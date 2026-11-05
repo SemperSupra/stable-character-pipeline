@@ -24,6 +24,16 @@ jobs:
           persist-credentials: false
           ref: 1f2febbd28d508d1c3d9f2a644f861d634f65a9d
           path: pinned_pony_producer
+      - name: Checkout immutable bounded actor policy v1
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: 57d1d5792ffaaf033f4035b859b0bca2dc088c3d
+          path: pinned_actor_policy
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
       - name: Disposable official native Blender 4.5.15 verified against SHA
         shell: bash
         run: |
@@ -43,12 +53,22 @@ jobs:
           python3 -m py_compile qualification/agent_native_neckfit/pony_fit_blender.py
           env LIBGL_ALWAYS_SOFTWARE=1 /tmp/blender/blender-4.5.15-linux-x64/blender --background --factory-startup --python-exit-code 8 --python pinned_pony_producer/qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/source_out"
           python3 pinned_pony_producer/qualification/shetland_pony/validate_outputs.py "$GITHUB_WORKSPACE/source_out"
-      - name: Generate genuine 2 camera x 2 frame x 3 candidate mask witnesses
+      - name: Validate actor candidate proposal against real immutable source bytes
         shell: bash
         run: |
           set -euo pipefail
           cp "$GITHUB_WORKSPACE/source_out/shetland_black_ghcr.blend" "$GITHUB_WORKSPACE/native_fit/source_pony.blend"
-          env LIBGL_ALWAYS_SOFTWARE=1 /tmp/blender/blender-4.5.15-linux-x64/blender --background --factory-startup --python-exit-code 8 --python qualification/agent_native_neckfit/pony_fit_blender.py -- "$GITHUB_WORKSPACE/native_fit/source_pony.blend" "$GITHUB_WORKSPACE/native_fit"
+          cp "$GITHUB_WORKSPACE/source_out/shetland_black_ghcr.glb" "$GITHUB_WORKSPACE/native_fit/source_pony.glb"
+          python3 -m unittest discover -s qualification/agent_native_neckfit -p test_plan_bridge.py -v
+          python3 qualification/agent_native_neckfit/plan_bridge.py make "$GITHUB_WORKSPACE/native_fit/source_pony.blend" "$GITHUB_WORKSPACE/native_fit/source_pony.glb" > "$GITHUB_WORKSPACE/native_fit/actor_proposal.json"
+          (cd pinned_actor_policy/qualification/agent_hypothesis_bounds && go test -race -count=1 ./... && go vet ./...)
+          (cd pinned_actor_policy/qualification/agent_hypothesis_bounds && go run . plan "$GITHUB_WORKSPACE/native_fit/actor_proposal.json" > "$GITHUB_WORKSPACE/native_fit/actor_plan.json")
+          python3 qualification/agent_native_neckfit/plan_bridge.py check "$GITHUB_WORKSPACE/native_fit/source_pony.blend" "$GITHUB_WORKSPACE/native_fit/source_pony.glb" "$GITHUB_WORKSPACE/native_fit/actor_plan.json" > "$GITHUB_WORKSPACE/native_fit/actor_gate.json"
+      - name: Generate genuine 2 camera x 2 frame x 3 actor-plan-bound mask witnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 /tmp/blender/blender-4.5.15-linux-x64/blender --background --factory-startup --python-exit-code 8 --python qualification/agent_native_neckfit/pony_fit_blender.py -- "$GITHUB_WORKSPACE/native_fit/source_pony.blend" "$GITHUB_WORKSPACE/native_fit" "$GITHUB_WORKSPACE/native_fit/actor_gate.json" "$GITHUB_WORKSPACE/native_fit/source_pony.glb"
           test "$(find native_fit -maxdepth 1 -name 'manifest_*.json' | wc -l)" -eq 12
       - name: Preserve all first-run artifacts for independent evaluation
         if: always()
@@ -62,6 +82,7 @@ jobs:
             native_fit/*.json
             native_fit/*.png
             native_fit/*.blend
+            native_fit/*.glb
   independent_go_measurement:
     needs: native_blender_candidates
     runs-on: ubuntu-24.04
@@ -92,6 +113,18 @@ jobs:
           root=pathlib.Path("native_fit").resolve()
           source=json.loads((root/"source_receipt.json").read_text())
           assert source["source_blend_sha256"]==hashlib.sha256((root/"source_pony.blend").read_bytes()).hexdigest()
+          proposal=json.loads((root/"actor_proposal.json").read_text())
+          policy=json.loads((root/"actor_plan.json").read_text())
+          bound=json.loads((root/"actor_gate.json").read_text())
+          assert proposal["baseline_sha256"]==source["source_blend_sha256"]
+          assert proposal["reference_sha256"]==hashlib.sha256((root/"source_pony.glb").read_bytes()).hexdigest()
+          assert bound["plan_sha256"]==source["actor_plan_sha256"]
+          assert bound["candidate_ids"]==source["actor_candidate_ids"]
+          assert bound["evidence_sha256"]==source["actor_evidence_sha256"]
+          assert bound["candidate_deltas_radians"]==source["candidate_deltas_radians"]
+          independent=subprocess.run(["python3","qualification/agent_native_neckfit/plan_bridge.py","check",str(root/"source_pony.blend"),str(root/"source_pony.glb"),str(root/"actor_plan.json")],capture_output=True,text=True,check=True)
+          assert json.loads(independent.stdout)==bound
+          assert policy["disposition"]=="VALID_PLAN_ONLY"
           manifests=sorted(root.glob("manifest_*.json"))
           assert len(manifests)==12,len(manifests)
           exe=pathlib.Path("/home/runner") # replaced by runner temp environment below
