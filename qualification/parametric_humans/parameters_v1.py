@@ -215,6 +215,42 @@ def add_event(state, when, kind, evidence, changes):
     validate(derived)
     return derived
 
+def compare_states(state, before_date, after_date):
+    """Read-only, evidence-labeled before/after semantic delta; never infer cause."""
+    validate(state)
+    _valid_date(before_date)
+    _valid_date(after_date)
+    _assert(before_date < after_date, "COMPARE_DATE_ORDER")
+    before = snapshot(state, before_date)
+    after = snapshot(state, after_date)
+    _assert(before["identity"] == after["identity"], "IDENTITY_DRIFT")
+    differences = []
+    for path in sorted(ALL_PATHS):
+        group, key = _split(path)
+        old, new = before[group][key], after[group][key]
+        if old != new:
+            differences.append({
+                "path": path,
+                "before": old, "after": new,
+                "uncertainty": state.get("uncertainty", {}).get(path, "unspecified")
+            })
+    events = [
+        {"date": item["date"], "kind": item["kind"], "evidence": item["evidence"]}
+        for item in state["timeline"]
+        if before_date < item["date"] <= after_date
+    ]
+    return {
+        "schema": "scp.r009.synthetic_human.comparison.v1",
+        "character_id": state["character_id"],
+        "source_sha256": sha256(state),
+        "before_date": before_date, "after_date": after_date,
+        "identity_unchanged": True,
+        "differences": differences,
+        "events": events,
+        "causal_attribution_proven": False
+    }
+
+
 def canonical_bytes(state):
     validate(state)
     return (json.dumps(state, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
@@ -236,6 +272,10 @@ def main():
     s = sub.add_parser("snapshot")
     s.add_argument("input", type=Path)
     s.add_argument("--date", required=True)
+    d = sub.add_parser("compare")
+    d.add_argument("input", type=Path)
+    d.add_argument("--before", required=True)
+    d.add_argument("--after", required=True)
     args = ap.parse_args()
     if args.command == "catalog":
         print(json.dumps({"schema": SCHEMA, "numeric": CONTROLS, "enum": ENUMS,
@@ -252,6 +292,10 @@ def main():
         return
     state = json.loads(args.input.read_text("utf-8"))
     validate(state)
+    if args.command == "compare":
+        print(json.dumps(compare_states(state, args.before, args.after),
+                         sort_keys=True, ensure_ascii=False, indent=2))
+        return
     if args.command == "validate":
         print(json.dumps({"valid": True, "sha256": sha256(state),
                           "character_id": state["character_id"]}))
