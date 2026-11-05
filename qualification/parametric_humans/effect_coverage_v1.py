@@ -8,6 +8,7 @@ Source-only, deterministic, offline, stdlib and no protected characters.
 import argparse
 import copy
 import hashlib
+from functools import lru_cache
 import json
 from pathlib import Path
 
@@ -58,6 +59,7 @@ def geometric_changes(baseline, comparison):
             changes[key] = diff
     return changes
 
+@lru_cache(maxsize=16)
 def witness(seed=73):
     baseline_state = contract.sample(seed)
     baseline_mesh, _ = adapter.apply_original_shape(0, baseline_state)
@@ -96,6 +98,8 @@ def main():
     parser.add_argument("--seed", type=int, default=73)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
+    if args.out and args.out.exists():
+        raise FileExistsError("REFUSE_OVERWRITE_EXISTING_EFFECT_COVERAGE")
     data = witness(args.seed)
     output = json.dumps(data, sort_keys=True, indent=2) + "\n"
     if args.out:
