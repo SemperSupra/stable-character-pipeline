@@ -61,7 +61,7 @@ jobs:
             "$GITHUB_WORKSPACE/results/model/shetland_black_ghcr.glb" \
             "$GITHUB_WORKSPACE/results/science/rom30.json" \
             "$GITHUB_WORKSPACE/rom-frozen/qualification/equine/rom"
-      - name: Strict evidence receipt: six distinct joint samples, no biology overclaim
+      - name: "Strict evidence receipt: six distinct joint samples, no biology overclaim"
         shell: bash
         run: |
           set -euo pipefail
