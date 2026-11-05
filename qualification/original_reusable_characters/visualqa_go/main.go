@@ -92,7 +92,6 @@ func main(){
  if a.Status!="PASS_COLOR_VISIBILITY_PROXY_ONLY"||b.Status!="PASS_COLOR_VISIBILITY_PROXY_ONLY"{verdict="FAIL_AT_LEAST_ONE_VIEW_OCCLUSION_PROXY"}
  r:=Report{Schema:"scp.r009.original_humanization_color_visibility.v1",SourceClass:"ORIGINAL_SELF_AUTHORED_SYNTHETIC",Front:a,Oblique:b,JointScience:"NOT_EVALUATED",Verdict:verdict}
  payload,err:=json.MarshalIndent(r,"","  ");if err!=nil{panic(err)}
- if err=os.WriteFile(*receipt,append(payload,'
-'),0644);err!=nil{panic(err)}
+ if err=os.WriteFile(*receipt,append(payload,byte(10)),0644);err!=nil{panic(err)}
  fmt.Println(verdict,"front",a.Status,"oblique",b.Status)
 }
