@@ -1,0 +1,75 @@
+name: Shetland native local-X vs local-Y hinge A-B deform/hoof science
+on:
+  pull_request:
+    paths:
+      - "qualification/shetland_pony/build_blender.py"
+      - "qualification/equine/gait_axis_ab/**"
+      - ".github/workflows/equine-hinge-axis-ab.yml"
+permissions:
+  contents: read
+jobs:
+  native-hip-knee-axis-ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Fetch immutable before source and independent observer
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 1f2febbd28d508d1c3d9f2a644f861d634f65a9d
+          path: baseline-src
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
+          path: audit-src
+          persist-credentials: false
+      - name: Blender version hash, baseline, corrected, actual native rig
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --silent --show-error --location --retry 3 \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/baseline" "$GITHUB_WORKSPACE/corrected" "$GITHUB_WORKSPACE/results"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          BLENDER="$RUNNER_TEMP/blender-4.5.15-linux-x64/blender"
+          "$BLENDER" -b --factory-startup --python-exit-code 8 \
+            --python baseline-src/qualification/shetland_pony/build_blender.py -- "$RUNNER_TEMP/baseline"
+          "$BLENDER" -b --factory-startup --python-exit-code 8 \
+            --python qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/corrected"
+          python3 audit-src/qualification/equine/contact_eval/test_metrics.py
+          "$BLENDER" -b --factory-startup --python-exit-code 8 \
+            --python audit-src/qualification/equine/contact_eval/observed_hooves.py \
+            -- "$RUNNER_TEMP/baseline/shetland_black_ghcr.glb" "$GITHUB_WORKSPACE/results/baseline.json"
+          "$BLENDER" -b --factory-startup --python-exit-code 8 \
+            --python audit-src/qualification/equine/contact_eval/observed_hooves.py \
+            -- "$GITHUB_WORKSPACE/corrected/shetland_black_ghcr.glb" "$GITHUB_WORKSPACE/results/hinge_x.json"
+      - name: Independent A/B source correspondence and swing science
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 qualification/equine/gait_axis_ab/compare_ab.py \
+            results/baseline.json results/hinge_x.json results/ab_verdict.json
+      - name: Retain measured science plus corrected original-source rig assets
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-native-hinge-axis-ab-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/*.json
+            corrected/*_ghcr.glb
+            corrected/*_ghcr.png
