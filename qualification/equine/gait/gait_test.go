@@ -30,6 +30,28 @@ func TestFootfallPhases(t *testing.T){
         t.Fatalf("3-beat left lead %#v",can.Events)
     }
 }
+func TestSource48FrameWalkAlignment(t *testing.T) {
+    r,err:=Generate("pony-black","walk","sand",1,48,24,48000)
+    if err!=nil {t.Fatal(err)}
+    if r.FramesPerCycle!=48||r.FPS!=24||len(r.Events)!=4 {
+        t.Fatalf("expected 4 distinct hoof events across exported 48f cycle: %#v",r)
+    }
+    wantFoot:=[]string{"HL","FL","HR","FR"}
+    for i,event:=range r.Events{
+        expectedFrame:=i*12
+        if event.Frame!=expectedFrame || event.Sample!=int64(expectedFrame*2000) || event.Foot!=wantFoot[i] {
+            t.Fatalf("source 48f planned event mismatch: %#v",event)
+        }
+        if event.ContactState!="planned_contact" || event.Source!="SYNTHETIC_PLANNED" {
+            t.Fatal("source 48f unverified physical claim")
+        }
+    }
+    twice,err:=Generate("pony-black","walk","sand",2,48,24,48000)
+    if err!=nil||len(twice.Events)!=8||twice.Events[4].Frame!=48 {
+        t.Fatalf("48f cycle repeat must start at frame 48: %#v %v",twice,err)
+    }
+}
+
 func TestFailClosed(t *testing.T){
     for _,kind:=range []string{"bad","WALK","cantering"}{
         if _,e:=Generate("pony",kind,"sand",2,24,24,48000);e==nil{t.Fatal(kind)}
