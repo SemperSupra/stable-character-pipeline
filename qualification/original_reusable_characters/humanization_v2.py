@@ -52,8 +52,9 @@ def make_figure(which):
     shoe = "darkBoots" if male else "earthBoots"
     torso(g, coat, (.183 if male else .168, .117 if male else .126))
     E = g.ellipsoid
+    E(pants,(0,.845,.005),(.192 if male else .198,.135,.128),"pelvis",14,24)
     # ~0.26m-high anatomical head on a ~1.8m figure, with facial landmarks.
-    E(skin, (0,1.458,0), (.070,.079,.071), "neck")
+    g.tube(skin,(0,1.406,0),(0,1.598,0),.061,.055,"neck","head",steps=16,sides=24)
     E(skin, (0,1.655,0), (.101 if male else .094,.131,.108), "head",20,28)
     E(skin, (0,1.596,-.020), (.076,.067,.082), "head")
     E(skin, (0,1.640,-.108), (.017,.038,.029), "head")
@@ -64,7 +65,7 @@ def make_figure(which):
         E("eyeWhite",(s*.041,1.666,-.102),(.019,.012,.007),"head",10,14)
         E("iris",(s*.041,1.665,-.109),(.009,.009,.004),"head",10,14)
         E(hair,(s*.042,1.691,-.105),(.027,.006,.005),"head",8,14)
-    E(hair,(0,1.763,.011),(.100,.049,.115),"head",16,24)
+    E(hair,(0,1.752,.016),(.101,.061,.114),"head",16,24)
     if male:
         E("scarf",(0,1.47,-.065),(.104,.034,.063),"neck")
     else:
@@ -83,6 +84,7 @@ def make_figure(which):
         E(shoe,(s*.14,.05,-.102),(.083,.044,.110),f"ankle_{side}")
         sh,el,wr = [v1.POS[f"{role}_{side}"]
                      for role in ("shoulder","elbow","wrist")]
+        E(coat,(s*.218,1.337,0),(.086,.096,.080),f"shoulder_{side}",12,18)
         g.tube(coat,sh,el,.083,.057,f"shoulder_{side}",f"elbow_{side}",18,22)
         g.tube(coat,el,wr,.059,.041,f"elbow_{side}",f"wrist_{side}",18,22)
         E(skin,(wr[0],wr[1]-.04,wr[2]),(.043,.063,.025),f"wrist_{side}")
