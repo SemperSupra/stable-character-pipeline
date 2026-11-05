@@ -25,9 +25,9 @@ Human gait references (normal adult level walking, not a universal range applica
 
 ## Independent verification (not producer-only output)
 
-- 14/14 source and adversarial standard-library tests PASS (exact SHA pin; no source overwrite; source rights class; missing bones/skins, malformed GLB, multiple clips, nonphysical IK reach).
+- 14/14 offline Python unittest source and adversarial tests PASS (NumPy/SciPy dependencies) (exact SHA pin; no source overwrite; source rights class; missing bones/skins, malformed GLB, multiple clips, nonphysical IK reach).
 - 32/32 additional input, skin, pose, foot, strain, and media checks PASS. Genuine weighted glTF mesh, inverse bind matrices, all 72 frames and all four shoes independently reevaluated.
-- Full-body actual skinned sole centroid movement in the **bounded interior stance** (excluding heel strike and toe off), combined 81 adjacent same-foot frame-pairs: 0 exceed 20 mm; maximum observed 0.273 mm/frame. Foot bottoms at least ~7.1 mm above the modeled ground in nominal stance; this is a stylized boot-model geometric witness, not physical force/contact.
+- Full-body actual skinned sole centroid movement in the **bounded interior stance** (excluding heel strike and toe off), combined 81 adjacent same-foot frame-pairs: 0 exceed 20 mm; maximum observed 0.273 mm/frame. Boot bottom minimum near y=7.1 mm aligns within ~0.4 mm of the renderer walkway top at y=7.5 mm; this is a stylized geometry proxy, not physical force/contact.
 - Four independent H.264 videos (side, oblique, Aster close annotated joints, Juniper close annotated joints) each ffprobe-validated **72 frames**, 12 fps, 960×540, decoded without FFmpeg errors. Two-camera actual rendered visual sheets manually examined; foreground occluders removed in oblique camera.
 - Topology unchanged and deforming skin observed; sampled per-triangle edge stretch p99 worst ~37.5% (ochre trousers). This is material deformation that still needs authoring/skin smoothing, not a full skin-quality acceptance.
 
