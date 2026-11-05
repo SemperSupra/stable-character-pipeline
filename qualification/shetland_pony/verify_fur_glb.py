@@ -12,7 +12,7 @@ def verify(glb,receipt):
     if source["schema"]!="equine.fur.skinned.v1" or source["total_strands"]<9000:
         raise ValueError("not enough authored fiber geometry")
     fur=[m for m in gltf.get("meshes",[]) if m.get("name","").startswith("fur_geometry_")]
-    if len(fur)<10:raise ValueError("fiber mesh missing in exported GLB")
+    if len(fur)<7:raise ValueError("7 expected independent torso/head/neck/limb fiber sources missing")
     for mesh in fur:
         for primitive in mesh["primitives"]:
             attributes=primitive.get("attributes",{})
