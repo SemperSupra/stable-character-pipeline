@@ -20,7 +20,8 @@ def torso(g, mat, widths):
     p = g.part(mat)
     base = len(p["p"]) // 3
     rings = [(0.84, .95), (.92, 1), (1.01, .84), (1.09, .88),
-             (1.19, 1.12), (1.30, 1.22), (1.38, 1), (1.42, .52)]
+             (1.19, 1.12), (1.30, 1.22), (1.38, 1),
+             (1.42, .57), (1.475, .44)]
     n = 32
     for y, factor in rings:
         lo, hi, t = (("pelvis", "spine", max(0, min(1, (1.11-y)/.18)))
@@ -42,6 +43,72 @@ def torso(g, mat, widths):
             p["i"].extend([a,a+n,b,b,a+n,b+n])
 
 
+def loft_anatomy(g, material, rings, bone_at_y, sides=32):
+    """One skin-weighted continuous ring mesh, outward triangles and sloped normals.
+
+    rings are (height_m, center_z_m, width_radius_m, depth_radius_m).
+    Parent source bones are never edited; this is a geometric skin variant only.
+    """
+    part = g.part(material)
+    start = len(part["p"]) // 3
+    assert len(rings) >= 3 and all(r[2] > 0 and r[3] > 0 for r in rings)
+    assert all(rings[k][0] < rings[k+1][0] for k in range(len(rings)-1))
+    for k, (y, cz, rx, rz) in enumerate(rings):
+        prev = rings[max(0, k-1)]
+        nxt = rings[min(len(rings)-1, k+1)]
+        dy = nxt[0] - prev[0]
+        drx = (nxt[2] - prev[2]) / dy
+        drz = (nxt[3] - prev[3]) / dy
+        dcz = (nxt[1] - prev[1]) / dy
+        a, b, blend = bone_at_y(y)
+        assert a in v1.JIDX and b in v1.JIDX and 0 <= blend <= 1
+        for j in range(sides):
+            phi = 2 * math.pi * j / sides
+            co, si = math.cos(phi), math.sin(phi)
+            part["p"].extend([rx * co, y, cz + rz * si])
+            normal = v1.unit((rz * co,
+                    -(drx * rz * co * co + rx * drz * si * si + rx * dcz * si),
+                    rx * si))
+            part["n"].extend(normal)
+            part["j"].extend([v1.JIDX[a], v1.JIDX[b], 0, 0])
+            part["w"].extend([blend, 1 - blend, 0, 0])
+    for k in range(len(rings) - 1):
+        for j in range(sides):
+            a = start + k * sides + j
+            b = start + k * sides + (j + 1) % sides
+            part["i"].extend([a, a + sides, b, b, a + sides, b + sides])
+
+
+def head_and_neck(g, skin, hair, male):
+    """Continuous anatomical jaw/neck/scalp; no floating head or hair ellipsoid."""
+    # The coat collar reaches 1.475m, leaving ~4.5cm visible neck.
+    rings = [
+        (1.405, 0, .062, .060),
+        (1.448, 0, .056, .056),
+        (1.480, -.003, .052, .054),
+        (1.500, -.008, .053, .054),
+        (1.519, -.013, .060, .060),
+        (1.548, -.013, .072, .072),
+        (1.574, -.010, .081, .083),
+        (1.611, 0, .091 if male else .088, .095),
+        (1.657, 0, .102 if male else .096, .105),
+        (1.701, .008, .102 if male else .097, .106),
+        (1.737, .019, .085, .093),
+        (1.766, .025, .052, .062),
+        (1.785, .028, .005, .010),
+    ]
+    def w(y):
+        t = max(0., min(1., (1.553 - y) / .083))
+        return ("neck", "head", t)
+    loft_anatomy(g, skin, rings, w, sides=36)
+    # Hair forms a thin source-original scalp shell, not a hovering sphere.
+    scalp = [(1.716, .009, .104 if male else .100, .109),
+             (1.740, .020, .090, .098),
+             (1.766, .025, .056, .068),
+             (1.787, .029, .008, .013)]
+    loft_anatomy(g, hair, scalp, lambda _: ("head", "head", 1.), sides=36)
+
+
 def make_figure(which):
     g = v1.Geometry()
     male = which == 0
@@ -53,19 +120,16 @@ def make_figure(which):
     torso(g, coat, (.183 if male else .168, .117 if male else .126))
     E = g.ellipsoid
     E(pants,(0,.845,.005),(.192 if male else .198,.135,.128),"pelvis",14,24)
-    # ~0.26m-high anatomical head on a ~1.8m figure, with facial landmarks.
-    g.tube(skin,(0,1.406,0),(0,1.598,0),.061,.055,"neck","head",steps=16,sides=24)
-    E(skin, (0,1.655,0), (.101 if male else .094,.131,.108), "head",20,28)
-    E(skin, (0,1.596,-.020), (.076,.067,.082), "head")
-    E(skin, (0,1.640,-.108), (.017,.038,.029), "head")
-    E(skin, (0,1.604,-.127), (.022,.012,.015), "head")
-    E(skin, (0,1.584,-.100), (.038,.008,.009), "head")
+    # Jointed skinned head/neck and scalp are now one anatomical surface each.
+    head_and_neck(g, skin, hair, male)
+    E(skin, (0,1.635,-.108), (.016,.033,.028), "head")
+    E(skin, (0,1.604,-.126), (.019,.011,.014), "head")
+    E(skin, (0,1.585,-.097), (.031,.007,.007), "head")
     for s in (-1,1):
         E(skin,(s*.100,1.65,.011),(.019,.032,.017),"head")
         E("eyeWhite",(s*.041,1.666,-.102),(.019,.012,.007),"head",10,14)
         E("iris",(s*.041,1.665,-.109),(.009,.009,.004),"head",10,14)
         E(hair,(s*.042,1.691,-.105),(.027,.006,.005),"head",8,14)
-    E(hair,(0,1.752,.016),(.101,.061,.114),"head",16,24)
     if male:
         E("scarf",(0,1.47,-.065),(.104,.034,.063),"neck")
     else:
@@ -84,8 +148,10 @@ def make_figure(which):
         E(shoe,(s*.14,.05,-.102),(.083,.044,.110),f"ankle_{side}")
         sh,el,wr = [v1.POS[f"{role}_{side}"]
                      for role in ("shoulder","elbow","wrist")]
-        E(coat,(s*.218,1.337,0),(.086,.096,.080),f"shoulder_{side}",12,18)
-        g.tube(coat,sh,el,.083,.057,f"shoulder_{side}",f"elbow_{side}",18,22)
+        # Narrow sleeve starts inside continuous chest, avoiding ball-joint cap.
+        sleeve_start = (s*.203, 1.345, 0.)
+        g.tube(coat,sleeve_start,el,.075,.050,
+               f"shoulder_{side}",f"elbow_{side}",steps=20,sides=24)
         g.tube(coat,el,wr,.059,.041,f"elbow_{side}",f"wrist_{side}",18,22)
         E(skin,(wr[0],wr[1]-.04,wr[2]),(.043,.063,.025),f"wrist_{side}")
         for j, length in enumerate((.045,.065,.070,.060,.047)):
