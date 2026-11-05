@@ -152,7 +152,7 @@ def build_one(coat):
     offset=(math.pi if (side=='L')==(prefix=='front') else 0)
     phase=t+offset
     for seg,amp,mul in [('upper',.23,1),('lower',.15,-1),('fetlock',.07,.6),('hoof',.08,-.5)]:
-     b=arm.pose.bones[f'{prefix}_{side}_{seg}'];b.rotation_euler[1]=amp*mul*math.sin(phase)
+     b=arm.pose.bones[f'{prefix}_{side}_{seg}'];b.rotation_euler[0]=amp*mul*math.sin(phase) # hypothesis: local-X hinge rather than shaft twist
      b.keyframe_insert(data_path='rotation_euler',frame=frame,group=b.name)
   tail=arm.pose.bones['tail_2'];tail.rotation_euler[0]=.10*math.sin(t);tail.keyframe_insert(data_path='rotation_euler',frame=frame)
  bpy.context.scene.frame_set(1)
