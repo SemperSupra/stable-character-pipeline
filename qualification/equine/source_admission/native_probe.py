@@ -52,6 +52,13 @@ def main():
         "source_meshes":len(meshes),
         "imported_actions":len(bpy.data.actions),
         "action_names":sorted(a.name for a in bpy.data.actions),
+        "action_ranges":[{"action":a.name,"first_frame":float(a.frame_range[0]),
+                          "last_frame":float(a.frame_range[1])}
+                         for a in sorted(bpy.data.actions,key=lambda x:x.name)],
+        "source_bones":[{"name":b.name,"parent":b.parent.name if b.parent else None,
+                         "head":[round(float(x),6) for x in b.head_local],
+                         "tail":[round(float(x),6) for x in b.tail_local]}
+                        for b in sorted(rig.data.bones,key=lambda x:x.name)],
         "render_view":"static import probe; not retarget acceptance",
         "retarget_state":"NOT_RUN","hoof_contact":"UNKNOWN",
         "files":{}}
