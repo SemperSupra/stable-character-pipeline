@@ -3,9 +3,11 @@
 Runs inside Blender 4.5.15 to produce genuine rigged GLBs, editable .blend files and stills.
 Reference photographs/video, protected people and vendor meshes are not uploaded.
 """
-import bpy, math, random, json, hashlib, sys
+import bpy, math, random, json, hashlib, sys, os
 from mathutils import Vector
 from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from ik_walk import animate_ik_walk
 
 OUT=Path(sys.argv[sys.argv.index('--')+1]) if '--' in sys.argv else Path('/tmp/shetland-results')
 OUT.mkdir(parents=True,exist_ok=True)
@@ -143,18 +145,7 @@ def build_one(coat):
  if pink:
   for nm,pos,sc in [('noseband',(.97,0,.93),(.019,.162,.027)),('cheekstrap',(.81,-.164,1.02),(.023,.019,.14)),('cheekstrap2',(.81,.164,1.02),(.023,.019,.14))]:
    rigged(ellipsoid(nm,pos,sc,pink),arm,'head')
- bpy.context.scene.frame_start=1;bpy.context.scene.frame_end=48;bpy.context.scene.render.fps=24
- for n,pb in arm.pose.bones.items():pb.rotation_mode='XYZ'
- for frame in range(1,49,4):
-  t=(frame-1)/48*math.tau
-  for side in ('L','R'):
-   for prefix in ('front','hind'):
-    offset=(math.pi if (side=='L')==(prefix=='front') else 0)
-    phase=t+offset
-    for seg,amp,mul in [('upper',.23,1),('lower',.15,-1),('fetlock',.07,.6),('hoof',.08,-.5)]:
-     b=arm.pose.bones[f'{prefix}_{side}_{seg}'];b.rotation_euler[1]=amp*mul*math.sin(phase)
-     b.keyframe_insert(data_path='rotation_euler',frame=frame,group=b.name)
-  tail=arm.pose.bones['tail_2'];tail.rotation_euler[0]=.10*math.sin(t);tail.keyframe_insert(data_path='rotation_euler',frame=frame)
+ animate_ik_walk(arm,OUT/f'ik_plan_{coat}.json')
  bpy.context.scene.frame_set(1)
  bpy.ops.object.select_all(action='DESELECT')
  for o in bpy.context.scene.objects:
@@ -182,6 +173,9 @@ def build_one(coat):
  return results
 
 receipt={'tool':'native_blender_shetland_ghcr','reference':'public-safe synthetic pony derivative; not local v1','blender':bpy.app.version_string,'coat_results':{}}
-for c in COATS:receipt['coat_results'][c]=build_one(c)
+selected_coats=os.environ.get("SCP_COATS","black,pinto,white").split(",")
+if not selected_coats or any(x not in COATS for x in selected_coats) or len(set(selected_coats))!=len(selected_coats):
+ raise ValueError("invalid SC PONY coat subset")
+for c in selected_coats:receipt['coat_results'][c]=build_one(c)
 p=OUT/'manifest.json';p.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
 print(json.dumps({'VERDICT':'NATIVE_SYNTHETIC_THREE_COAT_PASS','manifest':str(p)},sort_keys=True))

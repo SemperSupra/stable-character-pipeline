@@ -1,0 +1,115 @@
+name: Shetland real stance/swing native two-link IK qualification
+on:
+  pull_request:
+    paths:
+      - "qualification/shetland_pony/**"
+      - ".github/workflows/shetland-stance-swing-ik.yml"
+permissions:
+  contents: read
+concurrency:
+  group: shetland-ik-native-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-ik-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Checkout frozen independent four-hoof science observer
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
+          path: audit-frozen
+          persist-credentials: false
+      - name: Original-world-foot targets and adversarial independent test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/shetland_pony
+          python3 -m unittest -v test_footpaths.py
+          python3 -m py_compile build_blender.py footpaths.py ik_walk.py
+          cd ../..
+          (cd audit-frozen/qualification/equine/contact_eval && python3 -m unittest -v test_metrics.py)
+      - name: Install hash-qualified native Blender in GHCR dependency container
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 \
+            -o "$RUNNER_TEMP/blender/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz \
+            -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+          "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" --background --python-expr \
+            'import bpy;assert bpy.app.version_string.startswith("4.5.15")'
+      - name: Build actual black pony deforming two-link IK and native GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/results/pony" "$GITHUB_WORKSPACE/results/science"
+          env LIBGL_ALWAYS_SOFTWARE=1 SCP_COATS=black \
+            "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup \
+            --python-exit-code 8 --python qualification/shetland_pony/build_blender.py \
+            -- "$GITHUB_WORKSPACE/results/pony"
+      - name: Evaluate actual 48-frame hoof vertices independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup \
+            --python-exit-code 8 --python audit-frozen/qualification/equine/contact_eval/observed_hooves.py \
+            -- "$GITHUB_WORKSPACE/results/pony/shetland_black_ghcr.glb" \
+               "$GITHUB_WORKSPACE/results/science/hooves.json"
+      - name: Technical integrity and explicit SCIENTIFIC verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,pathlib,struct
+          out=pathlib.Path("results");d=out/"pony"
+          plan=json.loads((d/"ik_plan_black.json").read_text())
+          science=json.loads((out/"science/hooves.json").read_text())
+          assert plan["schema"]=="equine.ik.plan.v1" and len(plan["frames"])==48
+          assert all(len(data)==4 for data in plan["frames"].values())
+          assert plan["contact_state"]=="PLANNED_SOURCE_TARGETS_NOT_EVALUATED"
+          assert science["schema"]=="equine.foot.science.v1" and science["frames"]==48
+          assert science["scientific_verdict"] in ("FOOT_CONTACT_PROXY_FAIL","NO_FAILURE_DETECTED_CONTACT_STILL_UNKNOWN")
+          raw=(d/"shetland_black_ghcr.glb").read_bytes()
+          assert raw[:4]==b"glTF" and struct.unpack_from("<I",raw,8)[0]==len(raw)
+          size,kind=struct.unpack_from("<II",raw,12)
+          assert kind==0x4e4f534a
+          gltf=json.loads(raw[20:20+size].decode().strip())
+          assert gltf.get("skins") and max(len(x["joints"]) for x in gltf["skins"])>=26
+          assert gltf.get("animations")
+          assert len(gltf["animations"][0].get("channels",[]))>=8
+          receipt={"schema":"equine.ik.native.verdict.v1",
+                   "technology":"GHCR native Blender 4.5.15 with baked constraint motion",
+                   "science_verdict":science["scientific_verdict"],
+                   "missing_swing_hooves":science["hooves_without_minimum_swing_clearance"],
+                   "maximum_hoof_clearance_m":max(x["max_clearance_m"] for x in science["feet"].values()),
+                   "skate_pairs":science["total_skate_pairs_over_threshold"],
+                   "ground_penetration_m":science["maximum_ground_penetration_m"],
+                   "motion_not_accepted":True,
+                   "limitation":"native proxy not validated biomechanics; actual visual/IK anatomical qualification pending",
+                   "source_glb_sha256":hashlib.sha256(raw).hexdigest()}
+          (out/"science/technical_receipt.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
+          print(json.dumps(receipt,sort_keys=True))
+          PY
+      - name: Preserve public source-original model, plan, native evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-ik-native-${{ github.run_id }}
+          path: results/**/*
+          retention-days: 7
+          if-no-files-found: warn
