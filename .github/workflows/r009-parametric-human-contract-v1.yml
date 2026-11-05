@@ -1,0 +1,61 @@
+name: R009 parametric synthetic human contract — public-safe qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/parametric_humans/**'
+      - '.github/workflows/r009-parametric-human-contract-v1.yml'
+permissions:
+  contents: read
+jobs:
+  contract-and-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Independent strict Python contract and adversarial controls
+        run: |
+          set -euo pipefail
+          cd qualification/parametric_humans
+          python3 -m compileall -q parameters_v1.py test_parameters_v1.py
+          python3 -m unittest -v test_parameters_v1
+      - name: Deterministic synthetic-state and source-catalog receipt
+        run: |
+          set -euo pipefail
+          mkdir -p r009-parametric-evidence
+          cd qualification/parametric_humans
+          python3 parameters_v1.py catalog > ../../r009-parametric-evidence/semantic_catalog.json
+          python3 parameters_v1.py generate --seed 73 --out ../../r009-parametric-evidence/synthetic_73.json
+          python3 parameters_v1.py validate ../../r009-parametric-evidence/synthetic_73.json > ../../r009-parametric-evidence/validation_73.json
+          python3 - <<'PY'
+          import json, pathlib, sys
+          for name in ("BACKEND_CANDIDATES.json", "GLOBAL_MEASUREMENT_CATALOG.json"):
+              d = json.loads(pathlib.Path(name).read_text())
+              if name.startswith("GLOBAL"):
+                  assert d["rights_gate"]
+              else:
+                  assert d["evaluation_contract"]["backend_adoption"] == "NONE"
+          receipt = {
+              "schema": "scp.r009.parametric_qualification_receipt.v1",
+              "source_class": "source_original_synthetic",
+              "backend_geometry_qualified": False,
+              "picture_video_fitting_qualified": False,
+              "clinical_prediction_qualified": False,
+              "source_assets_acquired": False,
+              "seed": 73,
+              "python": sys.version,
+          }
+          pathlib.Path("../../r009-parametric-evidence/qualification.json").write_text(
+              json.dumps(receipt,sort_keys=True,indent=2)+"\n")
+          PY
+          cd ../..
+          sha256sum r009-parametric-evidence/*.json > r009-parametric-evidence/SHA256SUMS
+      - name: Preserve verification receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r009-parametric-original-source-only-receipt
+          retention-days: 7
+          if-no-files-found: warn
+          path: r009-parametric-evidence/
