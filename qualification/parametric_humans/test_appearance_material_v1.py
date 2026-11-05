@@ -78,6 +78,29 @@ class AppearanceTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             pbr.build(self.glb,out,receipt,self.a,self.j)
 
+    def test_all_six_material_controls_independently_change_only_their_region(self):
+        source=self.glb.read_bytes()
+        baseline,_=pbr.apply(source,self.a,self.j)
+        first,_=decode(baseline)
+        origin={m["name"]:m for m in first["materials"]}
+        probes={
+            "skin_melanin":(.98,"AsterOriginal_skinWarm_parametric"),
+            "skin_roughness":(.11,"AsterOriginal_skinWarm_parametric"),
+            "skin_undertone":("olive" if self.a["appearance"]["skin_undertone"]!="olive" else "cool","AsterOriginal_skinWarm_parametric"),
+            "hair_rgb":([.99,.02,.14],"AsterOriginal_ebonyHair_parametric"),
+            "left_iris_rgb":([.91,.01,.03],"AsterOriginal_left_iris_parametric"),
+            "right_iris_rgb":([.04,.93,.08],"AsterOriginal_right_iris_parametric")
+        }
+        for key,(candidate,expected_name) in probes.items():
+            state=copy.deepcopy(self.a)
+            state["appearance"][key]=candidate
+            c.validate(state)
+            changed,_=pbr.apply(source,state,self.j)
+            doc,_=decode(changed)
+            current={m["name"]:m for m in doc["materials"]}
+            changed_names={name for name in origin if origin[name]!=current[name]}
+            self.assertEqual(changed_names,{expected_name},key)
+
     def test_stylized_undertone_and_roughness_independent(self):
         source=self.glb.read_bytes()
         baseline,_=pbr.apply(source,self.a,self.j)
