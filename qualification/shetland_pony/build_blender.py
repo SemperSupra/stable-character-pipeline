@@ -11,6 +11,7 @@ from ik_walk import animate_ik_walk
 from body_surface import create_body_surface
 from equine_sculpt import create_equine_sculpt
 from winter_fur import create_coat
+from mane_drape import guides as mane_guides,validate_guides
 from equine_anatomy import chain as equine_leg_chain, validate_structure
 
 OUT=Path(sys.argv[sys.argv.index('--')+1]) if '--' in sys.argv else Path('/tmp/shetland-results')
@@ -117,16 +118,11 @@ def build_one(coat):
   ((-.88,0,.43),(.07,.09,.15),'tail_3')]):
   rigged(ellipsoid('tail_volume_'+str(i),p,sc,hair),arm,bone)
  # Pinto markings now use material islands on the unified body surface.
- anchors=[]
- # Dense skinned source-bound coat replaces 1100 wide spiky torso ribbons.
- for i in range(160):
-  x=.36+i/160*.45;y=rng.uniform(-.14,.14);z=1.08+(x-.36)*.20
-  anchors.append(((x,y,z),(rng.uniform(-.22,.1),rng.choice((-1,1))*.32,.35),rng.uniform(.14,.32),.009,'neck' if x<.66 else 'head'))
- for i in range(100):
-  anchors.append(((.73+rng.uniform(-.05,.15),rng.uniform(-.13,.13),1.27),(.75,rng.uniform(-.28,.28),-.22),rng.uniform(.14,.28),.008,'head'))
- for i in range(160):
-  z=rng.uniform(.35,.82)
-  anchors.append(((-.70,rng.uniform(-.095,.095),z),(-.35,rng.uniform(-.15,.15),-.45),rng.uniform(.1,.32),.010,'tail_2' if z>.55 else 'tail_3'))
+ # Continuous dense undercoat is skin-bound separately.
+ # Synthesize bilateral gravity-draped long hairs (no upright pine needles).
+ anchors=mane_guides(rng)
+ drape_receipt=validate_guides(anchors)
+ (OUT/f'longhair_{coat}.json').write_text(json.dumps(drape_receipt,indent=2,sort_keys=True)+'\n')
  groom_mesh('geometric_coat_mane_tail',anchors,hair,arm)
  fur_receipt=create_coat(arm,body,white if coat=='pinto' else None)
  (OUT/f'fur_{coat}.json').write_text(json.dumps(fur_receipt,indent=2,sort_keys=True)+'\n')
