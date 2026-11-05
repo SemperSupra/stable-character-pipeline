@@ -38,10 +38,10 @@ def main(argv):
     path.name='OriginalParkWalkway';path.dimensions=(12.0,1.8,.02);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);path.data.materials.append(path_mat)
     # Trees behind the actor path. No imported scenery.
     bark=material('park_bark',(.33,.21,.11));leaf=material('park_leaf',(.09,.26,.13))
-    for x,y in ((-5,2.3),(-2.8,2.5),(.2,2.8),(4.8,2.5),(-4.4,-2.4),(-.8,-2.5),(3.7,-2.6)):
+    for x,y in ((-5.2,-2.6),(-2.3,-2.9),(2.6,-2.8),(5.2,-2.5)):
         bpy.ops.mesh.primitive_cylinder_add(vertices=9,radius=.095,depth=1.8,location=(x,y,.88))
         bpy.context.object.data.materials.append(bark)
-        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=.72,location=(x,y,2.0))
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=.52,location=(x,y,2.0))
         ob=bpy.context.object;ob.scale=(1.,.85,1.0);ob.data.materials.append(leaf)
     camera_data=bpy.data.cameras.new('OriginalParkCamera');camera=bpy.data.objects.new('OriginalParkCamera',camera_data)
     bpy.context.collection.objects.link(camera)
@@ -51,7 +51,7 @@ def main(argv):
         camera.rotation_euler=direction.to_track_quat('-Z','Y').to_euler()
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'original_park_editable.blend'))
     counts={}
-    for view,loc in [('front',(0,-12,2.0)),('oblique',(5.0,-9.5,4.0))]:
+    for view,loc in [('front',(0,12,2.0)),('oblique',(4.2,10.5,3.2))]:
         folder=out/view;folder.mkdir(parents=True,exist_ok=True)
         aim(loc,(0,0,1.0))
         for frame in range(72):
@@ -64,7 +64,7 @@ def main(argv):
              'input_sha256':observed,'frames':counts,
              'armatures':{a.name:len(a.data.bones) for a in arms},
              'skinned_mesh_objects':[x.name for x in skinned],
-             'native_blender_import':True,'source_class':'ORIGINAL_SELF_AUTHORED_SYNTHETIC',
+             'native_blender_import':True,'camera_corrective':'V2_FACE_SIDE_BACKGROUND_ONLY_FIRST_FAILED_RUN_RETAINED','source_class':'ORIGINAL_SELF_AUTHORED_SYNTHETIC',
              'human_identity':'NOT_APPLICABLE','anatomical_foot_contact':'UNKNOWN',
              'photorealism':'NOT_ACCEPTED','product_accepted':False}
     (out/'native_receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
