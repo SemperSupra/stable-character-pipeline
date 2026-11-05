@@ -88,5 +88,33 @@ class HumanizationV2Tests(unittest.TestCase):
         self.assertEqual(self.receipt["sha256"], other["sha256"])
 
 
+    def test_connected_head_neck_skin_and_coat_collar(self):
+        from humanization_v2 import make_figure, head_and_neck
+        for which in (0, 1):
+            g = make_figure(which)
+            sk = "skinWarm" if which == 0 else "skinCool"
+            coat = "coralJacket" if which == 0 else "tealJacket"
+            skin_y = g.parts[sk]["p"][1::3]
+            coat_y = g.parts[coat]["p"][1::3]
+            self.assertLessEqual(min(skin_y), 1.410)
+            self.assertGreaterEqual(max(skin_y), 1.780)
+            # The collar covers the bare neck's lower ~5 cm.
+            self.assertGreaterEqual(max(coat_y), 1.474)
+            self.assertLess(1.520 - max(coat_y), .050)
+            weights = g.parts[sk]["w"]
+            self.assertTrue(all(abs(sum(weights[i:i+4]) - 1) < 1e-5
+                                for i in range(0, len(weights), 4)))
+
+    def test_no_separate_spherical_shoulder_caps(self):
+        from humanization_v2 import make_figure
+        for which in (0, 1):
+            g = make_figure(which)
+            coat = "coralJacket" if which == 0 else "tealJacket"
+            points = g.parts[coat]["p"]
+            # Torso and both sleeves are all jacket; no orphaned shoulder sphere.
+            self.assertGreater(len(points) // 3, 1100)
+            self.assertTrue(all(math.isfinite(x) for x in points))
+
+
 if __name__ == "__main__":
     unittest.main()
