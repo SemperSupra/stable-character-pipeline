@@ -34,10 +34,18 @@ func TestMissingParentReject(t *testing.T){
  s.PRs[1].Base.Ref="missing"
  if _,err:=buildWorkset(s);err==nil{t.Fatal("missing parent accepted")}
 }
-func TestParentHeadDriftReject(t *testing.T){
+func TestParentHeadDriftRetainedAsExplicitHold(t *testing.T){
  s:=rootFixture()
  s.PRs[2].Base.SHA=strings.Repeat("f",40)
- if _,err:=buildWorkset(s);err==nil{t.Fatal("source SHA drift accepted")}
+ ws,err:=buildWorkset(s);if err!=nil{t.Fatal(err)}
+ if !ws.Complete || ws.BaseSHADriftCount!=1 || ws.Groups[0].TotalDescendants!=3{
+  t.Fatal("drift must not prevent truthful complete inventory",ws)
+ }
+ d:=ws.BaseSHADrifts[0]
+ if d.ChildPR!=292 || d.ParentPR!=291 || d.Disposition!="BASE_SHA_DRIFT_HELD_NO_MERGE_CLOSE_DELETE" {
+  t.Fatal("drift was not retained",d)
+ }
+ if !strings.Contains(ws.Markdown(),"BASE_SHA_DRIFT_HELD"){t.Fatal("missing drift in human summary")}
 }
 func TestDependencyCycleAndIncompleteReject(t *testing.T){
  s:=rootFixture()
