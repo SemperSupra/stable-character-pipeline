@@ -12,8 +12,10 @@ func main(){
  actor:=flag.String("actor","pony-black","actor identity")
  out:=flag.String("out","","output path (empty stdout)")
  cycles:=flag.Int("cycles",2,"bounded gait cycles")
+ framesPerCycle:=flag.Int("frames-per-cycle",24,"source animation frames per gait cycle (24 or 48 typical)")
+ fps:=flag.Int("fps",24,"video frame rate, 48000 must divide evenly")
  flag.Parse()
- receipt,err:=gait.Generate(*actor,*gaitName,*surface,*cycles,24,24,48000)
+ receipt,err:=gait.Generate(*actor,*gaitName,*surface,*cycles,*framesPerCycle,*fps,48000)
  if err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(2)}
  b,err:=json.MarshalIndent(receipt,"","  ")
  if err!=nil {panic(err)}
