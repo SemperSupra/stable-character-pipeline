@@ -1,0 +1,99 @@
+name: Shetland 48-frame source-clock synthesized audio/video qualification
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/av_sync/**"
+      - ".github/workflows/equine-48f-av-sync.yml"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source48-av-join:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Frozen source-original 48-frame gait clock
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 497203219d035bafd72be2d4a34786c1396526ff
+          path: gait-frozen
+          persist-credentials: false
+      - name: Frozen source-original deterministic Foley
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 630c31408d3b76575d361a51770b9a336393fd76
+          path: audio-frozen
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: "1.23.2"
+          cache: false
+      - name: Rebuild and negative-control independent motion and audio source
+        run: |
+          set -euo pipefail
+          (cd gait-frozen/qualification/equine/gait && go test -race -count=1 ./... && go vet ./...)
+          (cd audio-frozen/qualification/equine/audio && go test -race -count=1 ./... && go vet ./...)
+          (cd gait-frozen/qualification/equine/gait && go build -o "$RUNNER_TEMP/gaitclock" ./cmd/gaitclock)
+          (cd audio-frozen/qualification/equine/audio && go build -o "$RUNNER_TEMP/hoof_fol" ./cmd/hoof_fol)
+          mkdir -p results/video
+          "$RUNNER_TEMP/gaitclock" -actor pony-black -gait walk -surface sand -cycles 1 \
+            -frames-per-cycle 48 -fps 24 -out results/48f_walk_events.json
+          "$RUNNER_TEMP/hoof_fol" -input results/48f_walk_events.json \
+            -wav results/48f_sand_hoof_foley.wav -receipt results/48f_sound_receipt.json -seconds 2
+      - name: Retrieve exact independently qualified exported GLB playback H264
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: SemperSupra/stable-character-pipeline
+        run: |
+          set -euo pipefail
+          gh run download 42117671062 --repo "$GH_REPO" \
+            --name shetland-glb-video-black-42117671062 --dir results/video
+          (cd results/video && sha256sum -c <<'EOF'
+          16205b172604ec86c389b7bdc8615ed45b0fb4f9882e5a18f266428386000a99  shetland_black_walk_2s.mp4
+          EOF
+          )
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path("results/video/playback_receipt.json")
+          x=json.loads(p.read_text())
+          assert x["source_branch_sha"]=="1b0a12da753ad662ec5b21f8d1aad73fba3224d9"
+          assert x["source_sha256"]=="cec71f2df47a8afea937148582b1604af07189561fa308f2d7c0ffdd8e99c563"
+          PY
+      - name: Install disposable FFmpeg on this public runner only
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+      - name: Deterministic two-second H264 video plus synchronized 48kHz audio
+        run: |
+          set -euo pipefail
+          ffmpeg -hide_banner -loglevel error -nostdin -y \
+            -i results/video/shetland_black_walk_2s.mp4 \
+            -i results/48f_sand_hoof_foley.wav \
+            -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 160k -ar 48000 -ac 1 \
+            -t 2 -movflags +faststart results/shetland_black_48f_walk_synthetic_sand_audio.mp4
+          python3 qualification/equine/av_sync/verify_av.py \
+            results/48f_walk_events.json results/48f_sound_receipt.json \
+            results/48f_sand_hoof_foley.wav results/video/playback_receipt.json \
+            results/shetland_black_48f_walk_synthetic_sand_audio.mp4 results/av_receipt.json
+      - name: Upload bounded source-aligned evidence without protected data
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-48f-av-sync-${{ github.run_id }}
+          path: |
+            results/48f_walk_events.json
+            results/48f_sound_receipt.json
+            results/48f_sand_hoof_foley.wav
+            results/shetland_black_48f_walk_synthetic_sand_audio.mp4
+            results/av_receipt.json
+            results/video/playback_receipt.json
+          retention-days: 7
+          if-no-files-found: warn
