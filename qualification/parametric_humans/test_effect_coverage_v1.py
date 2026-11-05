@@ -37,6 +37,7 @@ class EffectCoverageTests(unittest.TestCase):
 
     def test_source_remains_immutable_and_exact_determinism(self):
         first=c.witness(73)
+        c.witness.cache_clear()  # independent re-evaluation, not pointer equality
         second=c.witness(73)
         self.assertEqual(first,second)
 
