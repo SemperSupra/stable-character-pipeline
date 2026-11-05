@@ -39,7 +39,17 @@ def adult_body_geometry(which):
     Region transition surfaces overlap deliberately until independent body
     sculpt retopology is accepted. Preserve original 17-joint source namespace.
     """
-    g=h.make_figure(which)
+    # Garment shells need clearance outside the complete body:
+    # old stylized coat depth (.117m) was inside anatomical chest (.136m).
+    # Apply only in this wardrobe variant; owner #291 silhouette stays immutable.
+    old_torso=h.torso
+    def garment_torso(g,material,widths):
+        return old_torso(g,material,(widths[0]*1.07,max(widths[1],.167)))
+    try:
+        h.torso=garment_torso
+        g=h.make_figure(which)
+    finally:
+        h.torso=old_torso
     skin="skinWarm" if which==0 else "skinCool"
     hips=.184 if which==0 else .193
     waist=.145 if which==0 else .139
@@ -54,6 +64,13 @@ def adult_body_geometry(which):
         if y<1.11:return ("pelvis","spine",max(0,min(1,(1.11-y)/.20)))
         return ("spine","chest",max(0,min(1,(1.38-y)/.27)))
     h.loft_anatomy(g,skin,rings,torso_weights,36)
+    # Separate continuous pant waist/groin clothing shell hides skin bleed
+    # at seated/standing hip joints. Still requires independent cloth fitting.
+    trousers="slatePants" if which==0 else "ochrePants"
+    pant_rings=[(.55,0,.117,.092),(.665,0,.175,.117),
+                (.755,0,hips*1.095,.141),(.858,0,hips*1.12,.148),
+                (.940,0,hips*1.025,.134),(1.020,0,waist*1.15,.121)]
+    h.loft_anatomy(g,trousers,pant_rings,lambda y:("pelvis","spine",max(0,min(1,(1.08-y)/.18))),sides=36)
     # Neutral pelvis and groin bridge, not detailed genital geometry.
     g.ellipsoid(skin,(0,.820,.0),(hips*.90,.126,.106),"pelvis",16,24)
     for sign,side in ((-1,"L"),(1,"R")):
