@@ -183,6 +183,5 @@ def build_one(coat):
 
 receipt={'tool':'native_blender_shetland_ghcr','reference':'public-safe synthetic pony derivative; not local v1','blender':bpy.app.version_string,'coat_results':{}}
 for c in COATS:receipt['coat_results'][c]=build_one(c)
-p=OUT/'manifest.json';p.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'
-')
+p=OUT/'manifest.json';p.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
 print(json.dumps({'VERDICT':'NATIVE_SYNTHETIC_THREE_COAT_PASS','manifest':str(p)},sort_keys=True))
