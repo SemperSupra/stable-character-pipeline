@@ -7,7 +7,7 @@ No source horses, photo references, dataset or third-party motion included.
 import bpy
 import math
 from pathlib import Path
-from . import footpaths
+import footpaths
 
 def animate_ik_walk(arm, out=None):
     sc = bpy.context.scene
