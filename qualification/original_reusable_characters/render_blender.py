@@ -38,10 +38,10 @@ def main(argv):
     path.name='OriginalParkWalkway';path.dimensions=(12.0,1.8,.02);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);path.data.materials.append(path_mat)
     # Trees behind the actor path. No imported scenery.
     bark=material('park_bark',(.33,.21,.11));leaf=material('park_leaf',(.09,.26,.13))
-    for x,y in ((-5,2.3),(-2.8,2.5),(.2,2.8),(4.8,2.5),(-4.4,-2.4),(-.8,-2.5),(3.7,-2.6)):
+    for x,y in ((-5.2,-2.6),(-2.3,-2.9),(2.6,-2.8),(5.2,-2.5)):
         bpy.ops.mesh.primitive_cylinder_add(vertices=9,radius=.095,depth=1.8,location=(x,y,.88))
         bpy.context.object.data.materials.append(bark)
-        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=.72,location=(x,y,2.0))
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=.52,location=(x,y,2.0))
         ob=bpy.context.object;ob.scale=(1.,.85,1.0);ob.data.materials.append(leaf)
     camera_data=bpy.data.cameras.new('OriginalParkCamera');camera=bpy.data.objects.new('OriginalParkCamera',camera_data)
     bpy.context.collection.objects.link(camera)
@@ -51,7 +51,7 @@ def main(argv):
         camera.rotation_euler=direction.to_track_quat('-Z','Y').to_euler()
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'original_park_editable.blend'))
     counts={}
-    for view,loc in [('front',(0,-12,2.0)),('oblique',(5.0,-9.5,4.0))]:
+    for view,loc in [('front',(0,12,2.0)),('oblique',(4.2,10.5,3.2))]:
         folder=out/view;folder.mkdir(parents=True,exist_ok=True)
         aim(loc,(0,0,1.0))
         for frame in range(72):
@@ -59,14 +59,41 @@ def main(argv):
             scene.render.filepath=str(folder/f'frame_{frame:03d}.png')
             bpy.ops.render.render(write_still=True)
         counts[view]=72
+    # Independent review close-ups: both directions are rendered because the
+    # original rig's world-facing rest axes have not been clinically calibrated.
+    portraits=out/'portraits';portraits.mkdir(parents=True,exist_ok=True)
+    scene.frame_set(0)
+    camera_data.ortho_scale=1.25
+    portrait_names=[]
+    # Yaw-aligned owner-original approach: Aster faces +world X, Juniper -X.
+    # Subject-specific face and back cameras, not assumptions about world Y.
+    portrait_isolation={}
+    for actor_x,actor_name,forward_x in ((-3.35,'aster',1.0),(3.35,'juniper',-1.0)):
+        other='JuniperOriginal' if actor_name=='aster' else 'AsterOriginal'
+        hidden={obj:obj.hide_render for obj in bpy.data.objects if obj.name.startswith(other)}
+        if len(hidden)<2:
+            raise RuntimeError('PORTRAIT_OTHER_ACTOR_ISOLATION_NOT_FOUND')
+        portrait_isolation[actor_name]=len(hidden)
+        try:
+            for obj in hidden:obj.hide_render=True
+            for camera_side,direction in (('face',1.0),('rear',-1.0)):
+                aim((actor_x+direction*forward_x*3.0,0,1.70),(actor_x,0,1.64))
+                name=f'{actor_name}_{camera_side}.png'
+                scene.render.filepath=str(portraits/name)
+                bpy.ops.render.render(write_still=True)
+                portrait_names.append(name)
+        finally:
+            for obj,previous in hidden.items():obj.hide_render=previous
+    camera_data.ortho_scale=8.8
+    aim((4.2,10.5,3.2),(0,0,1.0))
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'original_park_editable.blend'))
     receipt={'schema':'scp.original_reusable_blender.v1','status':'NATIVE_IMPORT_RENDERED_UNREVIEWED',
              'input_sha256':observed,'frames':counts,
              'armatures':{a.name:len(a.data.bones) for a in arms},
              'skinned_mesh_objects':[x.name for x in skinned],
-             'native_blender_import':True,'source_class':'ORIGINAL_SELF_AUTHORED_SYNTHETIC',
+             'native_blender_import':True,'camera_corrective':'V2_FACE_SIDE_BACKGROUND_ONLY_FIRST_FAILED_RUN_RETAINED','source_class':'ORIGINAL_SELF_AUTHORED_SYNTHETIC',
              'human_identity':'NOT_APPLICABLE','anatomical_foot_contact':'UNKNOWN',
-             'photorealism':'NOT_ACCEPTED','product_accepted':False}
+             'photorealism':'NOT_ACCEPTED','portrait_views':portrait_names,'portrait_partner_objects_hidden':portrait_isolation,'facial_detail_accepted':False,'product_accepted':False}
     (out/'native_receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     print(json.dumps(receipt,sort_keys=True))
 
