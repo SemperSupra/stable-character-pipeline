@@ -65,9 +65,11 @@ def main(argv):
     scene.frame_set(0)
     camera_data.ortho_scale=1.25
     portrait_names=[]
-    for actor_x,actor_name in ((-3.35,'aster'),(3.35,'juniper')):
-        for camera_side,viewer_y in (('positive_y',3.0),('negative_y',-3.0)):
-            aim((actor_x,viewer_y,1.70),(actor_x,0,1.64))
+    # Yaw-aligned owner-original approach: Aster faces +world X, Juniper -X.
+    # Subject-specific face and back cameras, not assumptions about world Y.
+    for actor_x,actor_name,forward_x in ((-3.35,'aster',1.0),(3.35,'juniper',-1.0)):
+        for camera_side,direction in (('face',1.0),('rear',-1.0)):
+            aim((actor_x+direction*forward_x*3.0,0,1.70),(actor_x,0,1.64))
             name=f'{actor_name}_{camera_side}.png'
             scene.render.filepath=str(portraits/name)
             bpy.ops.render.render(write_still=True)
