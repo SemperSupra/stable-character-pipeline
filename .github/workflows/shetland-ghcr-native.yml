@@ -1,0 +1,60 @@
+name: Shetland pony GHCR-native rig and groom qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/shetland_pony/**'
+      - '.github/workflows/shetland-ghcr-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: shetland-ghcr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-native-pony:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - name: Checkout sanitized public source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: GHCR runtime and pinned Blender 4.5.15
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils python3 ffmpeg libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p /tmp/blender
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o /tmp/blender/blender.sha256
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o /tmp/blender/blender-4.5.15-linux-x64.tar.xz
+          (cd /tmp/blender; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf /tmp/blender/blender-4.5.15-linux-x64.tar.xz -C /tmp/blender
+          /tmp/blender/blender-4.5.15-linux-x64/blender --background --factory-startup --python-expr 'import bpy; print("NATIVE_BLENDER",bpy.app.version_string)'
+      - name: Native Blender generate three 26-bone rigged coat variants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/shetland_pony/build_blender.py
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          env LIBGL_ALWAYS_SOFTWARE=1 /tmp/blender/blender-4.5.15-linux-x64/blender --background --factory-startup --python-exit-code 8 --python qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/out"
+      - name: Independent glTF, rig, animation, PNG, and manifest integrity checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 qualification/shetland_pony/validate_outputs.py "$GITHUB_WORKSPACE/out"
+      - name: Retain public-safe native engineering evidence (not user reference photos)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-ghcr-native-public-original-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 6
+          path: |
+            out/*.glb
+            out/*.blend
+            out/*.png
+            out/*.json
