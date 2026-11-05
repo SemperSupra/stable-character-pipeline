@@ -41,11 +41,30 @@ def main():
     scene.display.shading.color_type="MATERIAL"
     scene.display.shading.show_shadows=True
     scene.display.shading.show_cavity=True
+    scene.display.shading.background_type="VIEWPORT"
+    scene.display.shading.background_color=(0.76,0.78,0.80)
     scene.display.shading.cavity_type="BOTH"
     scene.render.resolution_x=640
     scene.render.resolution_y=360
     scene.render.resolution_percentage=100
     scene.render.image_settings.file_format="PNG"
+    # Diagnostic-only floor: imported rig/GLB geometry is unchanged.
+    bpy.ops.mesh.primitive_plane_add(size=4,location=(.08,0,-.015))
+    diagnostic_floor=bpy.context.object
+    diagnostic_floor.name="DIAGNOSTIC_GROUND_NOT_SOURCE_ASSET"
+    floor_mat=bpy.data.materials.new("neutral_ground_reference")
+    floor_mat.diffuse_color=(.57,.59,.62,1.0)
+    diagnostic_floor.data.materials.append(floor_mat)
+    # High-contrast meter ticks make translation and hoof clearance observable.
+    tick=bpy.data.materials.new("scale_marker")
+    tick.diffuse_color=(.17,.19,.21,1.0)
+    for index in range(-5,7):
+        bpy.ops.mesh.primitive_cube_add(size=1,location=(index*.2,0,-.011))
+        marker=bpy.context.object
+        marker.name=f"GROUND_TICK_{index}"
+        marker.dimensions=(.006,.35,.006)
+        bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+        marker.data.materials.append(tick)
     bpy.ops.object.camera_add(location=(0.05,-3.2,1.28))
     camera=bpy.context.object
     camera.data.type="ORTHO"
