@@ -1,0 +1,74 @@
+name: Equine native four-hoof skating and penetration falsifier
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/contact_eval/**"
+      - ".github/workflows/equine-hoof-contact-screen.yml"
+permissions:
+  contents: read
+jobs:
+  hoof-science:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Independent native source producer checkout at exact immutable commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 1f2febbd28d508d1c3d9f2a644f861d634f65a9d
+          path: pony-frozen
+          persist-credentials: false
+      - name: Independent mathematical negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/equine/contact_eval
+          python3 -m unittest -v test_metrics.py
+          python3 -m py_compile observed_hooves.py
+      - name: Rebuild frozen 26-bone public original Shetland model in SHA-verified Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/pony-native" "$GITHUB_WORKSPACE/results"
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python pony-frozen/qualification/shetland_pony/build_blender.py \
+            -- "$RUNNER_TEMP/pony-native"
+      - name: Independent evaluated hoof geometry across 48 frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/equine/contact_eval/observed_hooves.py \
+            -- "$RUNNER_TEMP/pony-native/shetland_black_ghcr.glb" "$GITHUB_WORKSPACE/results/hoof_science.json"
+          python3 - <<'PY'
+          import json,pathlib
+          r=json.loads(pathlib.Path("results/hoof_science.json").read_text())
+          assert r["schema"]=="equine.foot.science.v1" and r["frames"]==48
+          assert len(r["feet"])==4
+          assert r["scientific_verdict"] in (
+            "FOOT_CONTACT_PROXY_FAIL","NO_FAILURE_DETECTED_CONTACT_STILL_UNKNOWN")
+          print("NATIVE_HOOF_MEASUREMENT_REPORT_COMPLETE; SCIENTIFIC_VERDICT="+r["scientific_verdict"])
+          PY
+      - name: Preserve first failures and science verdict (not original protected meshes)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-native-hoof-science-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: results/*.json
