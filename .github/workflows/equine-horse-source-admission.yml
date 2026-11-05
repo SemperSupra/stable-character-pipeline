@@ -1,0 +1,82 @@
+name: Equine source admission — pinned CC0 horse native Blender
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/source_admission/**"
+      - ".github/workflows/equine-horse-source-admission.yml"
+permissions:
+  contents: read
+jobs:
+  horse-source-admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/equine/source_admission
+          python3 -m unittest -v test_screen.py
+          python3 -m py_compile check_horse.py native_probe.py
+      - name: Download pinned CC0 source and verify Git object hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          curl --fail --silent --show-error --location --retry 3 --max-time 120 \
+            https://raw.githubusercontent.com/Mesh2Motion/mesh2motion-assets/935cfb82d14223d7631d04ba2bb14e2feb8ca517/rigs/horse/horse-animations.glb \
+            -o "$RUNNER_TEMP/horse-animations.glb"
+          python3 qualification/equine/source_admission/check_horse.py \
+            --descriptor qualification/equine/source_admission/mesh2motion_horse_source.json \
+            --source "$RUNNER_TEMP/horse-animations.glb" --output "$GITHUB_WORKSPACE/out/horse_source_report.json"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Native Blender horse skeletal/action inspection and visual still
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            --background --factory-startup --python-exit-code 8 \
+            --python qualification/equine/source_admission/native_probe.py \
+            -- "$RUNNER_TEMP/horse-animations.glb" "$GITHUB_WORKSPACE/out"
+      - name: Qualify exact native receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, hashlib
+          d=pathlib.Path("out")
+          s=json.loads((d/"horse_source_report.json").read_text())
+          n=json.loads((d/"native_report.json").read_text())
+          assert s["verdict"]=="STRUCTURAL_SOURCE_SCREEN_PASS"
+          assert s["retarget_state"]=="NOT_RUN" and s["biomechanical_state"]=="UNKNOWN"
+          assert n["verdict"]=="NATIVE_BLENDER_SOURCE_IMPORT_PASS" and n["retarget_state"]=="NOT_RUN"
+          assert n["rig_bones"]>=16
+          for name,x in n["files"].items():
+              b=(d/name).read_bytes()
+              assert len(b)==x["size"] and hashlib.sha256(b).hexdigest()==x["sha256"]
+          print("PINNED_HORSE_NATIVE_IMPORT_PASS; RETARGET_NOT_RUN; BIO_QA_UNKNOWN")
+          PY
+      - name: Preserve bounded evidence, not copied source GLB
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-pinned-horse-native-${{ github.run_id }}
+          path: |
+            out/horse_source_report.json
+            out/native_report.json
+            out/horse_native_import.png
+            out/horse_native_import.blend
+          retention-days: 7
+          if-no-files-found: warn
