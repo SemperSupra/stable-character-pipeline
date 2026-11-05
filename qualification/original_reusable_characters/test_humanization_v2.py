@@ -27,7 +27,6 @@ class HumanizationV2Tests(unittest.TestCase):
 
     def test_original_producer_is_immutable(self):
         self.assertEqual(self.source_sha, hashlib.sha256(source.read_bytes()).hexdigest())
-        self.assertEqual(self.source_sha, "8ebd5ed4c1dfaa547dd258be39c15db7d29c72f98c0c4d4ed5c9c3b94746f6db") if False else None
         self.assertIsNot(v1.figure_geometry, None)
 
     def test_genuine_distinct_geometry_and_stable_rig(self):
@@ -65,8 +64,7 @@ class HumanizationV2Tests(unittest.TestCase):
 
     def test_outward_torso_faces(self):
         for which in (0, 1):
-            g = v1.figure_geometry(which)
-            # Source owner fixture remains original; V2 is a separate function.
+            # Source owner fixture remains immutable; V2 is separate.
             from humanization_v2 import make_figure
             v2 = make_figure(which)
             mat = "coralJacket" if which == 0 else "tealJacket"
