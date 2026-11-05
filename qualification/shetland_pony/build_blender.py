@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from ik_walk import animate_ik_walk
 from body_surface import create_body_surface
+from equine_sculpt import create_equine_sculpt
 
 OUT=Path(sys.argv[sys.argv.index('--')+1]) if '--' in sys.argv else Path('/tmp/shetland-results')
 OUT.mkdir(parents=True,exist_ok=True)
@@ -99,24 +100,18 @@ def build_one(coat):
  if coat=='pinto':white=material('pinto_patches',(.86,.84,.76,1))
  arm=new_armature()
  create_body_surface(arm,body,white if coat=='pinto' else None)
- for name,p,r,bone,alt,ratio in [
-  ('crest',(.54,0,1.04),(.26,.22,.29),'neck','body',.12),
-  ('cheek',(.79,0,1.08),(.18,.16,.23),'head','neck',.08),
-  ('muzzle',(.93,0,.84),(.14,.13,.13),'head','jaw',.12),
- ]:
-  rigged(ellipsoid(name,p,r,nose if name=='muzzle' else body),arm,bone,alt,ratio)
+ create_equine_sculpt(arm,body,body)
  for side in ('L','R'):
   sign=-1 if side=='L' else 1;y=sign*.205
   for prefix,x in (('front',.40),('hind',-.48)):
-   for section,z,r in [('upper',.56,(.143,.123,.27)),('lower',.33,(.102,.086,.19)),('fetlock',.16,(.096,.082,.12))]:
-    name=f'{prefix}_{side}_{section}'
-    rigged(ellipsoid(name,(x,y,z),r,body),arm,name)
+   # The continuous skinned limb mesh replaces disconnected rounded cuffs.
    bpy.ops.mesh.primitive_cone_add(vertices=24,radius1=.11,radius2=.085,depth=.115,location=(x+.025,y,.065))
    o=bpy.context.object;o.name=f'{prefix}_{side}_hoof';o.data.materials.append(hoof);rigged(o,arm,o.name)
   for name,loc,sc,mat,bone in [
-   ('ear',(.73,sign*.14,1.29),(.068,.046,.14),body,'ear_'+side),
-   ('eye',(.85,sign*.146,1.13),(.039,.018,.032),eye,'head'),
-   ('nostril',(.998,sign*.089,.832),(.022,.010,.020),eye,'head'),
+   ('ear',(.72,sign*.14,1.32),(.043,.033,.13),body,'ear_'+side),
+   ('eye',(.795,sign*.147,1.145),(.035,.015,.031),eye,'head'),
+   ('nostril',(1.137,sign*.094,.86),(.032,.013,.023),eye,'head'),
+   ('mouth',(1.137,sign*.085,.798),(.044,.010,.008),nose,'jaw'),
   ]:
    rigged(ellipsoid(name+'_'+side,loc,sc,mat),arm,bone)
  for i,(p,sc,bone) in enumerate([
