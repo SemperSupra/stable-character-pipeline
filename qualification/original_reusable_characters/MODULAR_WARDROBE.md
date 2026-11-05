@@ -42,6 +42,23 @@ blender -b original_park_editable.blend --python-exit-code 8 \
 
 Valid preset names: `unclothed`, `signature`, `alternate`. Optional `--actor AsterOriginal` or `--actor JuniperOriginal` modifies one character and leaves the other unchanged. Writes refuse the input .blend path. Garments are turned off via Blender render/viewport visibility and **never deleted**; reopen the source .blend or apply another preset to reverse a change. The JSON receipts preserve source and derived SHA-256.
 
+## Portable GLB variants (for ordinary glTF viewers)
+
+The full master wardrobe GLB is an **authoring container** with all garment nodes reachable. Most generic glTF viewers cannot toggle per-node visibility; they will display original and alternate outfits at the same time if opened directly. Use the portable export command to choose which garment nodes are active in the scene graph:
+
+```sh
+python3 wardrobe_export_preset.py --input wardrobe.glb --manifest wardrobe.json \
+  --out unclothed.glb --receipt unclothed.json --aster unclothed --juniper unclothed
+
+python3 wardrobe_export_preset.py --input wardrobe.glb --manifest wardrobe.json \
+  --out dressed.glb --receipt dressed.json --aster signature --juniper signature
+
+python3 wardrobe_export_preset.py --input wardrobe.glb --manifest wardrobe.json \
+  --out mixed.glb --receipt mixed.json --aster signature --juniper alternate
+```
+
+This is a reversible clone of the GLB's root scene graph, **not a body deletion or destructive sculpt**. It retains every source geometry, material, skin and animation accessor inside the binary for traceability, but viewers traverse only the selected body/groom/garment nodes. A portable file is usually larger than a fully compacted export; compacting orphan meshes is deferred until source and visual qualification. The two actors can wear different presets in the same scene.
+
 ## Adding genuinely different future clothing
 
 Use a separate garment source `<actor>-<garment-id>.glb`, not a destructive resculpt of the body. Author the jacket, skirt, shirt, trousers, shoes, accessories or other apparel in the identical actor rest pose and units. Bind the garment to the corresponding 35-joint skeleton, with validated glTF joint indices, normalized weights and correct sign conventions, and register a unique wardrobe slot/model identifier and asset hash in the manifest. Validate all-frame skin deformation, clipping, collision, motion fit and source-by-operation rights *before* marking the new garment compatible. A material swap alone does not establish those physical tests; changing clothing color and changing garment topology are separate operations.
