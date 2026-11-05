@@ -65,6 +65,29 @@ class PhaseGait35Tests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"REQUIRES_EXACT_SOURCE_RIG35"):
             animate(self.base,Path(self.tmp.name)/"invalid.glb")
 
+    def test_source_owned_heading_points_toward_approach(self):
+        d,_=decode(self.gait.read_bytes())
+        nodes={n["name"]:n for n in d["nodes"]}
+        for actor,sign in (("AsterOriginal",-1),("JuniperOriginal",1)):
+            q=nodes[actor+"_SceneRoot"]["rotation"]
+            self.assertAlmostEqual(q[0],0)
+            self.assertAlmostEqual(q[1],sign*math.sqrt(.5),places=6)
+            self.assertAlmostEqual(q[2],0)
+            self.assertAlmostEqual(q[3],math.sqrt(.5),places=6)
+        self.assertEqual(d["extras"]["heading_profile"],
+                         "OWNER_ORIGINAL_PR289_NEG90_POS90_ROOT_YAW")
+
+    def test_reject_already_yawed_source(self):
+        from rig35_v2 import glb_pack
+        doc,binary=decode(self.rig.read_bytes())
+        root=next(n for n in doc["nodes"]
+                  if n["name"]=="AsterOriginal_SceneRoot")
+        root["rotation"]=[0,0,0,1]
+        path=Path(self.tmp.name)/"already-rotated.glb"
+        path.write_bytes(glb_pack(doc,binary))
+        with self.assertRaisesRegex(ValueError,"ROOT_ALREADY_ROTATED"):
+            animate(path,Path(self.tmp.name)/"bad-heading.glb")
+
     def test_repeated_outputs_deterministic(self):
         second=Path(self.tmp.name)/"repeat-phase35.glb"
         animate(self.rig,second)
