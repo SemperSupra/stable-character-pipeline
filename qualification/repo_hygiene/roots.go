@@ -101,26 +101,24 @@ func buildWorkset(snapshot Snapshot) (Workset,error){
 }
 func (ws Workset) Markdown()string{
  var b strings.Builder
- fmt.Fprintf(&b,"# Public PR dependency roots — review-only
+ fmt.Fprintf(&b, `# Public PR dependency roots — review-only
 
 As of %s UTC: **%d open PRs**, **%d default-branch roots**, **%d descendants**, **%d mutations**.
 
-",
-  ws.AsOf,ws.TotalOpen,ws.RootCount,ws.StackedCount,ws.Mutations)
- b.WriteString("These are **branch-base dependencies**, not proof of redundant code or permission to merge/close/delete. Every disposition remains held pending exact-source, CI, rights, custody and owner authorization.
+`, ws.AsOf,ws.TotalOpen,ws.RootCount,ws.StackedCount,ws.Mutations)
+ b.WriteString(`These are **branch-base dependencies**, not proof of redundant code or permission to merge/close/delete. Every disposition remains held pending exact-source, CI, rights, custody and owner authorization.
 
-")
- b.WriteString("| Root PR | Descendants | Immediate children | Max depth | Required review |
+`)
+ b.WriteString(`| Root PR | Descendants | Immediate children | Max depth | Required review |
 |---|---:|---:|---:|---|
-")
+`)
  for _,g:=range ws.Groups{
-  fmt.Fprintf(&b,"| #%d | %d | %d | %d | %s |
-",g.RootPR,g.TotalDescendants,g.DirectChildren,g.MaxDepth,g.Disposition)
+  fmt.Fprintf(&b, `| #%d | %d | %d | %d | %s |
+`,g.RootPR,g.TotalDescendants,g.DirectChildren,g.MaxDepth,g.Disposition)
  }
  return b.String()
 }
 func (ws Workset) JSON()[]byte{
  out,_:=json.MarshalIndent(ws,"","  ")
- return append(out,'
-')
+ return append(out,byte(10))
 }
