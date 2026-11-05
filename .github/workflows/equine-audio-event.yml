@@ -49,6 +49,44 @@ jobs:
           assert receipt["event_count"]==4
           print("SYNTHETIC_FOLEY_48K_RIFF_HASH_PASS; EVALUATED_HOOF_CONTACT_UNKNOWN")
           PY
+      - name: Fetch immutable independent gait producer
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: ddb35cd5df96df9340fb92a1016bf8aff8bc743e
+          path: gait-frozen
+          persist-credentials: false
+      - name: End-to-end seven-gait phase to 48 kHz audio contract
+        run: |
+          set -euo pipefail
+          (cd gait-frozen/qualification/equine/gait && go test -race -count=1 ./... && go build -o "$RUNNER_TEMP/pony-gait-clock" ./cmd/gaitclock)
+          (cd qualification/equine/audio && go build -o "$RUNNER_TEMP/pony-hoof-foley" ./cmd/hoof_fol)
+          mkdir -p "$RUNNER_TEMP/equine-sync"
+          for gait in idle walk trot canter-left canter-right gallop-left gallop-right; do
+            "$RUNNER_TEMP/pony-gait-clock" -gait "$gait" -actor pony-black -surface sand -cycles 2 \
+              -out "$RUNNER_TEMP/equine-sync/$gait.input.json"
+            "$RUNNER_TEMP/pony-hoof-foley" -input "$RUNNER_TEMP/equine-sync/$gait.input.json" \
+              -wav "$RUNNER_TEMP/equine-sync/$gait.wav" \
+              -receipt "$RUNNER_TEMP/equine-sync/$gait.audio.json" -seconds 2
+          done
+          python3 - <<'PY'
+          import pathlib,os,json,struct,hashlib
+          out=pathlib.Path(os.environ["RUNNER_TEMP"])/"equine-sync"
+          audio=list(out.glob("*.audio.json"))
+          assert len(audio)==7,len(audio)
+          for path in audio:
+              r=json.loads(path.read_text())
+              gait=path.name.removesuffix(".audio.json")
+              src=json.loads((out/(gait+".input.json")).read_text())
+              wav=(out/(gait+".wav")).read_bytes()
+              assert r["wav_sha256"]==hashlib.sha256(wav).hexdigest()
+              assert r["event_count"]==len(src["events"])
+              assert r["duration_samples"]==96000 and len(wav)==192044
+              assert r["mode"]=="SYNTHETIC_HOOF_FOLEY" and r["biomechanics"]=="UNKNOWN"
+              assert src["evaluation"]=="PLANNED_ONLY_NOT_EVALUATED_HOOF_CONTACT"
+              assert all(e["sample"]==e["frame"]*2000 for e in src["events"])
+          print("SEVEN_GAIT_CROSS_PR_SOURCE_EVENT_AUDIO_JOIN_PASS; PHYSICAL_CONTACT_UNKNOWN")
+          PY
       - name: Retain public-safe synthetic WAV and receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -56,4 +94,6 @@ jobs:
           name: equine-audio-event-${{ github.run_id }}
           retention-days: 7
           if-no-files-found: warn
-          path: ${{ runner.temp }}/equine-audio/*
+          path: |
+            ${{ runner.temp }}/equine-audio/*
+            ${{ runner.temp }}/equine-sync/*
