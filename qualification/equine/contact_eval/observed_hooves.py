@@ -38,6 +38,7 @@ def main():
                 evaluated.to_mesh_clear()
         samples[exact]=points
     report=evaluate(samples)
+    report["evaluated_hoof_trajectories"]=samples
     report["blender"]=bpy.app.version_string
     report["source_model"]=source.name
     report["animation_source"]="native evaluated 48 frames, source-art 26-joint procedural gait"
