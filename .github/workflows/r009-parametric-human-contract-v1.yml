@@ -61,6 +61,12 @@ jobs:
           coverage=json.loads((root/"effect_coverage.json").read_text())
           assert coverage["control_count"] >= 25 and 0 < coverage["geometry_effect_controls"] < coverage["control_count"]
           assert not coverage["all_controls_implemented"] and not coverage["human_visual_accepted"]
+          mapped=[x["path"] for x in coverage["controls"] if x["status"]=="GEOMETRY_EFFECT_CONFIRMED"]
+          not_wired=[x["path"] for x in coverage["controls"] if x["status"]=="NO_GEOMETRY_EFFECT"]
+          print("R009_MORPH_EFFECT_WITNESS mapped=%d total=%d no_geometry_effect=%d" % (len(mapped),coverage["control_count"],len(not_wired)))
+          print("R009_MAPPED_CONTROLS " + ",".join(mapped))
+          print("R009_NOT_GEOMETRY_MAPPED " + ",".join(not_wired))
+
           PY
           python3 - <<'PY'
           import json, pathlib, sys
