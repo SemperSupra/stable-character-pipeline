@@ -99,6 +99,31 @@ class ParametersTests(unittest.TestCase):
         with self.assertRaisesRegex(p.ContractError,"UNCERTAINTY_ENUM"):
             p.validate(self.state)
 
+    def test_multilingual_labels_exact_ontology(self):
+        d = json.loads((pathlib.Path(__file__).parent /
+                        "SEMANTIC_LABELS_EN_DE_TH.json").read_text(encoding="utf-8"))
+        self.assertEqual(set(d["languages"]), {"en","de","th"})
+        self.assertEqual(set(d["labels"]),p.ALL_PATHS)
+        for values in d["labels"].values():
+            self.assertEqual(set(values),{"en","de","th"})
+            self.assertTrue(all(type(v) is str and v.strip() for v in values.values()))
+
+    def test_comparison_receipt_and_no_false_surgery_inference(self):
+        eventful = p.add_event(self.state,"2026-02-01","procedure","hypothesis",{
+            "morphology.left_breast_volume":.85,
+            "appearance.hair_length_m":.45})
+        result = p.compare_states(eventful,"2026-01-01","2026-03-01")
+        self.assertEqual(result["source_sha256"],p.sha256(eventful))
+        self.assertTrue(result["identity_unchanged"])
+        self.assertFalse(result["causal_attribution_proven"])
+        self.assertEqual(len(result["events"]),1)
+        self.assertEqual(result["events"][0]["evidence"],"hypothesis")
+        self.assertEqual({x["path"] for x in result["differences"]},
+                         {"morphology.left_breast_volume","appearance.hair_length_m"})
+        self.assertEqual(self.state["timeline"], [])
+        with self.assertRaisesRegex(p.ContractError,"COMPARE_DATE_ORDER"):
+            p.compare_states(eventful,"2026-03-01","2026-01-01")
+
     def test_clis_and_refuse_existing_output(self):
         script = pathlib.Path(p.__file__)
         with tempfile.TemporaryDirectory() as td:
