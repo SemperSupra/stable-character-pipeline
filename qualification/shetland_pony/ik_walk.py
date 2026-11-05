@@ -9,6 +9,7 @@ import math
 from pathlib import Path
 import footpaths
 from equine_anatomy import LIMITS,TWIST_MAX_DEG
+from angle_filter import smooth_baked_pose
 
 def animate_ik_walk(arm, out=None):
     sc = bpy.context.scene
@@ -92,6 +93,10 @@ def animate_ik_walk(arm, out=None):
                     step=1,only_selected=True,visual_keying=True,
                     clear_constraints=True,use_current_action=True,
                     bake_types={"POSE"})
+    # Experimental cyclic 5-frame smoothing of front carpal pose channels;
+    # preserve exact before/after joint and hoof evidence before acceptance.
+    filter_receipt=smooth_baked_pose(arm,sc,
+        ("front_L_forearm","front_R_forearm","front_L_lower","front_R_lower"))
     bpy.ops.object.mode_set(mode="OBJECT")
     for obj in list(targets.values())+list(poles.values()):
         bpy.data.objects.remove(obj,do_unlink=True)
@@ -105,6 +110,7 @@ def animate_ik_walk(arm, out=None):
             "root_translation_m":footpaths.STRIDE_M,
             "anatomical_joints":30,
             "limits":"engineering-only; independent native 48f world-space ROM observer required",
+            "post_bake_cyclic_filter":filter_receipt,
             "duty_factor":footpaths.DUTY_FACTOR,
             "minimum_planned_swing_height_m":footpaths.SWING_HEIGHT_M,
             "frames":traces}
