@@ -116,6 +116,13 @@ def main(argv):
             for obj,previous in hidden.items():obj.hide_render=previous
     wardrobe_previews=[]
     if wardrobe:
+        # Six neutral REST-pose outfit views, 1:1 square frame for FULL 1.8m body,
+        # not a cropped 16:9 animated close-up; original 72f remains unchanged.
+        saved_resolution=(scene.render.resolution_x,scene.render.resolution_y)
+        saved_pose={arm:arm.data.pose_position for arm in arms}
+        scene.render.resolution_x=768
+        scene.render.resolution_y=768
+        for arm in arms:arm.data.pose_position='REST'
         # Six distinct native stills from the SAME complete skinned body.
         # Opposite actor is hidden so full-body previews are unobstructed.
         for actor_x,actor,forward_x in ((-3.35,"AsterOriginal",1.0),
@@ -138,6 +145,8 @@ def main(argv):
                     wardrobe_previews.append(name)
             finally:
                 for obj,old in isolate.items():obj.hide_render=old
+        for arm,setting in saved_pose.items():arm.data.pose_position=setting
+        scene.render.resolution_x,scene.render.resolution_y=saved_resolution
         outfit("signature")
         for (actor,slot),obj in wardrobe.items():
             expected=slot in preset_slots["signature"]
@@ -152,7 +161,7 @@ def main(argv):
              'skinned_mesh_objects':[x.name for x in skinned],
              'native_blender_import':True,'camera_corrective':'V2_FACE_SIDE_BACKGROUND_ONLY_FIRST_FAILED_RUN_RETAINED','source_class':'ORIGINAL_SELF_AUTHORED_SYNTHETIC',
              'human_identity':'NOT_APPLICABLE','anatomical_foot_contact':'UNKNOWN',
-             'photorealism':'NOT_ACCEPTED','portrait_views':portrait_names,'portrait_partner_objects_hidden':portrait_isolation,'wardrobe_preset_stills':wardrobe_previews,'wardrobe_slots':sorted([a+':'+slot for a,slot in wardrobe]),'wardrobe_default':'signature' if wardrobe else 'NOT_APPLICABLE','modular_wardrobe_anatomy_accepted':False,'facial_detail_accepted':False,'product_accepted':False}
+             'photorealism':'NOT_ACCEPTED','portrait_views':portrait_names,'portrait_partner_objects_hidden':portrait_isolation,'wardrobe_preset_stills':wardrobe_previews,'wardrobe_preset_pose':'REST_FULL_BODY_768x768','wardrobe_slots':sorted([a+':'+slot for a,slot in wardrobe]),'wardrobe_default':'signature' if wardrobe else 'NOT_APPLICABLE','modular_wardrobe_anatomy_accepted':False,'facial_detail_accepted':False,'product_accepted':False}
     (out/'native_receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     print(json.dumps(receipt,sort_keys=True))
 
