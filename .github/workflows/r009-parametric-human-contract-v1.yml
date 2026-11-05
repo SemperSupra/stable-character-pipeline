@@ -18,8 +18,8 @@ jobs:
         run: |
           set -euo pipefail
           cd qualification/parametric_humans
-          python3 -m compileall -q parameters_v1.py test_parameters_v1.py morph_preview_35_v1.py test_morph_preview_35_v1.py effect_coverage_v1.py test_effect_coverage_v1.py
-          python3 -m unittest -v test_parameters_v1 test_morph_preview_35_v1 test_effect_coverage_v1
+          python3 -m compileall -q parameters_v1.py test_parameters_v1.py morph_preview_35_v1.py test_morph_preview_35_v1.py effect_coverage_v1.py test_effect_coverage_v1.py appearance_material_v1.py test_appearance_material_v1.py
+          python3 -m unittest -v test_parameters_v1 test_morph_preview_35_v1 test_effect_coverage_v1 test_appearance_material_v1
       - name: Deterministic synthetic-state and source-catalog receipt
         run: |
           set -euo pipefail
@@ -38,6 +38,10 @@ jobs:
               "morphology.left_breast_volume": .75,
               "morphology.right_breast_volume": .72,
               "morphology.jaw_width_ratio": 1.09})
+          a = add_event(a, "2026-05-15", "styling", "artist_authored", {
+              "appearance.hair_rgb": [.14, .25, .61],
+              "appearance.left_iris_rgb": [.09, .58, .42],
+              "appearance.skin_melanin": .66})
           j = sample(74, "JuniperSynthetic")
           root = pathlib.Path("../../r009-parametric-evidence")
           (root/"aster_timeline.json").write_bytes(canonical_bytes(a))
@@ -46,6 +50,8 @@ jobs:
           python3 parameters_v1.py compare ../../r009-parametric-evidence/aster_timeline.json --before 2026-04-01 --after 2026-06-01 > ../../r009-parametric-evidence/before_after_comparison.json
           python3 morph_preview_35_v1.py --aster ../../r009-parametric-evidence/aster_timeline.json --juniper ../../r009-parametric-evidence/juniper_timeline.json --as-of 2026-04-01 --out ../../r009-parametric-evidence/before_preview.glb --manifest ../../r009-parametric-evidence/before_manifest.json --receipt ../../r009-parametric-evidence/before_preview_receipt.json
           python3 morph_preview_35_v1.py --aster ../../r009-parametric-evidence/aster_timeline.json --juniper ../../r009-parametric-evidence/juniper_timeline.json --as-of 2026-06-01 --out ../../r009-parametric-evidence/after_preview.glb --manifest ../../r009-parametric-evidence/after_manifest.json --receipt ../../r009-parametric-evidence/after_preview_receipt.json
+          python3 appearance_material_v1.py --input ../../r009-parametric-evidence/before_preview.glb --aster ../../r009-parametric-evidence/aster_timeline.json --juniper ../../r009-parametric-evidence/juniper_timeline.json --as-of 2026-04-01 --out ../../r009-parametric-evidence/before_appearance.glb --receipt ../../r009-parametric-evidence/before_appearance_receipt.json
+          python3 appearance_material_v1.py --input ../../r009-parametric-evidence/after_preview.glb --aster ../../r009-parametric-evidence/aster_timeline.json --juniper ../../r009-parametric-evidence/juniper_timeline.json --as-of 2026-06-01 --out ../../r009-parametric-evidence/after_appearance.glb --receipt ../../r009-parametric-evidence/after_appearance_receipt.json
           python3 - <<'PY'
           import json, pathlib
           root=pathlib.Path("../../r009-parametric-evidence")
@@ -56,8 +62,15 @@ jobs:
           assert before["rig_joint_count"] == after["rig_joint_count"] == 35
           assert before["frames"] == after["frames"] == 72
           assert comparison["identity_unchanged"] and not comparison["causal_attribution_proven"]
-          assert len(comparison["differences"]) == 3
+          assert len(comparison["differences"]) == 6
           assert not before["release_approved"] and not after["release_approved"]
+          before_pbr=json.loads((root/"before_appearance_receipt.json").read_text())
+          after_pbr=json.loads((root/"after_appearance_receipt.json").read_text())
+          assert before_pbr["derived_sha256"] != after_pbr["derived_sha256"]
+          assert before_pbr["joints_each"] == after_pbr["joints_each"] == 35
+          assert not before_pbr["human_visual_accepted"] and not after_pbr["surgical_outcome_predicted"]
+          assert all(x["per_eye_iris_materials"] for x in before_pbr["actor_witnesses"].values())
+
           coverage=json.loads((root/"effect_coverage.json").read_text())
           assert coverage["control_count"] >= 25 and 0 < coverage["geometry_effect_controls"] < coverage["control_count"]
           assert not coverage["all_controls_implemented"] and not coverage["human_visual_accepted"]
