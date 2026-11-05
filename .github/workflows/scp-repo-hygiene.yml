@@ -1,0 +1,62 @@
+name: SCP public PR/DLE hygiene reconciliation (read only)
+on:
+  pull_request:
+    paths:
+      - 'qualification/repo_hygiene/**'
+      - '.github/workflows/scp-repo-hygiene.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+jobs:
+  public_hygiene:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Adversarial offline hygiene unit tests
+        working-directory: qualification/repo_hygiene
+        run: |
+          go test -race -count=1 -v ./...
+          go vet ./...
+      - name: Observe plan apply local receipt and verify (no GitHub writes)
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd qualification/repo_hygiene
+          go run . -mode apply -scope scope.json -out "$RUNNER_TEMP/hygiene-receipt.json"
+          go run . -mode verify -out "$RUNNER_TEMP/hygiene-receipt.json"
+          python3 - "$RUNNER_TEMP/hygiene-receipt.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          s=r["summary"]
+          print(json.dumps({"records":s["total"],"open_draft":s["open_draft"],
+             "closed_unmerged":s["closed_unmerged"],
+             "exact_head_green":s["exact_head_green"],
+             "unknown_or_red":s["ci_unknown_or_fail"],
+             "expected_stack_overlaps":s["expected_stack_overlaps"],
+             "independent_collisions":s["independent_collisions"],
+             "drifted_bases":s["drifted_bases"],
+             "disposition":"ENGINEERING_HYGIENE_ONLY_OWNER_HOLDS_UNCHANGED"},sort_keys=True))
+          if s["independent_collisions"] or s["drifted_bases"]:
+              raise SystemExit("HARD_FAIL: source collision or stale stacked baseline")
+          assert r["read_only_remote"] and r["automatic_merges"]==0
+          assert r["automatic_closures"]==0 and r["automatic_branch_deletes"]==0
+          PY
+      - name: Retain exact-head hygiene receipt, including failed gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scp-public-repo-hygiene-receipt
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/hygiene-receipt.json
