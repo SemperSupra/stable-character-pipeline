@@ -1,0 +1,63 @@
+name: Equine source-original gait phase and hoof-event contract
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/gait/**"
+      - ".github/workflows/equine-gait-phase.yml"
+permissions:
+  contents: read
+jobs:
+  gait-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: "1.23.2"
+          cache: false
+      - name: Go stdlib race and hostile contract checks
+        run: |
+          set -euo pipefail
+          cd qualification/equine/gait
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Generate independent six-gait+idle source receipts
+        run: |
+          set -euo pipefail
+          cd qualification/equine/gait
+          mkdir -p "$RUNNER_TEMP/equine-gait"
+          for gait in idle walk trot canter-left canter-right gallop-left gallop-right; do
+            go run ./cmd/gaitclock -gait "$gait" -actor pony-black -surface sand -cycles 2 \
+              -out "$RUNNER_TEMP/equine-gait/$gait.json"
+          done
+          # Source animation from IK #302 spans 48 frames in one gait cycle.
+          go run ./cmd/gaitclock -gait walk -actor pony-black -surface sand \
+            -frames-per-cycle 48 -cycles 1 \
+            -out "$RUNNER_TEMP/equine-gait/walk_source48.json"
+          python3 - <<'PY'
+          import json,os,pathlib
+          files=list(pathlib.Path(os.environ["RUNNER_TEMP"],"equine-gait").glob("*.json"))
+          assert len(files)==8
+          for f in files:
+            d=json.loads(f.read_text())
+            assert d["schema"]=="equine.contact.v1"
+            assert d["basis"]=="SYNTHETIC_PLANNED"
+            assert d["evaluation"]=="PLANNED_ONLY_NOT_EVALUATED_HOOF_CONTACT"
+            assert all(x["sample"]==x["frame"]*2000 for x in d["events"])
+          aligned=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"equine-gait"/"walk_source48.json").read_text())
+          assert aligned["frames_per_cycle"]==48 and aligned["cycles"]==1
+          assert [e["frame"] for e in aligned["events"]]==[0,12,24,36]
+          assert len(aligned["events"])==4
+          print("SEVEN_GAIT_PLUS_SOURCE48_RECEIPTS_PASS_PLANNED_ONLY")
+          PY
+      - name: Bounded machine receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-gait-clock-${{ github.run_id }}
+          path: ${{ runner.temp }}/equine-gait/*.json
+          if-no-files-found: warn
+          retention-days: 7
