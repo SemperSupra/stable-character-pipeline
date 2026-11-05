@@ -20,6 +20,36 @@ def main(argv):
     skinned=[o for o in bpy.data.objects if o.type=='MESH' and any(m.type=='ARMATURE' for m in o.modifiers)]
     if len(arms)!=2 or len(skinned)<2:raise RuntimeError('BLENDER_SKIN_IMPORT_MISSING')
     if any(len(o.data.bones)<17 for o in arms):raise RuntimeError('BLENDER_ARMATURE_TOO_SMALL')
+    # Modular adult base and separate skinned garments: Blender artists,
+    # automation clients and agents can use the same explicit layer slots.
+    wardrobe={}
+    for obj in skinned:
+        name=obj.name if "_Wardrobe_" in obj.name else obj.data.name
+        if "_Wardrobe_" not in name:
+            continue
+        actor,slot=name.split("_Wardrobe_",1)
+        slot=slot.split(".")[0]
+        if actor not in ("AsterOriginal","JuniperOriginal"):
+            raise RuntimeError("INVALID_WARDROBE_ACTOR")
+        key=(actor,slot)
+        if key in wardrobe:raise RuntimeError("DUPLICATE_WARDROBE_LAYER")
+        wardrobe[key]=obj
+    preset_slots={
+        "unclothed":{"body","hair"},
+        "signature":{"body","hair","top","bottom","footwear","accessory"},
+        "alternate":{"body","hair","alt_top","alt_bottom","footwear"},
+    }
+    if wardrobe:
+        for actor in ("AsterOriginal","JuniperOriginal"):
+            present={slot for a,slot in wardrobe if a==actor}
+            if not {"body","hair","top","bottom","footwear","alt_top","alt_bottom"} <= present:
+                raise RuntimeError("WARDROBE_SLOT_IMPORT_MISSING:"+actor)
+        def outfit(preset):
+            if preset not in preset_slots:raise RuntimeError("UNKNOWN_PRESET")
+            for (a,slot),obj in wardrobe.items():
+                obj.hide_render=slot not in preset_slots[preset]
+            return sum(not o.hide_render for o in wardrobe.values())
+        outfit("signature")
     scene=bpy.context.scene
     scene.frame_start=0;scene.frame_end=71;scene.render.fps=12
     scene.render.resolution_x=640;scene.render.resolution_y=360;scene.render.resolution_percentage=100
@@ -84,6 +114,44 @@ def main(argv):
                 portrait_names.append(name)
         finally:
             for obj,previous in hidden.items():obj.hide_render=previous
+    wardrobe_previews=[]
+    if wardrobe:
+        # Six neutral REST-pose outfit views, 1:1 square frame for FULL 1.8m body,
+        # not a cropped 16:9 animated close-up; original 72f remains unchanged.
+        saved_resolution=(scene.render.resolution_x,scene.render.resolution_y)
+        saved_pose={arm:arm.data.pose_position for arm in arms}
+        scene.render.resolution_x=768
+        scene.render.resolution_y=768
+        for arm in arms:arm.data.pose_position='REST'
+        # Six distinct native stills from the SAME complete skinned body.
+        # Opposite actor is hidden so full-body previews are unobstructed.
+        for actor_x,actor,forward_x in ((-3.35,"AsterOriginal",1.0),
+                                         (3.35,"JuniperOriginal",-1.0)):
+            other="JuniperOriginal" if actor=="AsterOriginal" else "AsterOriginal"
+            isolate={obj:obj.hide_render for obj in bpy.data.objects
+                     if obj.name.startswith(other)}
+            if len(isolate)<2:raise RuntimeError("WARDROBE_PARTNER_NOT_FOUND")
+            try:
+                for obj in isolate:obj.hide_render=True
+                camera_data.ortho_scale=2.35
+                aim((actor_x+forward_x*5.0,0,1.35),(actor_x,0,.94))
+                for preset in ("unclothed","signature","alternate"):
+                    outfit(preset)
+                    root=out/'wardrobe_previews'
+                    root.mkdir(parents=True,exist_ok=True)
+                    name=f'{actor}_{preset}.png'
+                    scene.render.filepath=str(root/name)
+                    bpy.ops.render.render(write_still=True)
+                    wardrobe_previews.append(name)
+            finally:
+                for obj,old in isolate.items():obj.hide_render=old
+        for arm,setting in saved_pose.items():arm.data.pose_position=setting
+        scene.render.resolution_x,scene.render.resolution_y=saved_resolution
+        outfit("signature")
+        for (actor,slot),obj in wardrobe.items():
+            expected=slot in preset_slots["signature"]
+            if (not obj.hide_render)!=expected:
+                raise RuntimeError("WARDROBE_RESTORE_FAILED")
     camera_data.ortho_scale=8.8
     aim((4.2,10.5,3.2),(0,0,1.0))
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'original_park_editable.blend'))
@@ -93,7 +161,7 @@ def main(argv):
              'skinned_mesh_objects':[x.name for x in skinned],
              'native_blender_import':True,'camera_corrective':'V2_FACE_SIDE_BACKGROUND_ONLY_FIRST_FAILED_RUN_RETAINED','source_class':'ORIGINAL_SELF_AUTHORED_SYNTHETIC',
              'human_identity':'NOT_APPLICABLE','anatomical_foot_contact':'UNKNOWN',
-             'photorealism':'NOT_ACCEPTED','portrait_views':portrait_names,'portrait_partner_objects_hidden':portrait_isolation,'facial_detail_accepted':False,'product_accepted':False}
+             'photorealism':'NOT_ACCEPTED','portrait_views':portrait_names,'portrait_partner_objects_hidden':portrait_isolation,'wardrobe_preset_stills':wardrobe_previews,'wardrobe_preset_pose':'REST_FULL_BODY_768x768','wardrobe_slots':sorted([a+':'+slot for a,slot in wardrobe]),'wardrobe_default':'signature' if wardrobe else 'NOT_APPLICABLE','modular_wardrobe_anatomy_accepted':False,'facial_detail_accepted':False,'product_accepted':False}
     (out/'native_receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     print(json.dumps(receipt,sort_keys=True))
 

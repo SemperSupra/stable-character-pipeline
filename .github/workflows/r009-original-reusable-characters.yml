@@ -18,7 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           cd qualification/original_reusable_characters
-          python3 -m unittest -v test_original_glb test_humanization_v2 test_rig35_v2 test_phase_gait35
+          python3 -m unittest -v test_original_glb test_humanization_v2 test_rig35_v2 test_phase_gait35 test_modular_wardrobe_v1
           python3 generate_original_glb.py --out "$RUNNER_TEMP/original.glb" --receipt "$RUNNER_TEMP/source_receipt.json"
           python3 verify_original_glb.py --input "$RUNNER_TEMP/original.glb" --receipt "$RUNNER_TEMP/independent_receipt.json"
           python3 humanization_v2.py --out "$RUNNER_TEMP/humanized_v2.glb" --receipt "$RUNNER_TEMP/humanized_v2_source.json"
@@ -29,6 +29,13 @@ jobs:
           python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); assert len(p["weighted_extra_controls"])==2; assert all(len(v)>5 for v in p["weighted_extra_controls"].values()); assert p["frame_count"]==72 and p["science"]=="UNKNOWN"' "$RUNNER_TEMP/humanized_v2_rig35_independent.json"
           python3 phase_gait35.py --input "$RUNNER_TEMP/humanized_v2_rig35.glb" --output "$RUNNER_TEMP/humanized_v2_gait35.glb" --receipt "$RUNNER_TEMP/humanized_v2_gait35.json"
           python3 -c 'from test_rig35_v2 import witness; import sys,json; r=witness(sys.argv[1]); assert r["frame_count"]==72 and len(r["weighted_extra_controls"])==2; open(sys.argv[2],"w").write(json.dumps(r,indent=2)+chr(10))' "$RUNNER_TEMP/humanized_v2_gait35.glb" "$RUNNER_TEMP/humanized_v2_gait35_independent.json"
+          python3 modular_wardrobe_v1.py --out "$RUNNER_TEMP/wardrobe_v1.glb" --manifest "$RUNNER_TEMP/wardrobe_v1_manifest.json"
+          python3 -c 'import json,sys; from test_modular_wardrobe_v1 import witness; result=witness(sys.argv[1],sys.argv[2]); open(sys.argv[3],"w").write(json.dumps(result,sort_keys=True,indent=2)+chr(10))' "$RUNNER_TEMP/wardrobe_v1.glb" "$RUNNER_TEMP/wardrobe_v1_manifest.json" "$RUNNER_TEMP/wardrobe_v1_independent.json"
+          python3 -c 'import json,sys; w=json.load(open(sys.argv[1])); assert w["joints_each"]==35 and w["actor_count"]==2 and w["human_visual_accepted"] is False' "$RUNNER_TEMP/wardrobe_v1_independent.json"
+          for preset in unclothed signature alternate; do
+            python3 wardrobe_export_preset.py --input "$RUNNER_TEMP/wardrobe_v1.glb" --manifest "$RUNNER_TEMP/wardrobe_v1_manifest.json" --out "$RUNNER_TEMP/wardrobe_portable_$preset.glb" --receipt "$RUNNER_TEMP/wardrobe_portable_$preset.json" --aster "$preset" --juniper "$preset"
+            python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["joints_each"]==35 and r["source_geometry_preserved"] and r["presets"]["AsterOriginal"]==sys.argv[2]' "$RUNNER_TEMP/wardrobe_portable_$preset.json" "$preset"
+          done
       - name: Install SHA-verified official Blender and FFmpeg
         run: |
           set -euo pipefail
@@ -52,6 +59,24 @@ jobs:
             test "$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/render/$view.mp4")" = 72
           done
           sha256sum "$RUNNER_TEMP/render/"*.mp4 > "$RUNNER_TEMP/render/video-sha256.txt"
+          wardrobe_sha="$(sha256sum "$RUNNER_TEMP/wardrobe_v1.glb" | cut -d' ' -f1)"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/original_reusable_characters/render_blender.py \
+            -- "$RUNNER_TEMP/wardrobe_v1.glb" "$RUNNER_TEMP/wardrobe_render" "$wardrobe_sha"
+          for view in front oblique; do
+            ffmpeg -hide_banner -loglevel error -framerate 12 -i "$RUNNER_TEMP/wardrobe_render/$view/frame_%03d.png" \
+              -c:v libx264 -crf 23 -pix_fmt yuv420p "$RUNNER_TEMP/wardrobe_render/$view.mp4"
+            test "$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/wardrobe_render/$view.mp4")" = 72
+          done
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["wardrobe_default"]=="signature" and len(r["wardrobe_preset_stills"])==6 and len(r["wardrobe_slots"])>=14 and r["product_accepted"] is False' "$RUNNER_TEMP/wardrobe_render/native_receipt.json"
+          for preset in unclothed alternate; do
+            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b "$RUNNER_TEMP/wardrobe_render/original_park_editable.blend" --python-exit-code 8 \
+              --python qualification/original_reusable_characters/wardrobe_switch_blender.py \
+              -- --preset "$preset" --out "$RUNNER_TEMP/wardrobe_render/$preset.blend" --receipt "$RUNNER_TEMP/wardrobe_render/$preset.json"
+            python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["body_mesh_preserved"] and r["source_unchanged"] and r["preset"]==sys.argv[2] and all("body" in v for v in r["visible_layers"].values())' "$RUNNER_TEMP/wardrobe_render/$preset.json" "$preset"
+          done
       - name: Source-specific independent decoded-pixel occlusion falsifier
         run: |
           set -euo pipefail
@@ -60,6 +85,8 @@ jobs:
           go vet ./...
           go run . -front "$RUNNER_TEMP/render/front.mp4" -oblique "$RUNNER_TEMP/render/oblique.mp4" -receipt "$RUNNER_TEMP/render/visibility.json"
           python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["source_specific_visibility_verdict"]=="PASS_TWO_VIEW_CLOTHING_VISIBILITY_PROXY_ONLY",r["source_specific_visibility_verdict"]' "$RUNNER_TEMP/render/visibility.json"
+          go run . -front "$RUNNER_TEMP/wardrobe_render/front.mp4" -oblique "$RUNNER_TEMP/wardrobe_render/oblique.mp4" -receipt "$RUNNER_TEMP/wardrobe_render/visibility.json"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["source_specific_visibility_verdict"]=="PASS_TWO_VIEW_CLOTHING_VISIBILITY_PROXY_ONLY",r["source_specific_visibility_verdict"]' "$RUNNER_TEMP/wardrobe_render/visibility.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -84,3 +111,17 @@ jobs:
             ${{ runner.temp }}/render/video-sha256.txt
             ${{ runner.temp }}/render/*.mp4
             ${{ runner.temp }}/render/*.blend
+            ${{ runner.temp }}/wardrobe_v1.glb
+            ${{ runner.temp }}/wardrobe_v1_manifest.json
+            ${{ runner.temp }}/wardrobe_v1_independent.json
+            ${{ runner.temp }}/wardrobe_portable_*.glb
+            ${{ runner.temp }}/wardrobe_portable_*.json
+            ${{ runner.temp }}/wardrobe_render/*.blend
+            ${{ runner.temp }}/wardrobe_render/*.mp4
+            ${{ runner.temp }}/wardrobe_render/native_receipt.json
+            ${{ runner.temp }}/wardrobe_render/visibility.json
+            ${{ runner.temp }}/wardrobe_render/wardrobe_previews/*.png
+            ${{ runner.temp }}/wardrobe_render/unclothed.blend
+            ${{ runner.temp }}/wardrobe_render/alternate.blend
+            ${{ runner.temp }}/wardrobe_render/unclothed.json
+            ${{ runner.temp }}/wardrobe_render/alternate.json
