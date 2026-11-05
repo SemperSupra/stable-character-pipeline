@@ -1,6 +1,6 @@
 # R009 — Parametric Synthetic Human Contract v1
 
-Status: **source/schema prototype only; anatomical, fitting, visual, clinical, and release qualification UNKNOWN**.
+Status: **synthetic parameter contract and source-original geometry preview; actual anatomical, clothing-fit, Blender visual, clinical, and release qualification UNKNOWN**.
 
 This independent additive workcell is based on the OPEN/DRAFT original-human modular wardrobe PR #292 at exact commit `31d09f2ab079880707a2e2e736af333e5c50e68d`. The competing wardrobe refinement #303 is a **sibling**, not a source dependency. It currently has an independently established Blender portable A5 FAIL; do not adopt its portable GLB exporter as accepted.
 
@@ -24,6 +24,22 @@ python3 parameters_v1.py compare synthetic_73.json --before 2026-01-01 --after 2
 
 Generation refuses overwriting existing output. Runs are deterministic for a fixed Python implementation and seed; record interpreter version, Git SHA, schema and resulting canonical SHA. No medical procedure prediction, no assertion of surgery from observed image changes, and no real-person identification.
 
+## First actual morphology-to-GLB adapter (unqualified preview)
+
+\`morph_preview_35_v1.py\` imports the pinned source-original procedural body from the parent \`original_reusable_characters\` package, varies **skin geometry only** using conservative localized waist/hip, jaw/nose and left/right anterior-chest deformation fields, and rebuilds separate original wardrobe GLBs with the same 35-joint skeleton and 72 authored frames. It deliberately **does not** alter parent source, rig rest joint locations, skin indices, topology, clothes, hair or iris materials. It recomputes normals; clothing penetration and anatomical fidelity remain UNKNOWN/FAIL until separately measured. Shape variation is a simple visual proof, not surgery simulation or high-precision anthropometric fitting.
+
+The public CI generates before/after GLBs from **the same identity and timeline** (2026-04-01 vs 2026-06-01) and a separate evidence-labeled parameter delta report. The difference is hypothetical, not an observed real procedure. Artifacts expire after seven days and are not yet Drive-custodied.
+
+\`\`\`sh
+python3 parameters_v1.py generate --seed 73 --out aster.json
+python3 parameters_v1.py generate --seed 74 --out juniper.json
+python3 morph_preview_35_v1.py --aster aster.json --juniper juniper.json \
+  --out morph_preview.glb --manifest morph_manifest.json \
+  --receipt morph_receipt.json
+\`\`\`
+
+The label map \`SEMANTIC_LABELS_EN_DE_TH.json\` must cover every exact control path so that the same controls can be displayed in English, German and Thai. It is a UI glossary, not certified medical terminology.
+
 ## Contract and invariants
 1. `character_id` and immutable `identity` coefficients remain stable across time-indexed states.
 2. Semantic controls have explicit paths, units and rough engineering safety guards; they are **not clinical population reference ranges**.
@@ -37,7 +53,7 @@ Generation refuses overwriting existing output. Runs are deterministic for a fix
 10. Public Actions only; no merge, release, deployment or CPE without owner gates.
 
 ## Next independent workcells (not yet implemented)
-- **P1b** Adapter map from semantic controls to original 35-joint geometry and rig, with counterfactual previews and unchanged source bytes.
+- **P1b follow-on** Replace the proof-only surface deformation with measured, bounded, anatomically consistent parametric geometry plus rig rest-pose retargeting, actual cloth/hair fit, joint/collision qualification and independent visuals. Current first adapter is implemented but NOT accepted.
 - **P2** Exact upstream backend audit, per artifact/operation rights, offline performance, 3D geometry/fitting benchmark (MHR, SOMA-X, Anny, isolated MPFB, FLAME).
 - **P3** Human anthropometry measurement definitions, valid joint distributions and applicability/coverage audits; catalog links are **research leads, not authorized datasets**.
 - **P4** True hair geometry, iris shaders, skin reflectance, regional sculpt, garment-aware fit and all72 motion deformation.
