@@ -53,7 +53,17 @@ def target(frame, foot):
         state = "stance_planned"
     else:
         u = (phase-DUTY_FACTOR)/(1-DUTY_FACTOR)
-        relative = 0.08 - STRIDE_M*DUTY_FACTOR*(1.0-smoothstep(u))
+        # Cubic Hermite, not zero-derivative smoothstep: match stance's
+        # d(relative)/d(phase)=-STRIDE_M at both contact transitions.
+        # This removes a deliberate velocity discontinuity in the prior
+        # source while preserving exact fixed-world stance foot anchors.
+        p0 = 0.08 - STRIDE_M*DUTY_FACTOR
+        p1 = 0.08
+        m = -STRIDE_M*(1.0-DUTY_FACTOR)
+        relative = ((2*u**3-3*u*u+1)*p0
+                    +(u**3-2*u*u+u)*m
+                    +(-2*u**3+3*u*u)*p1
+                    +(u**3-u*u)*m)
         height = SWING_HEIGHT_M*(sin(pi*u)**2)
         state = "swing_planned"
     item=FootTarget(frame=frame, foot=foot,phase=phase,state=state,
