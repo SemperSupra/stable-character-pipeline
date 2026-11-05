@@ -104,6 +104,40 @@ class WardrobeTests(unittest.TestCase):
         manifest.write_text(json.dumps(m))
         with self.assertRaisesRegex(ValueError,"GARMENT_DIFFERENT_SKELETON"):
             witness(bad,manifest)
+    def test_portable_mixed_outfit_glb_has_only_active_layers(self):
+        from wardrobe_export_preset import export
+        manifest=json.loads(self.m.read_text())
+        choices=[
+          {"AsterOriginal":"unclothed","JuniperOriginal":"unclothed"},
+          {"AsterOriginal":"signature","JuniperOriginal":"alternate"},
+          {"AsterOriginal":"alternate","JuniperOriginal":"signature"},
+        ]
+        for index,presets in enumerate(choices):
+            out=Path(self.tmp.name)/f"portable-{index}.glb"
+            rec=Path(self.tmp.name)/f"portable-{index}.json"
+            exported=export(self.glb,self.m,out,rec,presets)
+            doc,_=decode(out.read_bytes())
+            for actor in ACTORS:
+                root=next(n for n in doc["nodes"]
+                          if n["name"]==actor+"_SceneRoot")
+                present={slot for slot,meta in manifest["actor_slots"][actor].items()
+                         if meta["node"] in root["children"]}
+                expected=set(PRESETS[presets[actor]])
+                self.assertEqual(present,expected & set(manifest["actor_slots"][actor]))
+                self.assertEqual(present,set(exported["active_layers"][actor]))
+            self.assertNotEqual(out.read_bytes(),self.glb.read_bytes())
+
+    def test_portable_export_rejects_modified_manifest(self):
+        from wardrobe_export_preset import export
+        m=json.loads(self.m.read_text())
+        m["derived_sha256"]="0"*64
+        altered=Path(self.tmp.name)/"invalid-manifest.json"
+        altered.write_text(json.dumps(m))
+        choices={actor:"signature" for actor in ACTORS}
+        with self.assertRaisesRegex(ValueError,"SOURCE_MANIFEST_SHA_MISMATCH"):
+            export(self.glb,altered,Path(self.tmp.name)/"invalid.glb",
+                   Path(self.tmp.name)/"invalid-receipt.json",choices)
+
     def test_deterministic_export(self):
         target=Path(self.tmp.name)/"repeat.glb"
         manifest=Path(self.tmp.name)/"repeat.json"
