@@ -11,6 +11,7 @@ from ik_walk import animate_ik_walk
 from body_surface import create_body_surface
 from equine_sculpt import create_equine_sculpt
 from winter_fur import create_coat
+from equine_anatomy import chain as equine_leg_chain, validate_structure
 
 OUT=Path(sys.argv[sys.argv.index('--')+1]) if '--' in sys.argv else Path('/tmp/shetland-results')
 OUT.mkdir(parents=True,exist_ok=True)
@@ -43,7 +44,7 @@ def rigged(obj, arm, bone, alt=None, ratio=0):
  return obj
 
 def new_armature():
- data=bpy.data.armatures.new('Shetland26');arm=bpy.data.objects.new('PonyRig26',data);bpy.context.collection.objects.link(arm)
+ data=bpy.data.armatures.new('Equine30');arm=bpy.data.objects.new('PonyRig30',data);bpy.context.collection.objects.link(arm)
  bpy.context.view_layer.objects.active=arm;arm.select_set(True);bpy.ops.object.mode_set(mode='EDIT')
  specs=[
  ('root',None,(-.09,0,.73),(-.09,0,.84)),
@@ -60,18 +61,13 @@ def new_armature():
  for side in ('L','R'):
   y=-.20 if side=='L' else .20
   for prefix,x in (('front',.40),('hind',-.48)):
-   h=.81 if prefix=='front' else .78
-   specs += [
-    (f'{prefix}_{side}_upper','body',(x,y,h),(x-.015,y,.47)),
-    (f'{prefix}_{side}_lower',f'{prefix}_{side}_upper',(x-.015,y,.47),(x+.012,y,.26)),
-    (f'{prefix}_{side}_fetlock',f'{prefix}_{side}_lower',(x+.012,y,.26),(x+.03,y,.12)),
-    (f'{prefix}_{side}_hoof',f'{prefix}_{side}_fetlock',(x+.03,y,.12),(x+.04,y,.035)),
-   ]
+   specs += equine_leg_chain(prefix,side,x,y,.81 if prefix=='front' else .78)
+ validate_structure(specs)
  for name,parent,head,tail in specs:
   b=data.edit_bones.new(name);b.head=head;b.tail=tail
   if parent:b.parent=data.edit_bones[parent];b.use_connect=False
  bpy.ops.object.mode_set(mode='OBJECT');arm.select_set(False)
- assert len(arm.data.bones)==26,len(arm.data.bones)
+ assert len(arm.data.bones)==30,len(arm.data.bones)
  return arm
 
 def groom_mesh(name,anchors,mat,arm):

@@ -80,6 +80,20 @@ def build_mesh(name,vertices,faces,weights,arm,material):
     obj.parent=arm;mod=obj.modifiers.new("equine_continuous_skin","ARMATURE");mod.object=arm
     return obj
 
+def four_joint_skin_weights(point,prior,prefix,side):
+    if prefix not in ("front","hind") or side not in ("L","R"):
+        raise ValueError("invalid limb")
+    if abs(sum(prior)-1)>1e-8:
+        raise ValueError("un-normalized original bone weights")
+    # Intermediate elbow→carpus forearm / stifle→hock gaskin now carries
+    # geometric deformation rather than existing merely as an unweighted bone.
+    transition=max(0.,min(1.,(.77-point[2])/.26))
+    middle="forearm" if prefix=="front" else "stifle"
+    bones=(f"{prefix}_{side}_upper",f"{prefix}_{side}_{middle}",
+           f"{prefix}_{side}_lower",f"{prefix}_{side}_fetlock")
+    weights=(prior[0]*(1-transition),prior[0]*transition,prior[1],prior[2])
+    return {b:v for b,v in zip(bones,weights) if v>1e-6}
+
 def create_equine_sculpt(arm,coat,face_material):
     v,f=sweep(NECK)
     count=(len(NECK)-1)*4+1
@@ -94,6 +108,6 @@ def create_equine_sculpt(arm,coat,face_material):
     for prefix in ("front","hind"):
         for side in ("L","R"):
             v,f,w=leg(prefix,side)
-            bones=(f"{prefix}_{side}_upper",f"{prefix}_{side}_lower",f"{prefix}_{side}_fetlock")
-            assignments=[{b:q for b,q in zip(bones,ws) if q>0} for ws in w]
+            assignments=[four_joint_skin_weights(point,ws,prefix,side)
+                         for point,ws in zip(v,w)]
             build_mesh(f"continuous_{prefix}_{side}_limb",v,f,assignments,arm,coat)

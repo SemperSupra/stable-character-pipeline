@@ -1,0 +1,7 @@
+# Explicit carpus, stifle and hock gait corrective (draft)
+
+Owner DLE [#293](https://github.com/SemperSupra/stable-character-pipeline/issues/293). Independent baseline ROM from [#311](https://github.com/SemperSupra/stable-character-pipeline/pull/311) demonstrated original 26-joint source **FAILED due to missing both hind stifles**, despite seemingly smooth 48-frame joint proxy angles. It was not correct to treat a two-link back leg as equine anatomy.
+
+This child branch adds one front forearm/elbow segment per side and one hind gaskin/stifle-hock segment per side, **30 bones**, same source-original character identities and human-visible coat families. Three-link foot IK and pole targets with provisional local-axis caps (±95–105° flexion, ≤12° lateral, ≤10° shaft twist) produce baked ordinary GLB animation. Independent source-pinned angle primitive evaluates actual exported GLB across 48 frames at both front carpi, both hind stifles and both hind hocks. Fail closed on missing anatomy, any excessive flexion/snap/plane motion or bone length change.
+
+IMPORTANT: These mechanical limits are preliminary guardrails, NOT veterinary physiological ROM intervals; no release until compared against qualified equine gait measurements, hoof-roll/force, appearance and multiple viewpoints. Original A/B and first failures retained. This child contains no user photos or protected data and uses disposable public GitHub/Blender runners only. No merge/release/deploy/CPE.

@@ -1,4 +1,4 @@
-"""Blender-native 2-link inverse-kinematic hoof target experiment.
+"""Blender-native 3-link equine forearm/stifle-aware IK gait experiment.
 
 Tracks ankle (lower bone's tail) from deterministic source-original footpaths,
 then visually bakes evaluated IK pose to FK keyframes for GLB interoperability.
@@ -8,6 +8,7 @@ import bpy
 import math
 from pathlib import Path
 import footpaths
+from equine_anatomy import LIMITS,TWIST_MAX_DEG
 
 def animate_ik_walk(arm, out=None):
     sc = bpy.context.scene
@@ -17,6 +18,7 @@ def animate_ik_walk(arm, out=None):
     for pb in arm.pose.bones:
         pb.rotation_mode="XYZ"
     targets={}
+    poles={}
     for foot in footpaths.FOOT_CONTACT_PHASE:
         target=bpy.data.objects.new("IK_TARGET_"+foot,None)
         bpy.context.collection.objects.link(target)
@@ -28,10 +30,36 @@ def animate_ik_walk(arm, out=None):
         ik=lower.constraints.new("IK")
         ik.name="FOOTPATH_IK_"+foot
         ik.target=target
-        ik.chain_count=2
+        ik.chain_count=3
         ik.use_stretch=False
-        ik.iterations=150
+        ik.iterations=225
         ik.weight=1.0
+        prefix,side=foot.split("_")
+        intermediate="forearm" if prefix=="front" else "stifle"
+        chain=(arm.pose.bones[foot+"_upper"],arm.pose.bones[foot+"_"+intermediate],lower)
+        pole=bpy.data.objects.new("IK_POLE_"+foot,None)
+        bpy.context.collection.objects.link(pole)
+        pole.location=( (.40 if prefix=="front" else -.48) + (-.35 if prefix=="front" else .35),
+                        -.20 if side=="L" else .20,.50 )
+        pole.hide_render=True
+        pole.empty_display_size=.02
+        poles[foot]=pole
+        ik.pole_target=pole
+        ik.pole_angle=0.
+        # Every driven joint receives conservative local-axis hard stops.
+        # These are provisional ENGINEERING bounds, not clinical equine ROM.
+        labels=("upper",intermediate,"lower")
+        for bone,label in zip(chain,labels):
+            lim=LIMITS[label]
+            bone.use_ik_limit_x=True
+            bone.ik_min_x=math.radians(lim["x"][0])
+            bone.ik_max_x=math.radians(lim["x"][1])
+            bone.use_ik_limit_y=True
+            bone.ik_min_y=-math.radians(TWIST_MAX_DEG)
+            bone.ik_max_y=math.radians(TWIST_MAX_DEG)
+            bone.use_ik_limit_z=True
+            bone.ik_min_z=math.radians(lim["z"][0])
+            bone.ik_max_z=math.radians(lim["z"][1])
 
     traces={}
     for frame in range(1,footpaths.CYCLE_FRAMES+1):
@@ -65,16 +93,18 @@ def animate_ik_walk(arm, out=None):
                     clear_constraints=True,use_current_action=True,
                     bake_types={"POSE"})
     bpy.ops.object.mode_set(mode="OBJECT")
-    for obj in targets.values():
+    for obj in list(targets.values())+list(poles.values()):
         bpy.data.objects.remove(obj,do_unlink=True)
     sc.frame_set(1)
     if out:
         import json
         receipt={"schema":"equine.ik.plan.v1",
-            "gait":"walk","rig":"26-joint source-original procedural Shetland",
+            "gait":"walk","rig":"30-joint source-original equine procedural",
             "contact_state":"PLANNED_SOURCE_TARGETS_NOT_EVALUATED",
-            "ik":"two-link lower-bone-tail target; visually baked",
+            "ik":"three-link pole-aware chain with temporary provisional IK-axis limits, visually baked",
             "root_translation_m":footpaths.STRIDE_M,
+            "anatomical_joints":30,
+            "limits":"engineering-only; independent native 48f world-space ROM observer required",
             "duty_factor":footpaths.DUTY_FACTOR,
             "minimum_planned_swing_height_m":footpaths.SWING_HEIGHT_M,
             "frames":traces}
