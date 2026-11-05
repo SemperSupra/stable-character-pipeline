@@ -1,0 +1,92 @@
+name: Shetland 18mm sole-ground calibration native A-B
+on:
+  pull_request:
+    paths:
+      - "qualification/shetland_pony/footpaths.py"
+      - "qualification/shetland_pony/contact_ab.py"
+      - "qualification/shetland_pony/test_contact_ab.py"
+      - ".github/workflows/shetland-ground-ab.yml"
+permissions:
+  contents: read
+jobs:
+  ground-correction-ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 1b0a12da753ad662ec5b21f8d1aad73fba3224d9
+          path: original-frozen
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
+          path: audit-frozen
+          persist-credentials: false
+      - name: Pure source contract and adversarial gap controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/shetland_pony
+          python3 -m unittest -v test_footpaths.py test_contact_ab.py
+          python3 -m py_compile build_blender.py ik_walk.py contact_ab.py
+          cd ../..
+          (cd audit-frozen/qualification/equine/contact_eval && python3 -m unittest -v test_metrics.py)
+      - name: Official checksum-verified Blender in GHCR
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/blender.sha256"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Build two original-source 48-frame black pony GLBs independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/before" "$GITHUB_WORKSPACE/results/after" "$GITHUB_WORKSPACE/results/science"
+          export LIBGL_ALWAYS_SOFTWARE=1 SCP_COATS=black
+          B="$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender"
+          "$B" -b --factory-startup --python-exit-code 8 --python original-frozen/qualification/shetland_pony/build_blender.py -- "$RUNNER_TEMP/before"
+          "$B" -b --factory-startup --python-exit-code 8 --python qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/results/after"
+          "$B" -b --factory-startup --python-exit-code 8 --python audit-frozen/qualification/equine/contact_eval/observed_hooves.py -- \
+            "$RUNNER_TEMP/before/shetland_black_ghcr.glb" "$GITHUB_WORKSPACE/results/science/before.json"
+          "$B" -b --factory-startup --python-exit-code 8 --python audit-frozen/qualification/equine/contact_eval/observed_hooves.py -- \
+            "$GITHUB_WORKSPACE/results/after/shetland_black_ghcr.glb" "$GITHUB_WORKSPACE/results/science/after.json"
+      - name: Compare independent evaluated hoof/ground A-B (science failures are evidence)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 qualification/shetland_pony/contact_ab.py \
+            results/science/before.json results/science/after.json results/science/comparison.json
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path("results/science")
+          d=json.loads((p/"comparison.json").read_text())
+          assert d["schema"]=="equine.shetland.contact_ab.v1"
+          assert len(d["before"])==len(d["after"])==4
+          assert d["science_verdict"] in ("PROXY_HOOF_HEIGHT_IMPROVED_NOT_BIOLOGICAL_PASS","PROXY_HOOF_CALIBRATION_NOT_ACCEPTED")
+          print("TECHNICALLY_COMPLETE_SCIENCE_NOT_YET_ACCEPTED",d["science_verdict"])
+          PY
+      - name: Preserve first and corrected science, original source-safe GLB
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-ground-calibration-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/science/*.json
+            results/after/*_ghcr.glb
+            results/after/*_ghcr.png
+            results/after/ik_plan_black.json
