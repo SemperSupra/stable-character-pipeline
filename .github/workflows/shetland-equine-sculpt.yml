@@ -1,0 +1,83 @@
+name: Shetland native equine sculpt qualification
+on:
+  pull_request:
+    paths:
+      - "qualification/shetland_pony/equine_sculpt.py"
+      - "qualification/shetland_pony/test_equine_sculpt.py"
+      - "qualification/shetland_pony/build_blender.py"
+      - "qualification/shetland_pony/body_surface.py"
+      - ".github/workflows/shetland-equine-sculpt.yml"
+permissions:
+  contents: read
+jobs:
+  sculpt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Topology and morphology hostile fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd qualification/shetland_pony && python3 -m unittest -v test_equine_sculpt.py test_body_surface.py test_footpaths.py)
+          python3 -m py_compile qualification/shetland_pony/build_blender.py
+      - name: Disposable verified Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/blender.sha256"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Actual native three-coat sculpt source and animated GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup \
+            --python-exit-code 8 --python qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/results"
+      - name: Independent three-coat structural export evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 qualification/shetland_pony/validate_outputs.py results
+          for coat in black pinto white; do
+            python3 qualification/shetland_pony/appearance_glb_verify.py "results/shetland_"$coat"_ghcr.glb" "$coat"
+          done
+          python3 - <<'PY'
+          import pathlib,struct,json,hashlib
+          o={}
+          for coat in ("black","pinto","white"):
+            raw=pathlib.Path("results/shetland_"+coat+"_ghcr.glb").read_bytes()
+            n=struct.unpack_from("<I",raw,12)[0]
+            d=json.loads(raw[20:20+n].decode().strip())
+            names=[m.get("name","") for m in d["meshes"]]
+            assert sum("sculpt_equine_brow_bridge_muzzle" in x for x in names)==1,names
+            assert sum("sculpt_sloping_neck" in x for x in names)==1,names
+            assert sum("_limb_mesh" in x for x in names)==4,names
+            assert len(d["animations"])>0 and max(len(s["joints"]) for s in d["skins"])>=26
+            o[coat]={"meshes":len(names),"sha256":hashlib.sha256(raw).hexdigest()}
+          pathlib.Path("results/sculpt_receipt.json").write_text(json.dumps({
+            "schema":"equine.sculpt.public.v1","verdict":"STRUCTURAL_EQUINE_SCULPT_NOT_VISUALLY_ACCEPTED",
+            "coats":o,"ROM":"UNKNOWN","fur":"PRIOR_UNQUALIFIED"},indent=2)+"\n")
+          PY
+      - name: Retain public original animation and multicoat visual proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-equine-sculpt-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/*_ghcr.glb
+            results/*_ghcr.png
+            results/manifest.json
+            results/sculpt_receipt.json
