@@ -66,6 +66,13 @@ jobs:
             test "$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/wardrobe_render/$view.mp4")" = 72
           done
           python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["wardrobe_default"]=="signature" and len(r["wardrobe_preset_stills"])==6 and len(r["wardrobe_slots"])>=14 and r["product_accepted"] is False' "$RUNNER_TEMP/wardrobe_render/native_receipt.json"
+          for preset in unclothed alternate; do
+            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b "$RUNNER_TEMP/wardrobe_render/original_park_editable.blend" --python-exit-code 8 \
+              --python qualification/original_reusable_characters/wardrobe_switch_blender.py \
+              -- --preset "$preset" --out "$RUNNER_TEMP/wardrobe_render/$preset.blend" --receipt "$RUNNER_TEMP/wardrobe_render/$preset.json"
+            python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["body_mesh_preserved"] and r["source_unchanged"] and r["preset"]==sys.argv[2] and all("body" in v for v in r["visible_layers"].values())' "$RUNNER_TEMP/wardrobe_render/$preset.json" "$preset"
+          done
       - name: Source-specific independent decoded-pixel occlusion falsifier
         run: |
           set -euo pipefail
@@ -108,3 +115,7 @@ jobs:
             ${{ runner.temp }}/wardrobe_render/native_receipt.json
             ${{ runner.temp }}/wardrobe_render/visibility.json
             ${{ runner.temp }}/wardrobe_render/wardrobe_previews/*.png
+            ${{ runner.temp }}/wardrobe_render/unclothed.blend
+            ${{ runner.temp }}/wardrobe_render/alternate.blend
+            ${{ runner.temp }}/wardrobe_render/unclothed.json
+            ${{ runner.temp }}/wardrobe_render/alternate.json
