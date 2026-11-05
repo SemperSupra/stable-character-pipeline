@@ -1,0 +1,113 @@
+name: Shetland C1 swing contact continuity versus native 30-joint ROM
+on:
+  pull_request:
+    paths:
+      - "qualification/shetland_pony/footpaths.py"
+      - "qualification/shetland_pony/test_swing_c1.py"
+      - ".github/workflows/shetland-c1-swing.yml"
+permissions:
+  contents: read
+jobs:
+  C1-joint-science:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Frozen before 30-joint source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: d0ed29550b684a17a7414c825a8fa9ba17a80c55
+          path: before-frozen
+          persist-credentials: false
+      - name: Independently frozen ROM math (not new source's authority)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 72d83a1f10a605a50935c8e7d35a8aa8b99de4ed
+          path: rom-frozen
+          persist-credentials: false
+      - name: Independent contact and ROM adversarial tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd qualification/shetland_pony && python3 -m unittest -v test_swing_c1.py test_footpaths.py test_equine_anatomy.py)
+          (cd rom-frozen/qualification/equine/rom && python3 -m unittest -v test_rom_metrics.py)
+      - name: SHA-verified official native Blender in disposable GHCR
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/blender.sha256"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Native same-mesh 48-frame before/after Blender world-pose ROM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pony_before" results/model results/science
+          export LIBGL_ALWAYS_SOFTWARE=1
+          B="$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender"
+          SCP_COATS=black "$B" -b --factory-startup --python-exit-code 8 \
+            --python before-frozen/qualification/shetland_pony/build_blender.py -- "$RUNNER_TEMP/pony_before"
+          SCP_COATS=black "$B" -b --factory-startup --python-exit-code 8 \
+            --python qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/results/model"
+          "$B" -b --factory-startup --python-exit-code 8 \
+            --python qualification/shetland_pony/rom30_native.py -- \
+            "$RUNNER_TEMP/pony_before/shetland_black_ghcr.glb" \
+            "$GITHUB_WORKSPACE/results/science/before.json" "$GITHUB_WORKSPACE/rom-frozen/qualification/equine/rom"
+          "$B" -b --factory-startup --python-exit-code 8 \
+            --python qualification/shetland_pony/rom30_native.py -- \
+            "$GITHUB_WORKSPACE/results/model/shetland_black_ghcr.glb" \
+            "$GITHUB_WORKSPACE/results/science/after.json" "$GITHUB_WORKSPACE/rom-frozen/qualification/equine/rom"
+      - name: Source-bound before/after snap and positive planned/actual separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,pathlib
+          d=pathlib.Path("results/science")
+          a=json.loads((d/"before.json").read_text())
+          b=json.loads((d/"after.json").read_text())
+          assert a["schema"]==b["schema"]=="equine.rom30.science.v1"
+          assert a["frames"]==b["frames"]==48
+          joints=sorted(a["observed_joints"])
+          assert joints==sorted(b["observed_joints"]) and len(joints)==6
+          scores={}
+          for name in joints:
+              pre=a["observed_joints"][name]
+              post=b["observed_joints"][name]
+              scores[name]={"before_step_deg":pre["max_step_deg"],
+                             "after_step_deg":post["max_step_deg"],
+                             "swing_degrees":post["excursion_deg"]}
+          prev=max(scores[x]["before_step_deg"] for x in joints if x.startswith("front_carpus"))
+          curr=max(scores[x]["after_step_deg"] for x in joints if x.startswith("front_carpus"))
+          result={"schema":"equine.sheltand.c1_romaudit.v1",
+                  "before_frozen":"d0ed29550b684a17a7414c825a8fa9ba17a80c55",
+                  "engineering":"C1 horizontal footpath in swing; source 3-link stifle/carpus",
+                  "before_science":a["scientific_verdict"],"after_science":b["scientific_verdict"],
+                  "before_front_snap_deg":prev,"after_front_snap_deg":curr,
+                  "snap_reduction_deg":round(prev-curr,4),"per_joint":scores,
+                  "technical_verdict":"A_B_NATIVE_ROM_MEASURED",
+                  "physiological_acceptance":False}
+          (d/"ab_comparison.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          print(json.dumps(result,sort_keys=True))
+          PY
+      - name: Preserve new/difference data, not owner reference photographs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-c1-30joint-native-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/science/*.json
+            results/model/*.png
+            results/model/*.glb
