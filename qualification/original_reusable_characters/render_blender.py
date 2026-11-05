@@ -67,13 +67,23 @@ def main(argv):
     portrait_names=[]
     # Yaw-aligned owner-original approach: Aster faces +world X, Juniper -X.
     # Subject-specific face and back cameras, not assumptions about world Y.
+    portrait_isolation={}
     for actor_x,actor_name,forward_x in ((-3.35,'aster',1.0),(3.35,'juniper',-1.0)):
-        for camera_side,direction in (('face',1.0),('rear',-1.0)):
-            aim((actor_x+direction*forward_x*3.0,0,1.70),(actor_x,0,1.64))
-            name=f'{actor_name}_{camera_side}.png'
-            scene.render.filepath=str(portraits/name)
-            bpy.ops.render.render(write_still=True)
-            portrait_names.append(name)
+        other='JuniperOriginal' if actor_name=='aster' else 'AsterOriginal'
+        hidden={obj:obj.hide_render for obj in bpy.data.objects if obj.name.startswith(other)}
+        if len(hidden)<2:
+            raise RuntimeError('PORTRAIT_OTHER_ACTOR_ISOLATION_NOT_FOUND')
+        portrait_isolation[actor_name]=len(hidden)
+        try:
+            for obj in hidden:obj.hide_render=True
+            for camera_side,direction in (('face',1.0),('rear',-1.0)):
+                aim((actor_x+direction*forward_x*3.0,0,1.70),(actor_x,0,1.64))
+                name=f'{actor_name}_{camera_side}.png'
+                scene.render.filepath=str(portraits/name)
+                bpy.ops.render.render(write_still=True)
+                portrait_names.append(name)
+        finally:
+            for obj,previous in hidden.items():obj.hide_render=previous
     camera_data.ortho_scale=8.8
     aim((4.2,10.5,3.2),(0,0,1.0))
     bpy.ops.wm.save_as_mainfile(filepath=str(out/'original_park_editable.blend'))
@@ -83,7 +93,7 @@ def main(argv):
              'skinned_mesh_objects':[x.name for x in skinned],
              'native_blender_import':True,'camera_corrective':'V2_FACE_SIDE_BACKGROUND_ONLY_FIRST_FAILED_RUN_RETAINED','source_class':'ORIGINAL_SELF_AUTHORED_SYNTHETIC',
              'human_identity':'NOT_APPLICABLE','anatomical_foot_contact':'UNKNOWN',
-             'photorealism':'NOT_ACCEPTED','portrait_views':portrait_names,'facial_detail_accepted':False,'product_accepted':False}
+             'photorealism':'NOT_ACCEPTED','portrait_views':portrait_names,'portrait_partner_objects_hidden':portrait_isolation,'facial_detail_accepted':False,'product_accepted':False}
     (out/'native_receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
     print(json.dumps(receipt,sort_keys=True))
 
