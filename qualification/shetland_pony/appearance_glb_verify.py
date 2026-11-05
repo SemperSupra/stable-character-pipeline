@@ -9,7 +9,7 @@ def check(path,coat):
     if typ!=0x4E4F534A:raise ValueError("bad GLB JSON chunk")
     d=json.loads(b[20:20+n].decode().strip())
     names=[m.get("name","") for m in d["meshes"]]
-    body=[m for m in d["meshes"] if "continuous_shetland_barrel_rump_shoulder" in m.get("name","")]
+    body=[m for m in d["meshes"] if "original_continuous_torso_topology" in m.get("name","")]
     if len(body)!=1:raise ValueError("unified torso missing")
     if any(x in names for x in ("barrel","rump","shoulder","white_collar","white_rump","white_belly")):
         raise ValueError("legacy disjoint torso or raised white pinto patches remain")
