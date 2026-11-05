@@ -25,7 +25,8 @@ jobs:
           python3 verify_original_glb.py --input "$RUNNER_TEMP/humanized_v2.glb" --receipt "$RUNNER_TEMP/humanized_v2_independent.json"
           test "$(sha256sum "$RUNNER_TEMP/original.glb" | cut -d' ' -f1)" != "$(sha256sum "$RUNNER_TEMP/humanized_v2.glb" | cut -d' ' -f1)"
           python3 rig35_v2.py --input "$RUNNER_TEMP/humanized_v2.glb" --output "$RUNNER_TEMP/humanized_v2_rig35.glb" --receipt "$RUNNER_TEMP/humanized_v2_rig35.json"
-          python3 -c 'import json,sys; from test_rig35_v2 import witness; open(sys.argv[2],"w").write(json.dumps(witness(sys.argv[1]),sort_keys=True,indent=2)+"\\n")' "$RUNNER_TEMP/humanized_v2_rig35.glb" "$RUNNER_TEMP/humanized_v2_rig35_independent.json"
+          python3 -c 'import json,sys; from test_rig35_v2 import witness; open(sys.argv[2],"w").write(json.dumps(witness(sys.argv[1]),sort_keys=True,indent=2)+chr(10))' "$RUNNER_TEMP/humanized_v2_rig35.glb" "$RUNNER_TEMP/humanized_v2_rig35_independent.json"
+          python3 -c 'import json,sys; p=json.load(open(sys.argv[1])); assert len(p["weighted_extra_controls"])==2; assert all(len(v)>5 for v in p["weighted_extra_controls"].values()); assert p["frame_count"]==72 and p["science"]=="UNKNOWN"' "$RUNNER_TEMP/humanized_v2_rig35_independent.json"
       - name: Install SHA-verified official Blender and FFmpeg
         run: |
           set -euo pipefail
