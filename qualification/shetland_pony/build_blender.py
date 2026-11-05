@@ -3,7 +3,7 @@
 Runs inside Blender 4.5.15 to produce genuine rigged GLBs, editable .blend files and stills.
 Reference photographs/video, protected people and vendor meshes are not uploaded.
 """
-import bpy, math, random, json, hashlib, sys
+import bpy, math, random, json, hashlib, sys, os
 from mathutils import Vector
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
@@ -173,6 +173,9 @@ def build_one(coat):
  return results
 
 receipt={'tool':'native_blender_shetland_ghcr','reference':'public-safe synthetic pony derivative; not local v1','blender':bpy.app.version_string,'coat_results':{}}
-for c in COATS:receipt['coat_results'][c]=build_one(c)
+selected_coats=os.environ.get("SCP_COATS","black,pinto,white").split(",")
+if not selected_coats or any(x not in COATS for x in selected_coats) or len(set(selected_coats))!=len(selected_coats):
+ raise ValueError("invalid SC PONY coat subset")
+for c in selected_coats:receipt['coat_results'][c]=build_one(c)
 p=OUT/'manifest.json';p.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
 print(json.dumps({'VERDICT':'NATIVE_SYNTHETIC_THREE_COAT_PASS','manifest':str(p)},sort_keys=True))
