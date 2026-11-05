@@ -1,0 +1,7 @@
+# Source-original Shetland hover A/B
+
+DLE: https://github.com/SemperSupra/stable-character-pipeline/issues/293. Frozen parent source: child [#302](https://github.com/SemperSupra/stable-character-pipeline/pull/302) HEAD `1b0a12da753ad662ec5b21f8d1aad73fba3224d9`. Frozen independent actual exported-GLB observer: #298 HEAD `7e03073f14df7e6103a30a96b8430ccb988914c8`.
+
+Source native 48-frame measurements reveal the foot sole lowest vertex rests near z=0.0028 meters against authored ground plane z=-0.015m (17.8mm hover, 4/4 feet). The one-parameter A/B lowers the IK ankle base `0.270` to `0.252` m. This is a falsifiable *calibration experiment*, not a general horse gait solution. Two isolated native Blender builds, true exported GLB reimports, 192 evaluated foot mesh samples each, and source-independent raw gap comparison. Enforces correct schema, finite values, each foot, 48 frames; hostile controls for false improvement, penetration, missing flight, and sparse evidence.
+
+A measured `PROXY_HOOF_HEIGHT_IMPROVED_NOT_BIOLOGICAL_PASS` result allows evaluation as a draft corrective only; never asserts correct musculoskeletal anatomy, contact forces, toe roll, optical resemblance, or breed fidelity. If it fails, preserve first measurements and close child without merge. No protected photos, owner-local v1 GLB, real horse data, private runners, merges/releases/deployments/CPE promotions. Human multi-view still needed.
