@@ -18,9 +18,12 @@ jobs:
         run: |
           set -euo pipefail
           cd qualification/original_reusable_characters
-          python3 -m unittest -v test_original_glb
+          python3 -m unittest -v test_original_glb test_humanization_v2
           python3 generate_original_glb.py --out "$RUNNER_TEMP/original.glb" --receipt "$RUNNER_TEMP/source_receipt.json"
           python3 verify_original_glb.py --input "$RUNNER_TEMP/original.glb" --receipt "$RUNNER_TEMP/independent_receipt.json"
+          python3 humanization_v2.py --out "$RUNNER_TEMP/humanized_v2.glb" --receipt "$RUNNER_TEMP/humanized_v2_source.json"
+          python3 verify_original_glb.py --input "$RUNNER_TEMP/humanized_v2.glb" --receipt "$RUNNER_TEMP/humanized_v2_independent.json"
+          test "$(sha256sum "$RUNNER_TEMP/original.glb" | cut -d' ' -f1)" != "$(sha256sum "$RUNNER_TEMP/humanized_v2.glb" | cut -d' ' -f1)"
       - name: Install SHA-verified official Blender and FFmpeg
         run: |
           set -euo pipefail
@@ -33,11 +36,11 @@ jobs:
       - name: Native editable Blender import and 72-frame two-camera render
         run: |
           set -euo pipefail
-          sha="$(sha256sum "$RUNNER_TEMP/original.glb" | cut -d' ' -f1)"
+          sha="$(sha256sum "$RUNNER_TEMP/humanized_v2.glb" | cut -d' ' -f1)"
           xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
             -b --factory-startup --python-exit-code 8 \
             --python qualification/original_reusable_characters/render_blender.py \
-            -- "$RUNNER_TEMP/original.glb" "$RUNNER_TEMP/render" "$sha"
+            -- "$RUNNER_TEMP/humanized_v2.glb" "$RUNNER_TEMP/render" "$sha"
           for view in front oblique; do
             ffmpeg -hide_banner -loglevel error -framerate 12 -i "$RUNNER_TEMP/render/$view/frame_%03d.png" \
               -c:v libx264 -crf 23 -pix_fmt yuv420p "$RUNNER_TEMP/render/$view.mp4"
@@ -47,11 +50,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: original-reusable-figures-blender-two-view-technical-only
+          name: original-humanized-v2-native-two-view-research
           retention-days: 7
           if-no-files-found: warn
           path: |
             ${{ runner.temp }}/source_receipt.json
+            ${{ runner.temp }}/humanized_v2_source.json
+            ${{ runner.temp }}/humanized_v2_independent.json
+            ${{ runner.temp }}/humanized_v2.glb
             ${{ runner.temp }}/independent_receipt.json
             ${{ runner.temp }}/render/native_receipt.json
             ${{ runner.temp }}/render/video-sha256.txt
