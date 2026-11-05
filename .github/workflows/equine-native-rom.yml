@@ -1,0 +1,76 @@
+name: Shetland equine front-carpus / hind-hock native ROM falsifier
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/rom/**"
+      - ".github/workflows/equine-native-rom.yml"
+permissions:
+  contents: read
+jobs:
+  independent-joint-rom:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Immutable three-coat source producer separate from ROM owner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 9dc4a8ea943086f63f1dcd4ec20ffba4a428285c
+          path: source-frozen
+          persist-credentials: false
+      - name: Adversarial independent ROM invariant tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd qualification/equine/rom && python3 -m unittest -v test_rom_metrics.py)
+          python3 -m py_compile qualification/equine/rom/rom_native.py
+      - name: Disposable official Blender 4.5.15 SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/blender.sha256"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Build original source GLB and observe 48 real evaluated world-space joint poses
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/source" "$GITHUB_WORKSPACE/results"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          B="$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender"
+          SCP_COATS=black "$B" -b --factory-startup --python-exit-code 8 \
+            --python source-frozen/qualification/shetland_pony/build_blender.py \
+            -- "$RUNNER_TEMP/source"
+          "$B" -b --factory-startup --python-exit-code 8 \
+            --python qualification/equine/rom/rom_native.py \
+            -- "$RUNNER_TEMP/source/shetland_black_ghcr.glb" "$GITHUB_WORKSPACE/results/native_rom.json"
+      - name: Science verdict contract (FAIL is valuable evidence)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib
+          r=json.loads(pathlib.Path("results/native_rom.json").read_text())
+          assert r["schema"]=="equine.rom.science.v1" and r["observed_frames"]==48
+          assert len(r["joint_reports"])==4 and len(r["measured_trajectories"])==4
+          assert r["scientific_verdict"] in ("JOINT_KINEMATICS_OR_ANATOMY_FAIL","GUARDRAIL_NO_FAILURE_BIOLOGICAL_UNKNOWN")
+          print("NATIVE_48F_ANGLE_OBSERVER_SUCCESS; BIOLOGICAL_QUALIFICATION_NOT_ASSERTED")
+          print("SCIENTIFIC_VERDICT",r["scientific_verdict"],r["failure_codes"])
+          PY
+      - name: Preserve first native joint science independently
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-equine-native-rom-${{ github.run_id }}
+          path: results/native_rom.json
+          retention-days: 7
+          if-no-files-found: warn
