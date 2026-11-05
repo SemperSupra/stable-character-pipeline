@@ -11,7 +11,7 @@ CYCLE_FRAMES = 48
 STRIDE_M = 0.16
 DUTY_FACTOR = 0.625
 SWING_HEIGHT_M = 0.105
-ANKLE_BASE_Z_M = 0.270
+ANKLE_BASE_Z_M = 0.252  # independently qualified smaller proxy sole gap, not physical-contact acceptance
 FOOT_CONTACT_PHASE = {
     "hind_L": 0.0,
     "front_L": 0.25,
