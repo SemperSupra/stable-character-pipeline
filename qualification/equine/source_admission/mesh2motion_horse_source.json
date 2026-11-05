@@ -1,0 +1,16 @@
+{
+  "schema": "equine.source.candidate.v1",
+  "source_repo": "https://github.com/Mesh2Motion/mesh2motion-assets",
+  "commit": "935cfb82d14223d7631d04ba2bb14e2feb8ca517",
+  "source_path": "rigs/horse/horse-animations.glb",
+  "git_blob_sha1": "a7b1eb28fce7a5df24d520e8db3295973657dfd0",
+  "size_bytes": 1087132,
+  "license": {
+    "claim": "CC0-1.0",
+    "source_path": "LICENSE",
+    "git_blob_sha1": "0e259d42c996742e9e3cba14c677129b2c1b6311",
+    "scope": "original source art; verify per asset; no third party asset use assumed"
+  },
+  "release_state": "CANDIDATE_NOT_ADMITTED",
+  "notes": "Public source candidate. Native Blender import and independent source hash verification required. Not a Shetland retarget, rig or provenance derivative of user v1 pack."
+}
