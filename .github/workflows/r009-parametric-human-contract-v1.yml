@@ -18,14 +18,15 @@ jobs:
         run: |
           set -euo pipefail
           cd qualification/parametric_humans
-          python3 -m compileall -q parameters_v1.py test_parameters_v1.py morph_preview_35_v1.py test_morph_preview_35_v1.py
-          python3 -m unittest -v test_parameters_v1 test_morph_preview_35_v1
+          python3 -m compileall -q parameters_v1.py test_parameters_v1.py morph_preview_35_v1.py test_morph_preview_35_v1.py effect_coverage_v1.py test_effect_coverage_v1.py
+          python3 -m unittest -v test_parameters_v1 test_morph_preview_35_v1 test_effect_coverage_v1
       - name: Deterministic synthetic-state and source-catalog receipt
         run: |
           set -euo pipefail
           mkdir -p r009-parametric-evidence
           cd qualification/parametric_humans
           python3 parameters_v1.py catalog > ../../r009-parametric-evidence/semantic_catalog.json
+          python3 effect_coverage_v1.py --seed 73 --out ../../r009-parametric-evidence/effect_coverage.json
           python3 parameters_v1.py generate --seed 73 --out ../../r009-parametric-evidence/synthetic_73.json
           python3 parameters_v1.py validate ../../r009-parametric-evidence/synthetic_73.json > ../../r009-parametric-evidence/validation_73.json
           python3 - <<'PY'
@@ -57,6 +58,9 @@ jobs:
           assert comparison["identity_unchanged"] and not comparison["causal_attribution_proven"]
           assert len(comparison["differences"]) == 3
           assert not before["release_approved"] and not after["release_approved"]
+          coverage=json.loads((root/"effect_coverage.json").read_text())
+          assert coverage["control_count"] >= 25 and 0 < coverage["geometry_effect_controls"] < coverage["control_count"]
+          assert not coverage["all_controls_implemented"] and not coverage["human_visual_accepted"]
           PY
           python3 - <<'PY'
           import json, pathlib, sys
