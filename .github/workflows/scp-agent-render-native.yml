@@ -1,0 +1,109 @@
+name: Agent reconstruction native pony mask A/B bridge
+on:
+  pull_request:
+    paths:
+      - 'qualification/agent_render_metrics/**'
+      - '.github/workflows/scp-agent-render-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source_bound_blender:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - name: Checkout observer source (unprivileged)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Checkout exact original-only Shetland producer snapshot
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: 1f2febbd28d508d1c3d9f2a644f861d634f65a9d
+          path: pinned_pony_producer
+      - name: Install disposable verified official Blender runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils python3 ffmpeg libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p /tmp/blender
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o /tmp/blender/blender.sha256
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o /tmp/blender/blender-4.5.15-linux-x64.tar.xz
+          (cd /tmp/blender; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf /tmp/blender/blender-4.5.15-linux-x64.tar.xz -C /tmp/blender
+      - name: Generate original synthetic pony assets at exact pinned source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/source_out"
+          env LIBGL_ALWAYS_SOFTWARE=1 /tmp/blender/blender-4.5.15-linux-x64/blender --background --factory-startup --python-exit-code 8 --python pinned_pony_producer/qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/source_out"
+          python3 pinned_pony_producer/qualification/shetland_pony/validate_outputs.py "$GITHUB_WORKSPACE/source_out"
+      - name: Actual Blender 26-joint rig pose change and rendered PNG masks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/native_masks"
+          python3 -m py_compile qualification/agent_render_metrics/pony_blender_qa.py
+          env LIBGL_ALWAYS_SOFTWARE=1 /tmp/blender/blender-4.5.15-linux-x64/blender --background --factory-startup --python-exit-code 8 --python qualification/agent_render_metrics/pony_blender_qa.py -- "$GITHUB_WORKSPACE/source_out/shetland_black_ghcr.blend" "$GITHUB_WORKSPACE/native_masks"
+      - name: Retain original public synthetic mask evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: agent-native-pony-masks
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            native_masks/*.png
+            native_masks/*.json
+            native_masks/*.blend
+  independently_measure_pixels:
+    needs: source_bound_blender
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: agent-native-pony-masks
+          path: native_masks
+      - name: Verify source-state blob bytes and compute actual PNG IoU
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          p=pathlib.Path("native_masks")
+          d=json.loads((p/"manifest.json").read_text())
+          for key,fn in [("baseline_sha256","baseline_pose.blend"),("candidate_sha256","candidate_pose.blend")]:
+              got=hashlib.sha256((p/fn).read_bytes()).hexdigest()
+              assert got == d[key], (fn,got,d[key])
+          assert d["baseline_sha256"] != d["candidate_sha256"]
+          PY
+          (cd qualification/agent_render_metrics && go test -race -count=1 ./... && go vet ./...)
+          (cd qualification/agent_render_metrics && go run . measure "$GITHUB_WORKSPACE/native_masks" "$GITHUB_WORKSPACE/native_masks/manifest.json") > native_masks/measurement_receipt.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("native_masks/measurement_receipt.json"))
+          print(json.dumps({"native_mask":d["verdict"],"baseline_iou":d["baseline"]["iou"],"candidate_iou":d["candidate"]["iou"],"delta_iou":d["delta_iou"]},sort_keys=True))
+          assert d["verdict"]=="MEASURED_ONLY_NOT_ANATOMICAL_ACCEPTANCE"
+          assert d["candidate"]["iou"]>d["baseline"]["iou"]
+          assert d["source_attestation"]=="UNAUTHENTICATED_SPLIT_AND_CAMERA_METADATA"
+          PY
+      - name: Retain independent machine receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: agent-native-pony-pixel-receipt
+          retention-days: 7
+          if-no-files-found: warn
+          path: native_masks/measurement_receipt.json
