@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from ik_walk import animate_ik_walk
 from body_surface import create_body_surface
+from winter_fur import create_coat
 
 OUT=Path(sys.argv[sys.argv.index('--')+1]) if '--' in sys.argv else Path('/tmp/shetland-results')
 OUT.mkdir(parents=True,exist_ok=True)
@@ -126,10 +127,7 @@ def build_one(coat):
   rigged(ellipsoid('tail_volume_'+str(i),p,sc,hair),arm,bone)
  # Pinto markings now use material islands on the unified body surface.
  anchors=[]
- for i in range(1100):
-  t=rng.random()*math.tau;u=rng.uniform(-1,1);theta=math.acos(u)
-  p=(-.05+.596*math.sin(theta)*math.cos(t),.309*math.sin(theta)*math.sin(t),.80+.319*math.cos(theta))
-  anchors.append((p,(rng.uniform(-.12,.13),rng.uniform(-.17,.17),.8+rng.random()*.4),.022+rng.random()*.045,.004,'body'))
+ # Replace flat spiky 1100 torso ribbons with actual dense skinned fibers.
  for i in range(160):
   x=.36+i/160*.45;y=rng.uniform(-.14,.14);z=1.08+(x-.36)*.20
   anchors.append(((x,y,z),(rng.uniform(-.22,.1),rng.choice((-1,1))*.32,.35),rng.uniform(.14,.32),.009,'neck' if x<.66 else 'head'))
@@ -139,6 +137,8 @@ def build_one(coat):
   z=rng.uniform(.35,.82)
   anchors.append(((-.70,rng.uniform(-.095,.095),z),(-.35,rng.uniform(-.15,.15),-.45),rng.uniform(.1,.32),.010,'tail_2' if z>.55 else 'tail_3'))
  groom_mesh('geometric_coat_mane_tail',anchors,hair,arm)
+ fur_receipt=create_coat(arm,body,white if coat=='pinto' else None)
+ (OUT/f'fur_{coat}.json').write_text(json.dumps(fur_receipt,indent=2,sort_keys=True)+'\n')
  if pink:
   for nm,pos,sc in [('noseband',(.97,0,.93),(.019,.162,.027)),('cheekstrap',(.81,-.164,1.02),(.023,.019,.14)),('cheekstrap2',(.81,.164,1.02),(.023,.019,.14))]:
    rigged(ellipsoid(nm,pos,sc,pink),arm,'head')
