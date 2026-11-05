@@ -1,0 +1,27 @@
+name: SCP candidate-only actor parameter bounds
+on:
+  pull_request:
+    paths:
+      - 'qualification/agent_hypothesis_bounds/**'
+      - '.github/workflows/scp-agent-parameter-bounds.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Test bounded actor plan without model execution
+        working-directory: qualification/agent_hypothesis_bounds
+        run: |
+          go test -race -count=1 -v ./...
+          go vet ./...
+          go run . capabilities
