@@ -1,0 +1,59 @@
+name: Equine original-synthetic Foley 48k event-clock qualification
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/audio/**"
+      - ".github/workflows/equine-audio-event.yml"
+permissions:
+  contents: read
+jobs:
+  audio-contact-clock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: "1.23.2"
+          cache: false
+      - name: Test adversarial synthetic sound clock
+        run: |
+          set -euo pipefail
+          cd qualification/equine/audio
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Render event-driven synthetic pony footsteps
+        run: |
+          set -euo pipefail
+          cd qualification/equine/audio
+          mkdir -p "$RUNNER_TEMP/equine-audio"
+          go run ./cmd/hoof_fol \
+            -input fixtures/sand_walk.json \
+            -wav "$RUNNER_TEMP/equine-audio/sand_walk.wav" \
+            -receipt "$RUNNER_TEMP/equine-audio/sand_walk.json" \
+            -seconds 2
+          python3 - <<'PY'
+          import os, pathlib, struct, hashlib, json
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"equine-audio"
+          raw=(p/"sand_walk.wav").read_bytes()
+          receipt=json.loads((p/"sand_walk.json").read_text())
+          assert raw[:4]==b"RIFF" and raw[8:16]==b"WAVEfmt "
+          assert struct.unpack_from("<I",raw,24)[0]==48000
+          assert struct.unpack_from("<I",raw,40)[0]==192000
+          assert len(raw)==192044
+          assert receipt["wav_sha256"]==hashlib.sha256(raw).hexdigest()
+          assert receipt["mode"]=="SYNTHETIC_HOOF_FOLEY"
+          assert receipt["biomechanics"]=="UNKNOWN"
+          assert receipt["event_count"]==4
+          print("SYNTHETIC_FOLEY_48K_RIFF_HASH_PASS; EVALUATED_HOOF_CONTACT_UNKNOWN")
+          PY
+      - name: Retain public-safe synthetic WAV and receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-audio-event-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/equine-audio/*
