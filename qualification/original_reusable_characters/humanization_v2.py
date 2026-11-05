@@ -39,7 +39,7 @@ def torso(g, mat, widths):
         for j in range(n):
             a = base + k*n + j
             b = base + k*n + (j+1)%n
-            p["i"].extend([a,b,a+n,b,b+n,a+n])
+            p["i"].extend([a,a+n,b,b,a+n,b+n])
 
 
 def make_figure(which):
