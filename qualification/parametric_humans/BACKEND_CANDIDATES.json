@@ -1,0 +1,113 @@
+{
+  "schema": "scp.r009.parametric_backend_candidates.v1",
+  "status": "RESEARCH_CANDIDATES_NOT_INSTALLED_OR_QUALIFIED",
+  "evaluation_contract": {
+    "source_rights": "MUST_VALIDATE_EXACT_CODE_AND_WEIGHT_ASSETS",
+    "source_boundaries": "PUBLIC_ORIGINAL_ONLY",
+    "backend_adoption": "NONE",
+    "release": "HOLD"
+  },
+  "backends": [
+    {
+      "id": "scp-original-35",
+      "role": "source-original baseline adapter",
+      "url": "https://github.com/SemperSupra/stable-character-pipeline",
+      "code_rights": "source-original; internal ownership asserted; review code headers",
+      "weights": "not required",
+      "strengths": [
+        "existing35-joint animation",
+        "self-authored synthetic geometry"
+      ],
+      "gaps": [
+        "incomplete continuous body",
+        "portable A5 import FAIL on sibling PR #303"
+      ],
+      "status": "SOURCE_ONLY_NOT_FULL_ANATOMY"
+    },
+    {
+      "id": "mhr",
+      "role": "articulated human and facial fitting candidate",
+      "url": "https://github.com/facebookresearch/MHR",
+      "code_rights": "Apache-2.0 repo per upstream; verify revision",
+      "weights": "not yet individually acquired or validated",
+      "strengths": [
+        "articulated mesh",
+        "face expression",
+        "differentiable parameters"
+      ],
+      "gaps": [
+        "map to SCP landmark semantics",
+        "license/custody of every model weight",
+        "GPU/CPU cost benchmark"
+      ],
+      "status": "UNTESTED"
+    },
+    {
+      "id": "soma-x",
+      "role": "cross-model topology and rig adapter candidate",
+      "url": "https://github.com/NVlabs/SOMA-X",
+      "code_rights": "Apache-2.0 framework per upstream; validate revision",
+      "weights": "external model downloads may have separate rights",
+      "strengths": [
+        "common topology",
+        "interchange"
+      ],
+      "gaps": [
+        "custom 35-joint compatibility",
+        "correspondence and clothing mappings"
+      ],
+      "status": "UNTESTED"
+    },
+    {
+      "id": "anny",
+      "role": "semantic body morphing candidate",
+      "url": "https://github.com/naver/anny",
+      "code_rights": "Apache-2.0 code per upstream; verify bundled asset provenance",
+      "weights": "some optional external assets restricted; isolate",
+      "strengths": [
+        "interpretable controls",
+        "regional shape variation"
+      ],
+      "gaps": [
+        "face surgery controls",
+        "skin weighting",
+        "fit to current GLB"
+      ],
+      "status": "UNTESTED"
+    },
+    {
+      "id": "mpfb",
+      "role": "isolated Blender authoring reference",
+      "url": "https://github.com/makehumancommunity/mpfb2",
+      "code_rights": "GPLv3 program per upstream; keep separate from permissive core",
+      "weights": "core CC0 assets require exact-file verification",
+      "strengths": [
+        "rich human morphology targets",
+        "Blender workflow"
+      ],
+      "gaps": [
+        "interface only; do not import plugin code into core",
+        "source asset notices"
+      ],
+      "status": "UNTESTED"
+    },
+    {
+      "id": "flame",
+      "role": "specialized face geometry candidate",
+      "url": "https://flame.is.tuebingen.mpg.de/",
+      "code_rights": "license varies by release; exact artifact verification required",
+      "weights": "not acquired",
+      "strengths": [
+        "face shape",
+        "jaw",
+        "expression"
+      ],
+      "gaps": [
+        "body integration",
+        "rights",
+        "cross-model facial correspondence"
+      ],
+      "status": "UNTESTED"
+    }
+  ]
+}
