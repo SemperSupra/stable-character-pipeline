@@ -47,6 +47,14 @@ jobs:
             test "$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/render/$view.mp4")" = 72
           done
           sha256sum "$RUNNER_TEMP/render/"*.mp4 > "$RUNNER_TEMP/render/video-sha256.txt"
+      - name: Source-specific independent decoded-pixel occlusion falsifier
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters/visualqa_go
+          go test -race -count=1 ./...
+          go vet ./...
+          go run . -front "$RUNNER_TEMP/render/front.mp4" -oblique "$RUNNER_TEMP/render/oblique.mp4" -receipt "$RUNNER_TEMP/render/visibility.json"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["source_specific_visibility_verdict"]=="PASS_TWO_VIEW_CLOTHING_VISIBILITY_PROXY_ONLY",r["source_specific_visibility_verdict"]' "$RUNNER_TEMP/render/visibility.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -60,6 +68,8 @@ jobs:
             ${{ runner.temp }}/humanized_v2.glb
             ${{ runner.temp }}/independent_receipt.json
             ${{ runner.temp }}/render/native_receipt.json
+            ${{ runner.temp }}/render/visibility.json
+            ${{ runner.temp }}/render/portraits/*.png
             ${{ runner.temp }}/render/video-sha256.txt
             ${{ runner.temp }}/render/*.mp4
             ${{ runner.temp }}/render/*.blend
