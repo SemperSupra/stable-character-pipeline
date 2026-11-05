@@ -1,0 +1,127 @@
+name: Equine exported GLB motion playback — three public-original coat variants
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/video_audit/**"
+      - ".github/workflows/equine-glb-video-audit.yml"
+permissions:
+  contents: read
+jobs:
+  glb-motion-video:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        coat: [black, pinto, white]
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Exact immutable public-original IK source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 1b0a12da753ad662ec5b21f8d1aad73fba3224d9
+          path: ik-source
+          persist-credentials: false
+      - name: Install official checksum-qualified Blender and FFmpeg
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils ffmpeg libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fL --silent --show-error --retry 3 \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/blender.sha256"
+          curl -fL --silent --show-error --retry 3 \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Generate rigged source-original GLB for the selected coat
+        shell: bash
+        env:
+          COAT: ${{ matrix.coat }}
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/equine/video_audit/video_probe.py
+          mkdir -p "$RUNNER_TEMP/pony" "$GITHUB_WORKSPACE/visual/$COAT"
+          env LIBGL_ALWAYS_SOFTWARE=1 SCP_COATS="$COAT" \
+            "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup \
+            --python-exit-code 8 --python ik-source/qualification/shetland_pony/build_blender.py \
+            -- "$RUNNER_TEMP/pony"
+      - name: Native Blender import actual GLB and render every movement frame
+        shell: bash
+        env:
+          COAT: ${{ matrix.coat }}
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 \
+            "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup \
+            --python-exit-code 8 --python qualification/equine/video_audit/video_probe.py \
+            -- "$RUNNER_TEMP/pony/shetland_$COAT"_ghcr.glb "$GITHUB_WORKSPACE/visual/$COAT"
+      - name: H264 playback and contact sheet, independent media checks
+        shell: bash
+        env:
+          COAT: ${{ matrix.coat }}
+        run: |
+          set -euo pipefail
+          cd "visual/$COAT"
+          # Workbench exports RGBA PNG with alpha=0 on its background.
+          # Deliberately composite against a diagnostic gray, not implicit black.
+          ffmpeg -hide_banner -loglevel error -nostdin -y \
+            -f lavfi -i color=c=0xd7dee3:s=640x360:r=24:d=2 \
+            -framerate 24 -start_number 1 -i frames/side_%04d.png \
+            -filter_complex '[0:v][1:v]overlay=shortest=1:format=auto,format=yuv420p' \
+            -frames:v 48 -c:v libx264 -crf 22 -preset veryfast \
+            -pix_fmt yuv420p -movflags +faststart "shetland_$COAT"_walk_2s.mp4
+          ffmpeg -hide_banner -loglevel error -nostdin -y \
+            -i "shetland_$COAT"_walk_2s.mp4 \
+            -vf 'fps=6,scale=320:180,tile=3x4' \
+            -frames:v 1 "shetland_$COAT"_contact_sheet.png
+          ffmpeg -hide_banner -loglevel error -nostdin -y \
+            -f lavfi -i color=c=0xd7dee3:s=640x360:r=1:d=1 \
+            -i oblique_frame25.png \
+            -filter_complex '[0:v][1:v]overlay=format=auto' \
+            -frames:v 1 oblique_composited.png
+          mv -f oblique_composited.png oblique_frame25.png
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,subprocess
+          coat=os.environ["COAT"]
+          root=pathlib.Path.cwd()
+          movie=root/("shetland_"+coat+"_walk_2s.mp4")
+          probe=json.loads((root/"video_probe.json").read_text())
+          assert probe["rendered_frames"]==48 and probe["imported_action_count"]>0
+          stats=json.loads(subprocess.check_output(["ffprobe","-v","error","-count_frames","-select_streams","v:0",
+            "-show_entries","stream=nb_read_frames,width,height","-of","json",str(movie)]))
+          stream=stats["streams"][0]
+          assert stream["width"]==640 and stream["height"]==360
+          assert int(stream["nb_read_frames"])==48
+          results={}
+          for f in (movie,root/("shetland_"+coat+"_contact_sheet.png"),root/"oblique_frame25.png"):
+              raw=f.read_bytes()
+              assert len(raw)>2048
+              results[f.name]={"sha256":hashlib.sha256(raw).hexdigest(),"size":len(raw)}
+          (root/"playback_receipt.json").write_text(json.dumps({
+            "schema":"equine.glb.motion.playback.v1","source_sha256":probe["source_glb_sha256"],
+            "coat":coat,"source_branch_sha":"1b0a12da753ad662ec5b21f8d1aad73fba3224d9",
+            "runtime":"Blender 4.5.15 LTS + FFmpeg public GHCR runner",
+            "clip_frames":48,"fps":24,"files":results,
+            "quality_state":"UNKNOWN_REQUIRES_VISUAL_ACCEPTANCE",
+            "rights":"source-original synthetic public; no user reference photo/third-party mesh"
+           },indent=2,sort_keys=True)+"\n")
+          print("VIDEO_RENDER_STRUCTURAL_PASS",coat)
+          PY
+      - name: Preserve short review clips and traceable contact sheets only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-glb-video-${{ matrix.coat }}-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            visual/${{ matrix.coat }}/*.mp4
+            visual/${{ matrix.coat }}/*.png
+            visual/${{ matrix.coat }}/*.json
