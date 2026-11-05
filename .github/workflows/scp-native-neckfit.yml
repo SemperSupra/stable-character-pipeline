@@ -82,6 +82,7 @@ jobs:
             native_fit/*.json
             native_fit/*.png
             native_fit/*.blend
+            native_fit/*.glb
   independent_go_measurement:
     needs: native_blender_candidates
     runs-on: ubuntu-24.04
