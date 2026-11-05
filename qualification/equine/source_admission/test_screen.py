@@ -6,12 +6,12 @@ import unittest
 from pathlib import Path
 from check_horse import inspect
 
-def synthetic_asset():
+def synthetic_asset(count=10):
     obj={"asset":{"version":"2.0"},"skins":[{"joints":[1]}],"meshes":[{"primitives":[]}],
-         "animations":[{"name":f"clip{i}","channels":[{"sampler":0,"target":{"node":1,"path":"rotation"}}]} for i in range(10)]}
+         "animations":[{"name":f"clip{i}","channels":[{"sampler":0,"target":{"node":1,"path":"rotation"}}]} for i in range(count)]}
     b=json.dumps(obj).encode()
     b+=b" " *((-len(b))%4)
-    return b"glTF"+struct.pack("<II",2,20+8+len(b))+struct.pack("<II",len(b),0x4E4F534A)+b
+    return b"glTF"+struct.pack("<II",2,20+len(b))+struct.pack("<II",len(b),0x4E4F534A)+b
 
 class SourceTest(unittest.TestCase):
     def setUp(self):
@@ -33,6 +33,10 @@ class SourceTest(unittest.TestCase):
         with self.assertRaises(AssertionError):
             inspect(self.path,self.desc)
     def test_too_few_animations(self):
-        self.assertEqual(inspect(self.path,self.desc)["retarget_state"],"NOT_RUN")
+        self.payload=synthetic_asset(9)
+        self.path.write_bytes(self.payload)
+        self.desc={"size_bytes":len(self.payload),"git_blob_sha1":hashlib.sha1(b"blob "+str(len(self.payload)).encode()+b"\0"+self.payload).hexdigest()}
+        with self.assertRaisesRegex(AssertionError,"expected horse motions absent"):
+            inspect(self.path,self.desc)
 if __name__=="__main__":
     unittest.main()
