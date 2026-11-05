@@ -1,0 +1,3 @@
+# Equine conformation corrective workcell
+
+Owner DLE #293. Source base PR #310 at `9dc4a8ea943086f63f1dcd4ec20ffba4a428285c`. User correctly identified pig/hippo silhouette: old spheres for cheek/muzzle/neck, bulky leg-cuffs. Replaced with one long muzzle + tapered cranium, sloping neck, four closed continuous tapered skinned leg meshes. Raises torso belly and reduces barrel roundness separately while preserving 26-bone source name and 48f hoof IK. Independent ROM #311 is required: this shape correction does NOT establish an anatomical hind stifle. All source original synthetics, $0 public GHCR, no source photos on public runners, no merge/release/CPE. Scientific and human visual acceptance held.
