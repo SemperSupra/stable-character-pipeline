@@ -32,6 +32,10 @@ jobs:
           python3 modular_wardrobe_v1.py --out "$RUNNER_TEMP/wardrobe_v1.glb" --manifest "$RUNNER_TEMP/wardrobe_v1_manifest.json"
           python3 -c 'import json,sys; from test_modular_wardrobe_v1 import witness; result=witness(sys.argv[1],sys.argv[2]); open(sys.argv[3],"w").write(json.dumps(result,sort_keys=True,indent=2)+chr(10))' "$RUNNER_TEMP/wardrobe_v1.glb" "$RUNNER_TEMP/wardrobe_v1_manifest.json" "$RUNNER_TEMP/wardrobe_v1_independent.json"
           python3 -c 'import json,sys; w=json.load(open(sys.argv[1])); assert w["joints_each"]==35 and w["actor_count"]==2 and w["human_visual_accepted"] is False' "$RUNNER_TEMP/wardrobe_v1_independent.json"
+          for preset in unclothed signature alternate; do
+            python3 wardrobe_export_preset.py --input "$RUNNER_TEMP/wardrobe_v1.glb" --manifest "$RUNNER_TEMP/wardrobe_v1_manifest.json" --out "$RUNNER_TEMP/wardrobe_portable_$preset.glb" --receipt "$RUNNER_TEMP/wardrobe_portable_$preset.json" --aster "$preset" --juniper "$preset"
+            python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["joints_each"]==35 and r["source_geometry_preserved"] and r["presets"]["AsterOriginal"]==sys.argv[2]' "$RUNNER_TEMP/wardrobe_portable_$preset.json" "$preset"
+          done
       - name: Install SHA-verified official Blender and FFmpeg
         run: |
           set -euo pipefail
@@ -110,6 +114,8 @@ jobs:
             ${{ runner.temp }}/wardrobe_v1.glb
             ${{ runner.temp }}/wardrobe_v1_manifest.json
             ${{ runner.temp }}/wardrobe_v1_independent.json
+            ${{ runner.temp }}/wardrobe_portable_*.glb
+            ${{ runner.temp }}/wardrobe_portable_*.json
             ${{ runner.temp }}/wardrobe_render/*.blend
             ${{ runner.temp }}/wardrobe_render/*.mp4
             ${{ runner.temp }}/wardrobe_render/native_receipt.json
