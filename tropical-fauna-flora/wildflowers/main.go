@@ -487,7 +487,23 @@ func sway(p V, height, amp float32, sign int) V {
 	}
 }
 func writeGLB(path string, m *Model) error {
+	return writeGLBVariant(path, m, nil)
+}
+
+// writeGLBVariant retains byte-identical historical harmonic exports unless
+// an independently replay-verified spring-drag trace is explicitly selected.
+func writeGLBVariant(path string, m *Model, physical *WindProbeReceipt) error {
 	s := m.S
+	var physicalTrack PhysicalWindTrack
+	var err error
+	targetAmplitude := s.WindAmplitude
+	if physical != nil {
+		physicalTrack, err = BuildPhysicalWindTrack(s, *physical)
+		if err != nil {
+			return err
+		}
+		targetAmplitude = physicalTrack.TargetAmplitudeM
+	}
 	g := new(GLB)
 	mats := []string{}
 	for name, geo := range m.G {
@@ -510,7 +526,7 @@ func writeGLB(path string, m *Model) error {
 		for t := 0; t < 4; t++ {
 			d := make([]V, len(ge.P))
 			for i, p := range ge.P {
-				d[i] = sway(p, s.Height, s.WindAmplitude, t)
+				d[i] = sway(p, s.Height, targetAmplitude, t)
 			}
 			targets = append(targets, map[string]interface{}{"POSITION": g.vecAccess(d, true, false)})
 		}
@@ -547,15 +563,28 @@ func writeGLB(path string, m *Model) error {
 		}
 		weights = append(weights, wp, wm, zp, zm)
 	}
+	if physical != nil {
+		times, weights = physicalTrack.TimesS, physicalTrack.MorphWeights
+	}
 	ta := g.accessor(g.blob(packF(times), 0), 5126, len(times), "SCALAR", []float32{0}, []float32{s.WindPeriod})
 	wa := g.accessor(g.blob(packF(weights), 0), 5126, len(weights), "SCALAR", nil, nil)
+	meshExtras := map[string]interface{}{"species_id": s.ID, "seed": s.Seed, "labels": map[string]string{"la": s.Latin, "en": s.English, "de": s.German, "th": s.Thai}, "parametric_source": "presets/" + s.ID + ".json", "wind_type": "morph-target-approximation", "template": s.Template, "growth_stage_snapshot": s.GrowthStage, "vertices": totalVerts, "triangles": totalFaces}
+	animation := map[string]interface{}{"name": "wind_sway_loop", "samplers": []interface{}{map[string]interface{}{"input": ta, "output": wa, "interpolation": "LINEAR"}}, "channels": []interface{}{map[string]interface{}{"sampler": 0, "target": map[string]interface{}{"node": 0, "path": "weights"}}}}
+	if physical != nil {
+		meshExtras["wind_type"] = "unmeasured-spring-drag-single-lateral-mode"
+		meshExtras["wind_receipt_sha256"] = physicalTrack.ReceiptSHA256
+		meshExtras["wind_loop_state"] = "not-periodic-and-not-seam-qualified"
+		meshExtras["wind_target_amplitude_m"] = physicalTrack.TargetAmplitudeM
+		animation["name"] = "wind_physics_one_shot"
+		animation["extras"] = map[string]interface{}{"loop": false, "qualification": "synthetic-not-measured", "source_receipt_sha256": physicalTrack.ReceiptSHA256}
+	}
 	scene := map[string]interface{}{
 		"asset": map[string]interface{}{"version": "2.0", "generator": "flora-gen-prototype"},
 		"scene": 0, "scenes": []interface{}{map[string]interface{}{"nodes": []int{0}}},
 		"nodes":      []interface{}{map[string]interface{}{"name": s.ID, "mesh": 0}},
-		"meshes":     []interface{}{map[string]interface{}{"name": s.Latin, "primitives": prims, "weights": []float32{0, 0, 0, 0}, "extras": map[string]interface{}{"species_id": s.ID, "seed": s.Seed, "labels": map[string]string{"la": s.Latin, "en": s.English, "de": s.German, "th": s.Thai}, "parametric_source": "presets/" + s.ID + ".json", "wind_type": "morph-target-approximation", "template": s.Template, "growth_stage_snapshot": s.GrowthStage, "vertices": totalVerts, "triangles": totalFaces}}},
+		"meshes":     []interface{}{map[string]interface{}{"name": s.Latin, "primitives": prims, "weights": []float32{0, 0, 0, 0}, "extras": meshExtras}},
 		"materials":  materials,
-		"animations": []interface{}{map[string]interface{}{"name": "wind_sway_loop", "samplers": []interface{}{map[string]interface{}{"input": ta, "output": wa, "interpolation": "LINEAR"}}, "channels": []interface{}{map[string]interface{}{"sampler": 0, "target": map[string]interface{}{"node": 0, "path": "weights"}}}}},
+		"animations": []interface{}{animation},
 		"buffers":    []interface{}{map[string]interface{}{"byteLength": 0}}, "bufferViews": g.Views, "accessors": g.Accessors,
 		"extras": map[string]interface{}{"research_prototype": true, "not_botanically_validated": true, "no_third_party_meshes": true},
 	}
@@ -618,7 +647,9 @@ func run() error {
 	output := flag.String("out", "", "output animated .glb path")
 	organs := flag.String("organs", "", "optional geometry-bound organ graph JSON receipt")
 	lineage := flag.String("lineage", "", "optional source-path developmental crosswalk JSON")
+	parentAudit := flag.String("parent-audit", "", "optional cross-stage geometric parent-key audit (not botanical lineage)")
 	windProbe := flag.String("wind-probe", "", "optional synthetic fixed-step reduced-order wind report JSON (not calibrated physical animation)")
+	windDriver := flag.String("wind-driver", "harmonic", "animation driver: harmonic (legacy seamless loop), spring-drag (synthetic nonperiodic one-shot)")
 	fromStage := flag.Float64("from-stage", .4, "earlier developmental stage for -lineage")
 	flag.Parse()
 	if *input == "" || *output == "" {
@@ -639,7 +670,7 @@ func run() error {
 		return err
 	}
 	m := build(s)
-	if *lineage != "" {
+	if *lineage != "" || *parentAudit != "" {
 		if *fromStage <= 0 || *fromStage >= float64(s.GrowthStage) || math.IsNaN(*fromStage) || math.IsInf(*fromStage, 0) {
 			return fmt.Errorf("-from-stage must be finite, positive and strictly less than preset growth_stage")
 		}
@@ -649,23 +680,46 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		if err := os.MkdirAll(filepath.Dir(*lineage), 0755); err != nil {
-			return err
+		if *lineage != "" {
+			if err := os.MkdirAll(filepath.Dir(*lineage), 0755); err != nil {
+				return err
+			}
+			if err := writeDevelopmentalCrosswalk(*lineage, crosswalk); err != nil {
+				return err
+			}
 		}
-		if err := writeDevelopmentalCrosswalk(*lineage, crosswalk); err != nil {
-			return err
+		if *parentAudit != "" {
+			audit, err := AuditGeometricParentCorrespondence(build(earlyPreset), m)
+			if err != nil {
+				return err
+			}
+			if err := os.MkdirAll(filepath.Dir(*parentAudit), 0755); err != nil {
+				return err
+			}
+			if err := writeParentageAudit(*parentAudit, audit); err != nil {
+				return err
+			}
 		}
 	}
-	if *windProbe != "" {
+	if *windDriver != "harmonic" && *windDriver != "spring-drag" {
+		return fmt.Errorf("unsupported -wind-driver %q", *windDriver)
+	}
+	var physical *WindProbeReceipt
+	if *windProbe != "" || *windDriver == "spring-drag" {
 		probe, e := RunWindProbe(SyntheticWindProfile(s))
 		if e != nil {
 			return e
 		}
-		if e = os.MkdirAll(filepath.Dir(*windProbe), 0755); e != nil {
-			return e
+		if *windDriver == "spring-drag" {
+			physical = &probe
 		}
-		if e = writeWindProbe(*windProbe, probe); e != nil {
-			return e
+		if *windProbe != "" {
+			if e = os.MkdirAll(filepath.Dir(*windProbe), 0755); e != nil {
+				return e
+			}
+			if e = writeWindProbe(*windProbe, probe); e != nil {
+				return e
+			}
 		}
 	}
 	if *organs != "" {
@@ -676,7 +730,7 @@ func run() error {
 			return err
 		}
 	}
-	if err = writeGLB(*output, m); err != nil {
+	if err = writeGLBVariant(*output, m, physical); err != nil {
 		return err
 	}
 	v, t := 0, 0
@@ -684,7 +738,7 @@ func run() error {
 		v += len(g.P)
 		t += len(g.I) / 3
 	}
-	fmt.Printf("%s (%s) -> %s: %d vertices, %d triangles, 4 wind morph targets, %g s loop\n", s.Latin, s.ID, *output, v, t, s.WindPeriod)
+	fmt.Printf("%s (%s) -> %s: %d vertices, %d triangles, 4 wind morph targets, %g s %s\n", s.Latin, s.ID, *output, v, t, s.WindPeriod, *windDriver)
 	return nil
 }
 func main() {

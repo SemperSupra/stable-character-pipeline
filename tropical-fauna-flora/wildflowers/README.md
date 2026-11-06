@@ -72,3 +72,52 @@ go run ./wildflowers -preset wildflowers/presets/zea_mays.json \
   -lineage /tmp/maize.lineage.json -from-stage 0.4 \
   -wind-probe /tmp/maize.wind.json
 ```
+
+## W06 experimental physics-to-GLB bridge and developmental parent audit
+
+The default `-wind-driver harmonic` remains unchanged. The historical v0.2
+binary SHA-256 for maize is locked by `TestLegacyMaizeByteContractUnchanged`;
+all twelve expanded v0.2 GLBs have additionally passed independent byte
+comparisons against the source archive.
+
+An **opt-in** path exports directly sampled reduced-order wind motion into the
+actual glTF 2.0 `weights` animation. It uses the same four mesh morph targets,
+but drives only their lateral positive/negative pair. It does **not** add leaf
+flutter, multiple bending modes, collisions or a second physical degree of
+freedom. The time series is one-shot and deliberately **not forced to have a
+periodic seam**. It must not be looped as if it were periodic without a new
+qualification. All stiffness, mass and aerodynamic parameters are artificial,
+not measured material coefficients.
+
+From the `tropical-fauna-flora/` module root:
+
+```bash
+go run ./wildflowers -preset wildflowers/presets/zea_mays.json \
+  -out out/zea_mays.physical.glb \
+  -wind-driver spring-drag -wind-probe out/zea_mays.wind.json \
+  -lineage out/zea_mays.lineage.json \
+  -parent-audit out/zea_mays.parents.json
+python3 wildflowers/tests/validate_physical_wind_glb.py \
+  --glb out/zea_mays.physical.glb --wind out/zea_mays.wind.json
+python3 wildflowers/tests/redteam_physical_glb.py \
+  --glb out/zea_mays.physical.glb --wind out/zea_mays.wind.json
+```
+
+`parent-audit` checks authored semantic keys across early/later generated stages
+and reports cross-stage changes in *heuristically inferred geometric* parent
+axes. Unresolved attachments are counted, not claimed verified. The
+`generator_scope_contract` makes this source path naming version explicit;
+cross-generator semantic continuity, real botanical parentage, senescence,
+root systems and leaf abscission remain **unqualified**. `parent-audit` requires
+an early `-from-stage` lower than the active positive `growth_stage`.
+
+The independent read-only GLB oracle parses binary animation samplers,
+weights, geometry and basal vertices. It rejects tampered wind receipts,
+modified animation bytes, nonfinite morph deltas and fraudulent loop metadata.
+The four-species GIF is a low-fidelity flat-shaded software preview from
+serialized GLB morphs, **not** a Blender render or species-validation witness.
+
+Repository policy: store only Go/validation source, presets, DLE receipts and
+small machine-readable manifests in Git. Generated GLBs, wind JSON traces and
+previews belong in the verified large-binary Drive corpus. Keep existing PR
+#13 draft, source parent #4 and protected release/scientific/rights holds.

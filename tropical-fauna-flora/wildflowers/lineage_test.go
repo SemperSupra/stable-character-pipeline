@@ -27,6 +27,9 @@ func TestDevelopmentalCrosswalkPreservesVegetativeSourcePaths(t *testing.T) {
 			if (id == "zea_mays" || id == "helianthus_annuus" || id == "vitis_vinifera" || id == "triticum_aestivum" || id == "avena_sativa") && len(x.Introduced) == 0 {
 				t.Fatal("expected reproductive geometry admission")
 			}
+			if x.GeneratorScopeContract != FloraSemanticScopeContract {
+				t.Fatal("missing generator scope contract")
+			}
 			if x.BiologicalIdentityState != "unknown" || x.VisualValidationStatus != "unqualified" {
 				t.Fatal("scientific overclaim")
 			}

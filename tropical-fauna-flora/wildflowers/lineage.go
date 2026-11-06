@@ -14,6 +14,8 @@ import (
 	"sort"
 )
 
+const FloraSemanticScopeContract = "scp.flora.generator-authored-scopes.v1"
+
 type LineageEvent struct {
 	Key      string `json:"semantic_key"`
 	Kind     string `json:"kind"`
@@ -22,6 +24,7 @@ type LineageEvent struct {
 
 type DevelopmentalCrosswalk struct {
 	Schema                  string         `json:"schema"`
+	GeneratorScopeContract  string         `json:"generator_scope_contract"`
 	Status                  string         `json:"status"`
 	Species                 string         `json:"species"`
 	Seed                    int64          `json:"seed"`
@@ -52,6 +55,7 @@ func immutablePresetDigest(p Preset) (string, error) {
 func CompareDevelopmentalStages(a, b *Model) (DevelopmentalCrosswalk, error) {
 	x := DevelopmentalCrosswalk{
 		Schema:                  "scp.flora.sourcepath-developmental-crosswalk.v1",
+		GeneratorScopeContract:  FloraSemanticScopeContract,
 		Status:                  "source-path-correspondence-only-not-observed-ontogeny",
 		VisualValidationStatus:  "unqualified",
 		BiologicalIdentityState: "unknown",
