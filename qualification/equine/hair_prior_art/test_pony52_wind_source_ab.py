@@ -16,7 +16,7 @@ def controls():
             r["source_wind_morph_mode"]=treatment
             r["source_wind_morphs_detected"]=9
             r["wind_keys_disabled_in_memory_only"]=treatment=="disabled"
-            raw=[.8*math.sin(math.pi*(j)/47) for j in range(48)]
+            raw=[max(0.,.8*math.sin(math.pi*(j)/47)) for j in range(48)]
             r["source_wind_max_raw_activity_per_frame"]=raw[:]
             r["source_wind_max_activity_per_frame"]=raw[:] if treatment=="animated" else [0.]*48
             r["source_wind_f1_raw_before_override"]=0.
