@@ -58,9 +58,9 @@ def inspect(data,expected_blob_sha1,expected_shape=None):
             if len(tok)!=2 or not tok[1]:
                 raise AdmissionError("BAD_GROUP")
             group=tok[1]
-            if group in groups:
-                raise AdmissionError("DUPLICATE_GROUP")
-            groups[group]=0
+            # Legal OBJ files can reopen a previously used group.
+            # Preserve the earlier face count rather than zeroing it.
+            groups.setdefault(group,0)
         elif op=="f":
             if group is None: raise AdmissionError("UNGROUPED_FACE")
             if len(tok)!=5: raise AdmissionError("NON_QUAD_FACE")
