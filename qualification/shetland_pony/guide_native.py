@@ -14,6 +14,7 @@ from pathlib import Path
 from mathutils import Vector
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from guide_dynamics import Guide,simulate,report,norm,sub
+from curved_groom import make_curved_groom,VERTS_PER_CARD,ROWS
 
 if "--" not in sys.argv or len(sys.argv[sys.argv.index("--")+1:])!=2:
     raise SystemExit("usage: <input.blend> <outdir>")
@@ -34,20 +35,15 @@ if sum(x is not None for x in volumes) not in (0,3):
     raise ValueError("partial original tail volume topology")
 for obj in volumes:
     if obj is not None:bpy.data.objects.remove(obj,do_unlink=True)
+# Build a curved five-row original-source derivative while retaining source
+# object, armature skin, material and follicle identity (no external meshes).
+card_bones=make_curved_groom(groom)
 v=groom.data.vertices
 roots=[];tips=[]
 for i in range(1050):
-    roots.append(tuple((v[i*4].co+v[i*4+1].co)*.5))
-    tips.append(tuple((v[i*4+2].co+v[i*4+3].co)*.5))
-
-# Keep card source ownership exact and fail closed on weighted skin changes.
-# Each original generated 4-vertex card is bound to one named head/neck/tail bone.
-card_bones=[]
-for i in range(1050):
-    weights=v[4*i].groups
-    if len(weights)!=1 or abs(weights[0].weight-1.)>1e-6:
-        raise ValueError("unexpected original single-bone hair attachment")
-    card_bones.append(groom.vertex_groups[weights[0].group].name)
+    j=i*VERTS_PER_CARD
+    roots.append(tuple((v[j].co+v[j+1].co)*.5))
+    tips.append(tuple((v[j+VERTS_PER_CARD-2].co+v[j+VERTS_PER_CARD-1].co)*.5))
 if any(x not in {"head","neck","tail_1","tail_2","tail_3"} for x in card_bones):
     raise ValueError("unexpected follicle bone")
 
@@ -78,13 +74,14 @@ for frame in range(1,49):
     scene.frame_set(frame)
     eval_obj=groom.evaluated_get(bpy.context.evaluated_depsgraph_get())
     evaluated=eval_obj.to_mesh()
-    if len(evaluated.vertices)!=1050*4:
-        raise ValueError("evaluated groom topology changed")
+    if len(evaluated.vertices)!=1050*VERTS_PER_CARD:
+        raise ValueError("evaluated curved groom topology changed")
     world=eval_obj.matrix_world.copy()
     for _,j in spans:
-        i=j*4
+        i=j*VERTS_PER_CARD
         source_roots[j].append(tuple(world@((evaluated.vertices[i].co+evaluated.vertices[i+1].co)*.5)))
-        source_tips[j].append(tuple(world@((evaluated.vertices[i+2].co+evaluated.vertices[i+3].co)*.5)))
+        source_tips[j].append(tuple(world@((evaluated.vertices[i+VERTS_PER_CARD-2].co+
+                                            evaluated.vertices[i+VERTS_PER_CARD-1].co)*.5)))
     eval_obj.to_mesh_clear()
     matrices={}
     for name in set(card_bones):
@@ -135,10 +132,14 @@ for frame in sample_frames:
         if shift>.22:delta=tuple(x*.22/shift for x in delta)
         for i in members:
             local=source_inverse_skin[frame][card_bones[i]]@Vector(delta)
-            for k in (2,3):
-                data=key.data[i*4+k]
-                for axis in range(3):
-                    data.co[axis]+=local[axis]
+            # The follicle root stays anchored. Each row bends progressively,
+            # rather than translating one straight two-triangle card tip.
+            for row in range(1,ROWS):
+                blend=row/(ROWS-1)
+                for side in (0,1):
+                    data=key.data[i*VERTS_PER_CARD+2*row+side]
+                    for axis in range(3):
+                        data.co[axis]+=local[axis]*blend
     target_keys[frame]=key
 
 for frame in sample_frames:
@@ -185,7 +186,9 @@ for p in [glb,*sorted(out.glob("hair_*.png"))]:
     if p.stat().st_size<500:raise ValueError("missing evidence "+p.name)
     files[p.name]={"bytes":p.stat().st_size,"sha256":hashlib.sha256(p.read_bytes()).hexdigest()}
 receipt={"schema":"equine.longhair.native.proof.v1","source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
-    "source_cards":1050,"guide_groups":len(groups),"baked_shape_keys":len(target_keys),
+    "source_cards":1050,"curved_rows_per_card":ROWS,
+    "curved_vertices":len(groom.data.vertices),
+    "guide_groups":len(groups),"baked_shape_keys":len(target_keys),
     "sim_physics_hz":120,"render_fps":24,"frames":48,
     "max_raw_tip_shift_m":max_tip_shift,"clamp_m":.22,
     "max_observed_root_speed_m_s":max_root_speed,
