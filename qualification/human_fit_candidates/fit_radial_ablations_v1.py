@@ -135,6 +135,12 @@ def apply(src,source_receipt,out,receipt,variant):
                 normals=accessory(doc,binary,ino)
                 if any(len(x)!=3 for x in positions+normals):
                     raise ValueError("ABLATION_MALFORMED_VECTORS")
+                if sx==1. and sz==1.:
+                    # True no-op: don't re-pack NORMAL or POSITION at all.
+                    # A renormalization at (1,1) introduces float32 drift
+                    # even though the owner intended actor isolation.
+                    visited+=len(positions)
+                    continue
                 new,new_n=deform_primitive(positions,normals,sx,sz)
                 write_vec3(doc,bb,ipos,new)
                 write_vec3(doc,bb,ino,new_n)
