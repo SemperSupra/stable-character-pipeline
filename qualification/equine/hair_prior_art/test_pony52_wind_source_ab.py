@@ -36,7 +36,8 @@ class ATests(unittest.TestCase):
     def test_known_wind_confound_removal_is_research_only(self):
         args=controls()
         r=quality(*args)
-        self.assertEqual(r["verdict"],"WIND_MORPH_CONFOUNDING_SUPPORTS_BOUNDED_CAUSAL_HYPOTHESIS")
+        self.assertEqual(r["verdict"],"SOURCE_WIND_MORPH_CONFOUND_BOUNDED_CONFIRMED_NO_NEW_RAY_CANDIDATES")
+        self.assertTrue(r["source_wind_confound_corrected_to_skin_only_reference"])
         self.assertGreater(r["rigid_p95_relative_improvement_fraction"],.1)
         self.assertTrue(r["source_wind_control_raw_input_equivalent"])
         self.assertTrue(r["source_root_tracking_not_worse"])
@@ -54,7 +55,10 @@ class ATests(unittest.TestCase):
         args=list(controls())
         args[3]["frames"][10]["guides"][0]["segment_surface_ray_hits"]=4
         r=quality(*args)
-        self.assertEqual(r["verdict"],"NO_ELIGIBLE_IMPROVEMENT_KEEP_ORIGINAL_WORKCELL")
+        self.assertEqual(r["verdict"],"SOURCE_WIND_MORPH_CONFOUND_BOUNDED_CONFIRMED_COLLISION_HOLD")
+        self.assertTrue(r["source_wind_confound_corrected_to_skin_only_reference"])
+        self.assertGreater(r["body_ray_candidate_delta_by_region"]["mane"],0)
+        self.assertTrue(r["source_consistency_separate_from_collision_admission"])
         self.assertFalse(r["body_ray_candidates_not_increased"])
     def test_forged_source_sha_modes_wind_and_science_holds_fail(self):
         baselines=controls()
