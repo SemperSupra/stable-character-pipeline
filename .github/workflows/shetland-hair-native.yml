@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - name: Pure Python deterministic hostile qualification
@@ -51,6 +51,12 @@ jobs:
           set -euo pipefail
           (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py test_hair_clamp_quality.py test_hair_contact_quality.py)
           (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_pony_source_trajectory.py test_pony52_pair_quality.py test_pony52_actual_surface_native.py test_capture_order_ab.py test_pony_skin_frame_quality.py test_pony_body_follicle_quality.py test_pony52_wind_source_ab.py test_pony_tail_bone_quality.py test_caudal_segment_oracle.py test_pony_wind_state_interop.py)
+          python3 - <<'PY'
+          # runpy mimics Blender --python execution more closely than python script.py
+          import runpy
+          runpy.run_path("qualification/equine/hair_prior_art/pony_wind_state_interop.py",run_name="__blender_import_preflight__")
+          print("ORIGINAL_WIND_OBSERVER_BLENDER_PATH_PREFLIGHT_PASS")
+          PY
           python3 qualification/equine/hair_prior_art/pony52_actual_surface_native.py --selftest
           python3 -m py_compile qualification/equine/hair_prior_art/pony_skin_frame_native.py qualification/equine/hair_prior_art/pony_skin_frame_quality.py qualification/equine/hair_prior_art/pony_body_follicle_native.py qualification/equine/hair_prior_art/pony_body_follicle_quality.py
           python3 -m py_compile qualification/equine/hair_prior_art/pony_tail_bone_native.py qualification/equine/hair_prior_art/pony_tail_bone_quality.py qualification/equine/hair_prior_art/caudal_segment_oracle.py qualification/equine/hair_prior_art/test_caudal_segment_oracle.py qualification/equine/hair_prior_art/pony52_wind_source_ab.py
@@ -63,7 +69,7 @@ jobs:
     container:
       image: ghcr.io/blender/runner-images/bpy:1.0.0
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - name: Install pinned disposable native Blender 4.5.15
@@ -297,7 +303,7 @@ jobs:
           PY
       - name: Preserve original native evidence and first failures
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: shetland-hair-native-${{ github.run_id }}
           retention-days: 7

@@ -2,6 +2,8 @@
 """Reversible true 4.5 source-wind / 5.2 rigid-wind comparison; NEVER a collision release."""
 import hashlib,json,math,sys
 from pathlib import Path
+# Blender's --python does not necessarily put the source script directory on sys.path.
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 from pony_source_trajectory import classify,xyz
 
 SCHEMA="equine.pony.45_wind_source_48f.v1"
