@@ -124,8 +124,74 @@ def measure(source, validator=challenge):
     }
 
 
+def receipt_is_self_consistent(receipt):
+    """Reject forged or malformed historic measurements before comparing them.
+
+    A same-named corpus/source digest is insufficient evidence if individual
+    case outcomes contradict advertised counts. This does not authenticate
+    the independent source or certify scientific/visual quality.
+    """
+    if not isinstance(receipt, dict):
+        return False
+    expected_keys = ("schema", "validator", "validator_sha256",
+                     "harness_sha256", "corpus", "corpus_sha256",
+                     "source_evidence_sha256", "cases", "case_count",
+                     "confusion", "rejection_detection",
+                     "false_acceptance_count", "false_rejection_count",
+                     "hard_error_count", "contract_mismatch_count", "verdict")
+    if any(key not in receipt for key in expected_keys):
+        return False
+    if receipt["schema"] != SCHEMA or receipt["validator"] != "scp.native_multiview_challenger":
+        return False
+    if any(not isinstance(receipt[k], str) or len(receipt[k]) != 64 or
+           any(ch not in "0123456789abcdef" for ch in receipt[k])
+           for k in ("validator_sha256", "harness_sha256",
+                     "corpus_sha256", "source_evidence_sha256")):
+        return False
+    cases = receipt["cases"]
+    if not isinstance(cases, list) or not cases or type(receipt["case_count"]) is not int or len(cases) != receipt["case_count"]:
+        return False
+    matrix = {label: {outcome: 0 for outcome in CLASSES} for label in CLASSES}
+    identities = set()
+    basis = []
+    for item in cases:
+        if not isinstance(item, dict):
+            return False
+        name, want, actual, digest = (item.get("id"), item.get("expected"),
+                                      item.get("actual"), item.get("input_sha256"))
+        if not isinstance(name, str) or not name or name in identities or want not in CLASSES or actual not in CLASSES:
+            return False
+        if not isinstance(digest, str) or len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
+            return False
+        if type(item.get("elapsed_ns")) is not int or item["elapsed_ns"] < 0:
+            return False
+        identities.add(name)
+        matrix[want][actual] += 1
+        basis.append({"id": name, "expected": want, "input_sha256": digest})
+    if receipt["corpus_sha256"] != sha(basis) or receipt["confusion"] != matrix:
+        return False
+    rejects = sum(row["expected"] == "REJECT" for row in cases)
+    detected = matrix["REJECT"]["REJECT"]
+    wrong = sum(row["expected"] != row["actual"] for row in cases)
+    true_counts = {
+        "false_acceptance_count": sum(row["expected"] != "ACCEPT" and row["actual"] == "ACCEPT" for row in cases),
+        "false_rejection_count": sum(row["expected"] == "ACCEPT" and row["actual"] != "ACCEPT" for row in cases),
+        "hard_error_count": sum(row["actual"] == "ERROR" for row in cases),
+        "contract_mismatch_count": wrong,
+    }
+    if any(type(receipt[key]) is not int or receipt[key] != value for key, value in true_counts.items()):
+        return False
+    if receipt["rejection_detection"] != {"detected": detected, "total": rejects}:
+        return False
+    if receipt["verdict"] != ("PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY" if wrong == 0 else "FAIL_VALIDATOR_CONTROLS"):
+        return False
+    return receipt.get("model_promotion") is False and receipt.get("merge_release_CPE_approval") is False
+
+
 def compare(old, new):
     """Do not compare performance when source/fixtures differ; time is observational only."""
+    if not receipt_is_self_consistent(old) or not receipt_is_self_consistent(new):
+        return {"comparable": False, "decision": "HOLD_MALFORMED_REFERENCE"}
     keys = ("schema", "validator", "corpus", "corpus_sha256", "source_evidence_sha256")
     if any(old.get(k) != new.get(k) for k in keys):
         return {"comparable": False, "decision": "HOLD_DIFFERENT_CORPUS_OR_SOURCE"}
