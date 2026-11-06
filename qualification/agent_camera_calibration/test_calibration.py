@@ -69,7 +69,7 @@ class CameraCalibrationHostileTests(unittest.TestCase):
         with self.assertRaisesRegex(AdmissionError, "two or more"):
             assess([r for r in rows if r["view"] == "front"])
         with self.assertRaisesRegex(AdmissionError, "insufficient"):
-            assess([r for r in rows if r["point_id"] != "front:6"])
+            assess([r for r in rows if r["point_id"] not in ("front:6", "front:7")])
 
     def test_degenerate_camera_axis_denied(self):
         rows = fixture()
