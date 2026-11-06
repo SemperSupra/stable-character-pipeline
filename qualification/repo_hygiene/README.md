@@ -34,10 +34,69 @@ The output directory must not already exist. No non-stdlib code or third-party b
 - **DELETE branches** only after verified final commit is reachable, protected evidence retained, dependents resolved, source-owner approved, and exact ref leased. Never delete source trees based on age.
 - **HOLD** if any confidence, custody, rights or merge decision is missing. No auto-close/auto-merge.
 
-## Known current workset / safe next steps
+## Verified workset, source decisions and retained first failures
 
-As of 2026-11-06 live readback: public original #291 HEAD `ce0a2743ec5d8c10fd683245cc898d33bb759025`; wardrobe #292 HEAD `31d09f2ab079880707a2e2e736af333e5c50e68d`; sibling wardrobe corrective #303 HEAD `0262cdca60a3d2351ec8ec6df915f661d888b740` A5 import FAIL; parametric morphology #308 HEAD `d5c56859ea05d80954205713f79212a8e31e5a7e` source-only tests PASS. All four remain **OPEN/DRAFT/UNMERGED**. Parent #292 is still required, and #303/#308 are sibling experimental branches. A full PR-source dependency DAG, additional mergeable candidates, stale active workset and all-lane private reconciliations require separate evidence before any closure.
+The previous 100-result GitHub search cap is **not** a complete public census.
+This stdlib-only runner now paginates all public open PRs and emits a complete
+root DAG, exact SHA-drift source comparison, and independent main reachability
+review for **leaf root PRs only**. It refuses network failures and data truncation,
+and always returns **zero mutations**.
 
-The GitHub search connector capped a public PR search at 100 results; that observation is **partial**, not a full live census. The new live REST paginator must demonstrate completion before the entire repository is considered inventoried.
+At the 2026-11-06 independent public read-only [Actions run #42153062049](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/42153062049) snapshot:
 
-Protected real-person assets stay out of public source and evidence. Continue original synthetic work with $0 public runners and record Git/DLE receipts; large deliverables in governed Drive after whole-byte hash readback.
+- **250 OPEN public PRs; 36 default-branch roots; 214 stacked descendants.**
+- **Six parent/head-base SHA drift holds**, source-probed with exact GitHub compare.
+  Four have disjoint changed filenames; two overlap files (#212/#211 release
+  proof and #318/#316 Shetland).
+- **13 isolated leaf root PRs** source-compared against pinned main
+  `1a6f58739c9b739ca3ac6671a67f2e0710751e6b`. **All 13 have source
+  commits ahead of main**. **None is already incorporated into main**, so
+  no no-loss branch closure has been justified by commit reachability alone.
+- Public GitHub Actions artifact `13473951033` contains source-bounded
+  `snapshot.json`, `roots.json`, `drifts.json`, `root_tips.json`, human
+  Markdown summaries and direct-root SHA manifest. Public Actions artifacts
+  expire; records in DLE are durable authority.
+
+The active original-character stack remains **OPEN/DRAFT/UNMERGED**:
+humanization #291, wardrobe parent #292, sibling refinement #303, parametric
+#308, hygiene #312. #303's portable inactive-garment import fix passed an
+independent strict original Blender A5 test at an earlier exact source
+[run #42152162864](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/42152162864).
+**Subsequent visual review and strict foreign-mesh verification found
+additional red issues**, including startup Cube contamination and two
+unexpected `Icosphere` objects after factory-empty import. Do not call the
+latest #303 head native-visual accepted. More generally #308's evaluated
+triangle BVH witness has positive clothing/body surface crossings in every
+sampled pose; its proximity proxy never proved collision-free quality.
+
+### Source hygiene regression controls
+
+- The #303 workflow had a genuinely malformed duplicated/truncated job source.
+  It was recovered to one canonical job definition with a strict exact-parent
+  source allowlist, zero original-source changes and self-verifying checksum
+  receipt. The #303 test suite now includes a static regression test
+  that refuses duplicated or truncated native qualification jobs.
+- Do not conflate an earlier green run with a later changed head. Always
+  re-fetch and pin exact source SHAs, CI and read-back evidence.
+- A **clean root ancestry or disjoint diff does not authorize** merge, close,
+  delete, release, CPE, Drive promotion or rights transfer.
+- Public synthetic sources and tests stay on public free-tier runners.
+  Private person identities, protected Naomi/Alison media, rights and
+  G5/G9 custody remain under private #23/#103 authority.
+
+### Next executable hygiene priorities
+
+1. For root #54 (largest 82-descendant chain in a previous audit), #253,
+   #20, and #22, classify exact source overlap, owner/rights/custody,
+   CI/first-RED gates and mandatory ancestors; do not bulk-close drafts.
+2. Triage exact SHA drift holds, retain overlapping conflict files, and
+   propose only independently evidenced fast-forwards or safe no-loss
+   source adoptions for owner-authorized action.
+3. Record closure **of technical defect hypotheses** only where first-failure
+   falsifiers demonstrably pass; keep the owning PR open while its broader
+   human/scientific/rights requirements remain unresolved.
+4. Run this root-census + source-reachability gate before and after each
+   independent scientific batch, then update owning DLE #272 and private
+   G5/G9 handoff as appropriate. Git/DLE contains source and receipts;
+   governed owner-private Drive holds original-only large binaries with
+   SHA-verified whole-byte read-back.
