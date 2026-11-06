@@ -9,7 +9,10 @@ def manifold(faces):
     return set(edges.values())
 class Tests(unittest.TestCase):
     def test_long_tapered_horse_face(self):
-        self.assertGreater((HEAD[-1][0]-HEAD[0][0])/(max(s[2] for s in HEAD)*2),1.85)
+        ratio=(HEAD[-1][0]-HEAD[0][0])/(max(p[2] for p in HEAD)*2)
+        # Shetland head must be long enough to read as equine, not an overlong aardvark snout.
+        self.assertGreater(ratio,1.5)
+        self.assertLess(ratio,1.85)
         self.assertLess(HEAD[-1][1],HEAD[0][1]-.3)
         self.assertGreater(HEAD[-1][2],HEAD[-2][2])
     def test_sloping_neck(self):
