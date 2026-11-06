@@ -17,6 +17,11 @@ on:
       - "qualification/parametric_humans/test_sculpt_human_v1.py"
       - "qualification/parametric_humans/basemesh_admission_v1.py"
       - "qualification/parametric_humans/test_basemesh_admission_v1.py"
+      - "qualification/parametric_humans/test_sculpt_triangle_repair_v1.py"
+      - "qualification/parametric_humans/test_sculpt_topology_gate_v1.py"
+      - "qualification/parametric_humans/sculpt_triangle_repair_v1.py"
+      - "qualification/parametric_humans/sculpt_topology_gate_v1.py"
+      - "qualification/parametric_humans/HUMAN_TOPOLOGY_BASEMESH_RDTE_V1.md"
       - "qualification/parametric_humans/SCULPT_RESEARCH_V1.md"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
@@ -52,6 +57,9 @@ jobs:
           # Pinned CC0 source geometry contract: all 11 hostile tests source-free.
           python3 -m compileall -q basemesh_admission_v1.py test_basemesh_admission_v1.py
           python3 -m unittest -v test_basemesh_admission_v1
+          # Topology and index-only repair are source-free here; real GLB source remains private/Drive.
+          python3 -m compileall -q sculpt_topology_gate_v1.py test_sculpt_topology_gate_v1.py sculpt_triangle_repair_v1.py test_sculpt_triangle_repair_v1.py
+          python3 -m unittest -v test_sculpt_topology_gate_v1 test_sculpt_triangle_repair_v1
           python3 - <<'PY'
           import json,os,pathlib
           p=pathlib.Path(os.environ["SCP_VALIDATOR_PERF_OUT"])
