@@ -1,0 +1,168 @@
+name: Shetland source-exact 30j native front-carpus reversible A/B experiment
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/equine-ik-native-ab.yml"
+      - "qualification/equine/ik_ab/**"
+permissions:
+  contents: read
+jobs:
+  native-ik-ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: b83187e7237186ded84989064de146be85a3cdc0
+          path: source-baseline
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: b83187e7237186ded84989064de146be85a3cdc0
+          path: source-candidate
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
+          path: observer-hoof
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 72d83a1f10a605a50935c8e7d35a8aa8b99de4ed
+          path: observer-rom
+          persist-credentials: false
+      - name: Qualify reversible source-hashed experimental override and A/B decision rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/ik_ab -p 'test_ik_ab.py' -v
+          python3 -m compileall -q qualification/equine/ik_ab
+          for p in source-baseline source-candidate; do
+            test "$(git -C "$p" rev-parse HEAD)" = b83187e7237186ded84989064de146be85a3cdc0
+          done
+          mkdir -p results/baseline results/candidate
+          rm -f source-candidate/qualification/shetland_pony/equine_anatomy.py
+          python3 qualification/equine/ik_ab/patch_candidate.py \
+            --source source-baseline/qualification/shetland_pony/equine_anatomy.py \
+            --candidate source-candidate/qualification/shetland_pony/equine_anatomy.py \
+            --receipt results/candidate/patch_receipt.json
+          test "$(git -C source-candidate status --porcelain | wc -l)" -eq 1
+          test "$(git -C source-candidate status --porcelain)" = ' M qualification/shetland_pony/equine_anatomy.py'
+          (cd source-baseline/qualification/shetland_pony && python3 -m unittest -v test_equine_anatomy.py test_footpaths.py)
+          (cd source-candidate/qualification/shetland_pony && python3 -m unittest -v test_equine_anatomy.py test_footpaths.py)
+          python3 qualification/equine/kinematic_reach/kinematic_reach.py \
+            --source-dir source-baseline/qualification/shetland_pony --out results/baseline/reach.json
+          python3 qualification/equine/kinematic_reach/kinematic_reach.py \
+            --source-dir source-candidate/qualification/shetland_pony --out results/candidate/reach.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open('results/baseline/reach.json'))
+          b=json.load(open('results/candidate/reach.json'))
+          for key in ('front_L','front_R'):
+              assert a['baseline'][key]['infeasible_frame_count']==34
+              assert b['baseline'][key]['infeasible_frame_count']==0
+          for key in ('hind_L','hind_R'):
+              assert b['baseline'][key]['infeasible_frame_count']==a['baseline'][key]['infeasible_frame_count']==0
+          print('SOURCE_EXACT_MATHEMATICAL_REACH_GAIN_ONLY; NATIVE_PHYSICS_NOT_YET_EVALUATED')
+          PY
+      - name: Install official Blender 4.5.15 with verified SHA in ephemeral runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/checksums.sha256"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' checksums.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Export actual baseline and candidate animated GLBs from independent exact 30j sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variant in baseline candidate; do
+            echo "NATIVE_A_B_BUILD=$variant"
+            env SCP_COATS=black LIBGL_ALWAYS_SOFTWARE=1 \
+              "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python "source-$variant/qualification/shetland_pony/build_blender.py" -- \
+              "$GITHUB_WORKSPACE/results/$variant"
+            test -s "results/$variant/shetland_black_ghcr.glb"
+            test -s "results/$variant/shetland_black_ghcr.png"
+          done
+      - name: Independent actual 48-frame hoof and joint evaluation for both GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variant in baseline candidate; do
+            model="$GITHUB_WORKSPACE/results/$variant/shetland_black_ghcr.glb"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python observer-hoof/qualification/equine/contact_eval/observed_hooves.py -- \
+              "$model" "$GITHUB_WORKSPACE/results/$variant/hoof.json"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python observer-rom/qualification/equine/rom/rom_native.py -- \
+              "$model" "$GITHUB_WORKSPACE/results/$variant/rom.json"
+          done
+      - name: Judge relative performance without overriding scientific holds
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 qualification/equine/ik_ab/compare_ab.py \
+            --baseline-hoof results/baseline/hoof.json \
+            --candidate-hoof results/candidate/hoof.json \
+            --baseline-rom results/baseline/rom.json \
+            --candidate-rom results/candidate/rom.json \
+            --baseline-reach results/baseline/reach.json \
+            --candidate-reach results/candidate/reach.json \
+            --baseline-glb results/baseline/shetland_black_ghcr.glb \
+            --candidate-glb results/candidate/shetland_black_ghcr.glb \
+            --out results/independent_ab.json
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          r=json.load(open('results/independent_ab.json'))
+          assert r['schema']=='equine.ik.native-ab.noncertifying.v1'
+          assert not r['candidate_anatomy_veterinary_acceptance']
+          assert not r['candidate_contact_force_accepted']
+          assert not r['candidate_visual_accepted']
+          assert not r['merge_release_CPE_authorized']
+          assert r['outcome'] in ('REJECT_OR_INCONCLUSIVE_CANDIDATE','CANDIDATE_PROXY_IMPROVEMENT_NOT_ACCEPTED')
+          for variant in ('baseline','candidate'):
+              src=pathlib.Path(f'results/{variant}/shetland_black_ghcr.glb')
+              print('SOURCE_ACTUAL_EXPORTED_GLB',variant,src.stat().st_size,hashlib.sha256(src.read_bytes()).hexdigest())
+          print('NATIVE_A_B_PROVISIONAL_VERDICT',r['outcome'],
+                'skate',r['baseline_front_skate_pairs'],r['candidate_front_skate_pairs'])
+          PY
+      - name: Retain bounded original public A/B source, visual stills and science receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-30j-native-ik-ab-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/independent_ab.json
+            results/baseline/hoof.json
+            results/candidate/hoof.json
+            results/baseline/rom.json
+            results/candidate/rom.json
+            results/baseline/reach.json
+            results/candidate/reach.json
+            results/candidate/patch_receipt.json
+            results/baseline/manifest.json
+            results/candidate/manifest.json
+            results/baseline/shetland_black_ghcr.png
+            results/candidate/shetland_black_ghcr.png
+            results/baseline/shetland_black_ghcr.glb
+            results/candidate/shetland_black_ghcr.glb
