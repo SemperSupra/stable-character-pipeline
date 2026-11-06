@@ -34,9 +34,9 @@ class TestAdmission(unittest.TestCase):
     def test_nonfinite(self):
         with self.assertRaisesRegex(AdmissionError,"NONFINITE_VERTEX"):
             admit(GOOD.replace(b"v 0 0 0",b"v nan 0 0"))
-    def test_duplicate_group(self):
-        with self.assertRaisesRegex(AdmissionError,"DUPLICATE_GROUP"):
-            admit(GOOD+b"g body\n")
+    def test_repeated_group_header_is_legal(self):
+        r=admit(GOOD+b"g body\n")
+        self.assertEqual(r["quantities"]["body_quads"],1)
     def test_topology_mismatch(self):
         with self.assertRaisesRegex(AdmissionError,"PINNED_TOPOLOGY_MISMATCH"):
             inspect(GOOD,git_blob_sha1(GOOD),{"vertices":5})
