@@ -100,3 +100,21 @@ sampled pose; its proximity proxy never proved collision-free quality.
    G5/G9 handoff as appropriate. Git/DLE contains source and receipts;
    governed owner-private Drive holds original-only large binaries with
    SHA-verified whole-byte read-back.
+
+### 2026-11-06 live follow-on camera, rig35 and actor workcells (source-only custody)
+
+Owner-coordinated independent public-original synthetic batches were added as three
+**distinct, additive, draft/held descendants** with exact parents:
+
+- Camera intrinsic declared-heldout observer [#332](https://github.com/SemperSupra/stable-character-pipeline/pull/332) from #325 at `672edf4842a409deb1e10d573148e292ec05351d`, child source `2f4b108da7357ae3a85708ff5ff60f80355b5c0e`; exact-head public Actions `42154699209` SUCCESS. Real photographic calibration still NOT_RUN.
+- Human 35-joint temporal read-only falsifier [#333](https://github.com/SemperSupra/stable-character-pipeline/pull/333) from #326 at `188d6b05b14d517cf6f6839827ebe955a7134eb9`, child source `6c5df19ddee36d83112f187c44353ef6f9a025b4`; exact-head public Actions `42154961062` SUCCESS. Biological JCS/ROM and visible seam defects HELD.
+- Exact archived native multiview actor-vs-rule challenger [#334](https://github.com/SemperSupra/stable-character-pipeline/pull/334) from #317 at `fb581c7073bb42ec912c476fd7669508a9f3789d`, child source `ec58c3d2a3778bea54c37817c5b0cc7f4dca83d1`; exact-head public Actions `42156030570` SUCCESS. Uses actual archived native synthetic image metrics but actual LLM/VLM inference NOT_RUN.
+
+All three are distinct additive owned paths; all remain **OPEN/DRAFT/UNMERGED** and
+retain rights, photographic source, native human/pony quality, release, CPE,
+and merge holds. Do NOT count these as duplicate cleanup targets or "already
+integrated" from a local source test. Re-run complete real public PR inventory
+rather than adding three to a stale 250-count snapshot, preserve all six
+historical SHA-drift pairs and source-first failures, then write owning
+DLE #293/#272 verified exact-head batons. No source branch reset, PR close,
+merge, deletion, private Actions, or CPE in this read-only audit update.
