@@ -43,6 +43,11 @@ def apply_original_shape(which,state):
     nose_delta=max(-.025,min(.025,(m["nose_projection_ratio"]-1.)*.025))
     left_volume=(m["left_breast_volume"]-.5)*.032
     right_volume=(m["right_breast_volume"]-.5)*.032
+    # Bounded facial-detail visualization only. Real anatomical tissue coupling,
+    # facial FACS motion, rig retarget and skin/hair matching remain UNKNOWN.
+    cheek_delta=(m["cheek_volume"]-.5)*.028
+    chin_delta=(m["chin_projection_ratio"]-1.)*.020
+    lip_delta=(m["lip_fullness"]-.5)*.018
     changed=0
     for k in range(0,len(coords),3):
         x,y,z=coords[k:k+3]
@@ -55,6 +60,21 @@ def apply_original_shape(which,state):
             nx*=1+jaw_delta*influence(y,1.61,.073)
             if z < -.082 and 1.59<y<1.68 and abs(x)<.048:
                 nz+=nose_delta*influence(y,1.635,.034)
+        if 1.54<y<1.74 and z < -.045:
+            # Bilateral cheek volume affects only face-level soft tissue.
+            cheek_mask=(influence(y,1.663,.039)
+                        *influence(abs(x),.079,.036)
+                        *influence(z,-.075,.038))
+            nx+=math.copysign(cheek_delta*.22*cheek_mask, x) if abs(x)>1e-9 else 0.
+            nz-=cheek_delta*cheek_mask
+            # Chin and lips are independent, local and anterior only.
+            chin_mask=(influence(y,1.577,.023)
+                       *influence(abs(x),0.,.042)
+                       *influence(z,-.099,.032))
+            lip_mask=(influence(y,1.606,.014)
+                      *influence(abs(x),0.,.033)
+                      *influence(z,-.123,.026))
+            nz-=chin_delta*chin_mask + lip_delta*lip_mask
         if 1.17<y<1.39 and z<-.045 and .025<abs(x)<.17:
             volume=left_volume if x<0 else right_volume
             nx+=math.copysign(abs(volume)*.10*influence(y,1.29,.06), x) if volume>0 else 0
