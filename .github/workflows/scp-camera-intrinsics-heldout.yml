@@ -60,6 +60,69 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: ${{ runner.temp }}/camera-validator-performance.json
+      - name: Disposable exact-head parent-plus-child integration witness (no git writes)
+        if: github.event_name == 'pull_request'
+        env:
+          PARENT_HEAD_PIN: 8f07eca9ebc20e50543b1559f7a0da6a7a40341a
+          OLD_PARENT_PIN: 672edf4842a409deb1e10d573148e292ec05351d
+          CHILD_HEAD: ${{ github.event.pull_request.head.sha }}
+          PARENT_REF: refs/heads/workcell/agent-observation-admission-20261106
+          INTEGRATION_RECEIPT: ${{ runner.temp }}/camera-admission-disposable-integration.json
+        run: |
+          set -euo pipefail
+          # A parent-branch lease prevents certification against a superseded
+          # revision. A child lease prevents a stale PR event from being reused.
+          test "$(git ls-remote origin "$PARENT_REF" | cut -f1)" = "$PARENT_HEAD_PIN"
+          test "$(git ls-remote origin refs/heads/workcell/agent-camera-heldout-intrinsics-20261106 | cut -f1)" = "$CHILD_HEAD"
+          git cat-file -e "$PARENT_HEAD_PIN^{commit}"
+          git cat-file -e "$CHILD_HEAD^{commit}"
+          test "$(git merge-base "$PARENT_HEAD_PIN" "$CHILD_HEAD")" = "$OLD_PARENT_PIN"
+          tree="$(git merge-tree --write-tree "$PARENT_HEAD_PIN" "$CHILD_HEAD")"
+          test "$tree" = "$(git rev-parse --verify "$tree^{tree}")"
+          test "$(git ls-tree -r --name-only "$tree" | grep -c '^qualification/agent_camera_calibration/calibration.py        run: |
+          echo 'CORRESPONDENCE_INTRINSICS_ONLY; PHOTO_IMAGE_BYTES_NOT_READ; EXTRINSICS_NOT_INDEPENDENT; REAL_PERSON_FIT_NOT_RUN; SCIENCE_UNKNOWN; RELEASE_CPE_MERGE_HELD'
+)" = 1
+          test "$(git ls-tree -r --name-only "$tree" | grep -c '^qualification/agent_observation_admission/validator_quality_test.go        run: |
+          echo 'CORRESPONDENCE_INTRINSICS_ONLY; PHOTO_IMAGE_BYTES_NOT_READ; EXTRINSICS_NOT_INDEPENDENT; REAL_PERSON_FIT_NOT_RUN; SCIENCE_UNKNOWN; RELEASE_CPE_MERGE_HELD'
+)" = 1
+          mkdir -p "$RUNNER_TEMP/camera-admission-trial"
+          git archive "$tree" | tar -x -C "$RUNNER_TEMP/camera-admission-trial"
+          (cd "$RUNNER_TEMP/camera-admission-trial/qualification/agent_observation_admission"; go test -race -count=1 ./...; go vet ./...)
+          (cd "$RUNNER_TEMP/camera-admission-trial/qualification/agent_camera_calibration"; python3 -m unittest discover -v -p 'test_*.py')
+          python3 - <<'PY'
+          import json,os,pathlib,re
+          p=pathlib.Path(os.environ["INTEGRATION_RECEIPT"])
+          parent=os.environ["PARENT_HEAD_PIN"]; child=os.environ["CHILD_HEAD"]; base=os.environ["OLD_PARENT_PIN"]
+          result={
+            "schema":"scp.source_disposable_integration.v1",
+            "source_class":"PUBLIC_ORIGINAL_SYNTHETIC_ONLY",
+            "parent_pr":325,"parent_head":parent,
+            "child_pr":332,"child_head":child,"old_base":base,
+            "source_combination":"GIT_MERGE_TREE_NO_COMMIT_NO_REMOTE_MUTATION",
+            "merge_tree":"NO_SOURCE_CONFLICT",
+            "parent_go_race_and_vet":"PASS",
+            "child_camera_unit_quality":"PASS",
+            "parent_synthetic_admission":"QUALIFIED_ON_COMBINED_TREE",
+            "child_camera_synthetic_projection":"QUALIFIED_ON_COMBINED_TREE",
+            "external_image_fit":"NOT_RUN",
+            "rights_consents_independently_verified":False,
+            "independent_extrinsics":"NOT_PROVEN",
+            "biological_realism":"UNKNOWN",
+            "owner_merge_release_CPE_approval":False
+          }
+          assert all(re.fullmatch("[0-9a-f]{40}",x) for x in (parent,child,base))
+          p.write_text(json.dumps(result,sort_keys=True,indent=2)+"\\n")
+          print("DISPOSABLE_ADMISSION_CAMERA_COMBINED_TREE_TESTED_NOT_MERGED",parent,child)
+          PY
+          test "$(git ls-remote origin "$PARENT_REF" | cut -f1)" = "$PARENT_HEAD_PIN"
+      - name: Preserve disposable exact-head source integration proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scp-disposable-camera-admission-integration
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/camera-admission-disposable-integration.json
       - name: Scientific admission remains held
         run: |
           echo 'CORRESPONDENCE_INTRINSICS_ONLY; PHOTO_IMAGE_BYTES_NOT_READ; EXTRINSICS_NOT_INDEPENDENT; REAL_PERSON_FIT_NOT_RUN; SCIENCE_UNKNOWN; RELEASE_CPE_MERGE_HELD'
