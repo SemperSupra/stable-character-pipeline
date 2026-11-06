@@ -12,6 +12,7 @@ import math
 import os
 from pathlib import Path
 import struct
+import zlib
 import subprocess
 import sys
 
@@ -37,6 +38,75 @@ def run(args, *, cwd):
                            " exit=" + str(p.returncode) + " stderr=" + p.stderr[-1600:] +
                            " stdout=" + p.stdout[-1000:])
     print("COMBINED_NATIVE_COMMAND_PASS", args[0], args[1:4])
+
+
+def validate_png_stream(raw, expected_size=(720, 480)):
+    """Validate full native PNG structure/CRC/decompression independently.
+
+    Technical byte-integrity only; this is not a visual/identity assessment.
+    8-bit noninterlaced RGB/RGBA is the explicit Workbench output contract.
+    """
+    if not isinstance(raw, bytes) or not (33 <= len(raw) <= 25_000_000):
+        raise ValueError("PNG_INVALID_BYTE_LENGTH")
+    if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("PNG_INVALID_SIGNATURE")
+    pos, ihdr, payloads, seen_end, idat_closed = 8, None, [], False, False
+    while pos < len(raw):
+        if len(raw) - pos < 12:
+            raise ValueError("PNG_TRUNCATED_CHUNK")
+        size = struct.unpack(">I", raw[pos:pos+4])[0]
+        kind = raw[pos+4:pos+8]
+        end = pos + 12 + size
+        if size > 25_000_000 or end > len(raw):
+            raise ValueError("PNG_CHUNK_BOUNDS")
+        chunk = raw[pos+8:pos+8+size]
+        actual_crc = struct.unpack(">I", raw[pos+8+size:end])[0]
+        if zlib.crc32(kind+chunk) & 0xffffffff != actual_crc:
+            raise ValueError("PNG_INVALID_CHUNK_CRC")
+        if len(kind) != 4 or not all(65 <= v <= 90 or 97 <= v <= 122 for v in kind):
+            raise ValueError("PNG_INVALID_CHUNK_TYPE")
+        if ihdr is None and kind != b"IHDR":
+            raise ValueError("PNG_IHDR_NOT_FIRST")
+        if kind == b"IHDR":
+            if ihdr is not None or size != 13:
+                raise ValueError("PNG_DUPLICATE_IHDR")
+            w, h, bit, mode, compress, filtr, interlace = struct.unpack(">IIBBBBB", chunk)
+            if ((w,h) != expected_size or bit != 8 or mode not in (2, 6) or
+                    (compress, filtr, interlace) != (0, 0, 0)):
+                raise ValueError("PNG_UNSUPPORTED_IMAGE_HEADER")
+            ihdr = (w, h, 3 if mode == 2 else 4)
+        elif kind == b"IDAT":
+            if idat_closed or not chunk:
+                raise ValueError("PNG_IDAT_ORDER_OR_EMPTY")
+            payloads.append(chunk)
+        elif kind == b"IEND":
+            if size != 0 or not payloads or end != len(raw):
+                raise ValueError("PNG_INVALID_IEND_OR_TRAILING_BYTES")
+            seen_end = True
+            break
+        elif kind[0] & 32 == 0:
+            raise ValueError("PNG_UNSUPPORTED_CRITICAL_CHUNK")
+        if payloads and kind != b"IDAT":
+            idat_closed = True
+        pos = end
+    if not seen_end or not payloads or ihdr is None:
+        raise ValueError("PNG_REQUIRED_CHUNKS_MISSING")
+    w, h, channels = ihdr
+    row = w * channels
+    expected = h * (row + 1)
+    inflate = zlib.decompressobj()
+    try:
+        decoded = inflate.decompress(b"".join(payloads), expected+1)
+        decoded += inflate.flush()
+    except zlib.error as exc:
+        raise ValueError("PNG_INVALID_ZLIB_STREAM") from exc
+    if (len(decoded) != expected or not inflate.eof or
+            inflate.unused_data or inflate.unconsumed_tail):
+        raise ValueError("PNG_DECODED_LENGTH_OR_TRAILING_STREAM")
+    if any(decoded[i * (row+1)] > 4 for i in range(h)):
+        raise ValueError("PNG_INVALID_SCANLINE_FILTER")
+    return {"width":w,"height":h,"channels":channels,
+            "decoded_bytes":len(decoded),"idat_chunks":len(payloads)}
 
 
 def validate_native_receipts(folder):
@@ -134,10 +204,13 @@ def validate_native_receipts(folder):
             require(p.is_file() and p.stat().st_size > 2000,
                     "NATIVE_PNG_MISSING_OR_TINY:" + file)
             raw = p.read_bytes()
-            require(raw[:8] == b"\x89PNG\r\n\x1a\n" and
-                    struct.unpack(">II", raw[16:24]) == (720, 480) and
-                    image.get("sha256") == hashlib.sha256(raw).hexdigest(),
+            require(image.get("sha256") == hashlib.sha256(raw).hexdigest(),
                     "PNG_BYTE_OR_DIMENSION_MISMATCH:" + file)
+            try:
+                validate_png_stream(raw)
+            except ValueError as exc:
+                raise ValueError("PNG_BYTE_OR_DIMENSION_MISMATCH:" + file +
+                                 ":" + str(exc)) from exc
         summaries[state] = {
             "source_sha256": native.get("source_sha256"),
             "bvh_sha256": sha256(bvh_path),
