@@ -62,6 +62,12 @@ try:
     if len(physics)!=1 or not physics[0].node_group:
         raise ValueError("built-in Hair Dynamics group not attached")
     modifier=physics[0]
+    # Blender 5.2.3 experimental Hair Dynamics exposes Mode as a native
+    # NodeSocketMenu, not a normal modifier IDProperty. Copy the GN group to
+    # prevent mutation of a shared asset, and set the interface default.
+    original_group=modifier.node_group
+    modifier.node_group=original_group.copy()
+    modifier.node_group.name="ShetlandOriginalExperimentalPhysics"
     input_interfaces=[]
     for item in modifier.node_group.interface.items_tree:
         if item.item_type=="SOCKET" and item.in_out=="INPUT":
@@ -69,12 +75,16 @@ try:
                 "socket_type":item.socket_type,"default_repr":repr(getattr(item,"default_value","UNAVAILABLE"))[:120]})
             if item.name.strip().lower()=="mode":
                 try:
-                    # For experimental GN menu values, 1 requests Physics
-                    # after default Animation=0. Read back to prevent fake API
-                    # configuration success; scientific results still observed.
-                    modifier[item.identifier]=1
+                    before=item.default_value
+                    if before not in ("Animation","Physics"):
+                        raise ValueError("unexpected experimental menu default "+repr(before))
+                    item.default_value="Physics"
+                    if item.default_value!="Physics":
+                        raise ValueError("did not set native Physics enum")
+                    receipt["mode_control"]={"method":"copied_node_group_interface_default",
+                        "before":before,"after":item.default_value}
                 except Exception as e:
-                    receipt["errors"].append("physics_mode_control:"+str(e)[:160])
+                    receipt["errors"].append("physics_mode_control:"+str(e)[:180])
     stage="motion setup"
     receipt["modifier_inputs"]=input_interfaces
     if not any(item["name"].lower()=="mode" for item in input_interfaces):
