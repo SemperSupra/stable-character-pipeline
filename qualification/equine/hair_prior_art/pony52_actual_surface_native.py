@@ -164,6 +164,7 @@ def main_native(args):
         "rest_capture_order":rest_order,"source_rest_order_experiment":True,
         "source_wind_morph_mode":morph_mode,"source_wind_morphs_detected":0,
         "source_wind_max_activity_per_frame":[],"source_wind_max_raw_activity_per_frame":[],
+        "source_wind_key_names":[],"source_wind_effective_weights_per_frame":[],
         "wind_keys_disabled_in_memory_only":morph_mode=="disabled",
         "source_blend_sha256":capsule["source_blend_sha256"],
         "source_capsule_sha256":contract["source_capsule_sha256"],
@@ -193,6 +194,7 @@ def main_native(args):
         if len(wind_keys)!=9:
             raise ValueError("source .blend did not retain nine original animated wind morph keys")
         receipt["source_wind_morphs_detected"]=len(wind_keys)
+        receipt["source_wind_key_names"]=[k.name for k in wind_keys]
         def apply_source_wind_policy():
             raw=max(abs(float(key.value)) for key in wind_keys)
             if morph_mode=="disabled":
@@ -324,6 +326,7 @@ def main_native(args):
             raw,applied=apply_source_wind_policy()
             receipt["source_wind_max_raw_activity_per_frame"].append(float(raw))
             receipt["source_wind_max_activity_per_frame"].append(float(applied))
+            receipt["source_wind_effective_weights_per_frame"].append([float(k.value) for k in wind_keys])
             deps=bpy.context.evaluated_depsgraph_get()
             evalhair=hair.evaluated_get(deps)
             if evalhair.type!="CURVES" or len(evalhair.data.curves)!=6 or len(evalhair.data.points)!=36:
