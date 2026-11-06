@@ -1,0 +1,52 @@
+name: R009 source-pinned read-only 35-joint GLB observer
+on:
+  pull_request:
+    paths:
+      - 'qualification/human_rig_observer/**'
+      - '.github/workflows/r009-independent-35joint-observer.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  structural_observation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check frozen 35-joint original human producer unchanged
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only 31d09f2ab079880707a2e2e736af333e5c50e68d HEAD)"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -v -E '^qualification/human_rig_observer/|^\.github/workflows/r009-independent-35joint-observer\.yml$'; then
+             echo 'FAIL: source-owner paths modified' >&2
+             exit 2
+          fi
+      - name: Independent real original synthetic GLB observer and hostile tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/human_rig_observer -p 'test_*.py' -v
+          mkdir -p "$RUNNER_TEMP/rig_observe"
+          python3 qualification/original_reusable_characters/modular_wardrobe_v1.py --out "$RUNNER_TEMP/rig_observe/source_wardrobe.glb" --manifest "$RUNNER_TEMP/rig_observe/source_manifest.json"
+          python3 qualification/human_rig_observer/observe.py --input "$RUNNER_TEMP/rig_observe/source_wardrobe.glb" --out "$RUNNER_TEMP/rig_observe/observation.json"
+          python3 - "$RUNNER_TEMP/rig_observe/observation.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          assert r["frame_count"]==72 and all(x["joint_count"]==35 for x in r["actors"].values())
+          assert r["photo_fit"]=="NOT_RUN" and r["skin_collision"]=="UNKNOWN"
+          assert r["visual_acceptance"] is False and r["model_mutation"] is False
+          print("STRUCTURAL_ONLY_PASS_SCIENCE_UNKNOWN")
+          PY
+      - name: Retain bounded original synthetic structure receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r009-public-original-independent-35joint-structure
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/rig_observe/source_manifest.json
+            ${{ runner.temp }}/rig_observe/observation.json
