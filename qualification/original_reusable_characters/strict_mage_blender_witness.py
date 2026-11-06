@@ -44,7 +44,7 @@ def witness(source,receipt_path,expected_sha,choices_json):
             raise RuntimeError("STRICT_NATIVE_INACTIVE_LEAK:"+actor+
                                ":found="+repr(labels[actor])+
                                ":expected="+repr(sorted(expected)))
-    if any("Armature" not in [m.type for m in obj.modifiers] for obj in meshes):
+    if any("ARMATURE" not in [m.type for m in obj.modifiers] for obj in meshes):
         raise RuntimeError("STRICT_NATIVE_UNSKINNED")
     result={
       "schema":"scp.r009.strict_mage_blender_witness.v1",
