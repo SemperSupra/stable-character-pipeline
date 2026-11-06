@@ -8,6 +8,7 @@ on:
       - "qualification/shetland_pony/render_motion_diagnostics.py"
       - "qualification/shetland_pony/halter_clearance_screen.py"
       - "qualification/shetland_pony/halter_bvh_audit.py"
+      - "qualification/shetland_pony/halter_dynamic_triangles.py"
       - "qualification/shetland_pony/video_decoded_motion.py"
       - "qualification/shetland_pony/test_video_decoded_motion.py"
 permissions:
@@ -184,6 +185,23 @@ jobs:
           assert r["science_hold"].startswith("KEEP")
           print("EVALUATED_NATIVE_BVH_SCIENCE_WARNING",r["any_potential_intersection"])
           PY
+      - name: Challenge actual 48 evaluated source poses with native calibrated triangle overlap
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python producer/qualification/shetland_pony/halter_dynamic_triangles.py -- --blend "$GITHUB_WORKSPACE/results/hair/equine_longhair_wind.blend" --receipt "$GITHUB_WORKSPACE/results/halter_dynamic_48f.json"
+          python3 - <<'PY'
+          import json
+          r=json.load(open("results/halter_dynamic_48f.json"))
+          assert r["frames_examined"]==48 and set(map(int,r["frames"]))==set(range(1,49))
+          assert all(set(parts)==set(r["strap_parts"]) for parts in r["frames"].values())
+          assert r["calibration"].startswith("crossing triangle positive")
+          assert r["unique_head_relative_mesh_states"]>=1
+          assert r["science_hold"]=="KEEP" and not r["veterinary_halter_accepted"]
+          assert not r["release_or_CPE_admission"] and not r["model_mutation"]
+          print("48_FRAME_NATIVE_TRIANGLE_CANDIDATES_NOT_VETERINARY_ACCEPTANCE",
+                r["unique_head_relative_mesh_states"],r["any_candidate_triangle_overlap"])
+          PY
       - name: Render all 48 native frames from four diagnostic cameras
         shell: bash
         run: |
@@ -260,4 +278,5 @@ jobs:
             results/diagnostic/decoded_video_motion.json
             results/halter_clearance_screen.json
             results/halter_bvh_evaluated.json
+            results/halter_dynamic_48f.json
             results/baseline/manifest.json
