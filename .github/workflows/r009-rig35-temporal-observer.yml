@@ -43,6 +43,9 @@ jobs:
             --out "$RUNNER_TEMP/rig35-temporal/signed_source_rom.json"
           SCP_ORIGINAL_HUMAN_GLB="$RUNNER_TEMP/rig35-temporal/source.glb" \
             python3 -m unittest discover -s qualification/human_rig_motion -p 'test_signed_source_rom.py' -v
+          python3 qualification/human_rig_motion/foot_anchor_support.py \
+            --glb "$RUNNER_TEMP/rig35-temporal/source.glb" \
+            --out "$RUNNER_TEMP/rig35-temporal/foot_anchor_support.json"
           python3 - "$RUNNER_TEMP/rig35-temporal" <<'PY'
           import hashlib,json,sys,pathlib
           base=pathlib.Path(sys.argv[1])
@@ -62,6 +65,15 @@ jobs:
           assert s["independent_human_JCS"]=="NOT_PROVEN"
           assert s["normative_human_ROM"]=="NOT_PROVEN"
           assert not s["scientific_human_gait_accepted"] and not s["release_or_CPE_admission"]
+          f=json.loads((base/"foot_anchor_support.json").read_text())
+          assert f["source_glb_sha256"]==f["independent_structure_sha256"]==r["source_glb_sha256"]
+          assert f["frames"]==72 and f["fps"]==12 and len(f["actors"])==2
+          assert all(len(v["feet"])==2 and all(len(tracks)==3 for tracks in v["feet"].values())
+                     for v in f["actors"].values())
+          assert f["foot_sole_mesh_penetration"]=="NOT_MEASURED"
+          assert f["independent_anatomical_JCS_ROM"]=="NOT_PROVEN"
+          assert not f["human_gait_accepted"] and not f["release_or_CPE_admission"]
+          print("SOURCE_ORIGINAL_FOOT_JOINT_SUPPORT_ONLY",f["source_glb_sha256"])
           print("RIG35_TECHNICAL_SAMPLING_ONLY_PASS_HUMAN_ANATOMY_UNKNOWN")
           PY
       - name: Preserve bounded original-only analytical evidence, not GLB payload
@@ -74,4 +86,5 @@ jobs:
           path: |
             ${{ runner.temp }}/rig35-temporal/temporal.json
             ${{ runner.temp }}/rig35-temporal/signed_source_rom.json
+            ${{ runner.temp }}/rig35-temporal/foot_anchor_support.json
             ${{ runner.temp }}/rig35-temporal/manifest.json
