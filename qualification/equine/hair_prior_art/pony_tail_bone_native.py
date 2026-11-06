@@ -78,7 +78,7 @@ output={"schema":"equine.pony.original_caudal_bone_centerline_48f.v1",
     "anatomical_acceptance":False,"scientific_hold":"KEEP","release_or_CPE_admission":False}
 out.parent.mkdir(parents=True,exist_ok=True)
 out.write_text(json.dumps(output,sort_keys=True,indent=2)+"\n")
-print("PONY_ORIGINAL_CAUSTAL_SOURCE_BONE_CHAIN_48F",json.dumps({
+print("PONY_ORIGINAL_CAUDAL_SOURCE_BONE_CHAIN_48F",json.dumps({
     "tail_cards":[g["card_id"] for g in guides],
     "rest_f1_distances_m":[{"card_id":g["card_id"],
        "owner_bone_m":o["frames"][0]["source_owner_tail_bone"]["root_distance_to_bone_centerline_m"],
