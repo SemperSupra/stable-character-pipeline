@@ -1,0 +1,31 @@
+name: R009 synthetic surface registration contract
+
+on:
+  pull_request:
+    paths:
+      - "qualification/parametric_humans/surface_registration_v1.py"
+      - "qualification/parametric_humans/test_surface_registration_v1.py"
+      - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate synthetic-only geometric contract
+        run: |
+          set -euo pipefail
+          cd qualification/parametric_humans
+          python3 -m compileall -q surface_registration_v1.py test_surface_registration_v1.py
+          python3 -m unittest -v test_surface_registration_v1
+      - name: Enforce independent no-source admission
+        run: |
+          set -euo pipefail
+          git diff --name-only "${{ github.event.pull_request.base.sha || 'HEAD^' }}" HEAD | grep -E "surface_registration_v1.py|test_surface_registration_v1.py|r009-synthetic-surface-registration-v1.yml" >/dev/null
