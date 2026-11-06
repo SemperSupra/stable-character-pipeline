@@ -39,7 +39,7 @@ class Guide:
         if not (0<=self.damping<=.5 and 0<=self.bend<=.5):
             raise ValueError("bad damping/stiffness")
 
-def simulate(guide,frames=48,wind=(-4.,0.,0.),root_velocity=(0.,0.,0.),collision_sphere=None,root_frames=None):
+def simulate(guide,frames=48,wind=(-4.,0.,0.),root_velocity=(0.,0.,0.),collision_sphere=None,root_frames=None,rest_tip_frames=None,rest_stiffness=0.):
     if not isinstance(guide,Guide) or not isinstance(frames,int) or not 1<=frames<=240:
         raise ValueError("unbounded experiment")
     wind=vec3(wind);root_velocity=vec3(root_velocity)
@@ -61,6 +61,19 @@ def simulate(guide,frames=48,wind=(-4.,0.,0.),root_velocity=(0.,0.,0.),collision
             if norm(sub(a,b))*FPS>12.:
                 raise ValueError("root speed exceeded engineering cap")
     direction=normalized(vec3(guide.direction))
+    if type(rest_stiffness) not in (int,float) or not math.isfinite(rest_stiffness) or not 0<=rest_stiffness<=200:
+        raise ValueError("unbounded rest force")
+    if rest_stiffness and rest_tip_frames is None:
+        raise ValueError("rest targets mandatory when force enabled")
+    if rest_tip_frames is not None:
+        if type(rest_tip_frames) not in (tuple,list) or len(rest_tip_frames)!=frames+1:
+            raise ValueError("incomplete rest-tip trajectory")
+        rest_tip_frames=[vec3(p) for p in rest_tip_frames]
+        expected=add(root,mul(direction,guide.length))
+        if norm(sub(rest_tip_frames[0],expected))>1e-5:
+            raise ValueError("rest tip not anchored to guide source")
+        if any(norm(sub(a,b))*FPS>15 for a,b in zip(rest_tip_frames,rest_tip_frames[1:])):
+            raise ValueError("rest tip source speed above bound")
     ds=guide.length/guide.segments
     positions=[add(root,mul(direction,i*ds)) for i in range(guide.segments+1)]
     prev=positions[:]
@@ -82,10 +95,20 @@ def simulate(guide,frames=48,wind=(-4.,0.,0.),root_velocity=(0.,0.,0.),collision
             # solver in world coordinates. World source positions must be
             # supplied by the actually evaluated rig, not a guessed swish.
             relative=sub(sub(wind,root_velocity),root_speed)
+            target_tip=None
+            if rest_tip_frames is not None:
+                ta,tb=rest_tip_frames[frame-1],rest_tip_frames[frame]
+                target_tip=add(ta,mul(sub(tb,ta),(substep+1)/(PHYSICS_HZ//FPS)))
             for i in range(1,len(positions)):
                 velocity=sub(positions[i],prev[i])
                 # Approximate bounded aerodynamic force, not aerodynamic truth.
                 acceleration=add((0.,0.,-3.2),mul(relative,1.7))
+                if rest_stiffness:
+                    # Dimensionally acceleration (m/s^2), not a hard positional
+                    # clamp. Only restores a *candidate* to actual rig-derived
+                    # follicle and tip trajectory; not a tuned hair material.
+                    rest=add(target_root,mul(sub(target_tip,target_root),i/guide.segments))
+                    acceleration=add(acceleration,mul(sub(rest,positions[i]),rest_stiffness))
                 p=add(add(positions[i],mul(velocity,1-guide.damping)),mul(acceleration,dt*dt))
                 positions[i]=p
             positions[0]=target_root
