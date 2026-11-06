@@ -21,8 +21,11 @@ def chain(prefix,side,x,y,height):
     if prefix not in ("front","hind") or side not in ("L","R"):
         raise ValueError("not named equine limb")
     if prefix=="front":
-        elbow=(x+.012,y,.612)
-        carpus=(x-.006,y,.432)
+        # Preserve full 3-link reach during sagittal stance. The original nearly
+        # collinear 0.55m front chain could not reach foot targets at .565m.
+        # Elbow caudal of shoulder, then carpus rostral to elbow.
+        elbow=(x-.090,y,.593)
+        carpus=(x+.015,y,.405)
         fetlock=(x+.012,y,.26)
         middle="forearm"
         a=(x,y,height)
