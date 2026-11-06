@@ -2,7 +2,13 @@
 import math
 
 # x,z,width,depth: forehead -> long tapering nasal bridge -> distinct soft muzzle
-HEAD=((.615,1.18,.09,.14),(.690,1.17,.14,.18),(.780,1.13,.15,.16),(.865,1.055,.122,.14),(.950,.965,.100,.11),(1.047,.875,.087,.08),(1.14,.837,.102,.08),(1.19,.833,.108,.065))
+# Shorter convex equine nasal bridge, broad forehead and discrete full muzzle.
+# The preceding long, descending oval stack produced an aardvark-like profile.
+HEAD=((.615,1.18,.113,.146),(.678,1.174,.148,.176),
+      (.750,1.146,.155,.170),(.822,1.082,.138,.151),
+      (.895,1.005,.118,.127),(.964,.934,.106,.104),
+      (1.032,.891,.108,.090),(1.104,.876,.114,.083),
+      (1.135,.867,.112,.073))
 NECK=((.310,.86,.215,.235),(.383,.927,.206,.223),(.46,1.005,.181,.207),(.54,1.08,.153,.183),(.615,1.148,.131,.157),(.682,1.173,.118,.14))
 
 # x offset, z, sagittal/lateral radii, upper/lower/fetlock blending
