@@ -109,6 +109,28 @@ jobs:
                   assert raw[:8]==b"\x89PNG\r\n\x1a\n"
                   assert struct.unpack(">II",raw[16:24])==(720,480)
                   assert hashlib.sha256(raw).hexdigest()==image["sha256"]
+          # Nearest-vertex proximity is a deliberately non-promoting,
+          # 72-frame motion diagnostic, never a cloth collision proof.
+          SCHEMA="scp.r009.garment_body_vertex_proximity_proxy.v1"
+          for label,receipt in zip(("before","after"),receipts):
+              src=(root/(label+"_garment_proximity.json")).read_bytes()
+              assert hashlib.sha256(src).hexdigest()==receipt["garment_proxy_receipt_sha256"]
+              proof=json.loads(src)
+              assert proof["schema"]==SCHEMA
+              assert proof["motion_frames_evaluated"]==72
+              assert proof["frame_indices"]==list(range(0,143,2))
+              assert proof["actor_count"]==2
+              assert not proof["collision_qualified"] and not proof["garment_fit_accepted"]
+              assert not proof["release_approved"]
+              for actor,layers in proof["per_actor_garment"].items():
+                  assert set(layers)=={"top","bottom","footwear"}
+                  for slot,perframe in layers.items():
+                      assert len(perframe)==72
+                      for row in perframe:
+                          assert row["sample_count"]>0
+                          assert 0<=row["min_m"]<=row["p10_m"]<=row["p50_m"]<=row["p90_m"]<=row["max_m"]
+                          assert not row["penetration_qualified"] and not row["fit_accepted"]
+              print("R009_GARMENT_NEAREST_VERTEX_72FRAME_DIAGNOSTIC_ONLY "+label)
           assert receipts[0]["source_sha256"]!=receipts[1]["source_sha256"]
           print("R009_NATIVE_BLENDER_TWO_STATES_EIGHT_VIEWS_TECHNICAL_ONLY_PASS")
           PY
