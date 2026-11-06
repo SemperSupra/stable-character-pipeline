@@ -42,6 +42,24 @@ python3 wardrobe_export_preset.py \
   --aster signature --juniper alternate
 ```
 
+Generate the distinct source-original male and female `adventure` cuts, then select the worn layers:
+
+```sh
+python3 original_mage_outfits_v1.py \
+  --input /tmp/r009-morph.glb --manifest /tmp/r009-morph.json \
+  --out /tmp/r009-adventure.glb --out-manifest /tmp/r009-adventure.json \
+  --receipt /tmp/r009-adventure-receipt.json
+python3 -c 'from original_mage_outfits_v1 import export_adventure; export_adventure("/tmp/r009-adventure.glb","/tmp/r009-adventure.json","/tmp/r009-adventure-worn.glb","/tmp/r009-adventure-worn-receipt.json",{"AsterOriginal":"adventure","JuniperOriginal":"adventure"})'
+```
+
+Independent hostile checks for the two families run together:
+
+```sh
+python3 -m unittest -v test_parametric_morphology_v1 test_original_mage_outfits_v1
+```
+
+**Exact-head source qualification:** 14/14 tests PASS at commit `ab726ac6b7ec3333de5d316c19d78d23ad6d8f17` in public native [Actions run 42302324895](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/42302324895). These tests do **not** render the new outfits or establish garment-body collision clearance; independent native visual review is still pending.
+
 Override the full profile through `--profiles profile.json` containing `{"schema":"scp.r009.morphology_profile.v1","actors":{...}}`. Include both actor keys and all bounded numeric controls; see `DEFAULT` in the module. Never resculpt or bake an external source onto this public original-synthetic lineage.
 
 ## Fairy Tail costume references — design selection, NOT an imported asset
@@ -53,7 +71,7 @@ Use character costume photographs and credited reference artwork only as **visua
 3. **Jellal Fernandes — later physics/cloth workcell:** layered high-collar shirt under an open long dark coat, belt, narrow boots and articulated flowing hem. Original design candidate: `aster-high-collar-coat-v1`; do not promote before coat-panel self-collision/wind/foot clearance tests. Reference: https://fairytail.fandom.com/wiki/Jellal_Fernandes
 4. **Juniper — separate original feminine-mage cuts:** fitted waist jacket, layered tunic/skirt or shorts, independent belt/pouch and boots; optional dress, scarf, and longer hair complements. Favor articulated layered garments over clothing fused to the skin. Lucy Heartfilia is an example of feminine wardrobe variation within the same series, not a source asset imported here.
 
-**State distinction:** The preceding costume concepts have **not** been meshed as new garments in this workcell. Parent #292 still only has same-cut alternative color variants; marking these references as completed clothing would be false. Source-new garment patterns are a separate bounded child engineering batch.
+**Implementation distinction:** This child draft now authors **two original, genuinely different garment silhouettes** in `original_mage_outfits_v1.py`: Aster's sleeveless adventure vest, collar trim and cropped trousers; Juniper's fitted sleeveless bodice, trim and flared skirt. The `adventure` preset enables either actor's separate new `style_top` and `style_bottom` skinned nodes, independent of parent #292's original `signature` and same-cut `alternate` recolors. No series source geometry or textures are imported. The Gray-style jacket and Jellal-style flowing high-collar coat remain **design candidates, not authored garments**. New outfits do not constitute validated physical-cloth fit, motion, or visual quality.
 
 ## Required visual, motion and custody exits
 
