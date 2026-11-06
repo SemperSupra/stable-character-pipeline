@@ -37,7 +37,7 @@ jobs:
           curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
           (cd "$RUNNER_TEMP/blender" && grep 'blender-4.5.15-linux-x64.tar.xz' checksums | sha256sum -c -)
           tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
-      - name: Render black pony with tack and pinto pony without tack
+      - name: Render black and pinto ponies with separate original tack materials
         shell: bash
         run: |
           set -euo pipefail
@@ -59,7 +59,7 @@ jobs:
               assert max(len(s["joints"]) for s in g["skins"])>=30
               assert g["animations"]
               tack=[x for x in meshes if x.startswith("halter_")]
-              assert len(tack)==(5 if coat=="black" else 0),(coat,tack)
+              assert len(tack)==5,(coat,tack)
               assert all(not x.startswith("noseband_mesh") and not x.startswith("cheekstrap") for x in meshes)
               print("STRUCTURAL_CANDIDATE_PASS",coat,len(tack),p.stat().st_size)
           print("SCIENCE_UNKNOWN: visual tack fit, hoof contact, and veterinary ROM remain separate acceptance holds")
