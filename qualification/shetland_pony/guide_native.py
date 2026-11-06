@@ -15,6 +15,7 @@ from mathutils import Vector
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from guide_dynamics import Guide,simulate,report,norm,sub
 from curved_groom import make_curved_groom,VERTS_PER_CARD,ROWS
+from hair_clamp_quality import report as clamp_quality_report
 
 if "--" not in sys.argv or len(sys.argv[sys.argv.index("--")+1:])!=2:
     raise SystemExit("usage: <input.blend> <outdir>")
@@ -119,9 +120,10 @@ sample_frames=(1,7,13,19,25,31,37,43,48)
 groom.shape_key_add(name="Basis",from_mix=False)
 target_keys={}
 max_tip_shift=0.
+raw_clamp_samples=[]
 for frame in sample_frames:
     key=groom.shape_key_add(name="wind_%03d"%frame,from_mix=False)
-    for members,j,history in groups:
+    for guide_id,(members,j,history) in enumerate(groups):
         current=history[frame-1][-1]
         # The physics is in world coordinates. Skin-aware offsets must be
         # unrotated into each card's own rest/bind local coordinates before
@@ -129,6 +131,8 @@ for frame in sample_frames:
         delta=sub(current,source_tips[j][frame-1])
         shift=norm(delta)
         max_tip_shift=max(max_tip_shift,shift)
+        region="mane" if j<440 else "forelock" if j<670 else "tail"
+        raw_clamp_samples.append((frame,guide_id,region,shift))
         if shift>.22:delta=tuple(x*.22/shift for x in delta)
         for i in members:
             local=source_inverse_skin[frame][card_bones[i]]@Vector(delta)
@@ -185,12 +189,16 @@ files={}
 for p in [glb,*sorted(out.glob("hair_*.png"))]:
     if p.stat().st_size<500:raise ValueError("missing evidence "+p.name)
     files[p.name]={"bytes":p.stat().st_size,"sha256":hashlib.sha256(p.read_bytes()).hexdigest()}
+quality=clamp_quality_report(raw_clamp_samples,frames=sample_frames,guide_count=len(groups),cap_m=.22)
+assert quality["overall"]["count"]==len(sample_frames)*len(groups)
+assert abs(quality["overall"]["max_raw_m"]-max_tip_shift)<.000001
 receipt={"schema":"equine.longhair.native.proof.v1","source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
     "source_cards":1050,"curved_rows_per_card":ROWS,
     "curved_vertices":len(groom.data.vertices),
     "guide_groups":len(groups),"baked_shape_keys":len(target_keys),
     "sim_physics_hz":120,"render_fps":24,"frames":48,
     "max_raw_tip_shift_m":max_tip_shift,"clamp_m":.22,
+    "clamp_quality":quality,
     "max_observed_root_speed_m_s":max_root_speed,
     "max_world_tip_lag_m":max_dynamic_lag,
     "root_source":"actual evaluated Blender skin from 48 source frames",
@@ -198,4 +206,4 @@ receipt={"schema":"equine.longhair.native.proof.v1","source_sha256":hashlib.sha2
     "export":"baked morph guide approximations, NOT GLB native physics",
     "visual_collision_acceptance":"UNKNOWN","files":files}
 (out/"hair_receipt.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
-print("GUIDE_WIND_NATIVE_CANDIDATE_EMITTED",json.dumps({"groups":len(groups),"glb":glb.stat().st_size}))
+print("GUIDE_WIND_NATIVE_CANDIDATE_EMITTED",json.dumps({"groups":len(groups),"glb":glb.stat().st_size,"clamp_quality_verdict":quality["overall"]["verdict"],"saturated_fraction":quality["overall"]["saturated_fraction"]}))
