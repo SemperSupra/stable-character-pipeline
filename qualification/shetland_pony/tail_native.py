@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Actual Blender articulated tail-dock proof, separate from hair solver."""
+import bpy
+import json
+import hashlib
+import sys
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from tail_intent import FRAMES,TAIL_BONES,sample,timeline,validate_timeline
+
+if "--" not in sys.argv or len(sys.argv[sys.argv.index("--")+1:])!=2:
+    raise SystemExit("expected <input.blend> <outdir>")
+source,out=map(Path,sys.argv[sys.argv.index("--")+1:])
+if not source.is_file():raise FileNotFoundError(source)
+out.mkdir(parents=True,exist_ok=True)
+bpy.ops.wm.open_mainfile(filepath=str(source.resolve()))
+rig=bpy.data.objects.get("PonyRig30")
+if rig is None or len(rig.data.bones)!=30:raise ValueError("missing original 30-bone rig")
+if any(b not in rig.pose.bones for b in TAIL_BONES):raise ValueError("tail topology incomplete")
+values=[sample(f) for f in range(1,FRAMES+1)]
+validate_timeline(values)
+for frame,angles in enumerate(values,1):
+    bpy.context.scene.frame_set(frame)
+    for b,v in angles.items():
+        bone=rig.pose.bones[b]
+        bone.rotation_mode="XYZ"
+        bone.rotation_euler[1]=v
+        bone.keyframe_insert(data_path="rotation_euler",index=1,frame=frame,group="voluntary_tail_swish")
+    if frame in (1,15,24,31):
+        bpy.context.scene.render.filepath=str(out/("tail_%03d.png"%frame))
+        bpy.ops.render.render(write_still=True)
+bpy.context.scene.frame_set(1)
+bpy.ops.object.select_all(action="DESELECT")
+for obj in bpy.context.scene.objects:
+    if obj.type=="ARMATURE" or (obj.type=="MESH" and obj.name!="ground"):obj.select_set(True)
+bpy.context.view_layer.objects.active=rig
+glb=out/"equine_tail_intent.glb"
+bpy.ops.export_scene.gltf(filepath=str(glb),export_format="GLB",
+                          use_selection=True,export_skins=True,export_animations=True)
+bpy.ops.wm.save_as_mainfile(filepath=str(out/"equine_tail_intent.blend"))
+files={}
+for p in [glb,*sorted(out.glob("tail_*.png"))]:
+    if p.stat().st_size<500:raise ValueError("no evidence "+p.name)
+    files[p.name]={"bytes":p.stat().st_size,"sha256":hashlib.sha256(p.read_bytes()).hexdigest()}
+receipt={"schema":"equine.tail.intent.proof.v1","frames":FRAMES,"joint_names":TAIL_BONES,
+    "source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
+    "hair_simulation":"NOT_IN_SCOPE","biomechanical_acceptance":"UNKNOWN",
+    "actual_curve_samples":values,"files":files}
+(out/"tail_receipt.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
+print("TAIL_INTENT_NATIVE_CANDIDATE_EMITTED",glb.stat().st_size)
