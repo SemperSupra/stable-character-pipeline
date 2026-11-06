@@ -15,7 +15,7 @@ from parametric_morphology_v1 import apply as morph
 from original_mage_outfits_v1 import add_original_outfits
 from strict_mage_portable_v1 import export as strict
 from verify_original_glb import decode,accessory
-from fit_radial_ablations_v1 import apply, CANDIDATES, SCHEMA
+from fit_radial_ablations_v1 import apply, CANDIDATES, SCHEMA, factors_for
 
 class RadiusTests(unittest.TestCase):
     @classmethod
@@ -73,8 +73,12 @@ class RadiusTests(unittest.TestCase):
                                                  accessory(after,new_bin,aid))
                     for slot in ("style_top","style_bottom"):
                         idx=before["nodes"][names[actor+"_Wardrobe_"+slot]]["mesh"]
-                        self.assertGreater(rec["changed_style_vertices"][actor][slot],0)
-                        sx,sz=CANDIDATES[variant][slot]
+                        sx,sz=factors_for(variant,actor,slot)
+                        if sx==1. and sz==1.:
+                            self.assertEqual(rec["changed_style_vertices"][actor][slot],0)
+                        else:
+                            self.assertGreater(rec["changed_style_vertices"][actor][slot],0)
+                        self.assertEqual(rec["effective_actor_factors"][actor][slot],[sx,sz])
                         for p in before["meshes"][idx]["primitives"]:
                             attrs=p["attributes"]
                             old=accessory(before,source_bin,attrs["POSITION"])
@@ -119,6 +123,22 @@ class RadiusTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"ABLATION_SOURCE_SHA_MISMATCH"):
             apply(self.root/"source.glb",forged,self.root/"bad-B.glb",
                   self.root/"bad-B.json","lower_8")
+
+    def test_juniper_only_does_not_move_any_aster_geometry(self):
+        old,old_bin=decode(self.original)
+        names={n["name"]:i for i,n in enumerate(old["nodes"])}
+        for variant in ("juniper_skirt_8","juniper_skirt_14"):
+            output,r=self.execute(variant,"target-"+variant)
+            new,new_bin=decode(output.read_bytes())
+            for slot in ("style_top","style_bottom"):
+                mesh=old["meshes"][old["nodes"][names["AsterOriginal_Wardrobe_"+slot]]["mesh"]]
+                for p in mesh["primitives"]:
+                    for semantic in ("POSITION","NORMAL","JOINTS_0","WEIGHTS_0"):
+                        attr=p["attributes"][semantic]
+                        self.assertEqual(accessory(old,old_bin,attr),accessory(new,new_bin,attr))
+                self.assertEqual(r["changed_style_vertices"]["AsterOriginal"][slot],0)
+            self.assertEqual(r["changed_style_vertices"]["JuniperOriginal"]["style_top"],0)
+            self.assertGreater(r["changed_style_vertices"]["JuniperOriginal"]["style_bottom"],0)
 
     def test_reject_unknown_variant(self):
         with self.assertRaisesRegex(ValueError,"ABLATION_UNKNOWN_VARIANT"):
