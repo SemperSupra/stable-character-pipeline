@@ -9,7 +9,7 @@ import hashlib
 import json
 from pathlib import Path
 from modular_wardrobe_v1 import ACTORS,PRESETS
-from wardrobe_export_preset import export
+from wardrobe_portable_export_v2 import export
 
 SCHEMA="scp.r009.original_wardrobe_console.v2"
 SWITCH=Path(__file__).with_name("wardrobe_switch_blender.py")
