@@ -147,6 +147,12 @@ def main_native(args):
         raise ValueError("bad original blend")
     capsule=json.loads(capsule_file.read_text())
     contract=classify_source(capsule)
+    trace_path=os.environ.get("SCP_52_WIND_CURVE_POINTS_OUT")
+    if trace_path:
+        point_out=Path(trace_path)
+        if point_out.exists() or point_out.resolve() in (out.resolve(),source.resolve()):
+            raise ValueError("curve sidecar output must be separate nonexisting evidence")
+    else:point_out=None
     if hashlib.sha256(source.read_bytes()).hexdigest()!=capsule["source_blend_sha256"]:
         raise ValueError("source blend did not match original 4.5 tested native result")
     mode=os.environ.get("SCP_52_MODE","physics")
@@ -195,6 +201,12 @@ def main_native(args):
             raise ValueError("source .blend did not retain nine original animated wind morph keys")
         receipt["source_wind_morphs_detected"]=len(wind_keys)
         receipt["source_wind_key_names"]=[k.name for k in wind_keys]
+        curve_points=None
+        if point_out is not None:
+            if mode!="animation" or morph_mode!="animated":
+                raise ValueError("six-control-point trace requires wind-active Animation mode")
+            from pony_wind_centerline_oracle import new_curve_receipt
+            curve_points=new_curve_receipt(capsule,[k.name for k in wind_keys])
         def apply_source_wind_policy():
             raw=max(abs(float(key.value)) for key in wind_keys)
             if morph_mode=="disabled":
@@ -334,9 +346,13 @@ def main_native(args):
             matrix=evalhair.matrix_world.copy()
             bvh={name:body_bvh(obj,deps) for name,obj in bodyobjs.items()}
             observations=[]
+            traced_points=[]
             for i,g in enumerate(guides):
                 pts=[matrix@evalhair.data.points[6*i+j].position for j in range(6)]
                 root,tip=pts[0],pts[-1]
+                if curve_points is not None:
+                    traced_points.append({"card_id":g["card_id"],"region":g["region"],
+                        "points_world_m":[[float(v) for v in point] for point in pts]})
                 expected=Vector(g["samples"][frame-1]["root_m"])
                 candidates=REGION_TARGETS[g["region"]]
                 nearest=[]
@@ -363,6 +379,10 @@ def main_native(args):
                     "segment_surface_ray_hits":rayhits,
                     "curve_polyline_length_m":sum((pts[j]-pts[j-1]).length for j in range(1,6))})
             receipt["frames"].append({"frame":frame,"guides":observations})
+            if curve_points is not None:
+                curve_points["frames"].append({"frame":frame,
+                    "wind_weights":[float(k.value) for k in wind_keys],
+                    "guides":traced_points})
         receipt["frame_count"]=len(receipt["frames"])
         maxerr=max(g["root_error_m"] for f in receipt["frames"] for g in f["guides"])
         receipt["maximum_actual_root_error_m"]=maxerr
@@ -377,6 +397,13 @@ def main_native(args):
     out.write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n")
     print("PONY_52_REAL_SKIN_SURFACE",json.dumps({k:receipt.get(k) for k in ("mode","rest_capture_order","source_wind_morph_mode","source_wind_f1_raw_before_override","status","frame_count","guide_count","maximum_actual_root_error_m","elapsed_s","errors")},sort_keys=True))
     if receipt["errors"]:raise RuntimeError("; ".join(receipt["errors"]))
+    if point_out is not None:
+        from pony_wind_centerline_oracle import check_receipt
+        check_receipt(curve_points,"curve","5.2.3",capsule)
+        point_out.parent.mkdir(parents=True,exist_ok=True)
+        point_out.write_text(json.dumps(curve_points,sort_keys=True,indent=2)+"\n")
+        print("ORIGINAL_52_SIX_CURVE_CONTROL_POINTS_SCIENCE_HELD",
+            json.dumps({"frames":48,"guides":6,"source_blend_sha256":capsule["source_blend_sha256"]},sort_keys=True))
 
 def selftest():
     # Verify minimal malformed source rejection independent of Blender.
