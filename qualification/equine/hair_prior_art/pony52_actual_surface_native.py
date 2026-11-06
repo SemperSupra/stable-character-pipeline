@@ -151,7 +151,9 @@ def main_native(args):
         raise ValueError("source blend did not match original 4.5 tested native result")
     mode=os.environ.get("SCP_52_MODE","physics")
     if mode not in ("physics","animation"):raise ValueError("unrecognized native physics mode")
-    morph_mode=os.environ.get("SCP_52_SOURCE_MORPHS","animated")
+    # No implicit source wind state: original 4.5 capsule uses skin-only
+    # source, and reactivating the 9 baked wind morphs double-counts motion.
+    morph_mode=os.environ.get("SCP_52_SOURCE_MORPHS")
     if morph_mode not in ("animated","disabled"):
         raise ValueError("invalid source morph control; require explicit animated/disabled")
     rest_order=os.environ.get("SCP_52_REST_ORDER","armature_then_capture")
