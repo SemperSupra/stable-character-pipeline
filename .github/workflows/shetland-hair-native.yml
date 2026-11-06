@@ -11,6 +11,9 @@ on:
       - "qualification/equine/hair_prior_art/pony_source_trajectory.py"
       - "qualification/equine/hair_prior_art/test_pony_source_trajectory.py"
       - "qualification/equine/hair_prior_art/pony_source_extract_native.py"
+      - "qualification/equine/hair_prior_art/pony52_source_shadow.py"
+      - "qualification/equine/hair_prior_art/pony52_pair_quality.py"
+      - "qualification/equine/hair_prior_art/test_pony52_pair_quality.py"
       - "qualification/shetland_pony/test_hair_clamp_quality.py"
       - "qualification/shetland_pony/hair_contact_quality.py"
       - "qualification/shetland_pony/test_hair_contact_quality.py"
@@ -30,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py test_hair_clamp_quality.py test_hair_contact_quality.py)
-          (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_pony_source_trajectory.py)
+          (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_pony_source_trajectory.py test_pony52_pair_quality.py)
           python3 -m py_compile qualification/equine/hair_prior_art/pony_source_extract_native.py qualification/equine/hair_prior_art/pony_source_trajectory.py
           python3 -m py_compile qualification/shetland_pony/guide_dynamics.py qualification/shetland_pony/guide_native.py qualification/shetland_pony/curved_groom.py qualification/shetland_pony/hair_clamp_quality.py
   native-blender:
@@ -148,6 +151,33 @@ jobs:
           assert r["visual_acceptance"] is False and r["release_or_CPE_admission"] is False
           print("HAIR_NATIVE_48F_BVH_SCIENCE_WARNING",r["candidate_collision"],r["possible_region_frames"])
           PY
+      - name: Native 5.2.3 shadow physics against actual original six PonyRig30 follicles (no pony upgrade)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/blender52" results/shadow52
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.3.sha256 -o "$RUNNER_TEMP/blender52/checksums"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.3-linux-x64.tar.xz -o "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender52" && grep 'blender-5.2.3-linux-x64.tar.xz' checksums | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender52"
+          for mode in physics animation; do
+            env SCP_52_MODE="$mode" LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/pony52_source_shadow.py -- "$GITHUB_WORKSPACE/results/source_capsule/pony_source_48f.json" "$GITHUB_WORKSPACE/results/shadow52/$mode.json"
+          done
+          python3 qualification/equine/hair_prior_art/pony52_pair_quality.py \
+            results/source_capsule/pony_source_48f.json \
+            results/shadow52/physics.json \
+            results/shadow52/animation.json \
+            results/shadow52/quality.json
+          python3 - <<'PY'
+          import json
+          q=json.load(open("results/shadow52/quality.json"))
+          assert q["schema"]=="equine.pony.xpbd_source_proxy.paired_quality.v1"
+          assert q["frames"]==48 and q["guides"]==6
+          assert q["verdict"]=="SOURCE_PONY_PROXY_SECONDARY_MOTION_ENGINEERING_ONLY"
+          assert q["body_and_hair_collision"]=="NOT_TESTED" and q["science_hold"]=="KEEP"
+          assert q["release_or_CPE_admission"] is False
+          print("ORIGINAL_PONY_30J_TO_52_SHADOW_SOURCE_BOUNDED_NOT_RELEASE",q)
+          PY
       - name: Preserve original native evidence and first failures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -162,3 +192,4 @@ jobs:
             results/hair/hair_contact_48f.json
             results/baseline/manifest.json
             results/source_capsule/*.json
+            results/shadow52/*.json
