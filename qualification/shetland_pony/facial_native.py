@@ -75,6 +75,23 @@ for frame in range(1,FRAMES+1):
         bpy.context.scene.render.filepath=str(outdir/("face_%03d.png"%frame))
         bpy.ops.render.render(write_still=True)
 
+# Secondary independent close-up camera: make eyelids/nostrils observable.
+from mathutils import Vector
+scene=bpy.context.scene
+original_camera=scene.camera
+close_data=bpy.data.cameras.new("FACIAL_QA_ORTHO")
+close_camera=bpy.data.objects.new("FacialCloseupQA",close_data)
+scene.collection.objects.link(close_camera)
+close_camera.location=(1.55,-1.35,1.45)
+close_camera.rotation_euler=(Vector((.92,-.04,1.055))-close_camera.location).to_track_quat('-Z','Y').to_euler()
+close_data.type="ORTHO";close_data.ortho_scale=.72
+scene.camera=close_camera
+for frame in (10,22,30,40):
+    scene.frame_set(frame)
+    scene.render.filepath=str(outdir/("face_detail_%03d.png"%frame))
+    bpy.ops.render.render(write_still=True)
+scene.camera=original_camera
+
 bpy.context.scene.frame_set(1)
 bpy.ops.object.select_all(action="DESELECT")
 for obj in bpy.context.scene.objects:
