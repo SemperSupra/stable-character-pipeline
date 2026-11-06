@@ -66,3 +66,37 @@ func TestRootsSortedByDescendantImpact(t *testing.T){
  w,err:=buildWorkset(s);if err!=nil{t.Fatal(err)}
  if w.RootCount!=2||w.Groups[0].RootPR!=271||w.Groups[1].RootPR!=2{t.Fatal(w)}
 }
+
+// Two independently active child workcells whose parents advance must
+// remain separate drift records, even when their paths are disjoint.
+// This is only a synthetic topology test, never merge/closure authorization.
+func TestTwoIndependentSourceParentSHA_DriftsFailClosed(t *testing.T){
+ s:=rootFixture()
+ s.PRs[3].Base.SHA=strings.Repeat("0",40) // #308 child has old #292 parent SHA
+ stamp:=time.Date(2026,11,6,0,0,0,0,time.UTC)
+ s.PRs=append(s.PRs,
+  Pull{Number:325,Title:"byte verified observations",State:"open",Draft:true,UpdatedAt:stamp,
+   Head:CommitRef{Ref:"observation-parent",SHA:strings.Repeat("3",40)},
+   Base:CommitRef{Ref:"main",SHA:strings.Repeat("e",40)}},
+  Pull{Number:332,Title:"camera child",State:"open",Draft:true,UpdatedAt:stamp,
+   Head:CommitRef{Ref:"camera-child",SHA:strings.Repeat("4",40)},
+   Base:CommitRef{Ref:"observation-parent",SHA:strings.Repeat("7",40)}},
+ )
+ workset,err:=buildWorkset(s)
+ if err!=nil{t.Fatal(err)}
+ if !workset.Complete || workset.TotalOpen!=6 || workset.RootCount!=2 ||
+    workset.StackedCount!=4 || workset.BaseSHADriftCount!=2 ||
+    workset.Mutations!=0{
+  t.Fatalf("fail-closed two-root census red: %+v",workset)
+ }
+ seen:=map[int]int{}
+ for _,d:=range workset.BaseSHADrifts{
+  seen[d.ChildPR]=d.ParentPR
+  if d.Disposition!="BASE_SHA_DRIFT_HELD_NO_MERGE_CLOSE_DELETE"{
+   t.Fatalf("drift prematurely cleared: %+v",d)
+  }
+ }
+ if seen[308]!=292 || seen[332]!=325 || len(seen)!=2{
+  t.Fatalf("drift records lost: %+v",workset.BaseSHADrifts)
+ }
+}
