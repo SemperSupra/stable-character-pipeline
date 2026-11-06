@@ -35,14 +35,17 @@ receipt={
     "errors":[],
 }
 started=time.perf_counter()
+stage="initialize"
 try:
     if bpy.app.version[:3]!=(5,2,3):raise ValueError("exact version mismatch")
+    stage="create synthetic source and hair"
     bpy.ops.mesh.primitive_uv_sphere_add(segments=16,ring_count=12,radius=.5)
     surface=bpy.context.object;surface.name="SyntheticScalpMover"
     bpy.ops.object.curves_empty_hair_add()
     hair=bpy.context.object
     if hair is None or hair.type!="CURVES":raise ValueError("hair object not created")
     data=hair.data
+    stage="create three six-point guide curves"
     data.add_curves([6,6,6])
     if len(data.curves)!=3 or len(data.points)!=18:
         raise ValueError("source curve cardinality")
@@ -53,6 +56,7 @@ try:
             data.points[i].position=(offset,0.,z+k*.06)
             data.points[i].radius=.002*(1.-.8*k/5)
     data.update_tag()
+    stage="inspect hair dynamics modifiers"
     mods=[m for m in hair.modifiers if m.type=="NODES"]
     physics=[m for m in mods if "Hair Dynamics" in m.name]
     if len(physics)!=1 or not physics[0].node_group:
@@ -62,7 +66,7 @@ try:
     for item in modifier.node_group.interface.items_tree:
         if item.item_type=="SOCKET" and item.in_out=="INPUT":
             input_interfaces.append({"name":item.name,"id":item.identifier,
-                "socket_type":item.socket_type,"value_repr":repr(modifier.get(item.identifier,None))[:120]})
+                "socket_type":item.socket_type,"default_repr":repr(getattr(item,"default_value","UNAVAILABLE"))[:120]})
             if item.name.strip().lower()=="mode":
                 try:
                     # For experimental GN menu values, 1 requests Physics
@@ -71,6 +75,7 @@ try:
                     modifier[item.identifier]=1
                 except Exception as e:
                     receipt["errors"].append("physics_mode_control:"+str(e)[:160])
+    stage="motion setup"
     receipt["modifier_inputs"]=input_interfaces
     if not any(item["name"].lower()=="mode" for item in input_interfaces):
         raise ValueError("no motion mode interface; experimental ABI unknown")
@@ -79,6 +84,7 @@ try:
     for frame,x in ((1,0.),(16,.18),(32,-.10),(48,0.)):
         surface.location.x=x
         surface.keyframe_insert(data_path="location",index=0,frame=frame)
+    stage="evaluate actual frames"
     evaluated=[]
     for frame in range(1,49):
         scene.frame_set(frame)
@@ -115,7 +121,9 @@ try:
     receipt["motion_measured"]=max_shape_delta>=.002 and max_root_err<=.04
     receipt["physics_status"]="EVALUATED_SECONDARY_MOTION_OBSERVED_UNCALIBRATED" if receipt["motion_measured"] else "NO_QUALIFIED_HAIR_MOTION"
 except Exception as e:
-    receipt["errors"].append(type(e).__name__+":"+str(e)[:350])
+    import traceback
+    receipt["errors"].append(stage+":"+type(e).__name__+":"+str(e)[:350])
+    receipt["first_traceback"]=traceback.format_exc(limit=5)[:1400]
 receipt["wall_seconds"]=round(time.perf_counter()-started,3)
 receipt["maxrss_linux_kib"]=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 receipt["verdict"]="EXPERIMENTAL_48F_MOTION_OBSERVED_NOT_SCIENTIFIC_ACCEPTANCE" if not receipt["errors"] and receipt["motion_measured"] else "EXPERIMENTAL_MOTION_FAIL_CLOSED"
