@@ -1,0 +1,151 @@
+{
+  "schema": "scp.r009.synthetic_human.display_labels.v1",
+  "languages": [
+    "en",
+    "de",
+    "th"
+  ],
+  "status": "ENGINEERING_UI_LABELS_NOT_CLINICALLY_CERTIFIED",
+  "labels": {
+    "morphology.height_m": {
+      "en": "Height",
+      "de": "Körpergröße",
+      "th": "ส่วนสูง"
+    },
+    "morphology.shoulder_width_m": {
+      "en": "Shoulder width",
+      "de": "Schulterbreite",
+      "th": "ความกว้างไหล่"
+    },
+    "morphology.waist_circumference_m": {
+      "en": "Waist circumference",
+      "de": "Taillenumfang",
+      "th": "เส้นรอบเอว"
+    },
+    "morphology.hip_circumference_m": {
+      "en": "Hip circumference",
+      "de": "Hüftumfang",
+      "th": "เส้นรอบสะโพก"
+    },
+    "morphology.adiposity": {
+      "en": "Adiposity",
+      "de": "Fettgewebeanteil",
+      "th": "สัดส่วนไขมัน"
+    },
+    "morphology.muscularity": {
+      "en": "Muscularity",
+      "de": "Muskelausprägung",
+      "th": "ระดับกล้ามเนื้อ"
+    },
+    "morphology.jaw_width_ratio": {
+      "en": "Jaw width ratio",
+      "de": "Kieferbreitenverhältnis",
+      "th": "สัดส่วนความกว้างกราม"
+    },
+    "morphology.nose_projection_ratio": {
+      "en": "Nose projection ratio",
+      "de": "Nasenprojektionsverhältnis",
+      "th": "สัดส่วนความยื่นของจมูก"
+    },
+    "morphology.lip_fullness": {
+      "en": "Lip fullness",
+      "de": "Lippenfülle",
+      "th": "ความอวบอิ่มของริมฝีปาก"
+    },
+    "morphology.brow_height_ratio": {
+      "en": "Brow height ratio",
+      "de": "Augenbrauenhöhenverhältnis",
+      "th": "สัดส่วนระดับคิ้ว"
+    },
+    "morphology.cheek_volume": {
+      "en": "Cheek volume",
+      "de": "Wangenvolumen",
+      "th": "ปริมาตรแก้ม"
+    },
+    "morphology.chin_projection_ratio": {
+      "en": "Chin projection ratio",
+      "de": "Kinnprojektionsverhältnis",
+      "th": "สัดส่วนความยื่นของคาง"
+    },
+    "morphology.left_breast_volume": {
+      "en": "Left breast volume (relative)",
+      "de": "Linkes Brustvolumen (relativ)",
+      "th": "ปริมาตรเต้านมซ้าย (สัมพัทธ์)"
+    },
+    "morphology.right_breast_volume": {
+      "en": "Right breast volume (relative)",
+      "de": "Rechtes Brustvolumen (relativ)",
+      "th": "ปริมาตรเต้านมขวา (สัมพัทธ์)"
+    },
+    "morphology.left_breast_projection": {
+      "en": "Left breast projection",
+      "de": "Projektion der linken Brust",
+      "th": "การยื่นของเต้านมซ้าย"
+    },
+    "morphology.right_breast_projection": {
+      "en": "Right breast projection",
+      "de": "Projektion der rechten Brust",
+      "th": "การยื่นของเต้านมขวา"
+    },
+    "morphology.left_breast_ptosis": {
+      "en": "Left breast ptosis",
+      "de": "Senkung der linken Brust",
+      "th": "ระดับการหย่อนคล้อยของเต้านมซ้าย"
+    },
+    "morphology.right_breast_ptosis": {
+      "en": "Right breast ptosis",
+      "de": "Senkung der rechten Brust",
+      "th": "ระดับการหย่อนคล้อยของเต้านมขวา"
+    },
+    "appearance.skin_melanin": {
+      "en": "Skin melanin (relative)",
+      "de": "Hautmelanin (relativ)",
+      "th": "ปริมาณเมลานินในผิว (สัมพัทธ์)"
+    },
+    "appearance.skin_roughness": {
+      "en": "Skin roughness",
+      "de": "Hautrauheit",
+      "th": "ความขรุขระของผิว"
+    },
+    "appearance.hair_length_m": {
+      "en": "Hair length",
+      "de": "Haarlänge",
+      "th": "ความยาวผม"
+    },
+    "appearance.hair_curl": {
+      "en": "Hair curl",
+      "de": "Lockengrad",
+      "th": "ระดับความหยิกของผม"
+    },
+    "appearance.hair_density": {
+      "en": "Hair density",
+      "de": "Haardichte",
+      "th": "ความหนาแน่นของเส้นผม"
+    },
+    "appearance.skin_undertone": {
+      "en": "Skin undertone",
+      "de": "Hautunterton",
+      "th": "อันเดอร์โทนผิว"
+    },
+    "appearance.hair_style": {
+      "en": "Hairstyle",
+      "de": "Frisur",
+      "th": "ทรงผม"
+    },
+    "appearance.left_iris_rgb": {
+      "en": "Left iris color",
+      "de": "Farbe der linken Iris",
+      "th": "สีม่านตาซ้าย"
+    },
+    "appearance.right_iris_rgb": {
+      "en": "Right iris color",
+      "de": "Farbe der rechten Iris",
+      "th": "สีม่านตาขวา"
+    },
+    "appearance.hair_rgb": {
+      "en": "Hair color",
+      "de": "Haarfarbe",
+      "th": "สีผม"
+    }
+  }
+}

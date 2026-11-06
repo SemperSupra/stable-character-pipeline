@@ -1,0 +1,95 @@
+# R009 — Parametric Synthetic Human Contract v1
+
+Status: **synthetic parameter contract and source-original geometry preview; actual anatomical, clothing-fit, Blender visual, clinical, and release qualification UNKNOWN**.
+
+This independent additive workcell is based on the OPEN/DRAFT original-human modular wardrobe PR #292 at exact commit `31d09f2ab079880707a2e2e736af333e5c50e68d`. The competing wardrobe refinement #303 is a **sibling**, not a source dependency. It currently has an independently established Blender portable A5 FAIL; do not adopt its portable GLB exporter as accepted.
+
+## DOPAV / scope
+- **Discover**: Parent 35-joint original human source and shared agent reconstruction supervisor PR #300/#301; **do not duplicate agent control plane**.
+- **Observe**: Fixed 35-joint art-style anatomy is not a statistically validated body model. No underlying scanned, identifiable, or licensed third-party body data is in this workcell.
+- **Plan**: Parametric schema/state, synthetic deterministic generator, temporal surgical/styling event contract, negative tests and backend/source catalogs.
+- **Apply**: Stdlib `parameters_v1.py` and `test_parameters_v1.py`, independent from mesh generation.
+- **Verify**: Run `python3 -m unittest -v test_parameters_v1`; CI will record evidence and SHA. Passing proves data-contract consistency **only**; no claim of biomechanical realism or picture/video fitting.
+
+## Reproduction (no installs, $0 local or public Linux Actions)
+```sh
+cd qualification/parametric_humans
+python3 -m unittest -v test_parameters_v1
+python3 parameters_v1.py catalog
+python3 parameters_v1.py generate --seed 73 --out synthetic_73.json
+python3 parameters_v1.py validate synthetic_73.json
+python3 parameters_v1.py snapshot synthetic_73.json --date 2026-11-05
+python3 parameters_v1.py compare synthetic_73.json --before 2026-01-01 --after 2026-11-05
+```
+
+Generation refuses overwriting existing output. Runs are deterministic for a fixed Python implementation and seed; record interpreter version, Git SHA, schema and resulting canonical SHA. No medical procedure prediction, no assertion of surgery from observed image changes, and no real-person identification.
+
+## First actual morphology-to-GLB adapter (unqualified preview)
+
+`morph_preview_35_v1.py` imports the pinned source-original procedural body from the parent `original_reusable_characters` package, varies **skin geometry only** using conservative localized waist/hip, jaw/nose and left/right anterior-chest deformation fields, and rebuilds separate original wardrobe GLBs with the same 35-joint skeleton and 72 authored frames. It deliberately **does not** alter parent source, rig rest joint locations, skin indices, topology, clothes, hair or iris materials. It recomputes normals; clothing penetration and anatomical fidelity remain UNKNOWN/FAIL until separately measured. Shape variation is a simple visual proof, not surgery simulation or high-precision anthropometric fitting.
+
+The public CI generates before/after GLBs from **the same identity and timeline** (2026-04-01 vs 2026-06-01) and a separate evidence-labeled parameter delta report. The difference is hypothetical, not an observed real procedure. Artifacts expire after seven days and are not yet Drive-custodied.
+
+```sh
+python3 parameters_v1.py generate --seed 73 --out aster.json
+python3 parameters_v1.py generate --seed 74 --out juniper.json
+python3 morph_preview_35_v1.py --aster aster.json --juniper juniper.json \
+  --out morph_preview.glb --manifest morph_manifest.json \
+  --receipt morph_receipt.json
+```
+
+The label map `SEMANTIC_LABELS_EN_DE_TH.json` must cover every exact control path so that the same controls can be displayed in English, German and Thai. It is a UI glossary, not certified medical terminology.
+
+## Source-original per-character and per-eye PBR appearance derivative
+
+`appearance_material_v1.py` now clones **original** glTF material records for each actor to bind separately controlled semantic skin melanin/undertone/roughness and hair RGB. It splits each source-original iris triangle group into **left and right eye index subsets** (same untouched source vertex/skin/animation attributes), so changing one eye color does not alter the other eye or the other actor. Changes are opt-in derived GLBs and are SHA-bound to immutable input states. Example after generating `morph_preview.glb`:
+
+```sh
+python3 appearance_material_v1.py --input morph_preview.glb \
+  --aster aster.json --juniper juniper.json \
+  --out appearance_preview.glb --receipt appearance_receipt.json
+```
+
+The numerical skin-albedo curve is **stylized and uncalibrated**, not a validated estimate of real pigmentation or a clinical skin parameter. Hair length/density/curvature/groom geometry and anatomical realism are **not** implemented. PBR material separation does not qualify Blender import/view, camera-calibrated appearance, optical realism, cloth fit, or surgery outcomes. The public workflow tests a hypothetical before/after style event and generates `before_appearance.glb` and `after_appearance.glb` independently of the non-destructive geometry previews. Real-person imagery remains excluded from public CI.
+
+## Verified v1 control-effect qualification (source-original, not clinical)
+
+The public CI counterfactual evaluator now distinguishes **nine geometry-active** controls
+(waist/hip circumferences, jaw width, nose projection, bilateral relative chest volumes,
+cheek fullness, chin projection and lip fullness) from **six PBR-active** controls
+(skin melanin, skin undertone, skin roughness, hair RGB and independent left/right iris RGB).
+The latest input ontology contains **28 controls**; **15/28** are wired to either original
+surface geometry or per-actor PBR, and **13/28 are not yet wired** to supported
+rendered geometry, groom or material output. The original geometry, rig, animation,
+indices and source files remain unmodified by these opt-in derived previews.
+Appearance coverage and geometry coverage are **different denominators**; 9/28
+geometry-active does not mean the PBR controls are defective.
+
+The three additional facial controls are deliberately local soft-surface
+deformations, not facial muscles, FACS blendshapes, anatomical tissue simulation,
+clinical prediction or accurate changes to facial surgery outcomes.
+Their independent negative tests require changed vertices only in the face region,
+and unchanged topology, joints, weights and non-skin materials.
+They are not yet integrated into hair, garments, facial expressions or a calibrated camera fit.
+
+## Contract and invariants
+1. `character_id` and immutable `identity` coefficients remain stable across time-indexed states.
+2. Semantic controls have explicit paths, units and rough engineering safety guards; they are **not clinical population reference ranges**.
+3. Changes to physique or appearance are dated **non-destructive delta records**; surgical terminology is a representation category, not verification of an actual procedure.
+4. Every event carries evidence classification. Image-fitting actors must explicitly mark occluded/uncertain parameters `unknown` and never infer exact concealed anatomy.
+5. Parameter sampling contains simple correlations but **is not population calibrated**, and must not assign anatomy by nationality or ethnicity.
+6. The same contract will be exposed to humans, CLI/API clients and automated actors. It does **not** implement or replicate the existing shared supervisor.
+7. A mesh adapter must validate unit, axis, neutral pose, correspondence, skin weights, deformation, collisions, portable GLB and inverse fitting on separate test fixtures.
+8. Proprietary and third-party source, licenses, real people, and protected private R009 Naomi/Alison are **out of scope**.
+9. The EN/DE/TH UI label file must cover every semantic control; source catalogs do not grant rights to third-party scans. Read-only `compare` reports input SHA, dated differences, event evidence categories and explicitly declines causal proof. Source and DLE in Git; large media/meshes in governed owner-private Drive with full-byte SHA verification.
+10. Public Actions only; no merge, release, deployment or CPE without owner gates.
+
+## Next independent workcells (not yet implemented)
+- **P1b follow-on** Replace the proof-only surface deformation with measured, bounded, anatomically consistent parametric geometry plus rig rest-pose retargeting, actual cloth/hair fit, joint/collision qualification and independent visuals. Current first adapter is implemented but NOT accepted.
+- **P2** Exact upstream backend audit, per artifact/operation rights, offline performance, 3D geometry/fitting benchmark (MHR, SOMA-X, Anny, isolated MPFB, FLAME).
+- **P3** Human anthropometry measurement definitions, valid joint distributions and applicability/coverage audits; catalog links are **research leads, not authorized datasets**.
+- **P4** True hair geometry, iris shaders, skin reflectance, regional sculpt, garment-aware fit and all72 motion deformation.
+- **P5** Temporal morphology state and procedure representation fit against synthetic ground truth and calibrated follow-up observations; not predictive medicine.
+- **P6** Still/video adapter to existing shared supervisor with independent evidence and held-out views.
+
+**First RED / active holds:** Sibling #303 A5 portable importer fails due stray garment nodes; regression retained in #272. Existing R009 anatomical quality, actual cloth-body penetration and identity evidence remain FAIL/UNKNOWN as appropriate. Keep private protected sources separate.

@@ -1,0 +1,168 @@
+name: R009 parametric before-after — independent native Blender visual witness
+on:
+  pull_request:
+    paths:
+      - 'qualification/parametric_humans/**'
+      - '.github/workflows/r009-parametric-native-blender-v1.yml'
+permissions:
+  contents: read
+jobs:
+  native-technical-observer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Independent scope and parent SHA hygiene
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p r009-native-evidence
+          git cat-file -e "$BASE_SHA^{commit}"
+          git cat-file -e "$HEAD_SHA^{commit}"
+          git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > r009-native-evidence/changed_paths.txt
+          if grep -Ev '^(qualification/parametric_humans/|\.github/workflows/r009-parametric-(human-contract|native-blender)-v1\.yml$)' r009-native-evidence/changed_paths.txt; then
+            echo "INVALID_SCOPE_OR_SOURCE_MUTATION"; exit 11
+          fi
+          git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- qualification/original_reusable_characters/
+          printf 'base=%s\nhead=%s\nsource-original-only=TRUE\nno-mutations=TRUE\n' "$BASE_SHA" "$HEAD_SHA" > r009-native-evidence/source_scope.txt
+      - name: Build two original parameter states and dated 35-joint animated GLBs
+        run: |
+          set -euo pipefail
+          cd qualification/parametric_humans
+          python3 - <<'PY'
+          import pathlib
+          from parameters_v1 import sample,add_event,canonical_bytes
+          a=sample(73,"AsterSynthetic")
+          a=add_event(a,"2026-05-01","procedure","hypothesis",{
+              "morphology.left_breast_volume":.75,
+              "morphology.right_breast_volume":.72,
+              "morphology.jaw_width_ratio":1.09,
+              "morphology.lip_fullness":.78})
+          a=add_event(a,"2026-05-15","styling","artist_authored",{
+              "appearance.hair_rgb":[.14,.25,.61],
+              "appearance.left_iris_rgb":[.09,.58,.42],
+              "appearance.skin_melanin":.66})
+          j=sample(74,"JuniperSynthetic")
+          folder=pathlib.Path("../../r009-native-evidence")
+          (folder/"aster.json").write_bytes(canonical_bytes(a))
+          (folder/"juniper.json").write_bytes(canonical_bytes(j))
+          PY
+          for entry in before after; do
+            if [ "$entry" = before ]; then d=2026-04-01; else d=2026-06-01; fi
+            python3 morph_preview_35_v1.py \
+              --aster ../../r009-native-evidence/aster.json \
+              --juniper ../../r009-native-evidence/juniper.json \
+              --as-of "$d" \
+              --out "../../r009-native-evidence/$entry.geometry.glb" \
+              --manifest "../../r009-native-evidence/$entry.geometry_manifest.json" \
+              --receipt "../../r009-native-evidence/$entry.geometry_receipt.json"
+            python3 appearance_material_v1.py \
+              --input "../../r009-native-evidence/$entry.geometry.glb" \
+              --aster ../../r009-native-evidence/aster.json \
+              --juniper ../../r009-native-evidence/juniper.json \
+              --as-of "$d" \
+              --out "../../r009-native-evidence/$entry.appearance.glb" \
+              --receipt "../../r009-native-evidence/$entry.appearance_receipt.json"
+          done
+      - name: Install official hash-verified Blender 4.5.15 on disposable public CPU
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Native independent import, animation and two-view diagnostic renders
+        run: |
+          set -euo pipefail
+          blender="$RUNNER_TEMP/blender-4.5.15-linux-x64/blender"
+          script="qualification/parametric_humans/native_blender_observer_v1.py"
+          for entry in before after; do
+            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$blender" \
+              -b --factory-startup --python-exit-code 9 --python "$script" -- \
+              --input "$PWD/r009-native-evidence/$entry.appearance.glb" \
+              --out-dir "$PWD/r009-native-evidence" --label "$entry"
+          done
+          python3 - <<'PY'
+          import hashlib,json,pathlib,struct
+          root=pathlib.Path("r009-native-evidence")
+          receipts=[json.loads((root/(k+"_native_blender.json")).read_text()) for k in ("before","after")]
+          for r in receipts:
+              assert r["native_import_render_technical_pass"]
+              assert r["per_actor_per_eye_materials_confirmed"]
+              assert r["imported_armatures"]>=2 and r["imported_meshes"]>=8
+              assert r["initial_source_root_separation"]-r["final_source_root_separation"]>2
+              assert not r["human_visual_accepted"] and not r["release_approved"]
+              assert len(r["generated_renders"])==8
+              assert r["native_diagnostic_camera"]=="BLENDER_Z_UP_ACTOR_SPECIFIC_WORLD_X_FRONT"
+              assert all(v.get("other_actor_hidden_for_diagnostic") for v in r["generated_renders"] if v["view"].startswith("detail_"))
+              assert r["closeups_generated"]
+              for image in r["generated_renders"]:
+                  raw=(root/image["file"]).read_bytes()
+                  assert raw[:8]==b"\x89PNG\r\n\x1a\n"
+                  assert struct.unpack(">II",raw[16:24])==(720,480)
+                  assert hashlib.sha256(raw).hexdigest()==image["sha256"]
+          # Nearest-vertex proximity is a deliberately non-promoting,
+          # 72-frame motion diagnostic, never a cloth collision proof.
+          SCHEMA="scp.r009.garment_body_vertex_proximity_proxy.v1"
+          for label,receipt in zip(("before","after"),receipts):
+              src=(root/(label+"_garment_proximity.json")).read_bytes()
+              assert hashlib.sha256(src).hexdigest()==receipt["garment_proxy_receipt_sha256"]
+              proof=json.loads(src)
+              assert proof["schema"]==SCHEMA
+              assert proof["motion_frames_evaluated"]==72
+              assert proof["frame_indices"]==list(range(0,143,2))
+              assert proof["actor_count"]==2
+              assert not proof["collision_qualified"] and not proof["garment_fit_accepted"]
+              assert not proof["release_approved"]
+              for actor,layers in proof["per_actor_garment"].items():
+                  assert set(layers)=={"top","bottom","footwear"}
+                  for slot,perframe in layers.items():
+                      assert len(perframe)==72
+                      for row in perframe:
+                          assert row["sample_count"]>0
+                          assert 0<=row["min_m"]<=row["p10_m"]<=row["p50_m"]<=row["p90_m"]<=row["max_m"]
+                          assert not row["penetration_qualified"] and not row["fit_accepted"]
+              print("R009_GARMENT_NEAREST_VERTEX_72FRAME_DIAGNOSTIC_ONLY "+label)
+          for label,receipt in zip(("before","after"),receipts):
+              raw=(root/(label+"_surface_bvh.json")).read_bytes()
+              assert hashlib.sha256(raw).hexdigest()==receipt["bvh_surface_receipt_sha256"]
+              bvh=json.loads(raw)
+              assert bvh["schema"]=="scp.r009.original_bvh_surface_contact.v2"
+              assert bvh["native_bvh_positive_negative_calibration"]
+              assert bvh["motion_frames_evaluated"]==72
+              assert bvh["frame_indices"]==list(range(0,143,2))
+              assert bvh["all_72_motion_frames_evaluated_for_bvh"]
+              assert not bvh["fully_qualified_frame_interpolation"]
+              assert not bvh["contact_and_penetration_sign_independent"]
+              assert not bvh["collision_free_proven"]
+              assert not bvh["garment_fit_accepted"]
+              assert not bvh["human_visual_accepted"] and not bvh["release_approved"]
+              for actor,slots in bvh["per_actor_slot"].items():
+                  assert set(slots)=={"top","bottom","footwear"}
+                  for slot,r in slots.items():
+                      assert r["sample_count"]==72 and len(r["samples"])==72
+                      assert r["pairs_total"]==sum(
+                          x["surface_overlap_triangle_pairs"] for x in r["samples"])
+                      assert all(not x["collision_free_proven"] for x in r["samples"])
+              print("R009_BVH_72POSE_SURFACE_CONTACT_DIAGNOSTIC_ONLY "+label)
+          assert receipts[0]["source_sha256"]!=receipts[1]["source_sha256"]
+          print("R009_NATIVE_BLENDER_TWO_STATES_EIGHT_VIEWS_TECHNICAL_ONLY_PASS")
+          PY
+          (cd r009-native-evidence; sha256sum ./* > SHA256SUMS)
+          (cd r009-native-evidence; sha256sum -c SHA256SUMS)
+      - name: Preserve exact source/evidence, including first native failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r009-parametric-native-before-after-public-original-only
+          retention-days: 7
+          if-no-files-found: warn
+          path: r009-native-evidence/

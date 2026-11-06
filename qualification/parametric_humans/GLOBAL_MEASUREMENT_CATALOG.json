@@ -1,0 +1,102 @@
+{
+  "schema": "scp.r009.anthropometry_sources.v1",
+  "purpose": "Review sources and measurement protocols; no scans downloaded or imported",
+  "rights_gate": "Every exact data file and its allowed operations must be approved before model fitting, training, or public CI",
+  "sources": [
+    {
+      "region": "Japan",
+      "languages": [
+        "ja",
+        "en"
+      ],
+      "organization": "AIST",
+      "url": "https://www.airc.aist.go.jp/dhrt/dhdb.html",
+      "opportunity": "body, head, hand landmarks and homologous meshes",
+      "raw_data": "NOT_ACQUIRED"
+    },
+    {
+      "region": "South Korea",
+      "languages": [
+        "ko"
+      ],
+      "organization": "Size Korea / KATS",
+      "url": "https://sizekorea.kats.go.kr/about/intro",
+      "opportunity": "recent standard 3D body geometry and measurement definitions",
+      "raw_data": "NOT_ACQUIRED"
+    },
+    {
+      "region": "China",
+      "languages": [
+        "zh"
+      ],
+      "organization": "China National Institute of Standardization",
+      "url": "https://www.cnis.ac.cn/wap/dh/bydt/kydt_1/202010/t20201028_50419.html",
+      "opportunity": "population anthropometry and head reference",
+      "raw_data": "NOT_ACQUIRED"
+    },
+    {
+      "region": "Thailand",
+      "languages": [
+        "th"
+      ],
+      "organization": "NSTDA Size Thailand",
+      "url": "https://www.nstda.or.th/archives/size-thailand/",
+      "opportunity": "Southeast Asian scanning and landmark protocols",
+      "raw_data": "NOT_ACQUIRED"
+    },
+    {
+      "region": "Germany",
+      "languages": [
+        "de",
+        "en"
+      ],
+      "organization": "SizeGERMANY",
+      "url": "https://www.mec.ed.tum.de/en/lfe/research/software/isize/",
+      "opportunity": "ISO measurements, population weighting",
+      "raw_data": "NOT_ACQUIRED"
+    },
+    {
+      "region": "Spain",
+      "languages": [
+        "es",
+        "en"
+      ],
+      "organization": "IBV",
+      "url": "https://antropometria.ibv.org/en/measurements-to-avatars/",
+      "opportunity": "body-measurement-to-homologous-avatar methodology",
+      "raw_data": "NOT_ACQUIRED"
+    },
+    {
+      "region": "France",
+      "languages": [
+        "fr",
+        "en"
+      ],
+      "organization": "Inria MORPHEO",
+      "url": "https://prod-rex-app.inria.fr/report/2023/morpheo/index.html",
+      "opportunity": "identity, garment and motion disentanglement",
+      "raw_data": "NOT_ACQUIRED"
+    },
+    {
+      "region": "Brazil",
+      "languages": [
+        "pt"
+      ],
+      "organization": "CAPES research catalog",
+      "url": "https://www.gov.br/capes/pt-br",
+      "opportunity": "adaptive scans and accessibility methodologies",
+      "raw_data": "NOT_ACQUIRED"
+    },
+    {
+      "region": "India",
+      "languages": [
+        "hi",
+        "en"
+      ],
+      "organization": "NIFT INDIAsize",
+      "url": "https://nift.ac.in/indiasize",
+      "opportunity": "regional anthropometry and body sizing",
+      "raw_data": "NOT_ACQUIRED"
+    }
+  ]
+}

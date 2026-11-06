@@ -1,0 +1,146 @@
+name: R009 parametric synthetic human contract — public-safe qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/parametric_humans/**'
+      - '.github/workflows/r009-parametric-human-contract-v1.yml'
+permissions:
+  contents: read
+jobs:
+  contract-and-provenance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: DOPAV hygiene gate — exact parent, scoped paths and source preservation
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p r009-parametric-evidence
+          [[ "$BASE_SHA" =~ ^[a-f0-9]{40}$ ]] && [[ "$HEAD_SHA" =~ ^[a-f0-9]{40}$ ]]
+          git cat-file -e "$BASE_SHA^{commit}"
+          git cat-file -e "$HEAD_SHA^{commit}"
+          git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > r009-parametric-evidence/changed_paths.txt
+          if grep -Ev '^(qualification/parametric_humans/|\.github/workflows/r009-parametric-(human-contract|native-blender)-v1\.yml$)' r009-parametric-evidence/changed_paths.txt; then
+            echo "OUT_OF_SCOPE_SOURCE_OR_REPOSITORY_MUTATION"
+            exit 11
+          fi
+          git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- qualification/original_reusable_characters/
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path("r009-parametric-evidence")
+          changed=(p/"changed_paths.txt").read_text().splitlines()
+          assert changed and all(x.startswith("qualification/parametric_humans/") or x in (".github/workflows/r009-parametric-human-contract-v1.yml",".github/workflows/r009-parametric-native-blender-v1.yml") for x in changed)
+          record={"schema":"scp.r009.source_scope_hygiene.v1",
+                  "base_sha":os.environ["BASE_SHA"],
+                  "head_sha":os.environ["HEAD_SHA"],
+                  "scope_ok":True,"original_source_unchanged":True,
+                  "source_paths_changed":changed,
+                  "merge_close_delete_actions":0,
+                  "release_approval":False}
+          (p/"hygiene_scope.json").write_text(json.dumps(record,sort_keys=True,indent=2)+"\n")
+          PY
+      - name: Independent strict Python contract and adversarial controls
+        run: |
+          set -euo pipefail
+          cd qualification/parametric_humans
+          python3 -m compileall -q parameters_v1.py test_parameters_v1.py morph_preview_35_v1.py test_morph_preview_35_v1.py effect_coverage_v1.py test_effect_coverage_v1.py appearance_material_v1.py test_appearance_material_v1.py gap_metrics_v1.py test_gap_metrics_v1.py
+          python3 -m unittest -v test_parameters_v1 test_morph_preview_35_v1 test_effect_coverage_v1 test_appearance_material_v1 test_gap_metrics_v1
+      - name: Deterministic synthetic-state and source-catalog receipt
+        run: |
+          set -euo pipefail
+          mkdir -p r009-parametric-evidence
+          cd qualification/parametric_humans
+          python3 parameters_v1.py catalog > ../../r009-parametric-evidence/semantic_catalog.json
+          python3 effect_coverage_v1.py --seed 73 --out ../../r009-parametric-evidence/effect_coverage.json
+          python3 parameters_v1.py generate --seed 73 --out ../../r009-parametric-evidence/synthetic_73.json
+          python3 parameters_v1.py validate ../../r009-parametric-evidence/synthetic_73.json > ../../r009-parametric-evidence/validation_73.json
+          python3 - <<'PY'
+          import json, pathlib
+          from parameters_v1 import sample, add_event, canonical_bytes
+          # Two evaluated states, one identity, explicitly hypothetical change.
+          a = sample(73, "AsterSynthetic")
+          a = add_event(a, "2026-05-01", "procedure", "hypothesis", {
+              "morphology.left_breast_volume": .75,
+              "morphology.right_breast_volume": .72,
+              "morphology.jaw_width_ratio": 1.09})
+          a = add_event(a, "2026-05-15", "styling", "artist_authored", {
+              "appearance.hair_rgb": [.14, .25, .61],
+              "appearance.left_iris_rgb": [.09, .58, .42],
+              "appearance.skin_melanin": .66})
+          j = sample(74, "JuniperSynthetic")
+          root = pathlib.Path("../../r009-parametric-evidence")
+          (root/"aster_timeline.json").write_bytes(canonical_bytes(a))
+          (root/"juniper_timeline.json").write_bytes(canonical_bytes(j))
+          PY
+          python3 parameters_v1.py compare ../../r009-parametric-evidence/aster_timeline.json --before 2026-04-01 --after 2026-06-01 > ../../r009-parametric-evidence/before_after_comparison.json
+          python3 morph_preview_35_v1.py --aster ../../r009-parametric-evidence/aster_timeline.json --juniper ../../r009-parametric-evidence/juniper_timeline.json --as-of 2026-04-01 --out ../../r009-parametric-evidence/before_preview.glb --manifest ../../r009-parametric-evidence/before_manifest.json --receipt ../../r009-parametric-evidence/before_preview_receipt.json
+          python3 morph_preview_35_v1.py --aster ../../r009-parametric-evidence/aster_timeline.json --juniper ../../r009-parametric-evidence/juniper_timeline.json --as-of 2026-06-01 --out ../../r009-parametric-evidence/after_preview.glb --manifest ../../r009-parametric-evidence/after_manifest.json --receipt ../../r009-parametric-evidence/after_preview_receipt.json
+          python3 appearance_material_v1.py --input ../../r009-parametric-evidence/before_preview.glb --aster ../../r009-parametric-evidence/aster_timeline.json --juniper ../../r009-parametric-evidence/juniper_timeline.json --as-of 2026-04-01 --out ../../r009-parametric-evidence/before_appearance.glb --receipt ../../r009-parametric-evidence/before_appearance_receipt.json
+          python3 appearance_material_v1.py --input ../../r009-parametric-evidence/after_preview.glb --aster ../../r009-parametric-evidence/aster_timeline.json --juniper ../../r009-parametric-evidence/juniper_timeline.json --as-of 2026-06-01 --out ../../r009-parametric-evidence/after_appearance.glb --receipt ../../r009-parametric-evidence/after_appearance_receipt.json
+          python3 - <<'PY'
+          import json, pathlib
+          root=pathlib.Path("../../r009-parametric-evidence")
+          before=json.loads((root/"before_preview_receipt.json").read_text())
+          after=json.loads((root/"after_preview_receipt.json").read_text())
+          comparison=json.loads((root/"before_after_comparison.json").read_text())
+          assert before["derived_glb_sha256"] != after["derived_glb_sha256"]
+          assert before["rig_joint_count"] == after["rig_joint_count"] == 35
+          assert before["frames"] == after["frames"] == 72
+          assert comparison["identity_unchanged"] and not comparison["causal_attribution_proven"]
+          assert len(comparison["differences"]) == 6
+          assert not before["release_approved"] and not after["release_approved"]
+          before_pbr=json.loads((root/"before_appearance_receipt.json").read_text())
+          after_pbr=json.loads((root/"after_appearance_receipt.json").read_text())
+          assert before_pbr["derived_sha256"] != after_pbr["derived_sha256"]
+          assert before_pbr["joints_each"] == after_pbr["joints_each"] == 35
+          assert not before_pbr["human_visual_accepted"] and not after_pbr["surgical_outcome_predicted"]
+          assert all(x["per_eye_iris_materials"] for x in before_pbr["actor_witnesses"].values())
+
+          coverage=json.loads((root/"effect_coverage.json").read_text())
+          assert coverage["control_count"] >= 25 and 0 < coverage["geometry_effect_controls"] < coverage["control_count"]
+          assert not coverage["all_controls_implemented"] and not coverage["human_visual_accepted"]
+          mapped=[x["path"] for x in coverage["controls"] if x["status"]=="GEOMETRY_EFFECT_CONFIRMED"]
+          not_wired=[x["path"] for x in coverage["controls"] if x["status"]=="NO_GEOMETRY_EFFECT"]
+          print("R009_MORPH_EFFECT_WITNESS mapped=%d total=%d no_geometry_effect=%d" % (len(mapped),coverage["control_count"],len(not_wired)))
+          print("R009_MAPPED_CONTROLS " + ",".join(mapped))
+          print("R009_NOT_GEOMETRY_MAPPED " + ",".join(not_wired))
+
+          PY
+          python3 - <<'PY'
+          import json, pathlib, sys
+          for name in ("BACKEND_CANDIDATES.json", "GLOBAL_MEASUREMENT_CATALOG.json"):
+              d = json.loads(pathlib.Path(name).read_text())
+              if name.startswith("GLOBAL"):
+                  assert d["rights_gate"]
+              else:
+                  assert d["evaluation_contract"]["backend_adoption"] == "NONE"
+          receipt = {
+              "schema": "scp.r009.parametric_qualification_receipt.v1",
+              "source_class": "source_original_synthetic",
+              "backend_geometry_qualified": False,
+              "picture_video_fitting_qualified": False,
+              "clinical_prediction_qualified": False,
+              "source_assets_acquired": False,
+              "seed": 73,
+              "python": sys.version,
+          }
+          pathlib.Path("../../r009-parametric-evidence/qualification.json").write_text(
+              json.dumps(receipt,sort_keys=True,indent=2)+"\n")
+          PY
+          cd ../..
+          sha256sum r009-parametric-evidence/*.json r009-parametric-evidence/*.glb > r009-parametric-evidence/SHA256SUMS
+      - name: Preserve verification receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r009-parametric-original-source-only-receipt
+          retention-days: 7
+          if-no-files-found: warn
+          path: r009-parametric-evidence/
