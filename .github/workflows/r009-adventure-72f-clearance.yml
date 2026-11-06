@@ -1,0 +1,96 @@
+name: R009 source-original 72-frame adventure cloth/body surface witness
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r009-adventure-72f-clearance.yml'
+      - 'qualification/human_garment_clearance/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-adventure-clearance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-original-72f-surface-witness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Generate and SHA-bind original morph, separate garment cuts, and strict portable
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 modular_wardrobe_v1.py --out "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json"
+          python3 parametric_morphology_v1.py \
+            --input "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json" \
+            --out "${RUNNER_TEMP}/morph.glb" --out-manifest "${RUNNER_TEMP}/morph.json" \
+            --receipt "${RUNNER_TEMP}/morph-receipt.json"
+          python3 original_mage_outfits_v1.py \
+            --input "${RUNNER_TEMP}/morph.glb" --manifest "${RUNNER_TEMP}/morph.json" \
+            --out "${RUNNER_TEMP}/authoring.glb" --out-manifest "${RUNNER_TEMP}/authoring.json" \
+            --receipt "${RUNNER_TEMP}/authoring-receipt.json"
+          python3 strict_mage_portable_v1.py \
+            --input "${RUNNER_TEMP}/authoring.glb" --manifest "${RUNNER_TEMP}/authoring.json" \
+            --out "${RUNNER_TEMP}/adventure.glb" --receipt "${RUNNER_TEMP}/adventure-receipt.json" \
+            --aster adventure --juniper adventure
+          sha256sum "${RUNNER_TEMP}/authoring.glb" "${RUNNER_TEMP}/adventure.glb" > "${RUNNER_TEMP}/source-sha256.txt"
+      - name: Install checksum-verified official Blender 4.5.15 public CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "${RUNNER_TEMP}/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz"
+          (cd "${RUNNER_TEMP}"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz" -C "${RUNNER_TEMP}"
+      - name: Native BVH negative control (real triangle crossing vs disjoint)
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/human_garment_clearance/adventure_collision_blender.py \
+            -- --selftest
+      - name: Native evaluated-mesh 72-frame full-resolution surface crossing and edge-strain audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum "${RUNNER_TEMP}/adventure.glb" | cut -d' ' -f1)"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/human_garment_clearance/adventure_collision_blender.py \
+            -- "${RUNNER_TEMP}/adventure.glb" "${RUNNER_TEMP}/clearance-72f.json" "$sha"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          record=json.loads((root/"clearance-72f.json").read_text())
+          assert record["schema"]=="scp.r009.adventure_body_surface_crossings.v1"
+          assert record["frame_count"]==72 and record["rig_joints_each"]==35
+          assert record["garment_clearance_accepted"] is False
+          assert record["owner_rights_custody_merge_release_cpe_held"] is True
+          assert set(record["observations"])=={"AsterOriginal","JuniperOriginal"}
+          for actor,slots in record["observations"].items():
+            assert set(slots)=={"style_top","style_bottom"}
+            for slot,obs in slots.items():
+              assert obs["frames_checked"]==72 and len(obs["per_frame"])==72
+              assert {f["frame"] for f in obs["per_frame"]}==set(range(1,73))
+              assert obs["volumetric_containment"]=="UNKNOWN_NOT_TESTED"
+          PY
+      - name: Preserve receipt only, NO public binary model or protected source
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: r009-original-adventure72f-crossing-receipts
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/source-sha256.txt
+            ${{ runner.temp }}/morph-receipt.json
+            ${{ runner.temp }}/authoring-receipt.json
+            ${{ runner.temp }}/adventure-receipt.json
+            ${{ runner.temp }}/clearance-72f.json
