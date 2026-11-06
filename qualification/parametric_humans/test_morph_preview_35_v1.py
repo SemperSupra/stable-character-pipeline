@@ -52,6 +52,36 @@ class MorphPreviewTests(unittest.TestCase):
         self.assertEqual({path:hashlib.sha256((adapter.ORIGINAL/path).read_bytes()).hexdigest()
                           for path in hashes},hashes)
 
+    def test_three_local_face_controls_change_only_skin_face_vertices(self):
+        base=p.sample(73)
+        baseline,_=adapter.apply_original_shape(0,base)
+        old=baseline.parts["skinWarm"]["p"]
+        changes={
+            "cheek_volume":.94,
+            "chin_projection_ratio":1.46,
+            "lip_fullness":.96
+        }
+        for field,target in changes.items():
+            altered=copy.deepcopy(base)
+            altered["morphology"][field]=target
+            p.validate(altered)
+            modified,_=adapter.apply_original_shape(0,altered)
+            current=modified.parts["skinWarm"]["p"]
+            modified_vertices=[i//3 for i in range(0,len(old),3)
+                               if old[i:i+3]!=current[i:i+3]]
+            self.assertGreater(len(modified_vertices),0,field)
+            self.assertTrue(all(1.54<old[idx*3+1]<1.74 for idx in modified_vertices),field)
+            for material in baseline.parts:
+                if material!="skinWarm":
+                    self.assertEqual(baseline.parts[material]["p"],
+                                     modified.parts[material]["p"],material)
+                self.assertEqual(baseline.parts[material]["i"],
+                                 modified.parts[material]["i"],material)
+                self.assertEqual(baseline.parts[material]["j"],
+                                 modified.parts[material]["j"],material)
+                self.assertEqual(baseline.parts[material]["w"],
+                                 modified.parts[material]["w"],material)
+
     def test_reject_non_original_source(self):
         state=copy.deepcopy(p.sample(73))
         state["source_class"]="externally_acquired"
