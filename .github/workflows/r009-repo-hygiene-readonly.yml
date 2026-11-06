@@ -30,7 +30,26 @@ jobs:
           set -euo pipefail
           "$RUNNER_TEMP/scp-hygiene" --repo SemperSupra/stable-character-pipeline --as-of "$(date -u +%F)" --out "$RUNNER_TEMP/r009-hygiene" --max-pages 20 --stale-days 14
           head -n 20 "$RUNNER_TEMP/r009-hygiene/audit.md"
-          head -n 30 "$RUNNER_TEMP/r009-hygiene/roots.md"
+          # Root graph/first failures are part of the legible run evidence;
+          # do not truncate the five drift holds or the entire root priority list.
+          cat "$RUNNER_TEMP/r009-hygiene/roots.md"
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])/"r009-hygiene"
+          report=json.loads((root/"report.json").read_text())
+          graph=json.loads((root/"roots.json").read_text())
+          assert report["complete"] and graph["complete"]
+          assert report["prs_scanned"]==graph["total_open"]
+          assert graph["root_count"]+graph["stacked_count"]==graph["total_open"]
+          assert graph["mutations"]==report["mutations"]==0
+          assert graph["base_sha_drift_count"]==len(graph["base_sha_drifts"])
+          for x in graph["base_sha_drifts"]:
+              assert x["disposition"]=="BASE_SHA_DRIFT_HELD_NO_MERGE_CLOSE_DELETE"
+              print("R009_HYGIENE_BASE_SHA_DRIFT child=%s parent=%s old_base=%s current_parent=%s" %
+                    (x["child_pr"],x["parent_pr"],x["observed_base_sha"],x["observed_parent_head_sha"]))
+          print("R009_HYGIENE_SUMMARY roots=%d descendants=%d drift=%d open=%d" %
+                (graph["root_count"],graph["stacked_count"],graph["base_sha_drift_count"],graph["total_open"]))
+          PY
           sha256sum "$RUNNER_TEMP/r009-hygiene"/{snapshot.json,report.json,audit.md,roots.json,roots.md} > "$RUNNER_TEMP/r009-hygiene/SHA256SUMS"
       - name: Preserve first failure and independent report artifact
         uses: actions/upload-artifact@v4
