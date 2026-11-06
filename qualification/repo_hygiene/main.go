@@ -68,6 +68,14 @@ type Report struct {
 func audit(s Snapshot, staleDays int) (Report,error) {
  if s.Schema != schema || s.Repo != allowedRepo {return Report{},errors.New("INVALID_SCHEMA_OR_REPO")}
  asOf,err:=time.Parse("2006-01-02",s.AsOf);if err!=nil{return Report{},fmt.Errorf("INVALID_AS_OF: %w",err)}
+ // A claimed complete snapshot must have an arithmetically plausible
+ // per_page=100 fetch history. Prevent forged or truncated offline replay
+ // from being mistaken for an exhaustive public PR census.
+ if s.Complete && (s.FetchPages<1 || len(s.PRs)>100*s.FetchPages ||
+    (s.FetchPages>1 && len(s.PRs)<100*(s.FetchPages-1))) {
+    return Report{},errors.New("IMPOSSIBLE_COMPLETE_PAGINATION")
+ }
+
  if staleDays < 1{return Report{},errors.New("INVALID_STALE_DAYS")}
  heads:=map[string]int{}
  headSHA:=map[string][]int{}
