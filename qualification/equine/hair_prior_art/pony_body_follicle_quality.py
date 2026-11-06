@@ -67,7 +67,7 @@ def evaluate(source,projection):
             raise ValueError("rest root and world surface offset not reconciled")
         n=normal(anchor["rest_normal_m"])
         restdist=distance(restpos,rest_root)
-        if type(anchor["rest_root_to_skin_distance_m"]) not in (int,float) or abs(restdist-anchor["rest_root_to_skin_distance_m"])>1e-5:
+        if type(anchor["rest_root_to_skin_distance_m"]) not in (int,float) or not math.isfinite(anchor["rest_root_to_skin_distance_m"]) or abs(restdist-anchor["rest_root_to_skin_distance_m"])>1e-5:
             raise ValueError("rest root source-to-body distance not measured")
         records=item["frames"]
         if type(records)!=list or len(records)!=48:raise ValueError("body 48-frame trajectory incomplete")
@@ -87,14 +87,14 @@ def evaluate(source,projection):
             surface_n=normal(r["nearest_surface_normal"])
             observed=xyz(r["source_root_m"])
             nearest=distance(closest,observed)
-            if type(r["nearest_unsigned_distance_m"]) not in (int,float) or abs(nearest-r["nearest_unsigned_distance_m"])>1e-5:
+            if type(r["nearest_unsigned_distance_m"]) not in (int,float) or not math.isfinite(r["nearest_unsigned_distance_m"]) or abs(nearest-r["nearest_unsigned_distance_m"])>1e-5:
                 raise ValueError("false source-root nearest body distance")
             signed=sum((observed[i]-closest[i])*surface_n[i] for i in range(3))
             if type(r["normal_directional_offset_m"]) not in (int,float) or not math.isfinite(r["normal_directional_offset_m"]) or abs(signed-r["normal_directional_offset_m"])>1e-5:
                 raise ValueError("body normal projection not internally consistent")
             fixed=xyz(r["rest_persistent_anchor_point_m"])
             d_fixed=distance(fixed,observed)
-            if type(r["rest_anchor_current_unsigned_distance_m"]) not in (int,float) or abs(d_fixed-r["rest_anchor_current_unsigned_distance_m"])>1e-5:
+            if type(r["rest_anchor_current_unsigned_distance_m"]) not in (int,float) or not math.isfinite(r["rest_anchor_current_unsigned_distance_m"]) or abs(d_fixed-r["rest_anchor_current_unsigned_distance_m"])>1e-5:
                 raise ValueError("original barycentric anchor drift falsified")
             drift=distance(tuple(observed[i]-fixed[i] for i in range(3)),delta)
             if type(r["world_fixed_offset_drift_m"]) not in (int,float) or not math.isfinite(r["world_fixed_offset_drift_m"]) or abs(drift-r["world_fixed_offset_drift_m"])>1e-5:
