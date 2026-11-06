@@ -53,7 +53,7 @@ class BoneFrameTests(unittest.TestCase):
         inputs=setup()
         mutations=[
           lambda x:x[1]["cards"].pop(),
-          lambda x:x[1]["cards"][0].update(owner_bone="head"),
+          lambda x:x[1]["cards"][0].update(owner_bone="fictional_bone"),
           lambda x:x[1]["cards"][0]["frames"].pop(),
           lambda x:x[1]["cards"][0]["frames"][6].update(frame=6),
           lambda x:x[1]["cards"][0]["frames"][6].update(source_tip_m=[1.,1.,1.]),
