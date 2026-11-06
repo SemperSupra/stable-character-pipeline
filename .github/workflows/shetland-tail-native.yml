@@ -1,0 +1,93 @@
+name: Shetland deliberate tail dock swish native proof
+on:
+  pull_request:
+    paths:
+      - "qualification/shetland_pony/tail_intent.py"
+      - "qualification/shetland_pony/test_tail_intent.py"
+      - "qualification/shetland_pony/tail_native.py"
+      - ".github/workflows/shetland-tail-native.yml"
+permissions:
+  contents: read
+jobs:
+  source-hostile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Pure Python deterministic hostile qualification
+        run: |
+          set -euo pipefail
+          (cd qualification/shetland_pony && python3 -m unittest -v test_tail_intent.py)
+          python3 -m py_compile qualification/shetland_pony/tail_intent.py qualification/shetland_pony/tail_native.py
+  native-blender:
+    needs: source-hostile
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install pinned disposable native Blender 4.5.15
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/checksums"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender" && grep 'blender-4.5.15-linux-x64.tar.xz' checksums | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Generate actual baseline original black pony, 30-bone source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/baseline results/tail
+          env LIBGL_ALWAYS_SOFTWARE=1 SCP_COATS=black "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/results/baseline"
+      - name: Native Blender add independent tail controls and baked export
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python qualification/shetland_pony/tail_native.py -- "$GITHUB_WORKSPACE/results/baseline/shetland_black_ghcr.blend" "$GITHUB_WORKSPACE/results/tail"
+      - name: Independent exported GLB structural and hash gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,pathlib,struct
+          dir=pathlib.Path("results/tail")
+          raw=(dir/"equine_tail_intent.glb").read_bytes()
+          assert len(raw)>2048 and raw[:4]==b"glTF"
+          n=struct.unpack_from("<I",raw,12)[0]
+          g=json.loads(raw[20:20+n].decode().strip())
+          assert max(len(s["joints"]) for s in g["skins"])>=30
+          assert g["animations"]
+          names=[m.get("name","") for m in g["meshes"]]
+          morph_meshes=[m for m in g["meshes"] if any(p.get("targets") for p in m["primitives"])]
+          assert all(any(n.get("name")==name for n in g["nodes"]) for name in ("tail_1","tail_2","tail_3"))
+          assert any(c["target"]["path"]=="rotation" for a in g["animations"] for c in a["channels"])
+          assert not any(n.get("name","").startswith("tail_volume_") for n in g["nodes"]), "rigid egg-shaped tail proxy remained"
+          receipt=json.loads(next(dir.glob("*_receipt.json")).read_text())
+          for file,meta in receipt["files"].items():
+              p=dir/file
+              assert p.stat().st_size==meta["bytes"]
+              assert hashlib.sha256(p.read_bytes()).hexdigest()==meta["sha256"]
+          assert len(list(dir.glob("tail_*.png")))==8
+          print("NATIVE_TAIL_STRUCTURAL_PASS; VISUAL/BIOMECHANICAL_ACCEPTANCE_NOT_ASSERTED")
+          PY
+      - name: Preserve original native evidence and first failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-tail-native-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/tail/*.glb
+            results/tail/*.png
+            results/tail/*_receipt.json
+            results/baseline/manifest.json
