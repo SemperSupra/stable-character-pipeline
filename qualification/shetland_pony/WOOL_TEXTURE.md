@@ -1,0 +1,7 @@
+# Source-original textured Shetland wool, not a smooth PBR-only artifact
+
+Owning DLE #293. Child of [long-hair source #321](https://github.com/SemperSupra/stable-character-pipeline/pull/321). Native continuous-skinned animal from #318 still has imperfect ROM and hoof contact; this branch does **NOT** waive that.
+
+Generator uses deterministic anisotropic small-fiber texture; generates actual 512² PNG color images, assigns coherent UVs to one continuous torso, elongated equine head, neck, all four tapered legs and each six-vertex geometric coat fiber. Each wool texture is packed in native Blender and exported to glTF as `pbrMetallicRoughness.baseColorTexture` with `TEXCOORD_0`; this is in addition to ~11,420 actual skeleton-weighted 3D fibers and 1050 gravity-falling long-hair guides. No unportable Blender-only noise shader is accepted as GLB texture proof. Explicit non-smooth texel variance test plus native exported GLB image/material/UV independent validator and 30joint source build.
+
+Rights: procedural original synthetic, no protected user photos or identities in public CI; outputs GLB/BLEND/PNG remain private owner custody pending approval. Physically realistic coat, natural face, good body proportions and true equine biomechanics are still not accepted. Three-audience human PNG, automation JSON GLB/PNG receipts, agent deterministic standalone source. No merge/release/deploy/CPE.
