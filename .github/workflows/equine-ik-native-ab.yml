@@ -118,6 +118,11 @@ jobs:
               -b --factory-startup --python-exit-code 8 \
               --python qualification/equine/ik_ab/rom30_native.py -- \
               "$model" "$GITHUB_WORKSPACE/results/$variant/rom.json"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/equine/ik_ab/target_residual_native.py -- \
+              "$model" "$GITHUB_WORKSPACE/source-baseline/qualification/shetland_pony/footpaths.py" \
+              "$GITHUB_WORKSPACE/results/$variant/target_residual.json"
           done
       - name: Judge relative performance without overriding scientific holds
         shell: bash
@@ -161,6 +166,8 @@ jobs:
             results/candidate/hoof.json
             results/baseline/rom.json
             results/candidate/rom.json
+            results/baseline/target_residual.json
+            results/candidate/target_residual.json
             results/baseline/rom_legacy_two_link.json
             results/candidate/rom_legacy_two_link.json
             results/baseline/reach.json
