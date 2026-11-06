@@ -138,7 +138,31 @@ jobs:
           (root/"comparison.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
           print(json.dumps(report,sort_keys=True))
           PY
-      - name: Archive small 72f original receipts, no public models
+      - name: Reused exact camera original native Blender 12 front side waist PNGs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/native-hem"
+          for v in baseline juniper_skirt_14 hem_06 hem_10; do
+            sha="$(sha256sum "${RUNNER_TEMP}/$v.glb" | cut -d' ' -f1)"
+            xvfb-run -a -s '-screen 0 1280x1024x24' env LIBGL_ALWAYS_SOFTWARE=1 \
+              "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/juniper_motion_hem/native_hem_visual_v1.py \
+              -- "${RUNNER_TEMP}/$v.glb" "${RUNNER_TEMP}/native-hem" "$sha" "$v"
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"native-hem"
+          png=list(root.glob("*.png"))
+          ix=list(root.glob("*.json"))
+          assert len(png)==12 and len(ix)==4,(png,ix)
+          assert all(p.stat().st_size>10000 for p in png)
+          assert set(json.loads(f.read_text())["variant"] for f in ix)=={
+            "baseline","juniper_skirt_14","hem_06","hem_10"}
+          PY
+      - name: Archive exact source 72f receipts and original native PNGs, no public models
         if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -151,3 +175,5 @@ jobs:
             ${{ runner.temp }}/*-source-receipt.json
             ${{ runner.temp }}/*-72f.json
             ${{ runner.temp }}/comparison.json
+            ${{ runner.temp }}/native-hem/*.png
+            ${{ runner.temp }}/native-hem/*.json
