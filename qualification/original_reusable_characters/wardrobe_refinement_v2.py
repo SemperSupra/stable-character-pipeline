@@ -176,7 +176,7 @@ def join_original_trouser_segments(g,material,upper,lower):
         "garment_collision_accepted":False,
     }
 
-def continuous_figure(which):
+def continuous_figure(which, joined_trousers=False):
     """Replace independent torso and face lofts by one weighted trunk/head loft.
 
     Hands/limbs remain inherited overlapping surfaces pending full retopology.
@@ -198,7 +198,7 @@ def continuous_figure(which):
         is_lower=(material in ("slatePants","ochrePants")
                   and bone_a in ("knee_L","knee_R")
                   and bone_b=="ankle_"+bone_a.removeprefix("knee_"))
-        if is_upper or is_lower:
+        if joined_trousers and (is_upper or is_lower):
             side=bone_a.rsplit("_",1)[1]
             key="upper" if is_upper else "lower"
             if key in leg_segments[side]:
@@ -253,21 +253,19 @@ def continuous_figure(which):
         h.v1.Geometry.tube=bounded_tube
         h.v1.Geometry.ellipsoid=aligned_ellipsoid
         geo = v1.adult_body_geometry(which)
-        # The original figure had TWO unrelated open-ended pant tubes per
-        # leg. Replace them with one shared indexed knee ring, per side.
-        pants="slatePants" if which==0 else "ochrePants"
+        # Single indexed ring is structurally sound but the independent
+        # native screenshots exposed skin on the shin. Keep it as opt-in RDTE
+        # until the regional skin/cloth inspection independently clears it.
         joined={}
-        for side in ("L","R"):
-            if set(leg_segments[side])!={"upper","lower"}:
-                raise ValueError("INCOMPLETE_JOINED_PANT_SOURCE_"+side)
-            upper=leg_segments[side]["upper"]
-            lower=leg_segments[side]["lower"]
-            merged_upper=(upper[0],upper[1],upper[2],upper[3],
-                          upper[4],upper[5],upper[6],upper[7])
-            merged_lower=(lower[0],lower[1],lower[2],lower[3],
-                          lower[4],lower[5],lower[6],lower[7])
-            joined[side]=join_original_trouser_segments(
-                geo,pants,merged_upper,merged_lower)
+        if joined_trousers:
+            pants="slatePants" if which==0 else "ochrePants"
+            for side in ("L","R"):
+                if set(leg_segments[side])!={"upper","lower"}:
+                    raise ValueError("INCOMPLETE_JOINED_PANT_SOURCE_"+side)
+                upper=leg_segments[side]["upper"]
+                lower=leg_segments[side]["lower"]
+                joined[side]=join_original_trouser_segments(
+                    geo,pants,upper,lower)
         gussets=attach_shoulder_gussets_original(geo,which)
     finally:
         h.loft_anatomy = original
@@ -281,10 +279,10 @@ def continuous_figure(which):
         raise ValueError("SOURCE_SHOULDER_BRIDGE_INCOMPLETE")
     if lower_counts!={"inset_hip_tubes":2,"joint_aligned_kneecaps":2}:
         raise ValueError("SOURCE_PANTS_HIP_KNEE_CORRECTION_INCOMPLETE:"+str(lower_counts))
-    if any(not joined[side]["watertight_at_knee"] or
-           joined[side]["whole_body_watertight"] or
-           joined[side]["rings"]!=2*18+1
-           for side in ("L","R")):
+    if joined_trousers and any(not joined[side]["watertight_at_knee"] or
+                               joined[side]["whole_body_watertight"] or
+                               joined[side]["rings"]!=2*18+1
+                               for side in ("L","R")):
         raise ValueError("KNEE_INDEXED_RING_INCOMPLETE")
     return geo
 
@@ -414,7 +412,7 @@ def distinct_cuts(master_path,manifest_path):
     Path(manifest_path).write_text(json.dumps(m,sort_keys=True,indent=2)+"\n")
     return m
 
-def build(out,manifest):
+def build(out,manifest,experimental_joined_knee=False):
     paths=[Path(out).resolve(),Path(manifest).resolve()]
     if paths[0]==paths[1]:raise ValueError("OUTPUT_PATH_COLLISION")
     for p in paths:
@@ -426,7 +424,7 @@ def build(out,manifest):
         source,rig,gait=(td/name for name in ("body17.glb","body35.glb","gait35.glb"))
         old=h.v1.figure_geometry
         try:
-            h.v1.figure_geometry=continuous_figure
+            h.v1.figure_geometry=(lambda which: continuous_figure(which,joined_trousers=True)) if experimental_joined_knee else continuous_figure
             h.v1.make_demo(source)
         finally:
             h.v1.figure_geometry=old
@@ -441,7 +439,10 @@ def build(out,manifest):
             "weighted_shoulder_sleeve_root_gussets":True,
             "trouser_upper_thigh_tube_starts_inset":True,
             "original_source_kneecaps_aligned_to_joint_rest":True,
-            "original_pant_legs_continuous_indexed_through_knee":True,
+            "original_pant_legs_continuous_indexed_through_knee":bool(experimental_joined_knee),
+            "experimental_joined_knee_source_only":bool(experimental_joined_knee),
+            "experimental_knee_visual_quality_rejected":bool(experimental_joined_knee),
+            "two_tube_baseline_selected":not bool(experimental_joined_knee),
             "original_waist_pant_leg_seam_closed":False,
             "shoulder_or_body_watertight":False,
             "full_body_watertight":False,
@@ -454,9 +455,11 @@ if __name__=="__main__":
     p.add_argument("--out",required=True)
     p.add_argument("--manifest",required=True)
     p.add_argument("--receipt",required=True)
+    p.add_argument("--experimental-joined-knee",action="store_true",
+                   help="Opt-in unaccepted joined knee RDTE; defaults to safer two-tube baseline")
     a=p.parse_args()
     if Path(a.receipt).resolve() in (Path(a.out).resolve(),Path(a.manifest).resolve()):
         p.error("receipt must be distinct from source artifacts")
-    r=build(a.out,a.manifest)
+    r=build(a.out,a.manifest,experimental_joined_knee=a.experimental_joined_knee)
     Path(a.receipt).write_text(json.dumps(r,sort_keys=True,indent=2)+"\n")
     print(json.dumps(r,sort_keys=True))
