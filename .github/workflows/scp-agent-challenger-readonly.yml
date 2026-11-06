@@ -1,0 +1,78 @@
+name: SCP exact-artifact actor-vs-rule multiview challenger
+on:
+  pull_request:
+    paths:
+      - 'qualification/agent_challenger/**'
+      - '.github/workflows/scp-agent-challenger-readonly.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  exact-archive-challenger:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Reject other source-owner modifications
+        run: |
+          set -euo pipefail
+          git diff --name-only fb581c7073bb42ec912c476fd7669508a9f3789d HEAD > "$RUNNER_TEMP/changes"
+          cat "$RUNNER_TEMP/changes"
+          if grep -v -E '^qualification/agent_challenger/|^\.github/workflows/scp-agent-challenger-readonly\.yml$' "$RUNNER_TEMP/changes"; then
+            echo 'REJECT_OTHER_SOURCE_OWNER_DIFF' >&2
+            exit 2
+          fi
+      - name: Unit adversarial forged winner and cross-camera regression controls
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q qualification/agent_challenger
+          python3 -m unittest discover -s qualification/agent_challenger -p 'test_*.py' -v
+      - name: Acquire immutable original synthetic measurement run, check exact ZIP bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/challenger"
+          curl -fsSL --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            'https://api.github.com/repos/SemperSupra/stable-character-pipeline/actions/artifacts/13463715647/zip' \
+            -o "$RUNNER_TEMP/challenger/source.zip"
+          echo "b3544979ae602ef6183c5240e98f0fc69f952f2c9d35821efd5e47c4755b00ed  $RUNNER_TEMP/challenger/source.zip" | sha256sum -c -
+          unzip -qq "$RUNNER_TEMP/challenger/source.zip" -d "$RUNNER_TEMP/challenger/evidence"
+          echo "05fe0533dee94d2853396867ea5b3a5d3922df9eec19e8d88af275172d9c7284  $RUNNER_TEMP/challenger/evidence/summary.json" | sha256sum -c -
+      - name: Independent source-byte readback of 12 native measurements and rule-ablation
+        run: |
+          set -euo pipefail
+          python3 qualification/agent_challenger/challenge.py \
+            --input "$RUNNER_TEMP/challenger/evidence/summary.json" \
+            --output "$RUNNER_TEMP/challenger/challenger.json"
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])/"challenger"
+          report=json.loads((root/"challenger.json").read_text())
+          assert report["source_observations"]==12
+          assert report["decision"]=="RULE_ONLY_SYNTHETIC_IMPROVEMENT_OBSERVED"
+          assert report["challenger_best"]=="zero"
+          assert report["mean_gain"]>.12
+          assert report["minimum_view_frame_gain"]>.11
+          assert report["actual_reasoning_actor_inference"]=="NOT_RUN"
+          assert report["independent_external_photo"]=="NOT_RUN"
+          assert not report["model_promotion"] and not report["merge_release_CPE_approval"]
+          print("R009_RULE_CHALLENGER_NATIVE_ABLATION_BLUE_UNDER_SYNTHETIC_HOLDS",report["mean_gain"])
+          PY
+      - name: Preserve source-bound small adversarial and challenger receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scp-native-actor-challenger-synthetic-qualification
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/challenger/challenger.json
+            ${{ runner.temp }}/challenger/evidence/summary.json
