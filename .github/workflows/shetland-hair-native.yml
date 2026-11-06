@@ -70,11 +70,11 @@ jobs:
           assert g["animations"]
           names=[m.get("name","") for m in g["meshes"]]
           morph_meshes=[m for m in g["meshes"] if any(p.get("targets") for p in m["primitives"])]
-          assert any("geometric_coat_mane_tail" in x for x in names)
+          groom_node=next(n for n in g["nodes"] if n.get("name")=="geometric_coat_mane_tail")
+          groom=g["meshes"][groom_node["mesh"]]
           assert len(morph_meshes)>=1
           assert any(c["target"]["path"]=="weights" for a in g["animations"] for c in a["channels"])
           assert not any(n.get("name","").startswith("tail_volume_") for n in g["nodes"]), "rigid egg-shaped tail proxy remained"
-          groom=next(m for m in g["meshes"] if "geometric_coat_mane_tail" in m.get("name",""))
           position_accessors=[g["accessors"][p["attributes"]["POSITION"]]["count"] for p in groom["primitives"]]
           assert sum(position_accessors)>=1050*10,position_accessors
           receipt=json.loads(next(dir.glob("*_receipt.json")).read_text())
