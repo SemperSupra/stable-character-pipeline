@@ -182,7 +182,7 @@ func TestIntentionalFaceBottomCropDoesNotDisableFullBodyGuard(t *testing.T){
     if err!=nil{t.Fatal(err)}
     for _,o:=range r.Captures {
         if o.Actor=="AsterOriginal" && o.View=="face" {
-            if o.Margins[2]!=0 || o.Result!="PASS_FACE_TOP_AND_SIDE_FRAMING_ONLY"{
+            if o.Margins[3]!=0 || o.Result!="PASS_FACE_TOP_AND_SIDE_FRAMING_ONLY"{
                 t.Fatalf("unexpected face ROI %#v",o)
             }
             return
