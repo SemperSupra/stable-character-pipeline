@@ -5,6 +5,8 @@ on:
       - "qualification/shetland_pony/guide_dynamics.py"
       - "qualification/shetland_pony/test_guide_dynamics.py"
       - "qualification/shetland_pony/guide_native.py"
+      - "qualification/shetland_pony/curved_groom.py"
+      - "qualification/shetland_pony/test_curved_groom.py"
       - ".github/workflows/shetland-hair-native.yml"
 permissions:
   contents: read
@@ -19,8 +21,8 @@ jobs:
       - name: Pure Python deterministic hostile qualification
         run: |
           set -euo pipefail
-          (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py)
-          python3 -m py_compile qualification/shetland_pony/guide_dynamics.py qualification/shetland_pony/guide_native.py
+          (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py)
+          python3 -m py_compile qualification/shetland_pony/guide_dynamics.py qualification/shetland_pony/guide_native.py qualification/shetland_pony/curved_groom.py
   native-blender:
     needs: source-hostile
     runs-on: ubuntu-24.04
@@ -72,7 +74,14 @@ jobs:
           assert len(morph_meshes)>=1
           assert any(c["target"]["path"]=="weights" for a in g["animations"] for c in a["channels"])
           assert not any(n.get("name","").startswith("tail_volume_") for n in g["nodes"]), "rigid egg-shaped tail proxy remained"
+          groom=next(m for m in g["meshes"] if "geometric_coat_mane_tail" in m.get("name",""))
+          position_accessors=[g["accessors"][p["attributes"]["POSITION"]]["count"] for p in groom["primitives"]]
+          assert sum(position_accessors)>=1050*10,position_accessors
           receipt=json.loads(next(dir.glob("*_receipt.json")).read_text())
+          assert receipt["curved_rows_per_card"]==5
+          assert receipt["curved_vertices"]==10500
+          assert receipt["root_source"]=="actual evaluated Blender skin from 48 source frames"
+
           for file,meta in receipt["files"].items():
               p=dir/file
               assert p.stat().st_size==meta["bytes"]
