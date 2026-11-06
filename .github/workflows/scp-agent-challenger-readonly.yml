@@ -66,6 +66,24 @@ jobs:
           assert not report["model_promotion"] and not report["merge_release_CPE_approval"]
           print("R009_RULE_CHALLENGER_NATIVE_ABLATION_BLUE_UNDER_SYNTHETIC_HOLDS",report["mean_gain"])
           PY
+      - name: Measure native validator controlled-performance and hostile replay
+        run: |
+          set -euo pipefail
+          python3 qualification/agent_challenger/validator_quality.py \
+            --input "$RUNNER_TEMP/challenger/evidence/summary.json" \
+            --output "$RUNNER_TEMP/challenger/validator-performance.json"
+          python3 - <<'PY'
+          import json,os,pathlib
+          r=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"challenger/validator-performance.json").read_text())
+          assert r["schema"]=="scp.validator.performance.v1"
+          assert r["case_count"]==11
+          assert r["rejection_detection"]=={"detected":9,"total":9}
+          assert r["false_acceptance_count"]==0 and r["false_rejection_count"]==0
+          assert r["contract_mismatch_count"]==0
+          assert r["verdict"]=="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"
+          assert r["model_inference"]=="NOT_RUN"
+          print("VALIDATOR_QUALITY_SYNTHETIC_CONTROLS_ONLY",r["validator_sha256"],r["runtime"])
+          PY
       - name: Preserve source-bound small adversarial and challenger receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -75,4 +93,5 @@ jobs:
           if-no-files-found: warn
           path: |
             ${{ runner.temp }}/challenger/challenger.json
+            ${{ runner.temp }}/challenger/validator-performance.json
             ${{ runner.temp }}/challenger/evidence/summary.json
