@@ -90,6 +90,28 @@ jobs:
           assert r["production_blender_4_5_15_untouched"] is True
           print("EXPERIMENTAL_48F_NATIVE_SECONDARY_MOTION_NOT_PONY_RELEASE")
           PY
+      - name: Independent 48f rigid-animation negative control and paired numerical oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_hair52_motion_quality.py)
+          env SCP_52_MODE=animation LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/hair52_dynamic_smoke.py -- "$GITHUB_WORKSPACE/results/experimental52/animation_control.json"
+          python3 qualification/equine/hair_prior_art/hair52_motion_quality.py \
+            results/experimental52/dynamics.json
+            results/experimental52/animation_control.json
+            results/experimental52/motion_quality.json \
+            results/experimental52/animation_control.json \
+            results/experimental52/motion_quality.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open("results/experimental52/motion_quality.json"))
+          assert r["verdict"]=="PAIRED_NATIVE_SECONDARY_MOTION_ENGINEERING_OBSERVED"
+          assert r["measured_samples"]==48 and r["guides"]==3
+          assert r["physics_tip_span_m"]>.01 and r["animation_control_span_m"]<=.0001
+          assert not r["physical_material_calibrated"] and not r["production_upgrade_approved"]
+          assert not r["merge_release_CPE"] and r["science_and_visual"]=="UNKNOWN"
+          print("EXP_NATIVE_PAIRED_CONTROL_PROVEN_NOT_RELEASE",r)
+          PY
       - name: Preserve experimental headless ABI evidence including first RED
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
