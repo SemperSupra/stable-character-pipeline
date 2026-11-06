@@ -105,8 +105,16 @@ try:
             motion=Vector(item["root_m"])-origin
             surface.location=motion
             surface.keyframe_insert(data_path="location",frame=item["frame"])
+        # Keyframing ends at 48 even if the scene remains at frame 1.
+        # Reset the live transform explicitly; otherwise depsgraph frame 1
+        # may show frame 48's location until Blender changes frame number.
+        surface.location=(0.,0.,0.)
         actors.append((card,region,hair,origin,samples))
     stage="evaluate_real_source_motion"
+    # Force a real scene-frame transition into frame 1 before XPBD starts.
+    # Frame 0 is an initialization observation, not a requested output pose.
+    scene.frame_set(0)
+    bpy.context.view_layer.update()
     for frame in range(1,49):
         scene.frame_set(frame)
         bpy.context.view_layer.update()
