@@ -43,3 +43,18 @@ func TestBadDateAndThreshold(t *testing.T){
  a:=base();a.AsOf="tomorrow";if _,e:=audit(a,14);e==nil{t.Fatal("date")}
  a=base();if _,e:=audit(a,0);e==nil{t.Fatal("threshold")}
 }
+
+func TestRejectFullLengthMalformedCommitHashes(t *testing.T) {
+ for _,tc:=range []struct{name string;head bool;invalid string}{
+  {"head_nonhex",true,strings.Repeat("z",40)},
+  {"base_nonhex",false,strings.Repeat("z",40)},
+  {"head_uppercase",true,strings.Repeat("A",40)},
+  {"base_uppercase",false,strings.Repeat("A",40)},
+ } {
+  t.Run(tc.name,func(t *testing.T){
+   a:=base()
+   if tc.head {a.PRs[0].Head.SHA=tc.invalid} else {a.PRs[0].Base.SHA=tc.invalid}
+   if _,err:=audit(a,14);err==nil {t.Fatal("invalid full-length SHA accepted")}
+  })
+ }
+}

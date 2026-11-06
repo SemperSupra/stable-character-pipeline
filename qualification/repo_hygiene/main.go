@@ -81,7 +81,7 @@ func audit(s Snapshot, staleDays int) (Report,error) {
  headSHA:=map[string][]int{}
  numbers:=map[int]bool{}
  for _,p:=range s.PRs {
-  if p.Number<=0||numbers[p.Number]||p.State!="open"||p.MergedAt!=nil||len(p.Head.SHA)!=40||len(p.Base.SHA)!=40||p.Head.Ref==""||p.Base.Ref==""{return Report{},fmt.Errorf("INVALID_PR:%d",p.Number)}
+  if p.Number<=0||numbers[p.Number]||p.State!="open"||p.MergedAt!=nil||!shaPattern.MatchString(p.Head.SHA)||!shaPattern.MatchString(p.Base.SHA)||p.Head.Ref==""||p.Base.Ref==""{return Report{},fmt.Errorf("INVALID_PR:%d",p.Number)}
   if p.HTMLURL!="" && !strings.HasPrefix(p.HTMLURL,"https://github.com/"+allowedRepo+"/pull/"){return Report{},fmt.Errorf("UNTRUSTED_URL:%d",p.Number)}
   numbers[p.Number]=true; heads[p.Head.Ref]=p.Number;headSHA[p.Head.SHA]=append(headSHA[p.Head.SHA],p.Number)
  }
