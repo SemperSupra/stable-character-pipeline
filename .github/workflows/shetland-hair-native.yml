@@ -56,7 +56,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python qualification/shetland_pony/guide_native.py -- "$GITHUB_WORKSPACE/results/baseline/shetland_black_ghcr.blend" "$GITHUB_WORKSPACE/results/hair"
+          env SCP_HAIR_MODE=rest_candidate LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python qualification/shetland_pony/guide_native.py -- "$GITHUB_WORKSPACE/results/baseline/shetland_black_ghcr.blend" "$GITHUB_WORKSPACE/results/hair"
       - name: Independent exported GLB structural and hash gate
         shell: bash
         run: |
@@ -90,6 +90,9 @@ jobs:
           assert quality["sample_frames"]==[1,7,13,19,25,31,37,43,48]
           assert not quality["visual_acceptance"]
           assert quality["biology_and_collision"]=="UNKNOWN"
+          assert receipt["hair_mode"]=="rest_candidate"
+          assert receipt["candidate_rest_stiffness_s2"]==60.
+          assert receipt["clamp_m"]==0.22
           print("HAIR_CLAMP_DIAGNOSTIC_NOT_SCIENTIFIC_ACCEPTANCE",quality["overall"])
 
           for file,meta in receipt["files"].items():
