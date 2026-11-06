@@ -17,6 +17,16 @@ bpy.ops.wm.open_mainfile(filepath=str(source.resolve()))
 rig=bpy.data.objects.get("PonyRig30")
 if rig is None or len(rig.data.bones)!=30:raise ValueError("missing original 30-bone rig")
 if any(b not in rig.pose.bones for b in TAIL_BONES):raise ValueError("tail topology incomplete")
+# The original three decorative UV ellipsoids form a visible rigid egg at
+# the tail tip. Omit them from this non-destructive native derivative; retain
+# all 380 skinned tail hairs and the articulated dock bones.
+removed=[]
+for i in range(3):
+    obj=bpy.data.objects.get("tail_volume_"+str(i))
+    if obj is not None:
+        removed.append(obj.name)
+        bpy.data.objects.remove(obj,do_unlink=True)
+if len(removed)!=3:raise ValueError("unexpected original tail ellipsoid source")
 values=[sample(f) for f in range(1,FRAMES+1)]
 validate_timeline(values)
 for frame,angles in enumerate(values,1):
