@@ -26,19 +26,19 @@ Generation refuses overwriting existing output. Runs are deterministic for a fix
 
 ## First actual morphology-to-GLB adapter (unqualified preview)
 
-\`morph_preview_35_v1.py\` imports the pinned source-original procedural body from the parent \`original_reusable_characters\` package, varies **skin geometry only** using conservative localized waist/hip, jaw/nose and left/right anterior-chest deformation fields, and rebuilds separate original wardrobe GLBs with the same 35-joint skeleton and 72 authored frames. It deliberately **does not** alter parent source, rig rest joint locations, skin indices, topology, clothes, hair or iris materials. It recomputes normals; clothing penetration and anatomical fidelity remain UNKNOWN/FAIL until separately measured. Shape variation is a simple visual proof, not surgery simulation or high-precision anthropometric fitting.
+`morph_preview_35_v1.py` imports the pinned source-original procedural body from the parent `original_reusable_characters` package, varies **skin geometry only** using conservative localized waist/hip, jaw/nose and left/right anterior-chest deformation fields, and rebuilds separate original wardrobe GLBs with the same 35-joint skeleton and 72 authored frames. It deliberately **does not** alter parent source, rig rest joint locations, skin indices, topology, clothes, hair or iris materials. It recomputes normals; clothing penetration and anatomical fidelity remain UNKNOWN/FAIL until separately measured. Shape variation is a simple visual proof, not surgery simulation or high-precision anthropometric fitting.
 
 The public CI generates before/after GLBs from **the same identity and timeline** (2026-04-01 vs 2026-06-01) and a separate evidence-labeled parameter delta report. The difference is hypothetical, not an observed real procedure. Artifacts expire after seven days and are not yet Drive-custodied.
 
-\`\`\`sh
+```sh
 python3 parameters_v1.py generate --seed 73 --out aster.json
 python3 parameters_v1.py generate --seed 74 --out juniper.json
 python3 morph_preview_35_v1.py --aster aster.json --juniper juniper.json \
   --out morph_preview.glb --manifest morph_manifest.json \
   --receipt morph_receipt.json
-\`\`\`
+```
 
-The label map \`SEMANTIC_LABELS_EN_DE_TH.json\` must cover every exact control path so that the same controls can be displayed in English, German and Thai. It is a UI glossary, not certified medical terminology.
+The label map `SEMANTIC_LABELS_EN_DE_TH.json` must cover every exact control path so that the same controls can be displayed in English, German and Thai. It is a UI glossary, not certified medical terminology.
 
 ## Source-original per-character and per-eye PBR appearance derivative
 
@@ -51,6 +51,26 @@ python3 appearance_material_v1.py --input morph_preview.glb \
 ```
 
 The numerical skin-albedo curve is **stylized and uncalibrated**, not a validated estimate of real pigmentation or a clinical skin parameter. Hair length/density/curvature/groom geometry and anatomical realism are **not** implemented. PBR material separation does not qualify Blender import/view, camera-calibrated appearance, optical realism, cloth fit, or surgery outcomes. The public workflow tests a hypothetical before/after style event and generates `before_appearance.glb` and `after_appearance.glb` independently of the non-destructive geometry previews. Real-person imagery remains excluded from public CI.
+
+## Verified v1 control-effect qualification (source-original, not clinical)
+
+The public CI counterfactual evaluator now distinguishes **nine geometry-active** controls
+(waist/hip circumferences, jaw width, nose projection, bilateral relative chest volumes,
+cheek fullness, chin projection and lip fullness) from **six PBR-active** controls
+(skin melanin, skin undertone, skin roughness, hair RGB and independent left/right iris RGB).
+The latest input ontology contains **28 controls**; **15/28** are wired to either original
+surface geometry or per-actor PBR, and **13/28 are not yet wired** to supported
+rendered geometry, groom or material output. The original geometry, rig, animation,
+indices and source files remain unmodified by these opt-in derived previews.
+Appearance coverage and geometry coverage are **different denominators**; 9/28
+geometry-active does not mean the PBR controls are defective.
+
+The three additional facial controls are deliberately local soft-surface
+deformations, not facial muscles, FACS blendshapes, anatomical tissue simulation,
+clinical prediction or accurate changes to facial surgery outcomes.
+Their independent negative tests require changed vertices only in the face region,
+and unchanged topology, joints, weights and non-skin materials.
+They are not yet integrated into hair, garments, facial expressions or a calibrated camera fit.
 
 ## Contract and invariants
 1. `character_id` and immutable `identity` coefficients remain stable across time-indexed states.
