@@ -186,7 +186,7 @@ func main(){
  original,e1:=json.MarshalIndent(snap,"","  "); report,e2:=json.MarshalIndent(r,"","  ")
  if e1!=nil||e2!=nil {fmt.Fprintln(os.Stderr,"JSON_MARSHAL_FAILED");os.Exit(1)}
  if err=os.Mkdir(out,0700);err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
- artifacts:=[]struct{name string; data []byte}{{"snapshot.json",append(original,'\n')},{"report.json",append(report,'\\n')},{"audit.md",[]byte(renderMD(r))},{"roots.json",workset.JSON()},{"roots.md",[]byte(workset.Markdown())}}
+ artifacts:=[]struct{name string; data []byte}{{"snapshot.json",append(original,'\n')},{"report.json",append(report,'\n')},{"audit.md",[]byte(renderMD(r))},{"roots.json",workset.JSON()},{"roots.md",[]byte(workset.Markdown())}}
  if snapshotPath==""{
   artifacts=append(artifacts,struct{name string;data []byte}{"drifts.json",driftEvidence.JSON()})
   artifacts=append(artifacts,struct{name string;data []byte}{"drifts.md",[]byte(driftEvidence.Markdown())})
