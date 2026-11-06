@@ -37,6 +37,8 @@ def cases():
     add("zero-normal","REJECT",lambda d:d["normals"].__setitem__(0,[0.,0.,0.]))
     add("invalid-triangle","REJECT",lambda d:d["triangles"].__setitem__(0,[0,0,1]))
     add("clothing-is-not-body","REJECT",lambda d:d["correspondences"][0].update(surface="CLOTHING"))
+    add("boolean-tangent-is-not-distance","REJECT",lambda d:d["options"].update(max_tangent_step_m=False))
+    add("text-metric-step-is-not-admitted","REJECT",lambda d:d["options"].update(max_tangent_step_m="0.02"))
     add("nonnumeric-coordinate","REJECT",lambda d:d["vertices"][0].__setitem__(0,"nan"))
     return rows
 
@@ -76,7 +78,7 @@ def score(validator=fit_once):
         "schema":"scp.validator.performance.v1",
         "validator":"scp.original_human.synthetic_surface_registration",
         "validator_sha256":hashlib.sha256(Path(__file__).with_name("surface_registration_v1.py").read_bytes()).hexdigest(),
-        "corpus":"scp.synthetic_surface_fit.hostile.v1",
+        "corpus":"scp.synthetic_surface_fit.hostile.v2",
         "corpus_sha256":digest([{"id":n,"expected":w,"source":digest(d)} for n,w,d in items]),
         "source_class":"QUAD_SYNTHETIC_NO_REAL_PHOTOGRAPH",
         "case_count":len(items),"confusion":matrix,
@@ -96,8 +98,8 @@ def score(validator=fit_once):
 class SurfaceValidatorPerformance(unittest.TestCase):
     def test_quality_and_emit_receipt(self):
         report=score()
-        self.assertEqual(report["case_count"],11)
-        self.assertEqual(report["rejection_detection"],{"detected":6,"total":6})
+        self.assertEqual(report["case_count"],13)
+        self.assertEqual(report["rejection_detection"],{"detected":8,"total":8})
         self.assertEqual(report["confusion"]["ABSTAIN"]["ABSTAIN"],3)
         self.assertEqual(report["false_acceptance_count"],0)
         self.assertEqual(report["false_rejection_count"],0)
@@ -112,8 +114,8 @@ class SurfaceValidatorPerformance(unittest.TestCase):
             return {"qualification":"SYNTHETIC_GEOMETRIC_CONTRACT_ONLY",
                     "motion_accepted":False,"identity_accepted":False,"stats":{}}
         report=score(validator=accept_all)
-        self.assertEqual(report["false_acceptance_count"],9)
-        self.assertEqual(report["contract_mismatch_count"],9)
+        self.assertEqual(report["false_acceptance_count"],11)
+        self.assertEqual(report["contract_mismatch_count"],11)
 
     def test_meta_oracle_that_rejects_everything_is_detected(self):
         def reject_all(document):
@@ -126,7 +128,7 @@ class SurfaceValidatorPerformance(unittest.TestCase):
         source=fixture()
         before=copy.deepcopy(source)
         self.assertEqual(source,before)
-        self.assertEqual(len(set(c[0] for c in cases())),11)
+        self.assertEqual(len(set(c[0] for c in cases())),13)
 
 
 if __name__=="__main__":
