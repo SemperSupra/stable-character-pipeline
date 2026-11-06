@@ -46,6 +46,9 @@ jobs:
           python3 qualification/human_rig_motion/foot_anchor_support.py \
             --glb "$RUNNER_TEMP/rig35-temporal/source.glb" \
             --out "$RUNNER_TEMP/rig35-temporal/foot_anchor_support.json"
+          python3 qualification/human_rig_motion/sole_skin_surface.py \
+            --glb "$RUNNER_TEMP/rig35-temporal/source.glb" \
+            --out "$RUNNER_TEMP/rig35-temporal/sole_skin_surface.json"
           python3 - "$RUNNER_TEMP/rig35-temporal" <<'PY'
           import hashlib,json,sys,pathlib
           base=pathlib.Path(sys.argv[1])
@@ -73,6 +76,15 @@ jobs:
           assert f["foot_sole_mesh_penetration"]=="NOT_MEASURED"
           assert f["independent_anatomical_JCS_ROM"]=="NOT_PROVEN"
           assert not f["human_gait_accepted"] and not f["release_or_CPE_admission"]
+          sole=json.loads((base/"sole_skin_surface.json").read_text())
+          assert sole["source_glb_sha256"]==f["source_glb_sha256"]==r["source_glb_sha256"]
+          assert sole["frames"]==72 and sole["fps"]==12
+          assert all(set(a)=={"L","R"} for a in sole["actors"].values())
+          assert all(all(x["fixed_bind_sole_vertices"]>=2 and x["source_footwear_vertices"]>=20
+              for x in a.values()) for a in sole["actors"].values())
+          assert sole["ground_plane_basis"].endswith("NOT independent terrain")
+          assert not sole["human_gait_accepted"] and not sole["release_or_CPE_admission"]
+          print("SKINNED_FOOTWEAR_SURFACE_SCREEN_ONLY_NO_PHYSICAL_ACCEPTANCE")
           print("SOURCE_ORIGINAL_FOOT_JOINT_SUPPORT_ONLY",f["source_glb_sha256"])
           print("RIG35_TECHNICAL_SAMPLING_ONLY_PASS_HUMAN_ANATOMY_UNKNOWN")
           PY
@@ -87,4 +99,5 @@ jobs:
             ${{ runner.temp }}/rig35-temporal/temporal.json
             ${{ runner.temp }}/rig35-temporal/signed_source_rom.json
             ${{ runner.temp }}/rig35-temporal/foot_anchor_support.json
+            ${{ runner.temp }}/rig35-temporal/sole_skin_surface.json
             ${{ runner.temp }}/rig35-temporal/manifest.json
