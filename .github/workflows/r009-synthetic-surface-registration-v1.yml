@@ -36,6 +36,10 @@ on:
       - "qualification/parametric_humans/HUMAN_TOPOLOGY_BASEMESH_RDTE_V1.md"
       - "qualification/parametric_humans/weight_transfer_regularize_v1.py"
       - "qualification/parametric_humans/test_weight_transfer_sourcefree_v1.py"
+      - "qualification/parametric_humans/test_weight_transfer_regularize_v1.py"
+      - "qualification/parametric_humans/build_regularization_evidence_v1.py"
+      - "qualification/parametric_humans/WEIGHT_REGULARIZATION_V1.md"
+      - "qualification/parametric_humans/evidence/makehuman35_weight_regularization_20261106.json"
       - "qualification/parametric_humans/SCULPT_RESEARCH_V1.md"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:

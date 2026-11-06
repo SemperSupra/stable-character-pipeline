@@ -1,0 +1,127 @@
+{
+  "anatomical_motion_accepted": false,
+  "garment_collision_accepted": false,
+  "masculine_anatomy_accepted": false,
+  "measured": {
+    "actors": {
+      "AsterOriginal": {
+        "contact": {
+          "costume_bottom": {
+            "fit_accepted": false,
+            "rest_penetration_beyond_5mm_after": 0.078125,
+            "rest_penetration_beyond_5mm_before": 0.078125,
+            "worst_five_witness_penetration_after": 0.103125,
+            "worst_five_witness_penetration_before": 0.1
+          },
+          "costume_top": {
+            "fit_accepted": false,
+            "rest_penetration_beyond_5mm_after": 0.22321428571428573,
+            "rest_penetration_beyond_5mm_before": 0.22321428571428573,
+            "worst_five_witness_penetration_after": 0.22321428571428573,
+            "worst_five_witness_penetration_before": 0.22544642857142858
+          },
+          "costume_trim": {
+            "fit_accepted": false,
+            "rest_penetration_beyond_5mm_after": 0.3697916666666667,
+            "rest_penetration_beyond_5mm_before": 0.3697916666666667,
+            "worst_five_witness_penetration_after": 0.3697916666666667,
+            "worst_five_witness_penetration_before": 0.3697916666666667
+          },
+          "footwear": {
+            "fit_accepted": false,
+            "rest_penetration_beyond_5mm_after": 0.19682539682539682,
+            "rest_penetration_beyond_5mm_before": 0.19682539682539682,
+            "worst_five_witness_penetration_after": 0.1976190476190476,
+            "worst_five_witness_penetration_before": 0.1976190476190476
+          }
+        },
+        "framewise_p99_improved_count": 72,
+        "framewise_severe_edge_strain_improved_count": 72,
+        "max_rest_bind_error_after": 4.2915344167226976e-08,
+        "p99_stretch_worst_after": 1.1566911935806274,
+        "p99_stretch_worst_before": 1.2816095352172852,
+        "worst_gt_50pct_edge_strain_after": 0.0010464942442816563,
+        "worst_gt_50pct_edge_strain_before": 0.006004883639806648,
+        "worst_single_edge_stretch_after": 1.7384833097457886,
+        "worst_single_edge_stretch_before": 3.207432270050049
+      },
+      "JuniperOriginal": {
+        "contact": {
+          "costume_bottom": {
+            "fit_accepted": false,
+            "rest_penetration_beyond_5mm_after": 0.084375,
+            "rest_penetration_beyond_5mm_before": 0.084375,
+            "worst_five_witness_penetration_after": 0.109375,
+            "worst_five_witness_penetration_before": 0.1125
+          },
+          "costume_top": {
+            "fit_accepted": false,
+            "rest_penetration_beyond_5mm_after": 0.37723214285714285,
+            "rest_penetration_beyond_5mm_before": 0.37723214285714285,
+            "worst_five_witness_penetration_after": 0.3794642857142857,
+            "worst_five_witness_penetration_before": 0.3794642857142857
+          },
+          "costume_trim": {
+            "fit_accepted": false,
+            "rest_penetration_beyond_5mm_after": 0.4010416666666667,
+            "rest_penetration_beyond_5mm_before": 0.4010416666666667,
+            "worst_five_witness_penetration_after": 0.4010416666666667,
+            "worst_five_witness_penetration_before": 0.4010416666666667
+          },
+          "footwear": {
+            "fit_accepted": false,
+            "rest_penetration_beyond_5mm_after": 0.19682539682539682,
+            "rest_penetration_beyond_5mm_before": 0.19682539682539682,
+            "worst_five_witness_penetration_after": 0.1976190476190476,
+            "worst_five_witness_penetration_before": 0.1976190476190476
+          }
+        },
+        "framewise_p99_improved_count": 72,
+        "framewise_severe_edge_strain_improved_count": 72,
+        "max_rest_bind_error_after": 4.2915344167226976e-08,
+        "p99_stretch_worst_after": 1.1541107892990112,
+        "p99_stretch_worst_before": 1.2730097770690918,
+        "worst_gt_50pct_edge_strain_after": 0.0010215777146559027,
+        "worst_gt_50pct_edge_strain_before": 0.006079633228683909,
+        "worst_single_edge_stretch_after": 1.7426711320877075,
+        "worst_single_edge_stretch_before": 3.170974016189575
+      }
+    },
+    "anatomical_accuracy": false,
+    "baseline_candidate_sha256": "57a4cfd1d9df7e6e2f7c2e44e68765a8ca4357895d5b075f9229b78a5bbcd36a",
+    "full_72_frame_CPU_LBS": true,
+    "garment_collision_accepted": false,
+    "garment_contact_frames": [
+      "rest",
+      0,
+      24,
+      48,
+      71
+    ],
+    "native_blender": false,
+    "realistic_motion_accepted": false,
+    "regularized_candidate_sha256": "d803ad188f5682a0ce05444bb9fb829b487a358f29a5cad15da363fba427fd6b",
+    "release_approved": false,
+    "schema": "scp.r009.makehuman35.weight_regularization_comparison.v1"
+  },
+  "merge_release_cpe_approved": false,
+  "next_action": "composition of weight-regularized body with garment clearance fitted variant, correct 20% footwear penetration and top winding, native 72frame Blender BVH hold",
+  "regularized_candidate_sha256": "d803ad188f5682a0ce05444bb9fb829b487a358f29a5cad15da363fba427fd6b",
+  "research_bundle": {
+    "bytes": 4721532,
+    "drive_url": "https://drive.google.com/file/d/1U1uIUZgcaTTuwT0hRsjzPyf1T0Hbu-iG/view",
+    "entry_count": 19,
+    "sha256": "c064e62608131377e95448b427b4f5b51c94336d8734cc9bd7f791258b8b1380",
+    "zip_crc_pass": true
+  },
+  "schema": "scp.r009.makehuman35.weight_regularization_git_evidence.v1",
+  "source_animation_unchanged": true,
+  "source_candidate_sha256": "57a4cfd1d9df7e6e2f7c2e44e68765a8ca4357895d5b075f9229b78a5bbcd36a",
+  "source_class": "original_self_authored_actors_plus_makehuman_CC0_body",
+  "source_geometry_unchanged": true,
+  "test_witness": {
+    "local_actual_source_tests": "9_PASS_0_FAIL",
+    "native_blender_new_regularized_candidate": "NOT_RUN",
+    "public_sourceless": "2_PASS_7_EXPLICIT_SKIPS"
+  }
+}
