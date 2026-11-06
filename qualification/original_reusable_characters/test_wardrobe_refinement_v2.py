@@ -9,7 +9,7 @@ from pathlib import Path
 from modular_wardrobe_v1 import ACTORS, PRESETS
 from test_modular_wardrobe_v1 import witness
 from verify_original_glb import decode, accessory
-from wardrobe_refinement_v2 import build,continuous_figure,SHOULDER_GUSSET_RINGS,SHOULDER_GUSSET_SIDES
+from wardrobe_refinement_v2 import build,continuous_figure,SHOULDER_GUSSET_RINGS,SHOULDER_GUSSET_SIDES,trouser_hip_inset,knee_cap_to_source_joint
 from wardrobe_portable_export_v2 import export
 
 class RefinementTests(unittest.TestCase):
@@ -40,6 +40,41 @@ class RefinementTests(unittest.TestCase):
         self.assertIn("' r009-evidence/changed_paths.txt; then",content)
         self.assertIn("permissions:\n  contents: read",content)
         self.assertEqual(sum(line.startswith("      - name: ") for line in content.splitlines()),6)
+
+    def test_correct_hip_thigh_and_knee_against_exact_original_joint_rest(self):
+        from humanization_v2 import v1 as source
+        for side in ("L","R"):
+            hip=source.POS["hip_"+side]
+            knee=source.POS["knee_"+side]
+            self.assertAlmostEqual(knee[1],.49,places=6)
+            moved,radius,active=trouser_hip_inset(
+                "slatePants",hip,knee,.113,"hip_"+side,"knee_"+side)
+            self.assertTrue(active)
+            self.assertAlmostEqual(moved[1],.794,places=6)
+            self.assertGreater(moved[1],.72)
+            self.assertLess(moved[1],hip[1])
+            self.assertEqual(radius,.106)
+            original,mr,changed=trouser_hip_inset(
+                "skinWarm",hip,knee,.097,"hip_"+side,"knee_"+side)
+            self.assertFalse(changed)
+            self.assertEqual(original,hip)
+            self.assertEqual(mr,.097)
+            c,rs,modified=knee_cap_to_source_joint(
+                "slatePants",(hip[0],.34,.006),(.077,.108,.074),"knee_"+side)
+            self.assertTrue(modified)
+            self.assertEqual(c,knee)
+            self.assertEqual(rs,(.078,.086,.076))
+            untouched,ur,unchanged=knee_cap_to_source_joint(
+                "skinWarm",(hip[0],.34,.006),(.077,.108,.074),"knee_"+side)
+            self.assertFalse(unchanged)
+            self.assertEqual(untouched,(hip[0],.34,.006))
+            self.assertEqual(ur,(.077,.108,.074))
+        before=(source.Geometry.tube,source.Geometry.ellipsoid)
+        continuous_figure(0)
+        self.assertIs(source.Geometry.tube,before[0])
+        self.assertIs(source.Geometry.ellipsoid,before[1])
+        self.assertTrue(self.receipt["trouser_upper_thigh_tube_starts_inset"])
+        self.assertTrue(self.receipt["original_source_kneecaps_aligned_to_joint_rest"])
 
     def test_shoulder_gusset_source_geometry_and_non_destructive_skin_weights(self):
         from humanization_v2 import v1 as h17
