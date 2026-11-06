@@ -24,6 +24,8 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends ffmpeg
       - name: Independent observer hostile source tests and native AAC tests
+        env:
+          SCP_AUDIO_VALIDATOR_PERF_OUT: ${{ runner.temp }}/equine-audio-validator-performance.json
         run: |
           set -euo pipefail
           ffmpeg -version | head -1
@@ -31,6 +33,25 @@ jobs:
           go test -race -count=1 ./...
           go vet ./...
           go build -o "$RUNNER_TEMP/equine-av-observer" ./cmd/av_observer
+      - name: Verify synthetic decoded-audio validator confusion and qualified limitations
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"equine-audio-validator-performance.json"
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.validator.performance.v1"
+          assert r["case_count"]==14
+          assert r["rejection_detection"]=={"detected":11,"total":11}
+          assert r["confusion"]["ACCEPT"]["ACCEPT"]==3
+          assert r["false_acceptance_count"]==r["false_rejection_count"]==0
+          assert r["hard_error_count"]==r["contract_mismatch_count"]==0
+          assert r["animal_acoustic_realism"]=="UNKNOWN"
+          assert r["physical_contact"]=="UNKNOWN"
+          assert r["verdict"]=="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"
+          assert not r["merge_release_CPE_approval"]
+          print("DECODED_AUDIO_VALIDATOR_QUALITY",r["validator_sha256"],r["runtime"])
+          PY
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: SemperSupra/stable-character-pipeline
@@ -102,3 +123,4 @@ jobs:
             ${{ runner.temp }}/observer/synth.json
             ${{ runner.temp }}/observer/decoded-pass.json
             ${{ runner.temp }}/observer/decoded-negative.json
+            ${{ runner.temp }}/equine-audio-validator-performance.json
