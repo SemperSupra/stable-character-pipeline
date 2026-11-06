@@ -55,7 +55,7 @@ jobs:
           for preset in unclothed signature alternate; do
             python3 wardrobe_console_v2.py export --input ../../r009-evidence/wardrobe_v2.glb --manifest ../../r009-evidence/wardrobe_v2_manifest.json --out ../../r009-evidence/portable_${preset}.glb --receipt ../../r009-evidence/portable_${preset}.json --aster "${preset}" --juniper "${preset}"
           done
-          python3 -c 'import json; b=json.load(open("../../r009-evidence/wardrobe_v2_build.json")); m=json.load(open("../../r009-evidence/wardrobe_v2_manifest.json")); assert b["contiguous_trunk_neck_head_loft"] and m["separate_new_geometry_for_alternate"] and not b["full_body_watertight"] and not m["release_approved"]'
+          python3 -c 'import json; b=json.load(open("../../r009-evidence/wardrobe_v2_build.json")); m=json.load(open("../../r009-evidence/wardrobe_v2_manifest.json")); assert b["contiguous_trunk_neck_head_loft"] and m["separate_new_geometry_for_alternate"] and not b["full_body_watertight"] and not m["release_approved"] and b["two_tube_baseline_selected"] and not b["original_pant_legs_continuous_indexed_through_knee"] and not b["experimental_knee_visual_quality_rejected"]'
       - name: Install hash-verified official Blender CPU and Xvfb
         run: |
           set -euo pipefail
