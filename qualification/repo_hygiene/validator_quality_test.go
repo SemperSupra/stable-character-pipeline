@@ -78,6 +78,18 @@ func hostileAuditorCases() []qualityCase {
     add("zero-number-must-reject", "REJECT",func(s *Snapshot){s.PRs[1].Number=0})
     add("empty-head-ref-must-reject", "REJECT",func(s *Snapshot){s.PRs[1].Head.Ref=""})
     add("invalid-schema-must-reject", "REJECT",func(s *Snapshot){s.Schema="unsafe"})
+    add("complete-without-pages-must-reject", "REJECT",func(s *Snapshot){s.FetchPages=0})
+    add("complete-overfull-page-must-reject", "REJECT",func(s *Snapshot){
+        s.FetchPages=1
+        for i:=2;i<101;i++{
+            p:=s.PRs[1]
+            p.Number=i+100
+            p.Head.Ref=fmt.Sprintf("extra-%d",i)
+            p.Head.SHA=fmt.Sprintf("%040x",i)
+            s.PRs=append(s.PRs,p)
+        }
+    })
+
     return cases
 }
 func classifyAuditor(s Snapshot) string{
@@ -93,6 +105,7 @@ func rank(values []int64,num,den int)int64{
 }
 func syntheticScale(n int)Snapshot{
     s:=base()
+    s.FetchPages=(n+99)/100
     s.PRs=nil
     for i:=0;i<n;i++{
         s.PRs=append(s.PRs,Pull{
@@ -109,7 +122,7 @@ func measureAuditorQuality(classify func(Snapshot)string)qualityLedger{
     classes:=[]string{"ACCEPT","ABSTAIN","REJECT","ERROR"}
     v:=qualityLedger{Schema:"scp.validator.performance.v1",
         Validator:"scp.r009.repo_hygiene.readonly",
-        Corpus:"scp.r009.hygiene_auditor.hostile.v1",
+        Corpus:"scp.r009.hygiene_auditor.hostile.v2",
         SourceClass:"ORIGINAL_SYNTHETIC_PUBLIC_READONLY_FIXTURES",
         CaseCount:len(cases),Confusion:map[string]map[string]int{},
         Cases:[]qualityCaseReceipt{},
@@ -159,7 +172,7 @@ func measureAuditorQuality(classify func(Snapshot)string)qualityLedger{
 }
 func TestHygieneValidatorQualityReceipt(t *testing.T){
     r:=measureAuditorQuality(classifyAuditor)
-    if r.CaseCount!=12||r.RejectionDetection.Total!=10||r.RejectionDetection.Detected!=10||
+    if r.CaseCount!=14||r.RejectionDetection.Total!=12||r.RejectionDetection.Detected!=12||
         r.FalseAcceptanceCount!=0||r.FalseRejectionCount!=0||r.ContractMismatchCount!=0||
         r.Confusion["ABSTAIN"]["ABSTAIN"]!=1||r.Verdict!="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"{
         t.Fatalf("validator controls failed: %+v",r)
@@ -173,7 +186,7 @@ func TestHygieneValidatorQualityReceipt(t *testing.T){
 func TestQualityHarnessDetectsBrokenAuditor(t *testing.T){
     alwaysAccept:=func(Snapshot)string{return "ACCEPT"}
     r:=measureAuditorQuality(alwaysAccept)
-    if r.FalseAcceptanceCount!=11||r.ContractMismatchCount!=11||r.Verdict!="FAIL_VALIDATOR_CONTROLS"{
+    if r.FalseAcceptanceCount!=13||r.ContractMismatchCount!=13||r.Verdict!="FAIL_VALIDATOR_CONTROLS"{
         t.Fatalf("broken auditor falsely passed: %+v",r)
     }
 }
