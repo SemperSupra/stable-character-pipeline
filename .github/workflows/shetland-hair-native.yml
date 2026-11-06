@@ -7,6 +7,8 @@ on:
       - "qualification/shetland_pony/guide_native.py"
       - "qualification/shetland_pony/curved_groom.py"
       - "qualification/shetland_pony/test_curved_groom.py"
+      - "qualification/shetland_pony/hair_clamp_quality.py"
+      - "qualification/shetland_pony/test_hair_clamp_quality.py"
       - ".github/workflows/shetland-hair-native.yml"
 permissions:
   contents: read
@@ -21,8 +23,8 @@ jobs:
       - name: Pure Python deterministic hostile qualification
         run: |
           set -euo pipefail
-          (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py)
-          python3 -m py_compile qualification/shetland_pony/guide_dynamics.py qualification/shetland_pony/guide_native.py qualification/shetland_pony/curved_groom.py
+          (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py test_hair_clamp_quality.py)
+          python3 -m py_compile qualification/shetland_pony/guide_dynamics.py qualification/shetland_pony/guide_native.py qualification/shetland_pony/curved_groom.py qualification/shetland_pony/hair_clamp_quality.py
   native-blender:
     needs: source-hostile
     runs-on: ubuntu-24.04
@@ -81,6 +83,14 @@ jobs:
           assert receipt["curved_rows_per_card"]==5
           assert receipt["curved_vertices"]==10500
           assert receipt["root_source"]=="actual evaluated Blender skin from 48 source frames"
+          quality=receipt["clamp_quality"]
+          assert quality["schema"]=="equine.longhair.clamp_quality.v1"
+          assert quality["guides"]==receipt["guide_groups"]
+          assert quality["overall"]["count"]==receipt["guide_groups"]*9
+          assert quality["sample_frames"]==[1,7,13,19,25,31,37,43,48]
+          assert not quality["visual_acceptance"]
+          assert quality["biology_and_collision"]=="UNKNOWN"
+          print("HAIR_CLAMP_DIAGNOSTIC_NOT_SCIENTIFIC_ACCEPTANCE",quality["overall"])
 
           for file,meta in receipt["files"].items():
               p=dir/file
