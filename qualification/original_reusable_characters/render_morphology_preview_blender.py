@@ -124,7 +124,7 @@ def run(src, output_dir, source_sha):
                 scene.render.filepath=str(file)
                 bpy.ops.render.render(write_still=True)
                 raw=file.read_bytes()
-                if not raw.startswith(b"\\x89PNG\\r\\n\\x1a\\n") or len(raw)<10000:
+                if not raw.startswith(bytes([137,80,78,71,13,10,26,10])) or len(raw)<10000:
                     raise RuntimeError("PREVIEW_NOT_REAL_PNG:"+filename)
                 active=sorted(s for (a,s),o in layers.items()
                               if a == actor and not o.hide_render)
