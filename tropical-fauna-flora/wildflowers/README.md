@@ -121,3 +121,25 @@ Repository policy: store only Go/validation source, presets, DLE receipts and
 small machine-readable manifests in Git. Generated GLBs, wind JSON traces and
 previews belong in the verified large-binary Drive corpus. Keep existing PR
 #13 draft, source parent #4 and protected release/scientific/rights holds.
+
+## W07 independent multi-axis wind and organ-level LOD experiments
+
+The W06 historical `-wind-driver harmonic` and `spring-drag` exports are unchanged by default. New **opt-in** `-wind-driver spring-drag-multimode` produces glTF 2.0 GLBs with **six** morph targets: positive/negative X bending, positive/negative Z bending, and positive/negative local foliage deformation. The three profiles are independent one-dimensional synthetic damped-mass/drag oscillators, not coupled finite-element wind or botanical measurements; foliage shape is kinematically anchored at each generated leaf base. The 49 animation keyframes sample three independent 481-step traces over four seconds, with `loop=false`, and are decoded by a separate Python standard-library validator. The animated GLB geometry and source traces are checked together.
+
+`-lod` levels 0, 1, 2, and 3 select full detail or deterministic whole-organ foliage thinning (approximately 1/2, 1/4, 1/8 leaf retention); stems and reproductive geometry remain. Geometry indices, source semantic keys and parent references are recomputed and revalidated, not simply reindexed arbitrarily. `-lod-receipt` records original and retained triangle/organ counts. **This is an experimental rendering-cost primitive, not a visually qualified/impostor or distance-aware LOD system.** Simplified foliage can be too sparse and is not ready for botanical claims. Morph target normal updates, shade/wind attenuation, organ collisions, detailed branch torsion and source-observed photogrammetric fidelity remain HOLD.
+
+Example from module root:
+
+```bash
+go run ./wildflowers -preset wildflowers/presets/zea_mays.json \
+  -out /tmp/maize_multi_lod2.glb \
+  -wind-driver spring-drag-multimode \
+  -multi-wind /tmp/maize_multi.wind.json \
+  -lod 2 -lod-receipt /tmp/maize_lod2.json
+python3 wildflowers/tests/validate_multimode_glb.py \
+  --glb /tmp/maize_multi_lod2.glb --wind /tmp/maize_multi.wind.json
+python3 wildflowers/tests/redteam_multimode.py \
+  --glb /tmp/maize_multi_lod2.glb --wind /tmp/maize_multi.wind.json
+```
+
+The independent binary validator checks all six serialized weights against the supplied source sample clocks and displacement values, all six morph targets, nonfoliage isolation, signed leaf target symmetry, finite geometry and near-ground anchoring; the adversarial tests verify source/GLB drift, species mismatch, nonfinite leaf geometry and false looping. A source receipt is **not** an independently calibrated wind measurement. Per-species test data, output hashes and performance budgets must be preserved in the owning flora DLE. Existing GitHub Actions Blender 4.0.2 acquisition correction remains **native-unqualified** until exact-commit CI and canonical PNG oracles pass. Do not merge or release on the strength of this local proof alone.
