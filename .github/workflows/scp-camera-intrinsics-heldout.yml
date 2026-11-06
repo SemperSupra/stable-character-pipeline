@@ -70,8 +70,6 @@ jobs:
           INTEGRATION_RECEIPT: ${{ runner.temp }}/camera-admission-disposable-integration.json
         run: |
           set -euo pipefail
-          # A parent-branch lease prevents certification against a superseded
-          # revision. A child lease prevents a stale PR event from being reused.
           test "$(git ls-remote origin "$PARENT_REF" | cut -f1)" = "$PARENT_HEAD_PIN"
           test "$(git ls-remote origin refs/heads/workcell/agent-camera-heldout-intrinsics-20261106 | cut -f1)" = "$CHILD_HEAD"
           git cat-file -e "$PARENT_HEAD_PIN^{commit}"
@@ -79,12 +77,8 @@ jobs:
           test "$(git merge-base "$PARENT_HEAD_PIN" "$CHILD_HEAD")" = "$OLD_PARENT_PIN"
           tree="$(git merge-tree --write-tree "$PARENT_HEAD_PIN" "$CHILD_HEAD")"
           test "$tree" = "$(git rev-parse --verify "$tree^{tree}")"
-          test "$(git ls-tree -r --name-only "$tree" | grep -c '^qualification/agent_camera_calibration/calibration.py        run: |
-          echo 'CORRESPONDENCE_INTRINSICS_ONLY; PHOTO_IMAGE_BYTES_NOT_READ; EXTRINSICS_NOT_INDEPENDENT; REAL_PERSON_FIT_NOT_RUN; SCIENCE_UNKNOWN; RELEASE_CPE_MERGE_HELD'
-)" = 1
-          test "$(git ls-tree -r --name-only "$tree" | grep -c '^qualification/agent_observation_admission/validator_quality_test.go        run: |
-          echo 'CORRESPONDENCE_INTRINSICS_ONLY; PHOTO_IMAGE_BYTES_NOT_READ; EXTRINSICS_NOT_INDEPENDENT; REAL_PERSON_FIT_NOT_RUN; SCIENCE_UNKNOWN; RELEASE_CPE_MERGE_HELD'
-)" = 1
+          test "$(git ls-tree -r --name-only "$tree" | grep -c '^qualification/agent_camera_calibration/calibration.py$')" = 1
+          test "$(git ls-tree -r --name-only "$tree" | grep -c '^qualification/agent_observation_admission/validator_quality_test.go$')" = 1
           mkdir -p "$RUNNER_TEMP/camera-admission-trial"
           git archive "$tree" | tar -x -C "$RUNNER_TEMP/camera-admission-trial"
           (cd "$RUNNER_TEMP/camera-admission-trial/qualification/agent_observation_admission"; go test -race -count=1 ./...; go vet ./...)
@@ -111,7 +105,7 @@ jobs:
             "owner_merge_release_CPE_approval":False
           }
           assert all(re.fullmatch("[0-9a-f]{40}",x) for x in (parent,child,base))
-          p.write_text(json.dumps(result,sort_keys=True,indent=2)+"\\n")
+          p.write_text(json.dumps(result,sort_keys=True,indent=2)+"\n")
           print("DISPOSABLE_ADMISSION_CAMERA_COMBINED_TREE_TESTED_NOT_MERGED",parent,child)
           PY
           test "$(git ls-remote origin "$PARENT_REF" | cut -f1)" = "$PARENT_HEAD_PIN"
