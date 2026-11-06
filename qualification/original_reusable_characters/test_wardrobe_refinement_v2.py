@@ -9,7 +9,7 @@ from pathlib import Path
 from modular_wardrobe_v1 import ACTORS, PRESETS
 from test_modular_wardrobe_v1 import witness
 from verify_original_glb import decode, accessory
-from wardrobe_refinement_v2 import build
+from wardrobe_refinement_v2 import build,continuous_figure,SHOULDER_GUSSET_RINGS,SHOULDER_GUSSET_SIDES
 from wardrobe_portable_export_v2 import export
 
 class RefinementTests(unittest.TestCase):
@@ -25,12 +25,51 @@ class RefinementTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):cls.temp.cleanup()
 
+    def test_shoulder_gusset_source_geometry_and_non_destructive_skin_weights(self):
+        from humanization_v2 import v1 as h17
+        count=len(SHOULDER_GUSSET_RINGS)*SHOULDER_GUSSET_SIDES
+        for which,material in ((0,"coralJacket"),(1,"tealJacket")):
+            g=continuous_figure(which)
+            coat=g.parts[material]
+            all_n=len(coat["p"])//3
+            self.assertGreater(all_n,2*count)
+            self.assertEqual(len(coat["j"]),4*all_n)
+            self.assertEqual(len(coat["w"]),4*all_n)
+            self.assertEqual(len(coat["n"]),3*all_n)
+            for sign,side,offset in ((-1,"L",all_n-2*count),
+                                     (1,"R",all_n-count)):
+                self.assertGreater(offset,0)
+                local=list(range(offset,offset+count))
+                vertices=[coat["p"][3*i:3*i+3] for i in local]
+                self.assertTrue(all(sign*v[0] > .10 for v in vertices))
+                self.assertTrue(all(1.25 < v[1] < 1.45 for v in vertices))
+                shoulder=h17.JIDX["shoulder_"+side]
+                chest=h17.JIDX["chest"]
+                for i in local:
+                    self.assertEqual(coat["j"][4*i:4*i+2],[chest,shoulder])
+                    w=coat["w"][4*i:4*i+4]
+                    self.assertTrue(all(0<=v<=1 for v in w))
+                    self.assertAlmostEqual(sum(w),1.,places=6)
+                    normal=coat["n"][3*i:3*i+3]
+                    self.assertAlmostEqual(math.sqrt(sum(v*v for v in normal)),1.,places=5)
+                first=coat["w"][4*offset]
+                last=coat["w"][4*(offset+count-1)]
+                self.assertGreater(first,last,
+                                   "continuously transfer skin influence chest to shoulder")
+                expected=2*(len(SHOULDER_GUSSET_RINGS)-1)*SHOULDER_GUSSET_SIDES
+                tris={tuple(coat["i"][k:k+3]) for k in range(0,len(coat["i"]),3)
+                      if all(offset<=v<offset+count for v in coat["i"][k:k+3])}
+                self.assertEqual(len(tris),expected)
+            self.assertFalse(self.receipt["full_body_watertight"])
+
     def test_same_rig_and_slots_without_promotion(self):
         result=witness(self.source,self.manifest)
         self.assertEqual(result["joints_each"],35)
         self.assertFalse(result["human_visual_accepted"])
         self.assertTrue(self.m["separate_new_geometry_for_alternate"])
         self.assertTrue(self.receipt["contiguous_trunk_neck_head_loft"])
+        self.assertTrue(self.receipt["weighted_shoulder_sleeve_root_gussets"])
+        self.assertFalse(self.receipt["shoulder_or_body_watertight"])
         self.assertFalse(self.receipt["full_body_watertight"])
         self.assertEqual(self.d["extras"]["wardrobe_contract"]["schema"],
                          "scp.original_wardrobe.v1")
