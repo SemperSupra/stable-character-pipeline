@@ -151,3 +151,50 @@ func TestBadIndexSHARejected(t *testing.T) {
         t.Fatalf("accepted bad source lineage: %v",err)
     }
 }
+
+
+func replaceFaceFixture(t *testing.T, indexPath string, top int) {
+    t.Helper()
+    idx:=readIndex(t,indexPath)
+    for n,m:=range idx.Images {
+        if m.Actor!="AsterOriginal" || m.View!="face"{continue}
+        p:=image.NewNRGBA(image.Rect(0,0,768,768))
+        for y:=top;y<768;y++ {for x:=275;x<495;x++ {
+            p.SetNRGBA(x,y,color.NRGBA{R:120,G:75,B:65,A:255})
+        }}
+        file:=filepath.Join(filepath.Dir(indexPath),m.Name)
+        out,err:=os.Create(file);if err!=nil{t.Fatal(err)}
+        if err=png.Encode(out,p);err!=nil{t.Fatal(err)}
+        if err=out.Close();err!=nil{t.Fatal(err)}
+        raw,err:=os.ReadFile(file);if err!=nil{t.Fatal(err)}
+        digest:=sha256.Sum256(raw)
+        idx.Images[n].SHA256=hex.EncodeToString(digest[:])
+        idx.Images[n].Bytes=len(raw)
+        rewriteIndex(t,indexPath,idx)
+        return
+    }
+    t.Fatal("missing AsterOriginal/face fixture")
+}
+func TestIntentionalFaceBottomCropDoesNotDisableFullBodyGuard(t *testing.T){
+    path:=makeFixture(t,t.TempDir(),false,false,false)
+    replaceFaceFixture(t,path,175)
+    r,err:=Evaluate(path)
+    if err!=nil{t.Fatal(err)}
+    for _,o:=range r.Captures {
+        if o.Actor=="AsterOriginal" && o.View=="face" {
+            if o.Margins[2]!=0 || o.Result!="PASS_FACE_TOP_AND_SIDE_FRAMING_ONLY"{
+                t.Fatalf("unexpected face ROI %#v",o)
+            }
+            return
+        }
+    }
+    t.Fatal("face observation not reported")
+}
+func TestFaceForeheadCropStillFails(t *testing.T){
+    path:=makeFixture(t,t.TempDir(),false,false,false)
+    replaceFaceFixture(t,path,0)
+    _,err:=Evaluate(path)
+    if err==nil || !strings.Contains(err.Error(),"FACE_FOREHEAD_OR_SIDE_CROPPED"){
+        t.Fatalf("accepted cropped forehead: %v",err)
+    }
+}
