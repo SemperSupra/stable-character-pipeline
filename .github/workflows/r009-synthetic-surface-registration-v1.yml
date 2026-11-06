@@ -51,6 +51,10 @@ on:
       - "qualification/parametric_humans/observe_footwear_last_72_v1.py"
       - "qualification/parametric_humans/FOOTWEAR_LAST_RESEARCH_V1.md"
       - "qualification/parametric_humans/evidence/footwear_last_evidence_v1.json"
+      - "qualification/parametric_humans/garment_motion_regression_gate_v1.py"
+      - "qualification/parametric_humans/test_garment_motion_regression_gate_v1.py"
+      - "qualification/parametric_humans/SKIRT_MOTION_REGRESSION_RESEARCH_V1.md"
+      - "qualification/parametric_humans/evidence/skirt_hem_grade_first_red_v1.json"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
 
@@ -100,6 +104,9 @@ jobs:
           # Footwear: only stdlib source contract on public runners; full CC0-body/72f QA is source-bound in private Drive.
           python3 -m compileall -q footwear_last_v1.py test_footwear_last_v1.py test_footwear_last_contract_v1.py observe_footwear_last_72_v1.py
           python3 -m unittest -v test_footwear_last_contract_v1
+          # Independent 72f Pareto gate: source-free validation of multi-metric regression semantics.
+          python3 -m compileall -q garment_motion_regression_gate_v1.py test_garment_motion_regression_gate_v1.py
+          python3 -m unittest -v test_garment_motion_regression_gate_v1
           python3 - <<'PY'
           import json,os,pathlib
           p=pathlib.Path(os.environ["SCP_VALIDATOR_PERF_OUT"])
