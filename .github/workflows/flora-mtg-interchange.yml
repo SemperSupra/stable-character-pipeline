@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/flora-mtg-interchange.yml'
+      - 'tropical-fauna-flora/tools/install_blender_apt.sh'
+      - 'tropical-fauna-flora/tools/test_install_blender_apt.sh'
       - '.github/workcells/flora_mtg_interchange.py'
       - '.github/workcells/flora_blender_roundtrip.py'
       - '.github/workcells/flora_ab_compare.py'
@@ -24,7 +26,7 @@ concurrency:
 jobs:
   interchange:
     runs-on: ubuntu-24.04
-    timeout-minutes: 16
+    timeout-minutes: 19
     steps:
       - name: Checkout original public synthetic source
         uses: actions/checkout@v4
@@ -71,39 +73,11 @@ jobs:
           python -I .github/workcells/test_flora_png_pixels.py -v
           echo F1G_CANONICAL_PNG_DECODE_RED_TEAM_PASS
           python .github/workcells/flora_mtg_interchange.py --out out/flora-mtg-interchange/source
-      - name: Bound and install headless Blender on free public CPU
-        timeout-minutes: 6
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          set -Eeuo pipefail
-          phase=preflight
-          started=$SECONDS
-          trap 'rc=$?; echo "::error::F1_APT_FAIL phase=$phase elapsed=$((SECONDS-started))s exit=$rc"; exit "$rc"' ERR
-          echo "F1_APT_PHASE_BEGIN preflight"
-          if command -v blender >/dev/null 2>&1 && command -v xvfb-run >/dev/null 2>&1 && blender -b --python-exit-code 1 --python-expr "import numpy" >/dev/null 2>&1; then
-            echo "F1_APT_PREINSTALLED_BLENDER_AND_NUMPY_QUALIFIED"
-          else
-            phase=update
-            echo "F1_APT_PHASE_BEGIN update elapsed=$((SECONDS-started))s"
-            sudo timeout --signal=TERM --kill-after=10s 120s apt-get update -qq
-            echo "F1_APT_PHASE_END update elapsed=$((SECONDS-started))s"
-            phase=download
-            echo "F1_APT_PHASE_BEGIN download elapsed=$((SECONDS-started))s"
-            sudo timeout --signal=TERM --kill-after=10s 120s apt-get install --download-only -y -q --no-install-recommends blender xvfb python3-numpy
-            echo "F1_APT_PHASE_END download elapsed=$((SECONDS-started))s"
-            phase=configure
-            echo "F1_APT_PHASE_BEGIN configure elapsed=$((SECONDS-started))s"
-            sudo timeout --signal=TERM --kill-after=10s 100s apt-get install --no-download -y -q --no-install-recommends blender xvfb python3-numpy
-            echo "F1_APT_PHASE_END configure elapsed=$((SECONDS-started))s"
-          fi
-          phase=validate
-          echo "F1_APT_PHASE_BEGIN validate elapsed=$((SECONDS-started))s"
-          command -v xvfb-run
-          blender -b --python-exit-code 1 --python-expr "import numpy; print('F1_APT_BLENDER_NUMPY_OK')"
-          blender --version | head -n 2
-          echo "F1_APT_PHASE_END validate elapsed=$((SECONDS-started))s"
-          trap - ERR
+      - name: Qualify bounded signed Blender 4.0.2 acquisition helper
+        run: bash tropical-fauna-flora/tools/test_install_blender_apt.sh
+      - name: Pin Ubuntu 24.04 Blender 4.0.2 with alternate mirrors
+        timeout-minutes: 10
+        run: bash tropical-fauna-flora/tools/install_blender_apt.sh interchange
       - name: Verify actual OBJ to GLB interchange and editable Blender readback
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

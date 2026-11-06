@@ -69,9 +69,10 @@ type Geo struct {
 	I []uint32
 }
 type Model struct {
-	G map[string]*Geo
-	R *rand.Rand
-	S Preset
+	G      map[string]*Geo
+	R      *rand.Rand
+	S      Preset
+	Organs []Organ
 }
 
 func (m *Model) geo(mat string) *Geo {
@@ -93,6 +94,8 @@ func (m *Model) tube(mat string, points []V, radii []float32) {
 	if len(points) < 2 {
 		return
 	}
+	finish := m.recordOrgan("axis", mat, points[0], points)
+	defer finish()
 	sides := 6
 	// tube segments are linked by matching rings; degenerate tips are avoided.
 	g := m.geo(mat)
@@ -130,6 +133,8 @@ func (m *Model) tube(mat string, points []V, radii []float32) {
 	}
 }
 func (m *Model) disk(center V, radius float32, mat string) {
+	finish := m.recordOrgan("disk", mat, center, nil)
+	defer finish()
 	segments := 8
 	for j := 0; j < segments; j++ {
 		a := float64(j) * 2 * math.Pi / float64(segments)
@@ -138,6 +143,8 @@ func (m *Model) disk(center V, radius float32, mat string) {
 	}
 }
 func (m *Model) sphere(center V, r float32, mat string) {
+	finish := m.recordOrgan("sphere", mat, center, nil)
+	defer finish()
 	for i := 0; i < 4; i++ {
 		a0 := math.Pi * float64(i) / 4
 		a1 := math.Pi * float64(i+1) / 4
@@ -150,6 +157,8 @@ func (m *Model) sphere(center V, r float32, mat string) {
 	}
 }
 func (m *Model) petal(center V, angle float64, length, width float32, mat string, droop float32) {
+	finish := m.recordOrgan("petal", mat, center, nil)
+	defer finish()
 	radial := V{cos(angle), 0, sin(angle)}
 	side := V{-sin(angle), 0, cos(angle)}
 	tip := center.add(radial.mul(length)).add(V{0, droop, 0})
@@ -158,6 +167,8 @@ func (m *Model) petal(center V, angle float64, length, width float32, mat string
 	m.tri(mat, center, tip, shoulder.sub(side.mul(width)))
 }
 func (m *Model) leaf(base V, direction V, length, width float32, mat string) {
+	finish := m.recordOrgan("leaf", mat, base, nil)
+	defer finish()
 	tangent := direction.norm()
 	side := cross(tangent, V{0, 0, 1}).norm()
 	if math.Abs(float64(side.Y)) > .7 {
@@ -256,6 +267,8 @@ func (m *Model) drawKnapweed() {
 	}
 }
 func (m *Model) funnel(center V, radius float32) {
+	finish := m.recordOrgan("corolla", "flower", center, nil)
+	defer finish()
 	// Trumpet corolla: attached narrow throat widens to a five-lobed rim.
 	rings := 5
 	seg := 20
@@ -597,6 +610,7 @@ func validate(s Preset) error {
 func run() error {
 	input := flag.String("preset", "", "path to species preset json")
 	output := flag.String("out", "", "output animated .glb path")
+	organs := flag.String("organs", "", "optional geometry-bound organ graph JSON receipt")
 	flag.Parse()
 	if *input == "" || *output == "" {
 		return fmt.Errorf("usage: flora-gen -preset species.json -out species.glb")
@@ -616,6 +630,14 @@ func run() error {
 		return err
 	}
 	m := build(s)
+	if *organs != "" {
+		if err = os.MkdirAll(filepath.Dir(*organs), 0755); err != nil {
+			return err
+		}
+		if err = m.writeOrganReceipt(*organs); err != nil {
+			return err
+		}
+	}
 	if err = writeGLB(*output, m); err != nil {
 		return err
 	}

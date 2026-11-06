@@ -21,6 +21,7 @@ func (m *Model) drawSunflower() {
 		// so petal shape is visible from a ground-level camera.
 		head := tip.add(V{0, .015, -.01})
 		segments := s.Petals * 2
+		finishDisk := m.recordOrgan("disk", "center", head, nil)
 		for j := 0; j < segments; j++ {
 			a := 2 * math.Pi * float64(j) / float64(segments)
 			b := 2 * math.Pi * float64(j+1) / float64(segments)
@@ -29,14 +30,17 @@ func (m *Model) drawSunflower() {
 			}
 			m.tri("center", head, pt(s.FlowerRadius*.64, a), pt(s.FlowerRadius*.64, b))
 		}
+		finishDisk()
 		for j := 0; j < s.Petals; j++ {
 			a := 2 * math.Pi * float64(j) / float64(s.Petals)
 			radial := V{cos(a), sin(a), 0}
 			side := V{-sin(a), cos(a), 0}
 			shoulder := head.add(radial.mul(s.FlowerRadius * .93))
 			tipP := head.add(radial.mul(s.FlowerRadius * 1.5))
+			finishRay := m.recordOrgan("ray-floret", "flower", head, nil)
 			m.tri("flower", head, shoulder.add(side.mul(s.FlowerRadius*.18)), tipP)
 			m.tri("flower", head, tipP, shoulder.sub(side.mul(s.FlowerRadius*.18)))
+			finishRay()
 		}
 		for j := 0; j < 24; j++ {
 			a := float64(j) * 2.39996

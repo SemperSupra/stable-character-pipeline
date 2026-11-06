@@ -5,6 +5,8 @@ on:
     paths:
       - 'tropical-fauna-flora/**'
       - '.github/workflows/tropical-blender.yml'
+      - 'tropical-fauna-flora/tools/install_blender_apt.sh'
+      - 'tropical-fauna-flora/tools/test_install_blender_apt.sh'
   push:
     branches: [main]
     paths:
@@ -48,12 +50,11 @@ jobs:
           sha256sum out/tropical_scene.glb
           go run ./cmd/ecologyprobe -config examples/earth.json -out out/earth_ecology.json
           python3 tools/ecology_binding.py --report out/earth_ecology.json --map examples/ecology_scene_map.json --model out/tropical_scene.glb --out out/ecology_binding.json --frames 48 --fps 12
-      - name: Install Blender and video encoder from Ubuntu system packages
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq blender ffmpeg xvfb python3-numpy
-          blender --version | head -n 2
+      - name: Qualify bounded signed Blender 4.0.2 acquisition helper
+        run: bash tools/test_install_blender_apt.sh
+      - name: Pin Ubuntu 24.04 Blender 4.0.2 with alternate mirrors
+        timeout-minutes: 10
+        run: bash tools/install_blender_apt.sh render
       - name: Headless Blender CPU scene build, animation and frames
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
