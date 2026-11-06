@@ -72,8 +72,30 @@ jobs:
           src="qualification/original_reusable_characters"
           xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$b" -b --factory-startup --python-exit-code 8 --python "$src/wardrobe_deformation_blender_v2.py" -- --input "$PWD/r009-evidence/wardrobe_v2.glb" --receipt "$PWD/r009-evidence/deformation_all72.json"
           for preset in unclothed signature alternate; do
-            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$b" -b --factory-startup --python-exit-code 8 --python "$src/wardrobe_portable_blender_v2.py" -- --input "$PWD/r009-evidence/portable_${preset}.glb" --portable-receipt "$PWD/r009-evidence/portable_${preset}.json" --out "$PWD/r009-evidence/native_${preset}.json"
+            render_args=()
+            if [ "$preset" = signature ]; then
+              render_args=(--render-dir "$PWD/r009-evidence")
+            fi
+            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$b" -b --factory-startup --python-exit-code 8 --python "$src/wardrobe_portable_blender_v2.py" -- --input "$PWD/r009-evidence/portable_${preset}.glb" --portable-receipt "$PWD/r009-evidence/portable_${preset}.json" --out "$PWD/r009-evidence/native_${preset}.json" "${render_args[@]}"
           done
+          python3 - <<'PY'
+          import hashlib,json,pathlib,struct
+          root=pathlib.Path("r009-evidence")
+          receipt=json.loads((root/"native_signature.json").read_text())
+          images=receipt["diagnostic_images"]
+          assert len(images)==8 and receipt["native_technical_images_produced"]==8
+          assert not receipt["human_appearance_accepted"]
+          assert {i["actor"] for i in images}=={"AsterOriginal","JuniperOriginal"}
+          assert {i["pose"] for i in images}=={"start","end"}
+          assert {i["view"] for i in images}=={"front","oblique"}
+          for rec in images:
+              data=(root/rec["file"]).read_bytes()
+              assert len(data)>2048 and data[:8]==b"\x89PNG\r\n\x1a\n"
+              assert struct.unpack(">II",data[16:24])==(720,480)
+              assert hashlib.sha256(data).hexdigest()==rec["sha256"]
+              assert rec["other_actor_hidden"]
+          print("R009_NATIVE_GUSSET_DIAGNOSTIC_RENDERS_TECHNICAL_ONLY")
+          PY
           python3 -c 'import json; d=json.load(open("r009-evidence/deformation_all72.json")); assert d["frames_sampled"]==72 and not d["human_motion_and_cloth_fit_accepted"]; assert all(d["results"][a][s]["frames_evaluated"]==72 for a in d["results"] for s in d["results"][a]); print("NATIVE_STRUCTURAL_PASS_HUMAN_HELD")'
           (cd r009-evidence; sha256sum ./* > SHA256SUMS; sha256sum -c SHA256SUMS)
       - name: Preserve original QA outcomes including first native failures
