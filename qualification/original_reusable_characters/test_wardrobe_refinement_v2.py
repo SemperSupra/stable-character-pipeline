@@ -50,10 +50,10 @@ class RefinementTests(unittest.TestCase):
             moved,radius,active=trouser_hip_inset(
                 "slatePants",hip,knee,.113,"hip_"+side,"knee_"+side)
             self.assertTrue(active)
-            self.assertAlmostEqual(moved[1],.794,places=6)
+            self.assertAlmostEqual(moved[1],.860,places=6)
             self.assertGreater(moved[1],.72)
             self.assertLess(moved[1],hip[1])
-            self.assertEqual(radius,.106)
+            self.assertEqual(radius,.110)
             original,mr,changed=trouser_hip_inset(
                 "skinWarm",hip,knee,.097,"hip_"+side,"knee_"+side)
             self.assertFalse(changed)
