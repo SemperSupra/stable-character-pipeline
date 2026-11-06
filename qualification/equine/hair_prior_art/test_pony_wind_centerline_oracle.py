@@ -64,7 +64,7 @@ class CenterlineTests(unittest.TestCase):
         self.assertAlmostEqual(arc(points),.3)
     def test_hostile_abi_and_forged_points(self):
         attackers=[
-            lambda x:x[4].update(source_blend_sha256="a"*64),
+            lambda x:x[4].update(source_blend_sha256="f"*64),
             lambda x:x[4].update(release_admission=True),
             lambda x:x[5].update(original_blender_version="4.5.15"),
             lambda x:x[6].update(mode="physics"),
