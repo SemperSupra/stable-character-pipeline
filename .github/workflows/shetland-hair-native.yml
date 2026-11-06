@@ -7,7 +7,10 @@ on:
       - "qualification/shetland_pony/guide_native.py"
       - "qualification/shetland_pony/curved_groom.py"
       - "qualification/shetland_pony/test_curved_groom.py"
-      - "qualification/shetland_pony/hair_clamp_quality.py qualification/shetland_pony/hair_contact_quality.py qualification/shetland_pony/hair_body_collision_native.py"
+      - "qualification/shetland_pony/hair_clamp_quality.py"
+      - "qualification/equine/hair_prior_art/pony_source_trajectory.py"
+      - "qualification/equine/hair_prior_art/test_pony_source_trajectory.py"
+      - "qualification/equine/hair_prior_art/pony_source_extract_native.py"
       - "qualification/shetland_pony/test_hair_clamp_quality.py"
       - "qualification/shetland_pony/hair_contact_quality.py"
       - "qualification/shetland_pony/test_hair_contact_quality.py"
@@ -27,6 +30,8 @@ jobs:
         run: |
           set -euo pipefail
           (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py test_hair_clamp_quality.py test_hair_contact_quality.py)
+          (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_pony_source_trajectory.py)
+          python3 -m py_compile qualification/equine/hair_prior_art/pony_source_extract_native.py qualification/equine/hair_prior_art/pony_source_trajectory.py
           python3 -m py_compile qualification/shetland_pony/guide_dynamics.py qualification/shetland_pony/guide_native.py qualification/shetland_pony/curved_groom.py qualification/shetland_pony/hair_clamp_quality.py
   native-blender:
     needs: source-hostile
@@ -60,6 +65,23 @@ jobs:
         run: |
           set -euo pipefail
           env SCP_HAIR_MODE=rest_candidate LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python qualification/shetland_pony/guide_native.py -- "$GITHUB_WORKSPACE/results/baseline/shetland_black_ghcr.blend" "$GITHUB_WORKSPACE/results/hair"
+      - name: Capture actual original 30-joint skinned guide root/tip 48f evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/source_capsule
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python qualification/equine/hair_prior_art/pony_source_extract_native.py -- "$GITHUB_WORKSPACE/results/hair/equine_longhair_wind.blend" "$GITHUB_WORKSPACE/results/source_capsule/pony_source_48f.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("results/source_capsule/pony_source_check.json").read_text())
+          assert r["verdict"]=="PASS_REAL_SOURCE_GEOMETRY_ONLY" and r["guides"]==6
+          assert not r["physical_hair_simulation_proven"] and not r["collision_acceptance"]
+          p=json.loads(Path("results/source_capsule/pony_source_48f.json").read_text())
+          assert len(p["guides"])==6 and all(len(x["samples"])==48 for x in p["guides"])
+          assert p["rig"]=="PonyRig30"
+          print("SOURCE_30J_GUIDES_EXTRACTED_NOT_XPBD_ADMITTED",r)
+          PY
       - name: Independent exported GLB structural and hash gate
         shell: bash
         run: |
@@ -139,3 +161,4 @@ jobs:
             results/hair/*_receipt.json
             results/hair/hair_contact_48f.json
             results/baseline/manifest.json
+            results/source_capsule/*.json
