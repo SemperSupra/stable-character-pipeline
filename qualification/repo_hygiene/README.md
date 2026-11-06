@@ -129,3 +129,42 @@ merge, deletion, private Actions, or CPE in this read-only audit update.
 - Handoffs and first REDs remain in public #293 and human #272. Protected private R009 #23 and G5/G9 #103 govern real identity rights, deployment/CPE and private runners. Native artifacts are ephemeral; large binaries go to owner-private Drive **only after full-byte download-back SHA verification**. New source/short receipt stays Git/DLE. Preserve historical six base-SHA-drift holds; no auto-close on old green CI or unchanged draft age.
 
 **Next read-only census** at this exact hygiene HEAD must derive the current open-PR count and root tips, not inherit the earlier 253 result. Any cleanup candidate must have no-loss source equivalence, first-RED preservation, actual rights and owner approval, and verified post-mutation state. Keep these two new source owners pending terminal native CI before any scientific claim.
+
+### 2026-11-06 source-owner bounded continuation, 48f tack and 72f human anchor
+
+The independent execution lanes continue in **existing** distinct draft PRs,
+not new DLE/coordination PRs, not public default branch, and not protected
+Naomi/Alison custody. Parent SHAs remain unchanged.
+
+- Shetland #330 exact source `113811744ee0a7529c41e3aac63d91dbbb47a935`
+  adds an actual native 48-source-frame **evaluated head/halter mesh triangle
+  BVH** and positive-crossing/negative-separated calibration; records head-world
+  motion versus *head-relative shape state*, so repeating an unchanged
+  tack-to-head pose for 48 frames does not count as 48 independent scientific
+  tests. Its native run `42173374397` must reach terminal status and its
+  receipt must be inspected before calling this new evidence qualified. Any
+  triangle candidate or zero head-relative dynamics preserves tack science RED.
+- Original-human #333 exact source
+  `457e7f9f590f71ff2c5867b7dcde0c29434b0fe2` independently
+  computes every source foot-joint world transform for two 35-joint original
+  people across 72 frames. Public native [run #42173723127](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/42173723127)
+  SUCCESS; receipt artifact `13481529356` downloaded, CRC PASS, source SHA
+  `470ec8fc159912e8ad2e30733a00c09785e11c1275c26936774690fe2807727b`.
+  There are **78 candidate joint-anchor skate instances across 560 support
+  interval marker tests**, not confirmed foot-sole penetration or human gait
+  failures: the synthetic floor is inferred from minimum foot-joint height.
+  Actual terrain, pressure, contact, clothing/body BVH and normative JCS remain
+  unqualified. Preserve the misleading-green-physics falsifier for the owner.
+- This #312 runner remains the **single read-only root/DAG/drift hygiene
+  authority**: regenerate a fresh complete paginated census and source
+  reachability, distinguish closure candidates from owner authorizations,
+  and never mutate branches, PRs, approvals, release or CPE. Preserve six
+  observed drift holds unless a fresh compare proves otherwise. No redundant
+  new child PR and no default branch source mutation was created by these two
+  engineering batches.
+
+Store scripts, SHA evidence and DLE baton in Git; keep generated large model
+and video binary in controlled owner-private Drive only after **whole-byte**
+remote readback, not merely successful local extraction. Public $0 Actions
+artifact retention is seven days and does not itself establish durable Drive
+custody.
