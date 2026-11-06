@@ -40,16 +40,28 @@ def signed_distance(mesh,points):
     f=vtk.vtkImplicitPolyDataDistance();f.SetInput(mesh)
     return np.asarray([f.EvaluateFunction(tuple(x)) for x in points],dtype=np.float64)
 
-def inspect(raw,source_sha):
+def _validated_frames(frames):
+    if type(frames) is not tuple or not 2 <= len(frames) <= 73 or frames[0] != 'rest':
+        raise ValueError('INVALID_WITNESS_FRAMES')
+    indices=frames[1:]
+    if any(type(x) is not int or x < 0 or x >= 72 for x in indices):
+        raise ValueError('FRAME_OUT_OF_RANGE')
+    if sorted(set(indices)) != list(indices):
+        raise ValueError('FRAMES_DUPLICATE_OR_UNSORTED')
+    return frames
+
+def inspect(raw,source_sha,*,frames=FRAMES):
+    frames=_validated_frames(frames)
     if hashlib.sha256(raw).hexdigest()!=source_sha:raise ValueError('CANDIDATE_SOURCE_SHA_MISMATCH')
     d,b=_unpack_glb(raw)
     if d.get('extras',{}).get('makehuman_candidate_v0',{}).get('schema')!=SCHEMA:
         raise ValueError('CANDIDATE_SCHEMA')
     nodes=d['nodes'];parent=parents_of(nodes)
     rest=worlds(nodes,parent)
-    anim={i:p for i,p in enumerate(frame_poses(d,b)) if i in (0,24,48,71)}
+    requested=set(frames[1:])
+    anim={i:p for i,p in enumerate(frame_poses(d,b)) if i in requested}
     result={'schema':GARMENT_SCHEMA,'source_sha256':source_sha,
-      'witness_frames':list(FRAMES),'actors':{},
+      'witness_frames':list(frames),'actors':{},
       'full_motion_72_frame_collision_qualified':False,
       'native_blender_evaluated':False,'cloth_fitting_accepted':False,'release_approved':False}
     for ai,actor in enumerate(ACTORS):
@@ -65,7 +77,7 @@ def inspect(raw,source_sha):
             p,j,w,tri=mesh_primitive(d,b,nodes[ni]['mesh'])
             wardrobe.append((slot,ni,p,j,w,tri))
         witnesses={slot:[] for slot,*_ in wardrobe}
-        for label in FRAMES:
+        for label in frames:
             world=rest if label=='rest' else worlds(nodes,parent,anim[label])
             def relative(ni):
                 inv=np.linalg.inv(world[ni])

@@ -20,6 +20,10 @@ on:
       - "qualification/parametric_humans/observe_makehuman35_motion_v0.py"
       - "qualification/parametric_humans/test_observe_makehuman35_motion_v0.py"
       - "qualification/parametric_humans/observe_makehuman35_garment_v0.py"
+      - "qualification/parametric_humans/observe_makehuman35_garment_72_v1.py"
+      - "qualification/parametric_humans/test_observe_makehuman35_garment_72_v1.py"
+      - "qualification/parametric_humans/DYNAMIC_SIGNED_CONTACT_V1.md"
+      - "qualification/parametric_humans/evidence/full72_signed_contact_summary_v1.json"
       - "qualification/parametric_humans/fit_signed_clearance_v0.py"
       - "qualification/parametric_humans/test_fit_signed_clearance_v0.py"
       - "qualification/parametric_humans/render_candidate_qa_v0.py"
@@ -82,6 +86,7 @@ jobs:
           python3 -m unittest -v test_sculpt_topology_gate_v1 test_sculpt_triangle_repair_v1
           # Retarget: source-free deterministic tests; exact archived GLB tests intentionally skip on public runners.
           python3 -m compileall -q retarget_makehuman_v0.py test_retarget_makehuman_v0.py observe_makehuman35_motion_v0.py test_observe_makehuman35_motion_v0.py observe_makehuman35_garment_v0.py fit_signed_clearance_v0.py test_fit_signed_clearance_v0.py render_candidate_qa_v0.py
+          python3 -m compileall -q observe_makehuman35_garment_72_v1.py test_observe_makehuman35_garment_72_v1.py
           python3 -m unittest -v test_retarget_makehuman_v0
           # Source-only bounded 35-joint weight regularization checks; real 72f source is in private Drive.
           python3 -m compileall -q weight_transfer_regularize_v1.py test_weight_transfer_sourcefree_v1.py
