@@ -81,6 +81,12 @@ jobs:
           python3 - <<'PY'
           import hashlib,json,pathlib,struct
           root=pathlib.Path("r009-evidence")
+          for preset in ("unclothed","signature","alternate"):
+              checked=json.loads((root/("native_"+preset+".json")).read_text())
+              assert checked["schema"]=="scp.r009.original_portable_native.v2"
+              assert not checked["exported_foreign_meshes_observed"]
+              assert checked["source_wardrobe_meshes_only_in_render"]
+              assert checked["quarantined_nonexported_importer_helpers"]==["Icosphere","Icosphere.001"]
           receipt=json.loads((root/"native_signature.json").read_text())
           images=receipt["diagnostic_images"]
           assert len(images)==8 and receipt["native_technical_images_produced"]==8
