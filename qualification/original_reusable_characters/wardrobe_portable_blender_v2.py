@@ -95,6 +95,19 @@ def run(src,preset_receipt,out,render_dir=None):
     foreign=[ob.name for ob in bpy.data.objects if ob.type=="MESH"
              and not ob.name.startswith(ACTORS)]
     if foreign:
+        diagnostic=[]
+        for name in foreign:
+            ob=bpy.data.objects[name]
+            diagnostic.append({
+                "name":ob.name,"mesh_name":ob.data.name,
+                "vertex_count":len(ob.data.vertices),
+                "triangle_source_faces":len(ob.data.polygons),
+                "parent":ob.parent.name if ob.parent else None,
+                "mesh_dimensions":[round(float(v),5) for v in ob.dimensions],
+                "object_location":[round(float(v),5) for v in ob.location],
+                "hide_render":bool(ob.hide_render),
+                "collections":[c.name for c in ob.users_collection]})
+        print("R009_UNEXPECTED_IMPORT_MESH_DIAGNOSTIC "+json.dumps(diagnostic,sort_keys=True),flush=True)
         raise ValueError("UNTRUSTED_STARTUP_OR_FOREIGN_MESH:"+str(foreign))
     observed={a:set() for a in ACTORS}
     for ob in bpy.data.objects:
