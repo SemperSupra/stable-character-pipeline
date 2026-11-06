@@ -26,6 +26,13 @@ if rig is None or len(rig.data.bones)!=30 or groom is None or groom.type!="MESH"
     raise ValueError("source rig/groom missing")
 if len(groom.data.vertices)!=1050*4:
     raise ValueError("changed groom topology needs explicit remap")
+# Reject a partial egg removal, but allow this proof to run alone or after
+# the deliberate-tail corrective: long hair stays skinned to source bones.
+volumes=[bpy.data.objects.get("tail_volume_"+str(i)) for i in range(3)]
+if sum(x is not None for x in volumes) not in (0,3):
+    raise ValueError("partial original tail volume topology")
+for obj in volumes:
+    if obj is not None:bpy.data.objects.remove(obj,do_unlink=True)
 v=groom.data.vertices
 roots=[];tips=[]
 for i in range(1050):
