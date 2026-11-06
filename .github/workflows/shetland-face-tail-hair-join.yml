@@ -4,6 +4,7 @@ on:
     paths:
       - ".github/workflows/shetland-face-tail-hair-join.yml"
       - "qualification/shetland_pony/FACE_TAIL_HAIR_JOIN.md"
+      - "qualification/shetland_pony/verify_motion_glb.py"
 permissions:
   contents: read
 jobs:
@@ -125,6 +126,13 @@ jobs:
           (root/"integration_receipt.json").write_text(json.dumps(manifest,sort_keys=True,indent=2)+"\n")
           print("INTEGRATED_30_JOINT_FACE_TAIL_HAIR_NATIVE_ENGINEERING_PASS",manifest)
           PY
+      - name: Independently verify nonconstant real facial and tail GLB animation payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 producer/qualification/shetland_pony/verify_motion_glb.py \
+            results/hair/equine_longhair_wind.glb > results/motion_observer.json
+          grep -F 'ENGINEERING_MOTION_OBSERVED_NOT_VISUAL_ACCEPTANCE' results/motion_observer.json
       - name: Preserve joined public-original model, multiview evidence and receipts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -141,4 +149,5 @@ jobs:
             results/tail/tail_receipt.json
             results/hair/hair_receipt.json
             results/integration_receipt.json
+            results/motion_observer.json
             results/baseline/manifest.json
