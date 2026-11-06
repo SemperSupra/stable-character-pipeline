@@ -116,7 +116,11 @@ def join_original_trouser_segments(g,material,upper,lower):
         raise ValueError("JOINED_TROUSER_SOURCE_SEAM_MISMATCH")
     # Both formerly separate ring ends now use one shared knee ring, with
     # a smoothly averaged radius and 100% source-knee skin influence.
-    knee_radius=(r1+s0)*.5
+    # The first single-ring candidate is topologically joined but exposes
+    # underlying skinned skin on bent shins (native visual RED). The localized
+    # radial clearance sweep is an opt-in synthetic test, not cloth fitting.
+    knee_radius=(r1+s0)*.5 + .016
+    shin_extra_at_ankle=.009
     centers=[]
     radii=[]
     for k in range(steps+1):
@@ -126,7 +130,7 @@ def join_original_trouser_segments(g,material,upper,lower):
     for k in range(1,steps+1):
         t=k/steps
         centers.append(tuple((1-t)*a+t*b for a,b in zip(knee,ankle)))
-        radii.append((1-t)*knee_radius+t*s1)
+        radii.append((1-t)*knee_radius+t*(s1+shin_extra_at_ankle))
     part=g.part(material)
     offset=len(part["p"])//3
     joints=[(hip_role,knee_role),(knee_role,ankle_role)]
