@@ -7,6 +7,7 @@ on:
       - "qualification/shetland_pony/verify_motion_glb.py"
       - "qualification/shetland_pony/render_motion_diagnostics.py"
       - "qualification/shetland_pony/halter_clearance_screen.py"
+      - "qualification/shetland_pony/halter_bvh_audit.py"
 permissions:
   contents: read
 jobs:
@@ -32,8 +33,13 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: df8e61d1ba7c8f0ef0c42c84a8c7b42cc5ab2b6a
+          ref: 672eb168c90e29a82a29667b089b861e34504df3
           path: hair-source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 6c74c0b0f18c146d435761b4b8ffc959d61541d8
+          path: halter-source
           persist-credentials: false
       - name: Fail closed on exact source heads, transfer only selected public-safe new files
         shell: bash
@@ -41,7 +47,13 @@ jobs:
           set -euo pipefail
           test "$(git -C face-source rev-parse HEAD)" = "f0a5c6e00869402a672be562d9c1e37117f3469d"
           test "$(git -C tail-source rev-parse HEAD)" = "d6c68ae01431433acc0b29b69fa00bdd40de5d5c"
-          test "$(git -C hair-source rev-parse HEAD)" = "df8e61d1ba7c8f0ef0c42c84a8c7b42cc5ab2b6a"
+          test "$(git -C hair-source rev-parse HEAD)" = "672eb168c90e29a82a29667b089b861e34504df3"
+          test "$(git -C halter-source rev-parse HEAD)" = "6c74c0b0f18c146d435761b4b8ffc959d61541d8"
+          # This is an explicit sealed source replacement of the pinned
+          # synthetic parent fitted-halter geometry, not a branch merge.
+          test -f producer/qualification/shetland_pony/fitted_halter.py
+          cp halter-source/qualification/shetland_pony/fitted_halter.py producer/qualification/shetland_pony/fitted_halter.py
+          cp halter-source/qualification/shetland_pony/test_fitted_halter.py producer/qualification/shetland_pony/test_fitted_halter.py
           for f in facial_controls.py facial_native.py test_facial_controls.py; do
             test ! -e "producer/qualification/shetland_pony/$f"
             cp "face-source/qualification/shetland_pony/$f" "producer/qualification/shetland_pony/$f"
@@ -54,7 +66,7 @@ jobs:
             test ! -e "producer/qualification/shetland_pony/$f"
             cp "hair-source/qualification/shetland_pony/$f" "producer/qualification/shetland_pony/$f"
           done
-          (cd producer/qualification/shetland_pony && python3 -m unittest -v test_facial_controls.py test_tail_intent.py test_guide_dynamics.py test_curved_groom.py)
+          (cd producer/qualification/shetland_pony && python3 -m unittest -v test_fitted_halter.py test_facial_controls.py test_tail_intent.py test_guide_dynamics.py test_curved_groom.py)
       - name: Install disposable SHA-verified Blender
         shell: bash
         run: |
@@ -131,7 +143,7 @@ jobs:
               "scientific":"UNKNOWN: visual collision, ROM, hoof contact, references, facial ethology",
               "source":{"face":"f0a5c6e00869402a672be562d9c1e37117f3469d",
               "tail":"d6c68ae01431433acc0b29b69fa00bdd40de5d5c",
-              "hair":"df8e61d1ba7c8f0ef0c42c84a8c7b42cc5ab2b6a"}}
+              "hair":"672eb168c90e29a82a29667b089b861e34504df3","halter":"6c74c0b0f18c146d435761b4b8ffc959d61541d8"}}
           (root/"integration_receipt.json").write_text(json.dumps(manifest,sort_keys=True,indent=2)+"\n")
           print("INTEGRATED_30_JOINT_FACE_TAIL_HAIR_NATIVE_ENGINEERING_PASS",manifest)
           PY
@@ -156,6 +168,19 @@ jobs:
           # An analytic warning is an independent science hold, not CI success
           # evidence that a real, deformed head/halter mesh is collision-free.
           print("HALTER_ANALYTIC_SCIENCE_HOLD",r["any_possible_intersection"],r["parts"])
+          PY
+      - name: Evaluate real rig-deformed five-strap/head proximity in five poses (science warning)
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python producer/qualification/shetland_pony/halter_bvh_audit.py -- "$GITHUB_WORKSPACE/results/hair/equine_longhair_wind.blend" "$GITHUB_WORKSPACE/results/halter_bvh_evaluated.json"
+          python3 - <<'PY'
+          import json
+          r=json.load(open("results/halter_bvh_evaluated.json"))
+          assert list(r["frames"])==["1","10","24","40","48"]
+          assert all(len(parts)==5 for parts in r["frames"].values())
+          assert r["science_hold"].startswith("KEEP")
+          print("EVALUATED_NATIVE_BVH_SCIENCE_WARNING",r["any_potential_intersection"])
           PY
       - name: Render all 48 native frames from four diagnostic cameras
         shell: bash
@@ -212,4 +237,5 @@ jobs:
             results/diagnostic/diagnostic_frames_receipt.json
             results/diagnostic/diagnostic_video_receipt.json
             results/halter_clearance_screen.json
+            results/halter_bvh_evaluated.json
             results/baseline/manifest.json
