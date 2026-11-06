@@ -8,7 +8,7 @@ import hashlib
 import json
 import math
 
-SCHEMA="equine.hair_body.contact_screen.v1"
+SCHEMA="equine.hair_body.contact_screen.v2"
 FRAMES=48
 REGION_CARDS={"mane":440,"forelock":230,"tail":380}
 OBSTACLES={
@@ -29,13 +29,13 @@ def classify(records,*,frames=tuple(range(1,49))):
               for region,obstacles in OBSTACLES.items() for obstacle in obstacles}
     if len(records)!=len(expected):raise ValueError("incomplete/excessive body observations")
     out={r:{"obstacle_contacts":{},"max_colliding_cards_in_frame":0,
-            "possible_collision_frame_count":0,"min_tip_surface_distance_m":None}
+            "possible_collision_frame_count":0,"tip_zone_possible_collision_frame_count":0,"min_tip_surface_distance_m":None}
          for r in REGION_CARDS}
-    normalized=[];seen=set();flags={r:set() for r in REGION_CARDS}
+    normalized=[];seen=set();flags={r:set() for r in REGION_CARDS};tip_flags={r:set() for r in REGION_CARDS}
     for row in records:
         if type(row) is not dict:raise ValueError("non-object contact witness")
         if set(row)!={"frame","region","obstacle","face_pairs","card_count",
-                      "tip_samples","tips_within_5mm","min_tip_distance_m"}:
+                      "tip_samples","tips_within_5mm","min_tip_distance_m","tip_face_pairs","tip_card_count"}:
             raise ValueError("missing/extra contact field")
         frame=row["frame"];region=row["region"];obstacle=row["obstacle"]
         key=(frame,region,obstacle)
@@ -43,9 +43,11 @@ def classify(records,*,frames=tuple(range(1,49))):
         seen.add(key)
         n=REGION_CARDS[region]
         pairs=row["face_pairs"];cards=row["card_count"];tips=row["tip_samples"];near=row["tips_within_5mm"]
-        if any(type(x) is not int for x in (pairs,cards,tips,near)):
+        tip_pairs=row["tip_face_pairs"];tip_cards=row["tip_card_count"]
+        if any(type(x) is not int for x in (pairs,cards,tips,near,tip_pairs,tip_cards)):
             raise ValueError("noninteger contact evidence")
-        if not (pairs>=cards>=0 and tips==n and 0<=near<=tips):
+        if not (pairs>=cards>=0 and tip_pairs>=tip_cards>=0 and
+                tip_pairs<=pairs and tip_cards<=cards and tips==n and 0<=near<=tips):
             raise ValueError("impossible measured geometry counts")
         d=row["min_tip_distance_m"]
         if type(d) not in (float,int) or not math.isfinite(d) or d<0 or d>100:
@@ -56,29 +58,39 @@ def classify(records,*,frames=tuple(range(1,49))):
             raise ValueError("near count contradicts minimum")
         entry=out[region];ob=entry["obstacle_contacts"].setdefault(obstacle,{
               "triangle_pair_observations":0,"hair_card_frame_observations":0,
-              "tip_near_observations":0,"first_candidate_frame":None})
+              "tip_near_observations":0,"tip_zone_triangle_pairs":0,
+              "tip_zone_hair_card_frame_observations":0,
+              "first_tip_zone_candidate_frame":None,"first_candidate_frame":None})
         ob["triangle_pair_observations"]+=pairs
         ob["hair_card_frame_observations"]+=cards
         ob["tip_near_observations"]+=near
+        ob["tip_zone_triangle_pairs"]+=tip_pairs
+        ob["tip_zone_hair_card_frame_observations"]+=tip_cards
+        if tip_cards:
+            tip_flags[region].add(frame)
+            if ob["first_tip_zone_candidate_frame"] is None:
+                ob["first_tip_zone_candidate_frame"]=frame
         if cards:
             flags[region].add(frame)
             entry["max_colliding_cards_in_frame"]=max(entry["max_colliding_cards_in_frame"],cards)
             if ob["first_candidate_frame"] is None:ob["first_candidate_frame"]=frame
         if entry["min_tip_surface_distance_m"] is None or d<entry["min_tip_surface_distance_m"]:
             entry["min_tip_surface_distance_m"]=d
-        normalized.append([frame,region,obstacle,pairs,cards,tips,near,round(float(d),8)])
+        normalized.append([frame,region,obstacle,pairs,cards,tip_pairs,tip_cards,tips,near,round(float(d),8)])
     if seen!=expected:raise ValueError("missing measured regions/frames")
-    total=0
+    total=0;tip_total=0
     for region in REGION_CARDS:
         r=out[region]
         r["possible_collision_frame_count"]=len(flags[region])
+        r["tip_zone_possible_collision_frame_count"]=len(tip_flags[region])
         r["min_tip_surface_distance_m"]=round(r["min_tip_surface_distance_m"],7)
         r["verdict"]="POSSIBLE_TRIANGLE_CONTACT_REVIEW" if flags[region] else "NO_CROSSINGS_DETECTED_ONLY"
-        total+=len(flags[region])
+        total+=len(flags[region]);tip_total+=len(tip_flags[region])
     sha=hashlib.sha256(json.dumps(sorted(normalized),separators=(",",":"),ensure_ascii=True).encode()).hexdigest()
     return {"schema":SCHEMA,"source_sample_sha256":sha,
         "frames":len(frames),"tested_obstacle_surfaces":{r:list(x) for r,x in OBSTACLES.items()},
         "regions":out,"possible_region_frames":total,
+        "tip_zone_possible_region_frames":tip_total,
         "candidate_collision":"POSSIBLE_CROSSING" if total else "NO_TRIANGLE_CROSSING_OBSERVED",
         "scientific_hold":"KEEP", "not_tested":["skin_inside_closed_volume",
             "short_fur_shell","hair_hair_intersection","contact_pressure",
