@@ -20,8 +20,36 @@ jobs:
           go-version: '1.23.2'
           cache: false
       - name: Source-byte PNG and capture-family leakage tests
+        env:
+          SCP_ADMISSION_VALIDATOR_PERF_OUT: ${{ runner.temp }}/synthetic-source-admission-validator-performance.json
         working-directory: qualification/agent_observation_admission
         run: |
           go test -race -count=1 -v ./...
           go vet ./...
           go run . capabilities
+      - name: Verify source-byte admission oracle quality and scientific holds
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"synthetic-source-admission-validator-performance.json"
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.validator.performance.v1"
+          assert r["case_count"]==16
+          assert r["rejection_detection"]=={"detected":14,"total":14}
+          assert r["confusion"]["ACCEPT"]["ACCEPT"]==2
+          assert r["false_acceptance_count"]==r["false_rejection_count"]==0
+          assert r["contract_mismatch_count"]==r["hard_error_count"]==0
+          assert r["verdict"]=="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"
+          assert r["external_photo_fit"]=="NOT_RUN"
+          assert not r["independent_camera_calibrated"] and not r["merge_release_CPE_approval"]
+          print("SOURCE_ADMISSION_VALIDATOR_QUALITY",r["validator_sha256"],r["runtime"])
+          PY
+      - name: Preserve exact-source synthetic observation validator receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scp-observation-admission-validator-quality
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/synthetic-source-admission-validator-performance.json
