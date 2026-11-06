@@ -41,6 +41,24 @@ class RefinementTests(unittest.TestCase):
         self.assertIn("permissions:\n  contents: read",content)
         self.assertEqual(sum(line.startswith("      - name: ") for line in content.splitlines()),6)
 
+    def test_experimental_join_is_opt_in_and_baseline_keeps_visual_hold(self):
+        # Connected geometry is retained as a reversible research variant:
+        # earlier native render showed Aster shin skin exposed 798 pixels,
+        # falling to ~396 with margin, versus baseline 0 (palette-specific).
+        # Physical fit and general visual acceptance are not proven.
+        from wardrobe_refinement_v2 import build
+        derived=self.root/"joined_knee_rdte.glb"
+        manifest=self.root/"joined_knee_rdte_manifest.json"
+        alt=build(derived,manifest,experimental_joined_knee=True)
+        self.assertTrue(alt["original_pant_legs_continuous_indexed_through_knee"])
+        self.assertTrue(alt["experimental_knee_visual_quality_rejected"])
+        self.assertFalse(alt["two_tube_baseline_selected"])
+        self.assertNotEqual(alt["derived_sha256"],self.receipt["derived_sha256"])
+        self.assertFalse(alt["full_body_watertight"])
+        self.assertTrue(alt["rights_release_merge_cpe_held"])
+        self.assertFalse(self.receipt["experimental_joined_knee_source_only"])
+        self.assertTrue(self.receipt["two_tube_baseline_selected"])
+
     def test_genuine_shared_knee_ring_manifold_not_two_disconnected_tubes(self):
         from collections import Counter
         from humanization_v2 import v1 as src
@@ -94,7 +112,7 @@ class RefinementTests(unittest.TestCase):
                     src.Geometry(),"slatePants",
                     (hip,knee,.11,.082,"hip_"+side,"knee_"+side,18,22),
                     ((0,0,0),ankle,.084,.06,"knee_"+side,"ankle_"+side,18,22))
-        self.assertTrue(self.receipt["original_pant_legs_continuous_indexed_through_knee"])
+        self.assertFalse(self.receipt["original_pant_legs_continuous_indexed_through_knee"])
         self.assertFalse(self.receipt["original_waist_pant_leg_seam_closed"])
 
     def test_correct_hip_thigh_and_knee_against_exact_original_joint_rest(self):
