@@ -86,6 +86,8 @@ def create_fur_surface(source,arm,base,white,count,seed):
                 bone_groups.setdefault(k,[]).append((start,weight/total))
     data=bpy.data.meshes.new("fur_geometry_"+source.name)
     data.from_pydata(vertices,[],faces);data.update()
+    from wool_texture import assign_fiber_uv
+    assign_fiber_uv(data)
     obj=bpy.data.objects.new("FUR_skinned_"+source.name,data)
     bpy.context.collection.objects.link(obj)
     data.materials.append(base)

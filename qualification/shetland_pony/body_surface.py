@@ -93,6 +93,8 @@ def create_body_surface(arm,coat_material,white_material=None):
     mesh=bpy.data.meshes.new("original_continuous_torso_topology")
     mesh.from_pydata(points,[],faces)
     mesh.update()
+    from wool_texture import assign_uv
+    assign_uv(mesh,SIDES)
     obj=bpy.data.objects.new("continuous_shetland_barrel_rump_shoulder",mesh)
     bpy.context.collection.objects.link(obj)
     mesh.materials.append(coat_material)

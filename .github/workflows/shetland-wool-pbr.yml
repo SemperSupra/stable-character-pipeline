@@ -1,0 +1,116 @@
+name: Shetland UV-mapped fine wool texture on real GLB furry skin
+on:
+  pull_request:
+    paths:
+      - "qualification/shetland_pony/wool_texture.py"
+      - "qualification/shetland_pony/test_wool_texture.py"
+      - "qualification/shetland_pony/verify_wool_glb.py"
+      - "qualification/shetland_pony/build_blender.py"
+      - "qualification/shetland_pony/body_surface.py"
+      - "qualification/shetland_pony/equine_sculpt.py"
+      - "qualification/shetland_pony/winter_fur.py"
+      - ".github/workflows/shetland-wool-pbr.yml"
+permissions:
+  contents: read
+jobs:
+  native-fur:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Pure deterministic fiber distribution and taper tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd qualification/shetland_pony && python3 -m unittest -v test_wool_texture.py test_mane_drape.py test_winter_fur.py test_body_surface.py test_equine_anatomy.py)
+          python3 -m py_compile qualification/shetland_pony/winter_fur.py
+      - name: Disposable official SHA-pinned Blender 4.5.15
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/blender.sha256"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Build black and pinto real furry meshes, animated GLB and native images
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          env LIBGL_ALWAYS_SOFTWARE=1 SCP_COATS=black,pinto \
+            "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup \
+            --python-exit-code 8 --python qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/results"
+      - name: Independently prove actual export has skinned 3D fur, not smooth PBR only
+        shell: bash
+        run: |
+          set -euo pipefail
+          for coat in black pinto; do
+            python3 qualification/shetland_pony/verify_fur_glb.py \
+              "results/shetland_"$coat"_ghcr.glb" "results/fur_"$coat".json"
+          done
+      - name: Validate expected equine face, neck and four continuous limbs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import struct,json,pathlib
+          for coat in ("black","pinto"):
+            raw=pathlib.Path("results/shetland_"+coat+"_ghcr.glb").read_bytes()
+            n=struct.unpack_from("<I",raw,12)[0]
+            gltf=json.loads(raw[20:20+n].decode().strip())
+            names=[m.get("name","") for m in gltf["meshes"]]
+            assert any("sculpt_equine_brow_bridge_muzzle" in x for x in names)
+            assert any("sculpt_sloping_neck" in x for x in names)
+            assert sum("_limb_mesh" in x for x in names)==4
+            assert any(x.startswith("fur_geometry_") for x in names)
+            assert max(len(s["joints"]) for s in gltf["skins"])>=26
+            assert gltf["animations"]
+          print("TRUE_3D_SCULPT_FUR_SKIN_GLTF_STRUCTURE_PRESENT; EQUINE_ROM_REMAINS_FAIL")
+          PY
+      - name: Machine verify downward groom coverage and real 30bone skinned export
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,pathlib,struct
+          for coat in ("black","pinto"):
+            p=pathlib.Path("results")
+            d=json.loads((p/("longhair_"+coat+".json")).read_text())
+            assert d["guide_count"]==1050 and d["all_guides_downward"]
+            raw=(p/("shetland_"+coat+"_ghcr.glb")).read_bytes()
+            n=struct.unpack_from("<I",raw,12)[0]
+            g=json.loads(raw[20:20+n].decode().strip())
+            assert max(len(s["joints"]) for s in g["skins"])>=30
+            assert g["animations"]
+            assert any("geometric_coat_mane_tail" in m.get("name","") for m in g["meshes"])
+            print("DOWNWARD_MANETAIL_3D_GLTF_STRUCTURE_VERIFIED",coat,d["guide_count"])
+          PY
+      - name: Independent require true PNG wool PBR, embedded glTF image, body and fiber UVs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for coat in black pinto; do
+            python3 qualification/shetland_pony/verify_wool_glb.py               "results/shetland_"$coat"_ghcr.glb" "$coat" "results"
+          done
+      - name: Retain exact source-original furry GLBs, PNGs and density receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-wool-uv-pbr-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/*_ghcr.glb
+            results/*_ghcr.png
+            results/fur_*.json
+            results/longhair_*.json
+            results/wool_*.json
+            results/wool_fiber_*.png
+            results/manifest.json

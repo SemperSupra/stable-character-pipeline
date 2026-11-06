@@ -69,6 +69,11 @@ def build_mesh(name,vertices,faces,weights,arm,material):
     import bpy
     mesh=bpy.data.meshes.new(name+"_mesh")
     mesh.from_pydata(vertices,[],faces);mesh.update()
+    from wool_texture import assign_uv
+    if name.startswith("continuous_") and name.endswith("_limb"):
+        assign_uv(mesh,20)
+    else:
+        assign_uv(mesh,24)
     obj=bpy.data.objects.new(name,mesh);bpy.context.collection.objects.link(obj)
     mesh.materials.append(material)
     for poly in mesh.polygons:poly.use_smooth=True

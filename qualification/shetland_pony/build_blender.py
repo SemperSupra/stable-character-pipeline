@@ -12,6 +12,7 @@ from body_surface import create_body_surface
 from equine_sculpt import create_equine_sculpt
 from winter_fur import create_coat
 from mane_drape import guides as mane_guides,validate_guides
+from wool_texture import apply_to_material
 from equine_anatomy import chain as equine_leg_chain, validate_structure
 
 OUT=Path(sys.argv[sys.argv.index('--')+1]) if '--' in sys.argv else Path('/tmp/shetland-results')
@@ -19,7 +20,7 @@ OUT.mkdir(parents=True,exist_ok=True)
 SEED=20261105
 COATS={
  'black': ((.021,.023,.029,1),(.012,.013,.018,1),(.19,.19,.2,1),(.90,.28,.54,1)),
- 'pinto': ((.41,.14,.07,1),(.84,.70,.49,1),(.22,.18,.16,1),(.09,.08,.07,1)),
+ 'pinto': ((.24,.065,.032,1),(.88,.79,.64,1),(.22,.18,.16,1),(.09,.08,.07,1)),
  'white': ((.82,.8,.75,1),(.88,.85,.78,1),(.27,.25,.23,1),None),
 }
 
@@ -96,6 +97,10 @@ def build_one(coat):
  nose=material('muzzle',(body_color[0]*.7,body_color[1]*.7,body_color[2]*.7,1))
  eye=material('eyes',(.015,.011,.01,1),.14);pink=material('halter',halter_color) if halter_color else None
  if coat=='pinto':white=material('pinto_patches',(.86,.84,.76,1))
+ wool_receipts={'main':apply_to_material(body,body_color,OUT,'base_'+coat)}
+ if coat=='pinto':
+  wool_receipts['white']=apply_to_material(white,(.86,.84,.76,1),OUT,'white_'+coat)
+ (OUT/f'wool_{coat}.json').write_text(json.dumps(wool_receipts,indent=2,sort_keys=True)+'\n')
  arm=new_armature()
  create_body_surface(arm,body,white if coat=='pinto' else None)
  create_equine_sculpt(arm,body,body)
