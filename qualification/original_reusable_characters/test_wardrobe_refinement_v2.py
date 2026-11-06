@@ -25,6 +25,22 @@ class RefinementTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):cls.temp.cleanup()
 
+    def test_workflow_recovery_fails_on_duplicate_or_truncated_steps(self):
+        """Regression against the actual duplicated/truncated workflow first RED."""
+        path=Path(__file__).resolve().parents[2]/".github/workflows/r009-original-wardrobe-refinement-v2.yml"
+        content=path.read_text(encoding="utf-8")
+        self.assertEqual(content.count("\n      - name: Fresh source-only adversarial"),1)
+        self.assertEqual(content.count("\n      - name: Build immutable v2 original"),1)
+        self.assertEqual(content.count("\n      - name: A2 72-frame native"),1)
+        self.assertEqual(content.count("uses: actions/upload-artifact@v4"),1)
+        self.assertEqual(content.count("          if grep -Ev "),1)
+        self.assertEqual(content.count("git merge-base --is-ancestor"),1)
+        self.assertEqual(content.count("sha256sum -c SHA256SUMS"),1)
+        self.assertNotIn("\n r009-evidence/changed_paths.txt; then",content)
+        self.assertIn("' r009-evidence/changed_paths.txt; then",content)
+        self.assertIn("permissions:\n  contents: read",content)
+        self.assertEqual(sum(line.startswith("      - name: ") for line in content.splitlines()),6)
+
     def test_shoulder_gusset_source_geometry_and_non_destructive_skin_weights(self):
         from humanization_v2 import v1 as h17
         count=len(SHOULDER_GUSSET_RINGS)*SHOULDER_GUSSET_SIDES
