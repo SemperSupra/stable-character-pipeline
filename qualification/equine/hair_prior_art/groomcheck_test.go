@@ -41,6 +41,7 @@ func TestHostilePerturbations(t *testing.T){
     testCases:=map[string]func(*Groom){
         "bary_sum":func(g *Groom){g.Fibers[0].Barycentric[0]=.5},
         "bary_nan":func(g *Groom){g.Fibers[0].Barycentric[0]=math.NaN()},
+        "degenerate_triangle":func(g *Groom){g.Fibers[0].SourceTriangle[2]=g.Fibers[0].SourceTriangle[1]},
         "wrong_root":func(g *Groom){g.Fibers[0].RestCurve[0][1]+=.01},
         "zero_segment":func(g *Groom){g.Fibers[0].RestCurve[1]=g.Fibers[0].RestCurve[0]},
         "wrong_length":func(g *Groom){g.Fibers[0].RestLength=.08},
