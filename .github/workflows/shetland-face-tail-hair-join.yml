@@ -1,0 +1,144 @@
+name: Shetland integrated facial tail and hair source-bound native proof
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/shetland-face-tail-hair-join.yml"
+      - "qualification/shetland_pony/FACE_TAIL_HAIR_JOIN.md"
+permissions:
+  contents: read
+jobs:
+  integrated-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: producer
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: c39a7ae2262364a6062d2ed6e564c58032914bae
+          path: face-source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: bc9de56908a8db6e8fc7a7ffd4c5fc90f47d0f36
+          path: tail-source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 897d087fd8aa355281383086aa20bcdc87f68287
+          path: hair-source
+          persist-credentials: false
+      - name: Fail closed on exact source heads, transfer only selected public-safe new files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C face-source rev-parse HEAD)" = "c39a7ae2262364a6062d2ed6e564c58032914bae"
+          test "$(git -C tail-source rev-parse HEAD)" = "bc9de56908a8db6e8fc7a7ffd4c5fc90f47d0f36"
+          test "$(git -C hair-source rev-parse HEAD)" = "897d087fd8aa355281383086aa20bcdc87f68287"
+          for f in facial_controls.py facial_native.py test_facial_controls.py; do
+            test ! -e "producer/qualification/shetland_pony/$f"
+            cp "face-source/qualification/shetland_pony/$f" "producer/qualification/shetland_pony/$f"
+          done
+          for f in tail_intent.py tail_native.py test_tail_intent.py; do
+            test ! -e "producer/qualification/shetland_pony/$f"
+            cp "tail-source/qualification/shetland_pony/$f" "producer/qualification/shetland_pony/$f"
+          done
+          for f in guide_dynamics.py guide_native.py test_guide_dynamics.py; do
+            test ! -e "producer/qualification/shetland_pony/$f"
+            cp "hair-source/qualification/shetland_pony/$f" "producer/qualification/shetland_pony/$f"
+          done
+          (cd producer/qualification/shetland_pony && python3 -m unittest -v test_facial_controls.py test_tail_intent.py test_guide_dynamics.py)
+      - name: Install disposable SHA-verified Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender/checksums"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender" && grep 'blender-4.5.15-linux-x64.tar.xz' checksums | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender"
+      - name: Build a single original black Shetland source scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/baseline results/face results/tail results/hair
+          env SCP_COATS=black LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python producer/qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/results/baseline"
+      - name: Apply facial controls to the actual original scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python producer/qualification/shetland_pony/facial_native.py -- "$GITHUB_WORKSPACE/results/baseline/shetland_black_ghcr.blend" "$GITHUB_WORKSPACE/results/face"
+      - name: Apply deliberate tail intent on the facially animated scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python producer/qualification/shetland_pony/tail_native.py -- "$GITHUB_WORKSPACE/results/face/equine_face_native.blend" "$GITHUB_WORKSPACE/results/tail"
+      - name: Bake passive longhair guide physics on the joined face and tail scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python producer/qualification/shetland_pony/guide_native.py -- "$GITHUB_WORKSPACE/results/tail/equine_tail_intent.blend" "$GITHUB_WORKSPACE/results/hair"
+      - name: Independently verify exact provenance chain and GLB face tail hair join
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,pathlib,struct
+          root=pathlib.Path("results")
+          checks=(("baseline/shetland_black_ghcr.blend","face/face_receipt.json"),
+                  ("face/equine_face_native.blend","tail/tail_receipt.json"),
+                  ("tail/equine_tail_intent.blend","hair/hair_receipt.json"))
+          for input_path,receipt_path in checks:
+              blob=(root/input_path).read_bytes()
+              receipt=json.loads((root/receipt_path).read_text())
+              assert receipt["source_sha256"]==hashlib.sha256(blob).hexdigest(),(input_path,receipt_path)
+          f=root/"hair/equine_longhair_wind.glb"
+          raw=f.read_bytes();assert raw[:4]==b"glTF" and len(raw)>4096
+          size=struct.unpack_from("<I",raw,12)[0];g=json.loads(raw[20:20+size].decode().strip())
+          assert max(len(s["joints"]) for s in g["skins"])>=30
+          node_names={n.get("name","") for n in g["nodes"]}
+          assert {"upper_eyelid_L","upper_eyelid_R","tail_1","tail_2","tail_3"}<=node_names
+          morphs=sum(len(p.get("targets",[])) for m in g["meshes"] for p in m["primitives"])
+          assert morphs>=13,("expected 4 face+9 hair morph targets",morphs)
+          paths={ch["target"]["path"] for a in g["animations"] for ch in a["channels"]}
+          assert "weights" in paths and "rotation" in paths and "translation" in paths,paths
+          assert all(len(list((root/d).glob(d+"_*.png")))>=8 for d in ("face","tail","hair"))
+          for d in ("face","tail","hair"):
+              receipt=json.loads((root/d/(d+"_receipt.json")).read_text())
+              for fname,meta in receipt["files"].items():
+                  blob=(root/d/fname).read_bytes()
+                  assert len(blob)==meta["bytes"] and hashlib.sha256(blob).hexdigest()==meta["sha256"]
+          manifest={"schema":"equine.face_tail_hair.join.v1","final_glb":str(f),
+              "sha256":hashlib.sha256(raw).hexdigest(),"bytes":len(raw),
+              "morph_targets":morphs,"animations":len(g["animations"]),
+              "joints":max(len(s["joints"]) for s in g["skins"]),
+              "scientific":"UNKNOWN: visual collision, ROM, hoof contact, references, facial ethology",
+              "source":{"face":"c39a7ae2262364a6062d2ed6e564c58032914bae",
+              "tail":"bc9de56908a8db6e8fc7a7ffd4c5fc90f47d0f36",
+              "hair":"897d087fd8aa355281383086aa20bcdc87f68287"}}
+          (root/"integration_receipt.json").write_text(json.dumps(manifest,sort_keys=True,indent=2)+"\n")
+          print("INTEGRATED_30_JOINT_FACE_TAIL_HAIR_NATIVE_ENGINEERING_PASS",manifest)
+          PY
+      - name: Preserve joined public-original model, multiview evidence and receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-face-tail-hair-join-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/hair/equine_longhair_wind.glb
+            results/face/*.png
+            results/tail/*.png
+            results/hair/*.png
+            results/face/face_receipt.json
+            results/tail/tail_receipt.json
+            results/hair/hair_receipt.json
+            results/integration_receipt.json
+            results/baseline/manifest.json
