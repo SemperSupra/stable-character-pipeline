@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Native Blender evaluated triangle-surface BVH contact witness.
 
-Compares *actual* skinned triangles using Blender BVHTree at 12 equally spaced
-keyed motion frames per state, not the cheaper 72-frame nearest-vertex proxy.
+Compares *actual* skinned triangles using Blender BVHTree at all 72 keyed
+motion frames per state, alongside the independent 72-frame vertex proxy.
 Surface-overlap counts can mean touch OR crossing. Fully contained surfaces
 and near misses are not detected. Does not grant collision or cloth acceptance.
 Public source-original characters ONLY. No private identities or assets.
@@ -15,10 +15,10 @@ import bpy
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
-SCHEMA = "scp.r009.original_bvh_surface_contact.v1"
+SCHEMA = "scp.r009.original_bvh_surface_contact.v2"
 ACTORS = ("AsterOriginal", "JuniperOriginal")
 SLOTS = ("top", "bottom", "footwear")
-FRAMES = tuple(range(0, 143, 12))
+FRAMES = tuple(range(0, 143, 2))
 
 def _bvh_from_evaluated_object(obj, depsgraph):
     eval_ob = obj.evaluated_get(depsgraph)
@@ -112,9 +112,11 @@ def inspect(scene, model_sha256):
             "native_bvh_positive_negative_calibration":True,
             "method":"BLENDER_EVALUATED_SKINNED_TRIANGLE_BVH_OVERLAP",
             "per_actor_slot":by_actor,
-            "all_72_motion_frames_evaluated_for_bvh":False,
+            "all_72_motion_frames_evaluated_for_bvh":True,
             "all_72_motion_frames_evaluated_for_vertex_proxy":True,
             "no_overlap_is_not_no_intersection_proof_between_samples":True,
+            "fully_qualified_frame_interpolation":False,
+            "contact_and_penetration_sign_independent":False,
             "no_contact_is_not_no_containment_proof":True,
             "surface_tear_or_holes_qualified":False,
             "collision_free_proven":False,
