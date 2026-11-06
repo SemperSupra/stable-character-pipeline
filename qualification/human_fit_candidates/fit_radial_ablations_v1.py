@@ -20,7 +20,7 @@ from parametric_morphology_v1 import write_vec3
 from rig35_v2 import glb_pack
 from verify_original_glb import decode, accessory
 
-SCHEMA="scp.r009.original_mage_radial_fit_ablation.v1"
+SCHEMA="scp.r009.original_mage_radial_fit_ablation.v2"
 # (lateral radius, anterior/posterior depth radius); bounded, deliberate
 # orthogonal experiments. Expand about EACH primitive's original transverse
 # centroid so leg centerline separation cannot be an accidental tuning knob.
@@ -29,7 +29,21 @@ CANDIDATES={
     "upper_8": {"style_top":(1.08,1.08),"style_bottom":(1.,1.)},
     "both_8": {"style_top":(1.08,1.08),"style_bottom":(1.08,1.08)},
     "both_14":{"style_top":(1.14,1.14),"style_bottom":(1.14,1.14)},
+    "juniper_skirt_8": {"style_top":(1.,1.),"style_bottom":(1.08,1.08)},
+    "juniper_skirt_14":{"style_top":(1.,1.),"style_bottom":(1.14,1.14)},
 }
+
+
+TARGET_ACTOR={"juniper_skirt_8":"JuniperOriginal",
+              "juniper_skirt_14":"JuniperOriginal"}
+
+def factors_for(variant,actor,slot):
+    if variant not in CANDIDATES or actor not in ACTORS or (
+            slot not in ("style_top","style_bottom")):
+        raise ValueError("ABLATION_UNKNOWN_ACTOR_VARIANT_OR_SLOT")
+    if variant in TARGET_ACTOR and actor!=TARGET_ACTOR[variant]:
+        return (1.,1.)
+    return CANDIDATES[variant][slot]
 
 
 def _authorship(doc,source_receipt,raw):
@@ -90,13 +104,17 @@ def apply(src,source_receipt,out,receipt,variant):
     bb=bytearray(binary)
     used=set()
     count={a:{} for a in ACTORS}
+    processed={a:{} for a in ACTORS}
+    effective={a:{} for a in ACTORS}
     names={n.get("name"):i for i,n in enumerate(doc["nodes"])}
     for actor_i,actor in enumerate(ACTORS):
         root_name=actor+"_SceneRoot"
         if root_name not in names:
             raise ValueError("ABLATION_ROOT_MISSING")
         children=set(doc["nodes"][names[root_name]].get("children",[]))
-        for slot,(sx,sz) in CANDIDATES[variant].items():
+        for slot in CANDIDATES[variant]:
+            sx,sz=factors_for(variant,actor,slot)
+            effective[actor][slot]=[sx,sz]
             if sx<1 or sz<1 or sx>1.15 or sz>1.15:
                 raise ValueError("ABLATION_OUT_OF_BOUNDS")
             name=actor+"_Wardrobe_"+slot
@@ -106,6 +124,7 @@ def apply(src,source_receipt,out,receipt,variant):
                 raise ValueError("ABLATION_INACTIVE_OR_MISBOUND_LAYER")
             mesh=doc["meshes"][node["mesh"]]
             cnt=0
+            visited=0
             for prim in mesh["primitives"]:
                 attrs=prim["attributes"]
                 ipos,ino=attrs["POSITION"],attrs["NORMAL"]
@@ -119,13 +138,17 @@ def apply(src,source_receipt,out,receipt,variant):
                 new,new_n=deform_primitive(positions,normals,sx,sz)
                 write_vec3(doc,bb,ipos,new)
                 write_vec3(doc,bb,ino,new_n)
-                cnt+=len(new)
+                visited+=len(new)
+                cnt+=sum(any(abs(a-b)>1e-7 for a,b in zip(p,q))
+                         for p,q in zip(positions,new))
+            processed[actor][slot]=visited
             count[actor][slot]=cnt
     # Only post-derivation diagnostic metadata; never grant appearance,
     # anatomy/rights or physical-clearance acceptance.
     doc.setdefault("extras",{})["radial_ablation"]={
         "schema":SCHEMA,"variant":variant,"source_sha256":source_sha,
         "radial_factors":CANDIDATES[variant],
+        "effective_actor_factors":effective,
         "garment_clearance_accepted":False,"appearance_accepted":False,
     }
     if len(doc["skins"])!=2 or any(len(s["joints"])!=35 for s in doc["skins"]):
@@ -136,6 +159,8 @@ def apply(src,source_receipt,out,receipt,variant):
         "source_sha256":source_sha,
         "derived_sha256":hashlib.sha256(output).hexdigest(),
         "changed_style_vertices":count,
+        "processed_style_vertices":processed,
+        "effective_actor_factors":effective,
         "radial_factors":CANDIDATES[variant],
         "source_geometry_preserved":True,
         "motion_preserved":True,"garment_clearance_accepted":False,
