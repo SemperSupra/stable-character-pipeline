@@ -64,7 +64,6 @@ class ATests(unittest.TestCase):
             lambda a:a[3].update(wind_keys_disabled_in_memory_only=False),
             lambda a:a[4].update(source_wind_morphs_detected=8),
             lambda a:a[1]["source_wind_max_raw_activity_per_frame"].pop(),
-            lambda a:a[3]["source_wind_max_activity_per_frame"][20].__class__,
             lambda a:a[3]["source_wind_max_activity_per_frame"].__setitem__(20,.2),
             lambda a:a[2]["source_wind_max_raw_activity_per_frame"].__setitem__(18,float("nan")),
             lambda a:a[4]["source_wind_max_activity_per_frame"].__setitem__(9,float("inf")),
@@ -75,7 +74,6 @@ class ATests(unittest.TestCase):
         ]
         for i,m in enumerate(changes):
             args=list(copy.deepcopy(baselines))
-            if i==5:continue
             m(args)
             with self.subTest(i=i):
                 with self.assertRaises((ValueError,TypeError,KeyError)):
