@@ -67,6 +67,18 @@ def observe(path, out_dir, label):
     check(not proximity_out.exists(),"REFUSE_OVERWRITE_GAP_EVIDENCE")
     with proximity_out.open("x",encoding="utf-8") as fp:
         fp.write(json.dumps(proximity,sort_keys=True,indent=2)+"\n")
+    from native_bvh_contact_v1 import inspect as inspect_surface_contacts
+    contact=inspect_surface_contacts(scene,source_sha)
+    contact_out=out_dir/(label+"_surface_bvh.json")
+    check(not contact_out.exists(),"REFUSE_OVERWRITE_BVH_EVIDENCE")
+    with contact_out.open("x",encoding="utf-8") as fp:
+        fp.write(json.dumps(contact,sort_keys=True,indent=2)+"\n")
+    print("R009_BVH_CONTACT_EVIDENCE "+json.dumps({
+        "label":label,"frames":contact["motion_frames_evaluated"],
+        "overlap_count_by_actor_slot":{
+            a:{slot:data["pairs_total"] for slot,data in slots.items()}
+            for a,slots in contact["per_actor_slot"].items()},
+        "collision_free_proven":False},sort_keys=True))
     def separation(frame):
         scene.frame_set(frame)
         bpy.context.view_layer.update()
@@ -167,6 +179,9 @@ def observe(path, out_dir, label):
         "closeups_generated":True,
         "garment_proxy_receipt_sha256":hashlib.sha256(proximity_out.read_bytes()).hexdigest(),
         "garment_proximity_proxy_all_72_frames":True,
+        "sampled_evaluated_triangle_surface_bvh":True,
+        "bvh_surface_receipt_sha256":hashlib.sha256(contact_out.read_bytes()).hexdigest(),
+        "all_72_triangle_contact_frames_qualified":False,
         "garment_fit_accepted":False,
         "source_class":"ORIGINAL_SELF_AUTHORED_SYNTHETIC",
         "geometry_material_source_unchanged":True,
