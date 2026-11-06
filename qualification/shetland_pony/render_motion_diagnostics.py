@@ -42,6 +42,11 @@ scene.render.resolution_y=420
 scene.render.resolution_percentage=100
 scene.render.film_transparent=False
 scene.render.use_file_extension=True
+# Explicitly restrict the disposable four-view diagnostic to 2 CPU Cycles
+# samples. High-quality native stills remain a separate appearance evidence
+# lane; 192×16-sample renders waste $0 runner resources for motion inspection.
+if scene.render.engine=="CYCLES":
+    scene.cycles.samples=2
 receipt={"schema":"equine.motion.fourviews.v1",
          "source_sha256":hashlib.sha256(scene_file.read_bytes()).hexdigest(),
          "fps":24,"frames_per_camera":48,"views":{},"quality":"diagnostic, not visual or biomechanics acceptance"}
