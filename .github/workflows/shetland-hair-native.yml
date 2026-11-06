@@ -282,9 +282,12 @@ jobs:
           assert r["schema"]=="equine.pony52.source_wind_morph_ab.v1"
           assert r["frames"]==48 and r["guides"]==6
           assert r["verdict"] in (
-            "WIND_MORPH_CONFOUNDING_SUPPORTS_BOUNDED_CAUSAL_HYPOTHESIS",
+            "SOURCE_WIND_MORPH_CONFOUND_BOUNDED_CONFIRMED_NO_NEW_RAY_CANDIDATES",
+            "SOURCE_WIND_MORPH_CONFOUND_BOUNDED_CONFIRMED_COLLISION_HOLD",
+            "PARTIAL_MORPH_STATE_IMPROVEMENT_SOURCE_NOT_CALIBRATED",
             "INCONCLUSIVE_NO_SOURCE_WIND_ACTIVITY",
             "NO_ELIGIBLE_IMPROVEMENT_KEEP_ORIGINAL_WORKCELL")
+          assert r["source_consistency_separate_from_collision_admission"] is True
           assert r["scientific_hold"]=="KEEP" and r["merge_release_CPE"] is False
           assert r["original_source_mutated_on_disk"] is False
           print("MORPH_SOURCE_CONFOUND_5_2_A_B_NONRELEASE",r)
