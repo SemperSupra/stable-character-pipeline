@@ -113,9 +113,15 @@ jobs:
           python3 - <<'PY'
           import json
           r=json.load(open("results/hair/hair_contact_48f.json"))
-          assert r["schema"]=="equine.hair_body.contact_screen.v1"
+          assert r["schema"]=="equine.hair_body.contact_screen.v2"
           assert r["frames"]==48 and r["frames_examined"]==48
           assert r["source_cards"]==1050 and r["triangles_distal_75pct_per_frame"]==6300
+          assert r["triangles_last_quarter_per_frame"]==2100
+          assert 0<=r["tip_zone_possible_region_frames"]<=r["possible_region_frames"]<=144
+          assert r["runtime_diagnostic_seconds"]["samples"]==48
+          assert r["runtime_diagnostic_seconds"]["p95"]>=0
+          assert r["native_observer_sha256"]
+          print("DISTAL_VERSUS_TIP_CONTACT_HOLD",r["tip_zone_possible_region_frames"],r["regions"])
           assert r["scientific_hold"]=="KEEP"
           assert r["visual_acceptance"] is False and r["release_or_CPE_admission"] is False
           print("HAIR_NATIVE_48F_BVH_SCIENCE_WARNING",r["candidate_collision"],r["possible_region_frames"])
