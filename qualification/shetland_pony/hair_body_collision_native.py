@@ -54,7 +54,13 @@ def evaluated_points_and_triangles(obj,dg):
             raise ValueError("empty evaluated geometry "+obj.name)
         transform=e.matrix_world.copy()
         pts=[tuple(transform@v.co) for v in mesh.vertices]
-        tris=[tuple(p.vertices) for p in mesh.polygons]
+        # The original torso/leg surface legitimately contains quads.
+        # Blender's evaluated loop triangles are authoritative; never drop
+        # nontriangular source polygons or loosen the BVH triangle invariant.
+        mesh.calc_loop_triangles()
+        tris=[tuple(t.vertices) for t in mesh.loop_triangles]
+        if not tris or any(len(t)!=3 for t in tris):
+            raise ValueError("evaluated source could not be triangulated")
         return pts,tris
     finally:
         e.to_mesh_clear()
