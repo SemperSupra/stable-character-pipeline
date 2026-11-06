@@ -41,6 +41,8 @@ def selftest():
         raise RuntimeError("BVH_SEPARATE_FALSE_POSITIVE")
     # A simple 2-triangle open surface cannot detect full volumetric
     # enclosure. Keep any apparently zero intersection as UNKNOWN.
+    if height_bin(1.32)!="1.25-1.45" or height_bin(.72)!="0.60-0.85":
+        raise RuntimeError("BLENDER_WORLD_Z_HEIGHT_BINS_INVALID")
     print(json.dumps({
         "schema":SCHEMA+".selftest",
         "crossing_triangles":"DETECTED",
@@ -164,6 +166,10 @@ def audit(source, out, expected_sha, frames=72):
         dg=bpy.context.evaluated_depsgraph_get()
         for actor in ACTORS:
             body=sampled(objs[(actor,"body")],dg)
+            if frame==1:
+                zvals=[p[2] for p in body[0]]
+                if max(zvals)<1.60 or min(zvals)>.60:
+                    raise RuntimeError("BLENDER_WORLD_Z_CHARACTER_VERTICAL_AXIS_INVALID")
             for slot in SLOTS[1:]:
                 garment=sampled(objs[(actor,slot)],dg)
                 if frame==1:
