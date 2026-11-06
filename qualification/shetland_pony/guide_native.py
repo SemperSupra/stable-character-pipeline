@@ -39,20 +39,84 @@ for i in range(1050):
     roots.append(tuple((v[i*4].co+v[i*4+1].co)*.5))
     tips.append(tuple((v[i*4+2].co+v[i*4+3].co)*.5))
 
+# Keep card source ownership exact and fail closed on weighted skin changes.
+# Each original generated 4-vertex card is bound to one named head/neck/tail bone.
+card_bones=[]
+for i in range(1050):
+    weights=v[4*i].groups
+    if len(weights)!=1 or abs(weights[0].weight-1.)>1e-6:
+        raise ValueError("unexpected original single-bone hair attachment")
+    card_bones.append(groom.vertex_groups[weights[0].group].name)
+if any(x not in {"head","neck","tail_1","tail_2","tail_3"} for x in card_bones):
+    raise ValueError("unexpected follicle bone")
+
 bands=((0,440,20),(440,670,15),(670,1050,20))
-groups=[]
+spans=[]
 for start,stop,stride in bands:
     for lo in range(start,stop,stride):
         hi=min(stop,lo+stride)
-        j=(lo+hi-1)//2
-        direct=sub(tips[j],roots[j])
-        length=norm(direct)
-        if not (.08<=length<=.7):
-            raise ValueError("out of guide length bounds")
-        guide=Guide(roots[j],direct,length)
-        history=simulate(guide,48,wind=(-4.0,.55,0.),root_velocity=(0.,0.,0.))
-        groups.append((lo,hi,j,history))
-if len(groups)<40 or len(groups)>80:raise ValueError("invalid reduced guide groups")
+        # Do not blend separate bone owners into one physical guide.
+        j=lo
+        while j<hi:
+            k=j+1
+            while k<hi and card_bones[k]==card_bones[j]:
+                k+=1
+            representative=(j+k-1)//2
+            spans.append((j,k,representative))
+            j=k
+if not 40<=len(spans)<=140:
+    raise ValueError("unexpected reduced guide / bone partition count")
+
+# Evaluate the actual animated rig before adding any hair morph keys. This
+# supports pure hair and full face→tail→hair integration without hardcoded
+# tail behavior, animation curve names, or guessed joint accelerations.
+scene=bpy.context.scene
+source_roots={j:[] for _,_,j in spans}
+source_tips={j:[] for _,_,j in spans}
+source_inverse_skin={}
+for frame in range(1,49):
+    scene.frame_set(frame)
+    eval_obj=groom.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    evaluated=eval_obj.to_mesh()
+    if len(evaluated.vertices)!=1050*4:
+        raise ValueError("evaluated groom topology changed")
+    world=eval_obj.matrix_world.copy()
+    for _,_,j in spans:
+        i=j*4
+        source_roots[j].append(tuple(world@((evaluated.vertices[i].co+evaluated.vertices[i+1].co)*.5)))
+        source_tips[j].append(tuple(world@((evaluated.vertices[i+2].co+evaluated.vertices[i+3].co)*.5)))
+    eval_obj.to_mesh_clear()
+    matrices={}
+    for name in set(card_bones):
+        pb=rig.pose.bones.get(name)
+        if pb is None:raise ValueError("missing driven hair bone "+name)
+        skin=rig.matrix_world @ pb.matrix @ rig.data.bones[name].matrix_local.inverted()
+        if abs(skin.determinant())<1e-8:raise ValueError("singular hair skin")
+        matrices[name]=skin.to_3x3().inverted()
+    source_inverse_skin[frame]=matrices
+scene.frame_set(1)
+
+groups=[]
+max_root_speed=0.
+max_dynamic_lag=0.
+for lo,hi,j in spans:
+    trajectory=source_roots[j]
+    initial=trajectory[0]
+    direct=sub(source_tips[j][0],initial)
+    length=norm(direct)
+    if not (.08<=length<=.7):raise ValueError("invalid evaluated guide length")
+    guide=Guide(initial,direct,length)
+    # The first sample is both initial pin and frame 1; subsequent positions
+    # are the exact deformed source root from the skinned motion, including
+    # deliberate tail intent when loaded from the joined source .blend.
+    root_frames=[initial]+trajectory
+    history=simulate(guide,48,wind=(-4.,.55,0.),root_frames=root_frames)
+    speed=max(norm(sub(a,b))*24 for a,b in zip(trajectory,trajectory[1:]))
+    max_root_speed=max(max_root_speed,speed)
+    max_dynamic_lag=max(max_dynamic_lag,max(norm(sub(history[f][-1],source_tips[j][f])) for f in range(48)))
+    groups.append((lo,hi,j,history))
+if len(groups)!=len(spans) or not groups:
+    raise ValueError("unbounded guide simulation")
 
 sample_frames=(1,7,13,19,25,31,37,43,48)
 groom.shape_key_add(name="Basis",from_mix=False)
@@ -62,16 +126,19 @@ for frame in sample_frames:
     key=groom.shape_key_add(name="wind_%03d"%frame,from_mix=False)
     for lo,hi,j,history in groups:
         current=history[frame-1][-1]
-        delta=sub(current,tips[j])
+        # The physics is in world coordinates. Skin-aware offsets must be
+        # unrotated into each card's own rest/bind local coordinates before
+        # the GLB exporter applies those bones again.
+        delta=sub(current,source_tips[j][frame-1])
         shift=norm(delta)
         max_tip_shift=max(max_tip_shift,shift)
-        # Keep synthetic displacement bounded; collision remains a separate gate.
         if shift>.22:delta=tuple(x*.22/shift for x in delta)
         for i in range(lo,hi):
+            local=source_inverse_skin[frame][card_bones[i]]@Vector(delta)
             for k in (2,3):
                 data=key.data[i*4+k]
                 for axis in range(3):
-                    data.co[axis]+=delta[axis]
+                    data.co[axis]+=local[axis]
     target_keys[frame]=key
 
 for frame in sample_frames:
@@ -121,6 +188,10 @@ receipt={"schema":"equine.longhair.native.proof.v1","source_sha256":hashlib.sha2
     "source_cards":1050,"guide_groups":len(groups),"baked_shape_keys":len(target_keys),
     "sim_physics_hz":120,"render_fps":24,"frames":48,
     "max_raw_tip_shift_m":max_tip_shift,"clamp_m":.22,
+    "max_observed_root_speed_m_s":max_root_speed,
+    "max_world_tip_lag_m":max_dynamic_lag,
+    "root_source":"actual evaluated Blender skin from 48 source frames",
+    "source_tack_and_motion":"source .blend authoritative; not procedural guesses",
     "export":"baked morph guide approximations, NOT GLB native physics",
     "visual_collision_acceptance":"UNKNOWN","files":files}
 (out/"hair_receipt.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
