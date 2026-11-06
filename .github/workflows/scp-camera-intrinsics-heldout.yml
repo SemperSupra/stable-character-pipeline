@@ -16,16 +16,24 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Reject parent-source or separate workcell modification
+      - name: Fail-closed exact-child source-ownership proof (exclude PR preview parent)
+        if: github.event_name == 'pull_request'
+        env:
+          OLD_PARENT_SHA: 672edf4842a409deb1e10d573148e292ec05351d
+          CHILD_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          git diff --name-only 672edf4842a409deb1e10d573148e292ec05351d HEAD > "$RUNNER_TEMP/changed"
+          git cat-file -e "$OLD_PARENT_SHA^{commit}"
+          git cat-file -e "$CHILD_SOURCE_SHA^{commit}"
+          test "$(git merge-base "$OLD_PARENT_SHA" "$CHILD_SOURCE_SHA")" = "$OLD_PARENT_SHA"
+          git diff --name-only "$OLD_PARENT_SHA" "$CHILD_SOURCE_SHA" > "$RUNNER_TEMP/changed"
           cat "$RUNNER_TEMP/changed"
           if grep -v -E '^qualification/agent_camera_calibration/|^\.github/workflows/scp-camera-intrinsics-heldout\.yml$' "$RUNNER_TEMP/changed"; then
-            echo 'FAIL SOURCE OWNERSHIP' >&2
+            echo 'FAIL EXACT CHILD SOURCE OWNERSHIP' >&2
             exit 2
           fi
+          git diff --quiet "$OLD_PARENT_SHA" "$CHILD_SOURCE_SHA" -- qualification/agent_observation_admission/
       - name: Bounded original synthetic camera reprojection and hostile split tests
         env:
           SCP_CAMERA_VALIDATOR_PERF_OUT: ${{ runner.temp }}/camera-validator-performance.json
