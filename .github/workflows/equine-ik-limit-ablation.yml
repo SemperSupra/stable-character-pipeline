@@ -1,0 +1,195 @@
+name: Shetland native 30j diagnostic temporary IK axis-limit ablation
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/equine-ik-limit-ablation.yml"
+      - "qualification/equine/limit_ablation/**"
+permissions:
+  contents: read
+jobs:
+  native-limit-ablation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: b83187e7237186ded84989064de146be85a3cdc0
+          path: source-baseline
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: b83187e7237186ded84989064de146be85a3cdc0
+          path: source-candidate
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
+          path: observer-hoof
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 72d83a1f10a605a50935c8e7d35a8aa8b99de4ed
+          path: observer-rom
+          persist-credentials: false
+      - name: Qualify three-flag reversible negative control and exact source ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/limit_ablation -p 'test_*.py' -v
+          python3 -m unittest discover -s qualification/equine/ik_ab -p 'test_*.py' -v
+          for p in source-baseline source-candidate; do
+            test "$(git -C "$p" rev-parse HEAD)" = b83187e7237186ded84989064de146be85a3cdc0
+          done
+          mkdir -p results/baseline results/candidate
+          rm -f source-candidate/qualification/shetland_pony/ik_walk.py
+          python3 qualification/equine/limit_ablation/ik_limits_probe.py \
+            --source source-baseline/qualification/shetland_pony/ik_walk.py \
+            --candidate source-candidate/qualification/shetland_pony/ik_walk.py \
+            --out results/candidate/ablation_receipt.json
+          test "$(git -C source-candidate status --porcelain | wc -l)" -eq 1
+          test "$(git -C source-candidate status --porcelain)" = ' M qualification/shetland_pony/ik_walk.py'
+          (cd source-baseline/qualification/shetland_pony && python3 -m unittest -v test_equine_anatomy.py test_footpaths.py)
+          (cd source-candidate/qualification/shetland_pony && python3 -m unittest -v test_equine_anatomy.py test_footpaths.py)
+          python3 qualification/equine/kinematic_reach/kinematic_reach.py \
+            --source-dir source-baseline/qualification/shetland_pony --out results/baseline/reach.json
+          python3 qualification/equine/kinematic_reach/kinematic_reach.py \
+            --source-dir source-candidate/qualification/shetland_pony --out results/candidate/reach.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open('results/baseline/reach.json'))
+          b=json.load(open('results/candidate/reach.json'))
+          assert a['baseline']==b['baseline']
+          assert sum(a['baseline'][f]['infeasible_frame_count'] for f in ('front_L','front_R'))==68
+          print('EXACT_SOURCE_SAME_ANATOMY_AND_TARGETS; ONLY_SOLVER_LIMIT_FLAGS_CHANGED')
+          PY
+      - name: Install official Blender 4.5.15 with verified SHA in ephemeral runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/checksums.sha256"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' checksums.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Export actual baseline and candidate animated GLBs from independent exact 30j sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variant in baseline candidate; do
+            echo "NATIVE_A_B_BUILD=$variant"
+            env SCP_COATS=black LIBGL_ALWAYS_SOFTWARE=1 \
+              "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python "source-$variant/qualification/shetland_pony/build_blender.py" -- \
+              "$GITHUB_WORKSPACE/results/$variant"
+            test -s "results/$variant/shetland_black_ghcr.glb"
+            test -s "results/$variant/shetland_black_ghcr.png"
+          done
+      - name: Independent actual 48-frame hoof and joint evaluation for both GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variant in baseline candidate; do
+            model="$GITHUB_WORKSPACE/results/$variant/shetland_black_ghcr.glb"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python observer-hoof/qualification/equine/contact_eval/observed_hooves.py -- \
+              "$model" "$GITHUB_WORKSPACE/results/$variant/hoof.json"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python observer-rom/qualification/equine/rom/rom_native.py -- \
+              "$model" "$GITHUB_WORKSPACE/results/$variant/rom_legacy_two_link.json"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/equine/ik_ab/rom30_native.py -- \
+              "$model" "$GITHUB_WORKSPACE/results/$variant/rom.json"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/equine/ik_ab/target_residual_native.py -- \
+              "$model" "$GITHUB_WORKSPACE/source-baseline/qualification/shetland_pony/footpaths.py" \
+              "$GITHUB_WORKSPACE/results/$variant/target_residual.json"
+          done
+      - name: Quantify diagnostic cause without accepting unbounded anatomy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,pathlib,math
+          root=pathlib.Path('results')
+          c=json.loads((root/'candidate/ablation_receipt.json').read_text())
+          assert c['only_three_ik_axis_guard_flags_changed']
+          assert not c['candidate_anatomical_limits_validated'] and not c['candidate_production_eligible']
+          sums={}
+          for variant in ('baseline','candidate'):
+              hoof=json.loads((root/variant/'hoof.json').read_text())
+              rom=json.loads((root/variant/'rom.json').read_text())
+              residual=json.loads((root/variant/'target_residual.json').read_text())
+              model=root/variant/'shetland_black_ghcr.glb'
+              assert residual['schema']=='equine.ik.actual-world-target-residual.v1'
+              assert rom['schema']=='equine.rom.actual-three-segment.v1'
+              assert hoof['schema']=='equine.foot.science.v1'
+              assert residual['glb_sha256']==hashlib.sha256(model.read_bytes()).hexdigest()
+              sums[variant]={
+                'front_target_error_max_m':max(residual['limbs'][f]['max_world_ankle_target_error_m'] for f in ('front_L','front_R')),
+                'front_target_error_mean_m':sum(residual['limbs'][f]['mean_world_ankle_target_error_m'] for f in ('front_L','front_R'))/2,
+                'front_frames_residual_gt20mm':residual['total_front_frames_over_20mm'],
+                'front_hooves_reaching_45mm':sum(hoof['feet'][f]['frames_above_swing_clearance']>0 for f in ('front_L_hoof','front_R_hoof')),
+                'front_skate_pairs':sum(hoof['feet'][f]['skate_pairs_over_3cm'] for f in ('front_L_hoof','front_R_hoof')),
+                'front_penetration_max_m':max(hoof['feet'][f]['max_ground_penetration_m'] for f in ('front_L_hoof','front_R_hoof')),
+                'three_link_joint_failures':rom['failure_codes'],
+                'source_glb_sha256':hashlib.sha256(model.read_bytes()).hexdigest(),
+              }
+          baseline=sums['baseline'];ablation=sums['candidate']
+          if baseline['source_glb_sha256']==ablation['source_glb_sha256']:
+              raise AssertionError('negative control did not produce a new exported source')
+          gain=baseline['front_target_error_mean_m']-ablation['front_target_error_mean_m']
+          report={'schema':'equine.ik.axis-limit-negative-ablation.v1',
+            'basis':'ACTUAL_NATIVE_EXPORTED_30J_GLTF_48F',
+            'source':'PUBLIC_ORIGINAL_SYNTHETIC',
+            'limbs':sums,'mean_front_ankle_error_reduction_m':round(gain,7),
+            'scientific_interpretation':'IK_LIMITS_POTENTIALLY_CONTRIBUTE' if gain>0.01 else 'IK_LIMITS_NOT_PROVEN_DOMINANT',
+            'unconstrained_controller_production_eligible':False,
+            'veterinary_rom_accepted':False,'hooves_force_bearing_accepted':False,
+            'model_visual_accepted':False,'source_owner_mutated':False,
+            'merge_release_CPE_authorized':False}
+          (root/'axis_limit_ablation.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+          print('NEGATIVE_CONTROL_30J_IK_LIMIT_ABLATION',report['scientific_interpretation'],report['mean_front_ankle_error_reduction_m'])
+          PY
+      - name: Preserve public-source negative-control renders and independent receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-30j-ik-limit-ablation-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/axis_limit_ablation.json
+            results/baseline/hoof.json
+            results/candidate/hoof.json
+            results/baseline/rom.json
+            results/candidate/rom.json
+            results/baseline/target_residual.json
+            results/candidate/target_residual.json
+            results/baseline/rom_legacy_two_link.json
+            results/candidate/rom_legacy_two_link.json
+            results/baseline/reach.json
+            results/candidate/reach.json
+            results/candidate/ablation_receipt.json
+            results/baseline/manifest.json
+            results/candidate/manifest.json
+            results/baseline/shetland_black_ghcr.png
+            results/candidate/shetland_black_ghcr.png
+            results/baseline/shetland_black_ghcr.glb
+            results/candidate/shetland_black_ghcr.glb
