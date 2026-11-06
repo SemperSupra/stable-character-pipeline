@@ -25,11 +25,22 @@ def curve_card(points, index, bone):
         curve_x=.008*arc*math.sin(index*1.317)
         curve_y=.011*arc*math.cos(index*.887)
         curve_z=-sag*(t*t+.45*arc)
-        for side in (0,1):
-            a,b=pts[side],pts[side+2]
-            vertices.append((a[0]*(1-t)+b[0]*t+curve_x,
-                             a[1]*(1-t)+b[1]*t+curve_y,
-                             a[2]*(1-t)+b[2]*t+curve_z))
+        if r==0:
+            # The follicle roots are immutable source anchors, bit-exact.
+            vertices.extend((pts[0],pts[1]))
+            continue
+        left=tuple(pts[0][k]*(1-t)+pts[2][k]*t for k in range(3))
+        right=tuple(pts[1][k]*(1-t)+pts[3][k]*t for k in range(3))
+        center=tuple((left[k]+right[k])*.5 for k in range(3))
+        half=tuple((right[k]-left[k])*.5 for k in range(3))
+        # Progressive needle-tip taper suppresses the previous broad,
+        # brush-like card ends. Never collapse to exact zero-area triangles.
+        tip_width=.09 if bone.startswith("tail_") else .12
+        width_scale=tip_width+(1-tip_width)*(1-t)**1.3
+        for side_sign in (-1,1):
+            vertices.append((center[0]+side_sign*half[0]*width_scale+curve_x,
+                             center[1]+side_sign*half[1]*width_scale+curve_y,
+                             center[2]+side_sign*half[2]*width_scale+curve_z))
     faces=[]
     for r in range(ROWS-1):
         a=2*r;b=2*(r+1)
