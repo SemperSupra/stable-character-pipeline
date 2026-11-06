@@ -27,4 +27,13 @@ class SelectAxis(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    a=Path(d)/'a';a.write_text(ORIGINAL)
    with self.assertRaises(ValueError):alter(a,a,'x')
+
+ def test_existing_candidate_is_not_overwritten(self):
+  with tempfile.TemporaryDirectory() as d:
+   original=Path(d)/'source.py';candidate=Path(d)/'already-existing.py'
+   original.write_text(ORIGINAL);candidate.write_text('owner-data-unmodified')
+   with self.assertRaisesRegex(ValueError,'refuse overwrite'):
+    alter(original,candidate,'z')
+   self.assertEqual(candidate.read_text(),'owner-data-unmodified')
+   self.assertEqual(original.read_text(),ORIGINAL)
 if __name__=='__main__':unittest.main()
