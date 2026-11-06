@@ -1,7 +1,7 @@
 """Sculpt v1 exact-source and hostile integrity tests, no Blender acceptance."""
 import hashlib
 import json
-import tempfile
+import os
 import unittest
 from pathlib import Path
 from sculpt_human_v1 import sculpt,_unpack_glb,_read_accessor,_connected_components,SCHEMA,ACTORS,Builder
@@ -9,7 +9,7 @@ from sculpt_human_v1 import sculpt,_unpack_glb,_read_accessor,_connected_compone
 # External exact licensed / original GLB is NOT copied into public Git. Tests are
 # non-promoting if local source corpus is absent; synthetic controls always run.
 ROOT=Path(__file__).resolve().parents[1]/'wardrobe_batch'/'artifacts'
-SOURCE=ROOT/'r009_classic_adventurer_aster_juniper_35joint.glb'
+SOURCE=Path(os.environ.get('SCP_SCULPT_TEST_FIXTURE',str(ROOT/'r009_classic_adventurer_aster_juniper_35joint.glb')))
 
 class SculptHostileSourceFreeTests(unittest.TestCase):
     def test_reject_wrong_source(self):
