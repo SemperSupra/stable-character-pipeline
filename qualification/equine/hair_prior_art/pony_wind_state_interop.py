@@ -117,7 +117,11 @@ def native(args):
     out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(json.dumps(obj,sort_keys=True,indent=2)+"\n")
     print("ORIGINAL_45_NINE_WIND_KEYS_NATIVE_48F_NOT_RELEASE",obj["source_blend_sha256"])
+def normalize_args(argv):
+    # Blender keeps its own flags and the literal '--' in sys.argv.
+    return argv[argv.index("--")+1:] if "--" in argv else argv
 def main(argv):
+    argv=normalize_args(argv)
     if len(argv)==4 and argv[0]=="--native":native(argv[1:]);return
     if len(argv)==5 and argv[0]=="--compare":
         source,src45,rigid=[json.loads(Path(p).read_text()) for p in argv[1:4]]

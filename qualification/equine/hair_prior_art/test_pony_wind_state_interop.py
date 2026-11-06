@@ -1,6 +1,6 @@
 """Hostile 4.5/5.2 nine-channel wind-state/source matching tests, no physical admission."""
 import copy,math,unittest
-from pony_wind_state_interop import compare,SCHEMA
+from pony_wind_state_interop import compare,SCHEMA,normalize_args
 from pony_source_trajectory import classify
 from test_pony_source_trajectory import fixture
 NAMES=["wind_%03d"%i for i in range(1,10)]
@@ -32,6 +32,9 @@ def sample():
         b["source_wind_effective_weights_per_frame"].append(weights[:])
     return s,a,b
 class WindTests(unittest.TestCase):
+    def test_blender_separator_and_pure_script_cli(self):
+        self.assertEqual(normalize_args(["-b","--python","observer.py","--","--native","input","source","out"]),["--native","input","source","out"])
+        self.assertEqual(normalize_args(["--compare","source","active","rigid","out"]),["--compare","source","active","rigid","out"])
     def test_positive_is_only_engineering(self):
         r=compare(*sample())
         self.assertEqual(r["verdict"],"SOURCE_WIND_ANIMATION_MATCHES_RIGID_52_ENGINEERING_ONLY")
