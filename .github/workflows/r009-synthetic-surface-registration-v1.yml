@@ -5,6 +5,7 @@ on:
     paths:
       - "qualification/parametric_humans/surface_registration_v1.py"
       - "qualification/parametric_humans/test_surface_registration_v1.py"
+      - "qualification/parametric_humans/test_surface_registration_quality.py"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
 
@@ -20,8 +21,31 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate synthetic-only geometric contract
+        env:
+          SCP_VALIDATOR_PERF_OUT: ${{ runner.temp }}/r009-surface-validator-performance.json
         run: |
           set -euo pipefail
           cd qualification/parametric_humans
           python3 -m compileall -q surface_registration_v1.py test_surface_registration_v1.py
-          python3 -m unittest -v test_surface_registration_v1
+          python3 -m unittest -v test_surface_registration_v1 test_surface_registration_quality
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["SCP_VALIDATOR_PERF_OUT"])
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.validator.performance.v1"
+          assert r["case_count"]==11
+          assert r["rejection_detection"]=={"detected":6,"total":6}
+          assert r["confusion"]["ABSTAIN"]["ABSTAIN"]==3
+          assert r["false_acceptance_count"]==r["false_rejection_count"]==0
+          assert r["contract_mismatch_count"]==0
+          assert r["verdict"]=="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"
+          print("SURFACE_VALIDATOR_QUALITY",r["validator_sha256"],r["runtime"])
+          PY
+      - name: Preserve source-bounded synthetic validator performance receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r009-synthetic-surface-validator-performance
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/r009-surface-validator-performance.json
