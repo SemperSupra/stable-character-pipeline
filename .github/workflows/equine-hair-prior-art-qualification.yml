@@ -97,5 +97,6 @@ jobs:
           name: equine-blender52-xpbd-capability-${{ github.run_id }}
           retention-days: 7
           if-no-files-found: warn
-          path: results/experimental52/capability.json
+          path: |
+            results/experimental52/capability.json
             results/experimental52/dynamics.json
