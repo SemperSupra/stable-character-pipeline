@@ -110,7 +110,9 @@ def main():
         target = Path(directory) / "source"
         command("git", "worktree", "add", "--detach", str(target), parent)
         try:
-            merger = command("git", "merge", "--no-commit", "--no-ff", child,
+            merger = command("git", "-c", "user.name=SCP-Disposable-Trial",
+                             "-c", "user.email=ci-disposable@invalid.example",
+                             "merge", "--no-commit", "--no-ff", child,
                              cwd=target, allowed=(0, 1))
             unresolved = command("git", "diff", "--name-only", "--diff-filter=U",
                                  cwd=target).stdout.splitlines()
