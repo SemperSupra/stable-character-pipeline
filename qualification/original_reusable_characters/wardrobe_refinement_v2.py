@@ -19,6 +19,56 @@ from phase_gait35 import animate
 from rig35_v2 import main_expand, glb_pack
 from verify_original_glb import decode, accessory
 
+# Short, bounded anatomical garment transition patch. This joins the torso
+# silhouette and sleeve-root silhouette by OVERLAP only, not by a shared
+# watertight edge. Human visual acceptance and cloth physics remain UNKNOWN.
+SHOULDER_GUSSET_RINGS = (
+    # |x|, vertical_radius, depth_radius, torso/chest_skin_weight
+    (.119, .064, .084, .88),
+    (.155, .077, .093, .76),
+    (.198, .080, .092, .54),
+    (.231, .074, .083, .30),
+    (.271, .059, .068, .12),
+)
+SHOULDER_GUSSET_SIDES = 32
+
+def attach_shoulder_gussets_original(g,which):
+    """Two source-original curved sleeve-root transition bands.
+
+    They overlap the continuous jacket torso and shoulder sleeves without
+    editing the parent original source mesh/rig. Weights blend chest to the
+    source-original shoulder role, preserving source skeleton cardinality.
+    """
+    material="coralJacket" if which==0 else "tealJacket"
+    part=g.part(material)
+    made={}
+    for sign,side in ((-1,"L"),(1,"R")):
+        base=len(part["p"])//3
+        for cx,vertical,depth,chest_weight in SHOULDER_GUSSET_RINGS:
+            for i in range(SHOULDER_GUSSET_SIDES):
+                phi=math.tau*i/SHOULDER_GUSSET_SIDES
+                cs,ss=math.cos(phi),math.sin(phi)
+                part["p"].extend([sign*cx,1.345+vertical*cs,depth*ss])
+                normal=h.v1.unit((0.,cs/vertical,ss/depth))
+                part["n"].extend(normal)
+                part["j"].extend([h.v1.JIDX["chest"],
+                                  h.v1.JIDX["shoulder_"+side],0,0])
+                part["w"].extend([chest_weight,1.-chest_weight,0.,0.])
+        for k in range(len(SHOULDER_GUSSET_RINGS)-1):
+            for j in range(SHOULDER_GUSSET_SIDES):
+                a=base+k*SHOULDER_GUSSET_SIDES+j
+                b=base+k*SHOULDER_GUSSET_SIDES+(j+1)%SHOULDER_GUSSET_SIDES
+                c=a+SHOULDER_GUSSET_SIDES
+                d=b+SHOULDER_GUSSET_SIDES
+                if sign>0:
+                    part["i"].extend([a,b,c,b,d,c])
+                else:
+                    part["i"].extend([a,c,b,b,c,d])
+        made[side]={"added_vertices":len(SHOULDER_GUSSET_RINGS)*SHOULDER_GUSSET_SIDES,
+                    "added_triangles":2*(len(SHOULDER_GUSSET_RINGS)-1)*SHOULDER_GUSSET_SIDES,
+                    "weight_roles":["chest","shoulder_"+side]}
+    return made
+
 def continuous_figure(which):
     """Replace independent torso and face lofts by one weighted trunk/head loft.
 
@@ -63,10 +113,15 @@ def continuous_figure(which):
     try:
         h.loft_anatomy = intercept
         geo = v1.adult_body_geometry(which)
+        gussets=attach_shoulder_gussets_original(geo,which)
     finally:
         h.loft_anatomy = original
     if counts != {"head_removed":1,"trunk_replaced":1}:
         raise ValueError("TOPOLOGY_REPLACEMENT_UNEXPECTED:"+str(counts))
+    if set(gussets)!={"L","R"} or any(
+        x["added_vertices"]!=160 or x["added_triangles"]!=256
+        for x in gussets.values()):
+        raise ValueError("SOURCE_SHOULDER_BRIDGE_INCOMPLETE")
     return geo
 
 def _append(d, binary, values, kind, fmt, count, target=None):
@@ -179,6 +234,7 @@ def distinct_cuts(master_path,manifest_path):
         m.setdefault("cut_styles",{})[actor]={
            "alt_top":"cropped_sleeveless_vest_v2",
            "alt_bottom":"flared_calf_length_culottes_v2"}
+    d["extras"]["wardrobe_contract"]["source_shoulder_transition"]="CHEST_SHOULDER_WEIGHTED_OVERLAPPING_GUSSETS_V2_NOT_WATERTIGHT"
     d["extras"]["wardrobe_contract"]["cut_profile"]="ORIGINAL_DIFFERENT_TOPOLOGY_V2_RESEARCH"
     d["extras"]["wardrobe_contract"]["human_cloth_acceptance"]="UNKNOWN"
     result=glb_pack(d,b)
@@ -215,6 +271,8 @@ def build(out,manifest):
             "source_class":"ORIGINAL_SELF_AUTHORED_SYNTHETIC",
             "derived_sha256":m["derived_sha256"],
             "contiguous_trunk_neck_head_loft":True,
+            "weighted_shoulder_sleeve_root_gussets":True,
+            "shoulder_or_body_watertight":False,
             "full_body_watertight":False,
             "new_alt_topology":True,
             "scientific_acceptance":"UNKNOWN_NOT_QUALIFIED",
