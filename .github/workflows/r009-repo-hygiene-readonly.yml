@@ -33,8 +33,8 @@ jobs:
           p=pathlib.Path(os.environ["RUNNER_TEMP"])/"r009-hygiene-validator-performance.json"
           r=json.loads(p.read_text())
           assert r["schema"]=="scp.validator.performance.v1"
-          assert r["case_count"]==12
-          assert r["rejection_detection"]=={"detected":10,"total":10}
+          assert r["case_count"]==14
+          assert r["rejection_detection"]=={"detected":12,"total":12}
           assert r["false_acceptance_count"]==r["false_rejection_count"]==0
           assert r["contract_mismatch_count"]==0
           assert r["verdict"]=="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"
