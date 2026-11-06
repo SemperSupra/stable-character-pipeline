@@ -75,6 +75,21 @@ jobs:
           assert r["production_version_4_5_15_untouched"] is True
           print("EXPERIMENTAL_API_VISIBLE_NATIVE_SOLVER_NOT_QUALIFIED")
           PY
+      - name: Actual synthetic 48f native hair physics/rig motion verification (unaccepted RDTE)
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/hair52_dynamic_smoke.py -- "$GITHUB_WORKSPACE/results/experimental52/dynamics.json"
+          python3 - <<'PY'
+          import json
+          r=json.load(open("results/experimental52/dynamics.json"))
+          assert r["schema"]=="equine.blender52.dynamic.original_synthetic.v1"
+          assert r["verdict"]=="EXPERIMENTAL_48F_MOTION_OBSERVED_NOT_SCIENTIFIC_ACCEPTANCE"
+          assert r["frame_count"]==48 and r["motion_measured"] is True
+          assert r["visual_collision_quality"]=="UNKNOWN" and r["source_and_release_hold"]=="KEEP"
+          assert r["production_blender_4_5_15_untouched"] is True
+          print("EXPERIMENTAL_48F_NATIVE_SECONDARY_MOTION_NOT_PONY_RELEASE")
+          PY
       - name: Preserve experimental headless ABI evidence including first RED
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -83,3 +98,4 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
           path: results/experimental52/capability.json
+            results/experimental52/dynamics.json
