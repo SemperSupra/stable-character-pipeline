@@ -151,8 +151,12 @@ def main_native(args):
         raise ValueError("source blend did not match original 4.5 tested native result")
     mode=os.environ.get("SCP_52_MODE","physics")
     if mode not in ("physics","animation"):raise ValueError("unrecognized native physics mode")
+    rest_order=os.environ.get("SCP_52_REST_ORDER","armature_then_capture")
+    if rest_order not in ("armature_then_capture","capture_then_armature"):
+        raise ValueError("unknown source rest-capture experiment; no silent default")
     out.parent.mkdir(parents=True,exist_ok=True)
     receipt={"schema":SCHEMA,"mode":mode,"source_kind":"original_synthetic",
+        "rest_capture_order":rest_order,"source_rest_order_experiment":True,
         "source_blend_sha256":capsule["source_blend_sha256"],
         "source_capsule_sha256":contract["source_capsule_sha256"],
         "source_surface":"geometric_coat_mane_tail",
@@ -221,9 +225,22 @@ def main_native(args):
         data.surface_uv_map=uv.name
         receipt["curves_surface_binding_confirmed"]=True
         capture=[m for m in groom.modifiers if m.type=="NODES" and m.node_group and "Capture Rest Geometry" in m.node_group.name]
+        if len(capture)!=1:raise ValueError("expected single native capture rest modifier")
+        armatures=[m for m in groom.modifiers if m.type=="ARMATURE" and m.object==rig]
+        if len(armatures)!=1:raise ValueError("expected single exact pony armature modifier")
+        c,a=capture[0],armatures[0]
+        # Experimental, reversible in-memory order change.  Both variants
+        # begin from identical original disk bytes and original source motion.
+        if rest_order=="capture_then_armature":
+            groom.modifiers.move(groom.modifiers.find(c.name),groom.modifiers.find(a.name))
+            bpy.context.view_layer.update()
+        ci=groom.modifiers.find(c.name)
+        ai=groom.modifiers.find(a.name)
+        if (ai<ci)!=(rest_order=="armature_then_capture"):
+            raise ValueError("native modifier order did not match requested A/B")
         receipt["source_modifier_stack"]=[{"name":m.name,"type":m.type} for m in groom.modifiers]
-        if not capture:
-            raise ValueError("real original groom surface Capture Rest Geometry missing")
+        receipt["rest_capture_index"]=ci
+        receipt["armature_index"]=ai
         receipt["captured_rest_geometry"]=True
         guides=capsule["guides"]
         data.add_curves([6]*len(guides))
@@ -331,7 +348,7 @@ def main_native(args):
     receipt["elapsed_s"]=round(time.perf_counter()-start,4)
     receipt["status"]="48F_ORIGINAL_SKIN_GROOM_NATIVE_GEOMETRY_OBSERVED" if not receipt["errors"] else "NATIVE_REAL_SOURCE_FAIL_CLOSED"
     out.write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n")
-    print("PONY_52_REAL_SKIN_SURFACE",json.dumps({k:receipt.get(k) for k in ("mode","status","frame_count","guide_count","maximum_actual_root_error_m","elapsed_s","errors")},sort_keys=True))
+    print("PONY_52_REAL_SKIN_SURFACE",json.dumps({k:receipt.get(k) for k in ("mode","rest_capture_order","status","frame_count","guide_count","maximum_actual_root_error_m","elapsed_s","errors")},sort_keys=True))
     if receipt["errors"]:raise RuntimeError("; ".join(receipt["errors"]))
 
 def selftest():
