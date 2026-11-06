@@ -11,7 +11,7 @@ concurrency:
   group: r009-aster-weight-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
-  original-aster-five-source-weight-trials:
+  original-aster-seven-source-weight-trials:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -44,11 +44,11 @@ jobs:
             --input "${RUNNER_TEMP}/author.glb" --manifest "${RUNNER_TEMP}/author.json" \
             --out "${RUNNER_TEMP}/baseline.glb" --receipt "${RUNNER_TEMP}/baseline-strict-receipt.json" \
             --aster adventure --juniper adventure
-      - name: Derive five bounded Aster-only weight candidates with no geometry or animation edits
+      - name: Derive seven bounded Aster-only weight candidates with no geometry or animation edits
         shell: bash
         run: |
           set -euo pipefail
-          for trial in hem_30 hem_50 hip_linear hip_smooth combo_hem30_linear; do
+          for trial in hem_00 hem_15 hem_30 hem_50 hip_linear hip_smooth combo_hem30_linear; do
             python3 qualification/aster_trouser_weight/aster_weight_trials_v1.py \
               --input "${RUNNER_TEMP}/baseline.glb" \
               --strict-receipt "${RUNNER_TEMP}/baseline-strict-receipt.json" \
@@ -57,6 +57,7 @@ jobs:
               --variant "$trial"
           done
           sha256sum "${RUNNER_TEMP}/baseline.glb" \
+            "${RUNNER_TEMP}/hem_00.glb" "${RUNNER_TEMP}/hem_15.glb" \
             "${RUNNER_TEMP}/hem_30.glb" "${RUNNER_TEMP}/hem_50.glb" \
             "${RUNNER_TEMP}/hip_linear.glb" "${RUNNER_TEMP}/hip_smooth.glb" \
             "${RUNNER_TEMP}/combo_hem30_linear.glb" > "${RUNNER_TEMP}/sha256-original-trials.txt"
@@ -74,7 +75,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for v in baseline hem_30 hem_50 hip_linear hip_smooth combo_hem30_linear; do
+          for v in baseline hem_00 hem_15 hem_30 hem_50 hip_linear hip_smooth combo_hem30_linear; do
             sha="$(sha256sum "${RUNNER_TEMP}/$v.glb" | cut -d' ' -f1)"
             xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 \
               "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
@@ -93,7 +94,7 @@ jobs:
           baseline=json.loads((root/"baseline-72f.json").read_text())
           assert baseline["frame_count"]==72 and not baseline["garment_clearance_accepted"]
           trials={}
-          for v in ("hem_30","hem_50","hip_linear","hip_smooth","combo_hem30_linear"):
+          for v in ("hem_00","hem_15","hem_30","hem_50","hip_linear","hip_smooth","combo_hem30_linear"):
             candidate=json.loads((root/(v+"-72f.json")).read_text())
             source=json.loads((root/(v+"-source-receipt.json")).read_text())
             assert candidate["source_sha256"]==source["derived_sha256"]
