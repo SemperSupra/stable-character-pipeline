@@ -1,0 +1,176 @@
+name: Shetland exact-source public 30j IK axis-specific independent research ablations
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/equine-ik-axis-matrix.yml"
+      - "qualification/equine/axis_matrix/**"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  candidate-axis:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        axis: [x, y, z]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: b83187e7237186ded84989064de146be85a3cdc0
+          path: source-axis
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
+          path: observer-hoof
+          persist-credentials: false
+      - name: Source-exact single-axis patch and complete adversarial tests
+        env:
+          PROBE_AXIS: ${{ matrix.axis }}
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/axis_matrix -p 'test_*.py' -v
+          python3 -m unittest discover -s qualification/equine/ik_ab -p 'test_*.py' -v
+          test "$(git -C source-axis rev-parse HEAD)" = b83187e7237186ded84989064de146be85a3cdc0
+          mkdir -p results "$RUNNER_TEMP/ik-frozen"
+          cp source-axis/qualification/shetland_pony/ik_walk.py "$RUNNER_TEMP/ik-frozen/ik_walk.py"
+          rm source-axis/qualification/shetland_pony/ik_walk.py
+          python3 qualification/equine/axis_matrix/select_axis.py \
+            --source "$RUNNER_TEMP/ik-frozen/ik_walk.py" \
+            --candidate source-axis/qualification/shetland_pony/ik_walk.py \
+            --axis "$PROBE_AXIS" --out results/axis_source_receipt.json
+          test "$(git -C source-axis status --porcelain | wc -l)" -eq 1
+          test "$(git -C source-axis status --porcelain)" = ' M qualification/shetland_pony/ik_walk.py'
+          python3 - <<'PY'
+          import json
+          r=json.load(open('results/axis_source_receipt.json'))
+          assert r['axis'] in ('x','y','z') and r['changed_ik_axes']==[r['axis']]
+          assert not r['axis_production_eligible'] and not r['source_original_modified']
+          PY
+      - name: Fetch immutable original synthetic baseline once, verified by model SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: SemperSupra/stable-character-pipeline
+        run: |
+          set -euo pipefail
+          mkdir -p baseline-evidence
+          gh run download 42186110626 --repo "$GH_REPO" \
+            --name equine-30j-ik-limit-ablation-42186110626 --dir baseline-evidence
+          test -s baseline-evidence/baseline/shetland_black_ghcr.glb
+          (cd baseline-evidence/baseline && sha256sum -c <<'EOF'
+          f5cc033bfe6a5292463fbfdc90900d641302d82639d07ea265cbeee74dc3452b  shetland_black_ghcr.glb
+          EOF
+          )
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          p=pathlib.Path('baseline-evidence/baseline')
+          b=json.load(open(p/'rom.json'));r=json.load(open(p/'target_residual.json'))
+          assert b['schema']=='equine.rom.actual-three-segment.v1'
+          assert r['schema']=='equine.ik.actual-world-target-residual.v1'
+          assert r['glb_sha256']=='f5cc033bfe6a5292463fbfdc90900d641302d82639d07ea265cbeee74dc3452b'
+          assert r['total_front_frames_over_20mm']==22
+          print('BASELINE_NATIVELY_EVALUATED_AND_HASH_QUALIFIED')
+          PY
+      - name: Install sha-qualified disposable Blender 4.5.15 runtime
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/checksums.sha256"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' checksums.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Build real one-axis-only original synthetic GLB, preserve original source immutability
+        run: |
+          set -euo pipefail
+          mkdir -p results/candidate
+          env SCP_COATS=black LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python source-axis/qualification/shetland_pony/build_blender.py -- \
+            "$GITHUB_WORKSPACE/results/candidate"
+          test -s results/candidate/shetland_black_ghcr.glb
+          test -s results/candidate/shetland_black_ghcr.png
+      - name: Independently measure actual 48f hoof, three-link ROM, and ankle-target residual
+        run: |
+          set -euo pipefail
+          model="$GITHUB_WORKSPACE/results/candidate/shetland_black_ghcr.glb"
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python observer-hoof/qualification/equine/contact_eval/observed_hooves.py -- \
+            "$model" "$GITHUB_WORKSPACE/results/candidate/hoof.json"
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/equine/ik_ab/rom30_native.py -- \
+            "$model" "$GITHUB_WORKSPACE/results/candidate/rom.json"
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/equine/ik_ab/target_residual_native.py -- \
+            "$model" "$GITHUB_WORKSPACE/source-axis/qualification/shetland_pony/footpaths.py" \
+            "$GITHUB_WORKSPACE/results/candidate/target_residual.json"
+      - name: Compare with exact native baseline and explicitly reject production adoption
+        env:
+          PROBE_AXIS: ${{ matrix.axis }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,pathlib,hashlib,os,math
+          axis=os.environ['PROBE_AXIS'];baseline=pathlib.Path('baseline-evidence/baseline')
+          candidate=pathlib.Path('results/candidate')
+          def read(p):return json.loads(p.read_text())
+          b_hoof=read(baseline/'hoof.json');c_hoof=read(candidate/'hoof.json')
+          b_rom=read(baseline/'rom.json');c_rom=read(candidate/'rom.json')
+          b_res=read(baseline/'target_residual.json');c_res=read(candidate/'target_residual.json')
+          for r in (b_hoof,c_hoof):
+              assert r['schema']=='equine.foot.science.v1' and r['frames']==48
+          for r in (b_rom,c_rom):
+              assert r['schema']=='equine.rom.actual-three-segment.v1' and r['observed_frames']==48
+          for r in (b_res,c_res):
+              assert r['schema']=='equine.ik.actual-world-target-residual.v1'
+          src_hash=hashlib.sha256((candidate/'shetland_black_ghcr.glb').read_bytes()).hexdigest()
+          assert c_res['glb_sha256']==src_hash and src_hash!=b_res['glb_sha256']
+          def view(hoof,res,rom):
+              front=('front_L','front_R');fhoof=('front_L_hoof','front_R_hoof')
+              return {'mean_ankle_error_m':sum(res['limbs'][f]['mean_world_ankle_target_error_m'] for f in front)/2,
+                      'max_ankle_error_m':max(res['limbs'][f]['max_world_ankle_target_error_m'] for f in front),
+                      'front_frames_over_20mm':res['total_front_frames_over_20mm'],
+                      'front_hooves_with_45mm_swing':sum(hoof['feet'][f]['frames_above_swing_clearance']>0 for f in fhoof),
+                      'front_skate_pairs':sum(hoof['feet'][f]['skate_pairs_over_3cm'] for f in fhoof),
+                      'max_ground_penetration_m':max(hoof['feet'][f]['max_ground_penetration_m'] for f in fhoof),
+                      'three_link_rom_failures':rom['failure_codes']}
+          a=view(b_hoof,b_res,b_rom);b=view(c_hoof,c_res,c_rom)
+          gain=a['mean_ankle_error_m']-b['mean_ankle_error_m']
+          report={'schema':'equine.ik.axis-selective-ablations.native.v1','axis':axis,
+            'base_sha256':b_res['glb_sha256'],'candidate_sha256':src_hash,
+            'baseline':a,'one_axis_disabled':b,'mean_front_ankle_error_reduction_m':round(gain,7),
+            'mechanistic_witness':'ONE_PROVISIONAL_SOURCE_AXIS_GUARD_DISABLED_ONLY',
+            'experimental_result':'POSITIVE_TRACKING_EFFECT' if gain>.005 else 'NO_CONFIRMED_TRACKING_EFFECT',
+            'anatomical_limit_safety':'UNKNOWN','veterinary_acceptance':False,
+            'controller_production_eligible':False,'release_CPE_authorized':False}
+          pathlib.Path('results/axis_ablation.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+          print('EXACT_NATIVE_AXIS_ABLATION',axis,report['experimental_result'],report['mean_front_ankle_error_reduction_m'])
+          PY
+      - name: Retain independent public synthetic axis-specific source and receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-30j-axis-${{ matrix.axis }}-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/axis_ablation.json
+            results/axis_source_receipt.json
+            results/candidate/hoof.json
+            results/candidate/rom.json
+            results/candidate/target_residual.json
+            results/candidate/manifest.json
+            results/candidate/shetland_black_ghcr.png
+            results/candidate/shetland_black_ghcr.glb
