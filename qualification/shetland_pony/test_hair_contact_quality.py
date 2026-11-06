@@ -10,6 +10,8 @@ def sample(frames=(1,2),bad=None):
                 crossing=bad==(f,region,obs)
                 rows.append({"frame":f,"region":region,"obstacle":obs,
                              "face_pairs":2 if crossing else 0,
+                             "tip_face_pairs":1 if crossing else 0,
+                             "tip_card_count":1 if crossing else 0,
                              "card_count":1 if crossing else 0,
                              "tip_samples":REGION_CARDS[region],
                              "tips_within_5mm":3 if crossing else 0,
@@ -21,6 +23,8 @@ class HairContactQualityTests(unittest.TestCase):
         key=(2,"tail","continuous_hind_L_limb")
         r=classify(sample(bad=key),frames=(1,2))
         self.assertEqual(r["regions"]["tail"]["possible_collision_frame_count"],1)
+        self.assertEqual(r["regions"]["tail"]["tip_zone_possible_collision_frame_count"],1)
+        self.assertEqual(r["regions"]["tail"]["obstacle_contacts"][key[2]]["tip_zone_triangle_pairs"],1)
         self.assertEqual(r["regions"]["tail"]["obstacle_contacts"][key[2]]["first_candidate_frame"],2)
         self.assertEqual(r["candidate_collision"],"POSSIBLE_CROSSING")
         self.assertEqual(r["scientific_hold"],"KEEP")
@@ -30,6 +34,7 @@ class HairContactQualityTests(unittest.TestCase):
         r=classify(sample(),frames=(1,2))
         self.assertEqual(r["candidate_collision"],"NO_TRIANGLE_CROSSING_OBSERVED")
         self.assertFalse(r["visual_acceptance"])
+        self.assertEqual(r["tip_zone_possible_region_frames"],0)
         self.assertEqual(r,classify(sample(),frames=(1,2)))
     def test_hostile_missing_duplicate_and_false_witness(self):
         original=sample()
@@ -38,11 +43,20 @@ class HairContactQualityTests(unittest.TestCase):
             with self.assertRaises(ValueError):classify(case,frames=(1,2))
         for change in ({"card_count":1},{"min_tip_distance_m":math.nan},
                        {"tips_within_5mm":1},{"frame":3},{"tip_samples":1},
-                       {"face_pairs":-1},{"tip_samples":True},
+                       {"face_pairs":-1},{"tip_face_pairs":3},
+                       {"tip_card_count":2},{"tip_face_pairs":-1},{"tip_samples":True},
                        {"min_tip_distance_m":-.02}):
             rows=sample();rows[0]={**rows[0],**change}
             with self.subTest(change=str(change)):
                 with self.assertRaises(ValueError):classify(rows,frames=(1,2))
+    def test_only_proximal_crossing_is_not_tip_collision(self):
+        rows=sample()
+        rows[0]["face_pairs"]=3;rows[0]["card_count"]=2
+        rows[0]["tip_face_pairs"]=0;rows[0]["tip_card_count"]=0
+        r=classify(rows,frames=(1,2))
+        self.assertEqual(r["candidate_collision"],"POSSIBLE_CROSSING")
+        self.assertEqual(r["tip_zone_possible_region_frames"],0)
+        self.assertTrue(r["scientific_hold"]=="KEEP")
     def test_no_silent_missing_regions_or_obstacles(self):
         rows=sample(); rows=[x for x in rows if x["region"]!="forelock"]
         with self.assertRaises(ValueError):classify(rows,frames=(1,2))
