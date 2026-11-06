@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -9,6 +10,7 @@ import (
 func (m *Model) drawGrass() {
 	s, r := m.S, m.R
 	for n := 0; n < s.Stems; n++ {
+		m.SemanticScope = fmt.Sprintf("drawGrass/stem/%d", n)
 		a := 2*math.Pi*float64(n)/float64(s.Stems) + float64(jitter(r, .18))
 		base := V{jitter(r, .045), 0, jitter(r, .045)}
 		h := s.Height * (.55 + .45*r.Float32())
@@ -29,6 +31,7 @@ func (m *Model) drawGrass() {
 func (m *Model) drawCereal() {
 	s, r := m.S, m.R
 	for n := 0; n < s.Stems; n++ {
+		m.SemanticScope = fmt.Sprintf("drawCereal/stem/%d", n)
 		a := 2 * math.Pi * float64(n) / float64(s.Stems)
 		base := V{jitter(r, .04), 0, jitter(r, .04)}
 		tip := base.add(V{cos(a) * .04, s.Height * (.82 + .18*r.Float32()), sin(a) * .04})
@@ -74,6 +77,7 @@ func (m *Model) drawCereal() {
 func (m *Model) drawMaize() {
 	s, r := m.S, m.R
 	for n := 0; n < s.Stems; n++ {
+		m.SemanticScope = fmt.Sprintf("drawMaize/stem/%d", n)
 		base := V{jitter(r, .17), 0, jitter(r, .17)}
 		tip := base.add(V{jitter(r, .02), s.Height, jitter(r, .02)})
 		m.tube("stem", []V{base, base.add(V{0, s.Height * .25, 0}), base.add(V{0, s.Height * .55, 0}), tip}, []float32{.017, .016, .013, .008})

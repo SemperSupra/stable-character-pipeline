@@ -15,6 +15,8 @@ import (
 
 type Organ struct {
 	ID                 uint32     `json:"id"`
+	Scope              string     `json:"generator_scope"`
+	SemanticKey        string     `json:"semantic_key"`
 	Parent             uint32     `json:"parent"`
 	Kind               string     `json:"kind"`
 	Material           string     `json:"material"`
@@ -35,6 +37,7 @@ type OrganGraphReceipt struct {
 	Seed             int64   `json:"seed"`
 	Units            string  `json:"units"`
 	Status           string  `json:"attachment_status"`
+	GrowthStage      float32 `json:"growth_stage"`
 	GeometryVerified bool    `json:"geometry_ranges_verified"`
 	RootCount        int     `json:"root_attached_count"`
 	OrganCount       int     `json:"organ_count"`
@@ -50,7 +53,18 @@ func (m *Model) recordOrgan(kind, material string, anchor V, axis []V) func() {
 		if nP <= 0 || nI <= 0 {
 			return
 		}
+		scope := m.SemanticScope
+		if scope == "" {
+			scope = "unscoped"
+		}
+		if m.SemanticCounts == nil {
+			m.SemanticCounts = make(map[string]int)
+		}
+		namespace := fmt.Sprintf("%s/%s/%s", scope, kind, material)
+		ordinal := m.SemanticCounts[namespace]
+		m.SemanticCounts[namespace] = ordinal + 1
 		o := Organ{ID: uint32(len(m.Organs) + 1), Kind: kind, Material: material,
+			Scope: scope, SemanticKey: fmt.Sprintf("%s/%d", namespace, ordinal),
 			Anchor: anchor, AnchorM: [3]float32{anchor.X, anchor.Y, anchor.Z},
 			VertexOffset: p0, VertexCount: nP, IndexOffset: i0, IndexCount: nI}
 		if len(axis) > 0 {
@@ -105,17 +119,22 @@ func pointSegmentDistance(p, a, b V) float32 {
 }
 
 func (m *Model) graphReceipt() (OrganGraphReceipt, error) {
-	rc := OrganGraphReceipt{Schema: "scp.flora.organ-geometry-receipt.v1", Species: m.S.ID, Seed: m.S.Seed, Units: "metre", Status: "heuristic-geometric-parentage-not-developmentally-validated", Organs: m.Organs, OrganCount: len(m.Organs)}
+	rc := OrganGraphReceipt{Schema: "scp.flora.organ-geometry-receipt.v2", Species: m.S.ID, Seed: m.S.Seed, Units: "metre", GrowthStage: m.S.GrowthStage, Status: "heuristic-geometric-parentage-not-developmentally-validated", Organs: m.Organs, OrganCount: len(m.Organs)}
 	if len(m.Organs) == 0 {
 		return rc, fmt.Errorf("no organ records")
 	}
 	// Exact coverage of all emitted mesh vertices and indices; no overlaps/gaps.
 	cursorP, cursorI := map[string]int{}, map[string]int{}
+	semanticKeys := map[string]bool{}
 	for j, o := range m.Organs {
 		g := m.G[o.Material]
 		if g == nil || o.ID != uint32(j+1) || o.Parent >= o.ID || o.VertexCount <= 0 || o.IndexCount <= 0 || o.IndexCount%3 != 0 {
 			return rc, fmt.Errorf("invalid organ record %d", j)
 		}
+		if o.SemanticKey == "" || semanticKeys[o.SemanticKey] {
+			return rc, fmt.Errorf("missing/duplicate semantic key at %d", j)
+		}
+		semanticKeys[o.SemanticKey] = true
 		if cursorP[o.Material] != o.VertexOffset || cursorI[o.Material] != o.IndexOffset {
 			return rc, fmt.Errorf("organ coverage gap at %d for %s", j, o.Material)
 		}

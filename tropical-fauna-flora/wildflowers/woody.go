@@ -1,10 +1,14 @@
 package main
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 func (m *Model) drawBamboo() {
 	s, r := m.S, m.R
 	for n := 0; n < s.Stems; n++ {
+		m.SemanticScope = fmt.Sprintf("drawBamboo/stem/%d", n)
 		angle := float64(n) * 2.39996
 		base := V{jitter(r, .17), 0, jitter(r, .17)}
 		tip := base.add(V{cos(angle) * .10, s.Height * (.74 + .26*r.Float32()), sin(angle) * .10})
@@ -31,12 +35,14 @@ func (m *Model) drawBamboo() {
 func (m *Model) drawShrub() {
 	s, r := m.S, m.R
 	for n := 0; n < s.Stems; n++ {
+		m.SemanticScope = fmt.Sprintf("drawShrub/stem/%d", n)
 		theta := 2 * math.Pi * float64(n) / float64(s.Stems)
 		root := V{jitter(r, .04), 0, jitter(r, .04)}
 		top := root.add(V{cos(theta) * s.CrownRadius * .63, s.Height * (.75 + .25*r.Float32()), sin(theta) * s.CrownRadius * .63})
 		m.tube("branch", []V{root, root.add(top.sub(root).mul(.48)), top}, []float32{.019, .012, .006})
 		for j := 0; j < s.BranchCount; j++ {
 			t := .29 + float32(j)*.55/float32(s.BranchCount)
+			m.SemanticScope = fmt.Sprintf("drawShrub/stem/%d/branch/%d", n, j)
 			p := root.add(top.sub(root).mul(t))
 			a := theta + float64(j)*2.39996
 			q := p.add(V{cos(a) * s.CrownRadius * (.38 + .12*r.Float32()), s.Height * (.17 + .10*r.Float32()), sin(a) * s.CrownRadius * (.38 + .12*r.Float32())})
@@ -86,11 +92,15 @@ func (m *Model) woodyBranch(start, end V, radius float32, depth int, angle float
 			rise = .22
 		}
 		q := p.add(V{cos(a) * s.CrownRadius * float32(math.Pow(.51, float64(depth+1))), h*float32(rise) + h*.27*r.Float32(), sin(a) * s.CrownRadius * float32(math.Pow(.51, float64(depth+1)))})
+		parentScope := m.SemanticScope
+		m.SemanticScope = fmt.Sprintf("%s/child/%d", parentScope, j)
 		m.woodyBranch(p, q, radius*.43, depth+1, a, needle)
+		m.SemanticScope = parentScope
 	}
 }
 func (m *Model) drawTree(needle bool) {
 	s := m.S
+	m.SemanticScope = "drawTree/trunk"
 	root := V{0, 0, 0}
 	trunkEnd := V{0, s.Height * .76, 0}
 	m.tube("bark", []V{root, {0, s.Height * .31, 0}, {0, s.Height * .59, 0}, trunkEnd}, []float32{s.StemRadius, s.StemRadius * .77, s.StemRadius * .54, s.StemRadius * .28})
@@ -98,6 +108,7 @@ func (m *Model) drawTree(needle bool) {
 		t := .17 + .74*float32(tier+1)/float32(s.Internodes+1)
 		p := V{0, s.Height * t, 0}
 		for j := 0; j < s.BranchCount; j++ {
+			m.SemanticScope = fmt.Sprintf("drawTree/tier/%d/branch/%d", tier, j)
 			a := float64(tier)*1.13 + float64(j)*math.Pi*2/float64(s.BranchCount)
 			crown := s.CrownRadius * (1 - .59*t)
 			if needle {
@@ -108,6 +119,7 @@ func (m *Model) drawTree(needle bool) {
 		}
 	}
 	if needle {
+		m.SemanticScope = "drawTree/apex"
 		tip := V{0, s.Height, 0}
 		m.tube("bark", []V{trunkEnd, tip}, []float32{s.StemRadius * .24, .002})
 	}

@@ -1,10 +1,14 @@
 package main
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 func (m *Model) drawSunflower() {
 	s, r := m.S, m.R
 	for n := 0; n < s.Stems; n++ {
+		m.SemanticScope = fmt.Sprintf("drawSunflower/stem/%d", n)
 		root := V{jitter(r, .13), 0, jitter(r, .13)}
 		tip := root.add(V{jitter(r, .04), s.Height * (.9 + .1*r.Float32()), jitter(r, .04)})
 		m.tube("stem", []V{root, root.add(tip.sub(root).mul(.55)), tip}, []float32{.017, .014, .008})
@@ -52,13 +56,16 @@ func (m *Model) drawSunflower() {
 func (m *Model) drawGrapevine() {
 	s, r := m.S, m.R
 	// Train a thick woody trunk into two horizontal cordons, with upward annual canes.
+	m.SemanticScope = "drawGrapevine/trunk"
 	root := V{0, 0, 0}
 	split := V{0, s.Height * .47, 0}
 	m.tube("bark", []V{root, {.015, s.Height * .22, 0}, split}, []float32{s.StemRadius, s.StemRadius * .78, s.StemRadius * .52})
 	for sign := -1; sign <= 1; sign += 2 {
+		m.SemanticScope = fmt.Sprintf("drawGrapevine/cordon/%d", sign)
 		end := split.add(V{float32(sign) * s.CrownRadius, 0, 0})
 		m.tube("bark", []V{split, end}, []float32{s.StemRadius * .40, s.StemRadius * .15})
 		for j := 0; j < s.Internodes; j++ {
+			m.SemanticScope = fmt.Sprintf("drawGrapevine/cordon/%d/cane/%d", sign, j)
 			t := float32(j+1) / float32(s.Internodes+1)
 			p := split.add(end.sub(split).mul(t))
 			q := p.add(V{jitter(r, .04), s.Height * (.25 + .14*r.Float32()), jitter(r, .06)})

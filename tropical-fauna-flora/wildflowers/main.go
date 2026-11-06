@@ -69,10 +69,12 @@ type Geo struct {
 	I []uint32
 }
 type Model struct {
-	G      map[string]*Geo
-	R      *rand.Rand
-	S      Preset
-	Organs []Organ
+	G              map[string]*Geo
+	R              *rand.Rand
+	S              Preset
+	Organs         []Organ
+	SemanticScope  string
+	SemanticCounts map[string]int
 }
 
 func (m *Model) geo(mat string) *Geo {
@@ -196,6 +198,7 @@ func (m *Model) drawYarrow() {
 	s := m.S
 	r := m.R
 	for si := 0; si < s.Stems; si++ {
+		m.SemanticScope = fmt.Sprintf("drawYarrow/stem/%d", si)
 		root := V{jitter(r, .045), 0, jitter(r, .035)}
 		tip := V{root.X + jitter(r, .085), s.Height * (.72 + r.Float32()*.28), root.Z + jitter(r, .065)}
 		m.stem(root, tip, .0035)
@@ -242,6 +245,7 @@ func (m *Model) drawKnapweed() {
 	s := m.S
 	r := m.R
 	for si := 0; si < s.Stems; si++ {
+		m.SemanticScope = fmt.Sprintf("drawKnapweed/stem/%d", si)
 		root := V{jitter(r, .04), 0, jitter(r, .04)}
 		tip := V{root.X + jitter(r, .12), s.Height * (.68 + r.Float32()*.32), root.Z + jitter(r, .1)}
 		m.stem(root, tip, .004)
@@ -300,6 +304,7 @@ func (m *Model) drawBindweed() {
 	s := m.S
 	r := m.R
 	for si := 0; si < s.Stems; si++ {
+		m.SemanticScope = fmt.Sprintf("drawBindweed/stem/%d", si)
 		a := float64(si) * 2 * math.Pi / float64(s.Stems)
 		p0 := V{0, 0, 0}
 		p1 := V{cos(a) * s.Height * .42, .055 + jitter(r, .02), sin(a) * s.Height * .42}
@@ -323,6 +328,7 @@ func (m *Model) drawMayweed() {
 	s := m.S
 	r := m.R
 	for si := 0; si < s.Stems; si++ {
+		m.SemanticScope = fmt.Sprintf("drawMayweed/stem/%d", si)
 		root := V{jitter(r, .025), 0, jitter(r, .025)}
 		tip := V{root.X + jitter(r, .075), s.Height * (.65 + r.Float32()*.35), root.Z + jitter(r, .08)}
 		m.stem(root, tip, .0025)
@@ -611,6 +617,9 @@ func run() error {
 	input := flag.String("preset", "", "path to species preset json")
 	output := flag.String("out", "", "output animated .glb path")
 	organs := flag.String("organs", "", "optional geometry-bound organ graph JSON receipt")
+	lineage := flag.String("lineage", "", "optional source-path developmental crosswalk JSON")
+	windProbe := flag.String("wind-probe", "", "optional synthetic fixed-step reduced-order wind report JSON (not calibrated physical animation)")
+	fromStage := flag.Float64("from-stage", .4, "earlier developmental stage for -lineage")
 	flag.Parse()
 	if *input == "" || *output == "" {
 		return fmt.Errorf("usage: flora-gen -preset species.json -out species.glb")
@@ -630,6 +639,35 @@ func run() error {
 		return err
 	}
 	m := build(s)
+	if *lineage != "" {
+		if *fromStage <= 0 || *fromStage >= float64(s.GrowthStage) || math.IsNaN(*fromStage) || math.IsInf(*fromStage, 0) {
+			return fmt.Errorf("-from-stage must be finite, positive and strictly less than preset growth_stage")
+		}
+		earlyPreset := s
+		earlyPreset.GrowthStage = float32(*fromStage)
+		crosswalk, err := CompareDevelopmentalStages(build(earlyPreset), m)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(*lineage), 0755); err != nil {
+			return err
+		}
+		if err := writeDevelopmentalCrosswalk(*lineage, crosswalk); err != nil {
+			return err
+		}
+	}
+	if *windProbe != "" {
+		probe, e := RunWindProbe(SyntheticWindProfile(s))
+		if e != nil {
+			return e
+		}
+		if e = os.MkdirAll(filepath.Dir(*windProbe), 0755); e != nil {
+			return e
+		}
+		if e = writeWindProbe(*windProbe, probe); e != nil {
+			return e
+		}
+	}
 	if *organs != "" {
 		if err = os.MkdirAll(filepath.Dir(*organs), 0755); err != nil {
 			return err
