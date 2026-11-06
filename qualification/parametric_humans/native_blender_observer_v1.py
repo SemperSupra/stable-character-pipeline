@@ -70,7 +70,8 @@ def observe(path, out_dir, label):
     scene.display.shading.color_type="MATERIAL"
     scene.display.shading.light="STUDIO"
     scene.display.shading.show_shadows=True
-    scene.display.shading.background_type="VIEWPORT"
+    scene.world.color=(.22,.25,.29)
+    scene.display.shading.background_type="WORLD"
     scene.display.shading.background_color=(.19,.22,.26)
     scene.display.shading.show_cavity=True
     scene.render.resolution_x=720
@@ -105,21 +106,38 @@ def observe(path, out_dir, label):
     bpy.context.view_layer.update()
     camera.data.ortho_scale=2.65
     for actor in ("AsterOriginal","JuniperOriginal"):
-        actor_xyz=roots[actor].matrix_world.translation.copy()
-        look_at=actor_xyz+Vector((0.,0.,.95))
-        for view,offset in (("detail_front",Vector((0.,-5.0,1.0))),
-                            ("detail_oblique",Vector((3.1,-4.2,1.5)))):
-            camera.location=look_at+offset
-            camera.rotation_euler=(look_at-camera.location).to_track_quat("-Z","Y").to_euler()
-            dest=out_dir/(label+"_"+actor+"_"+view+".png")
-            check(not dest.exists(),"REFUSE_OVERWRITE_RENDER")
-            scene.render.filepath=str(dest)
-            bpy.ops.render.render(write_still=True)
-            check(dest.is_file() and dest.stat().st_size>2000,"NATIVE_DETAIL_RENDER_MISSING")
-            saved.append({"file":dest.name,
-                         "sha256":hashlib.sha256(dest.read_bytes()).hexdigest(),
-                         "bytes":dest.stat().st_size,
-                         "frame":end,"view":view,"actor":actor})
+        # Actors face each other along world X after the glTF Y-up -> Blender
+        # Z-up scene transform, so a common -Y view shows their profiles.
+        # Isolate the reviewed actor only in the diagnostic *render*.
+        other="JuniperOriginal" if actor=="AsterOriginal" else "AsterOriginal"
+        affected=[obj for obj in bpy.data.objects if obj.name.startswith(other+"_")]
+        previous={obj.name:obj.hide_render for obj in affected}
+        for obj in affected:
+            obj.hide_render=True
+        try:
+            bpy.context.view_layer.update()
+            actor_xyz=roots[actor].matrix_world.translation.copy()
+            look_at=actor_xyz+Vector((0.,0.,.95))
+            forward=Vector((1.,0.,0.)) if actor=="AsterOriginal" else Vector((-1.,0.,0.))
+            positions=(("detail_front",forward*5.0+Vector((0.,0.,1.0))),
+                       ("detail_oblique",forward*3.8+Vector((0.,-3.3,1.35))))
+            for view,offset in positions:
+                camera.location=look_at+offset
+                camera.rotation_euler=(look_at-camera.location).to_track_quat("-Z","Y").to_euler()
+                dest=out_dir/(label+"_"+actor+"_"+view+".png")
+                check(not dest.exists(),"REFUSE_OVERWRITE_RENDER")
+                scene.render.filepath=str(dest)
+                bpy.ops.render.render(write_still=True)
+                check(dest.is_file() and dest.stat().st_size>2000,"NATIVE_DETAIL_RENDER_MISSING")
+                saved.append({"file":dest.name,
+                             "sha256":hashlib.sha256(dest.read_bytes()).hexdigest(),
+                             "bytes":dest.stat().st_size,
+                             "frame":end,"view":view,"actor":actor,
+                             "other_actor_hidden_for_diagnostic":True})
+        finally:
+            for obj in affected:
+                obj.hide_render=previous[obj.name]
+            bpy.context.view_layer.update()
     scene.camera.data.ortho_scale=8.3
     receipt={
         "schema":SCHEMA,"label":label,"source_sha256":source_sha,
@@ -132,7 +150,7 @@ def observe(path, out_dir, label):
         "animation_end_frame":end,
         "generated_renders":saved,
         "native_import_render_technical_pass":True,
-        "native_diagnostic_camera": "BLENDER_Z_UP_FRONT_NEGATIVE_Y",
+        "native_diagnostic_camera": "BLENDER_Z_UP_ACTOR_SPECIFIC_WORLD_X_FRONT",
         "closeups_generated":True,
         "source_class":"ORIGINAL_SELF_AUTHORED_SYNTHETIC",
         "geometry_material_source_unchanged":True,
