@@ -54,7 +54,7 @@ class SourceVisualFalsifierTests(unittest.TestCase):
                 (b"no png","INVALID_PNG_SIGNATURE"),
                 (_source_test_png(width=719),"NONCOMPARABLE_PNG_VIEW"),
                 (_source_test_png(wrong_filter=True),"PNG_UNKNOWN_FILTER"),
-                (_source_test_png()[:-7],"PNG_CHUNK_BOUND"),
+                (_source_test_png()[:-7],"PNG_MISSING_IDAT_OR_IEND"),
             ):
                 p.write_bytes(raw)
                 with self.assertRaisesRegex(ValueError,expected):
