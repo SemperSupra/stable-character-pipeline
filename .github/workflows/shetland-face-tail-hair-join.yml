@@ -8,6 +8,8 @@ on:
       - "qualification/shetland_pony/render_motion_diagnostics.py"
       - "qualification/shetland_pony/halter_clearance_screen.py"
       - "qualification/shetland_pony/halter_bvh_audit.py"
+      - "qualification/shetland_pony/video_decoded_motion.py"
+      - "qualification/shetland_pony/test_video_decoded_motion.py"
 permissions:
   contents: read
 jobs:
@@ -216,6 +218,25 @@ jobs:
               "videos":files},sort_keys=True,indent=2)+"\n")
           print("FOUR_NATIVE_H264_VIDEOS_STRUCTURAL_PASS",list(files))
           PY
+      - name: Independently decode all four original MP4s and reject frozen/noise-only evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd producer/qualification/shetland_pony && SCP_NATIVE_FOURVIEW_EVIDENCE="$GITHUB_WORKSPACE/results/diagnostic" python3 -m unittest -v test_video_decoded_motion.py)
+          python3 producer/qualification/shetland_pony/video_decoded_motion.py \
+            --source results/diagnostic \
+            --out results/diagnostic/decoded_video_motion.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open("results/diagnostic/decoded_video_motion.json"))
+          assert r["decoded_video_motion"]=="TECHNICAL_VARIATION_OBSERVED"
+          assert set(r["view_evidence"])=={"side","face","mane","tail"}
+          assert all(v["decoded_frames"]==48 and v["technical_motion_observed"]
+                     for v in r["view_evidence"].values())
+          assert r["gait_hoof_contact"]=="NOT_QUALIFIED"
+          assert not r["visual_acceptance"] and not r["release_or_CPE_admission"]
+          print("FOUR_VIEW_DECODED_OBSERVATION_ONLY_NO_SCIENTIFIC_PASS")
+          PY
       - name: Preserve joined public-original model, multiview evidence and receipts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -236,6 +257,7 @@ jobs:
             results/diagnostic/*.mp4
             results/diagnostic/diagnostic_frames_receipt.json
             results/diagnostic/diagnostic_video_receipt.json
+            results/diagnostic/decoded_video_motion.json
             results/halter_clearance_screen.json
             results/halter_bvh_evaluated.json
             results/baseline/manifest.json
