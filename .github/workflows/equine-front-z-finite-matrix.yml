@@ -1,0 +1,160 @@
+name: Shetland bounded front Z-only IK angle native A/B (nonrelease)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/equine-front-z-finite-matrix.yml'
+      - 'qualification/equine/finite_z/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  finite-front-z:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        degrees: [18, 24]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: b83187e7237186ded84989064de146be85a3cdc0
+          path: frozen-source
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
+          path: hoof-observer
+          persist-credentials: false
+      - name: Exact source, isolated patch, and hostile tests
+        env:
+          DEGREES: ${{ matrix.degrees }}
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/finite_z -p 'test_*.py' -v
+          python3 -m unittest discover -s qualification/equine/ik_ab -p 'test_*.py' -v
+          test "$(git -C frozen-source rev-parse HEAD)" = b83187e7237186ded84989064de146be85a3cdc0
+          mkdir -p results "$RUNNER_TEMP/source-original"
+          cp frozen-source/qualification/shetland_pony/ik_walk.py "$RUNNER_TEMP/source-original/ik_walk.py"
+          rm frozen-source/qualification/shetland_pony/ik_walk.py
+          python3 qualification/equine/finite_z/patch_limits.py \
+            --source "$RUNNER_TEMP/source-original/ik_walk.py" \
+            --candidate frozen-source/qualification/shetland_pony/ik_walk.py \
+            --degrees "$DEGREES" --receipt results/source_patch.json
+          test "$(git -C frozen-source status --porcelain)" = ' M qualification/shetland_pony/ik_walk.py'
+          python3 - <<'PY'
+          import json
+          r=json.load(open('results/source_patch.json'))
+          assert r['two_exact_assignments_only'] and r['hind_ik_constraints_untouched']
+          assert r['x_and_y_limits_untouched'] and not r['production_eligible']
+          print('FRONT_Z_FINITE_SOURCE_ONLY_PATCH_QUALIFIED')
+          PY
+      - name: Byte-exact original source GLB comparator, no sample substitution
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: SemperSupra/stable-character-pipeline
+        run: |
+          set -euo pipefail
+          mkdir -p baseline
+          gh run download 42186110626 --repo "$GH_REPO" \
+            --name equine-30j-ik-limit-ablation-42186110626 --dir baseline
+          (cd baseline/baseline; sha256sum -c <<'EOF'
+          f5cc033bfe6a5292463fbfdc90900d641302d82639d07ea265cbeee74dc3452b  shetland_black_ghcr.glb
+          EOF
+          )
+          test -s baseline/baseline/hoof.json
+          test -s baseline/baseline/rom.json
+          test -s baseline/baseline/target_residual.json
+      - name: Disposable sha256-qualified Blender 4.5.15
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Build real candidate original-only 30j model and independent native observers
+        run: |
+          set -euo pipefail
+          mkdir -p results/candidate
+          model="$GITHUB_WORKSPACE/results/candidate/shetland_black_ghcr.glb"
+          blender="$RUNNER_TEMP/blender-4.5.15-linux-x64/blender"
+          env SCP_COATS=black LIBGL_ALWAYS_SOFTWARE=1 "$blender" -b --factory-startup --python-exit-code 8 \
+             --python frozen-source/qualification/shetland_pony/build_blender.py -- "$GITHUB_WORKSPACE/results/candidate"
+          test -s "$model"
+          env LIBGL_ALWAYS_SOFTWARE=1 "$blender" -b --factory-startup --python-exit-code 8 \
+             --python hoof-observer/qualification/equine/contact_eval/observed_hooves.py -- \
+             "$model" "$GITHUB_WORKSPACE/results/candidate/hoof.json"
+          env LIBGL_ALWAYS_SOFTWARE=1 "$blender" -b --factory-startup --python-exit-code 8 \
+             --python qualification/equine/ik_ab/rom30_native.py -- \
+             "$model" "$GITHUB_WORKSPACE/results/candidate/rom.json"
+          env LIBGL_ALWAYS_SOFTWARE=1 "$blender" -b --factory-startup --python-exit-code 8 \
+             --python qualification/equine/ik_ab/target_residual_native.py -- \
+             "$model" "$GITHUB_WORKSPACE/frozen-source/qualification/shetland_pony/footpaths.py" \
+             "$GITHUB_WORKSPACE/results/candidate/target_residual.json"
+      - name: Independent comparison and explicit no-production-promotion
+        env:
+          DEGREES: ${{ matrix.degrees }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,hashlib,os,pathlib,math
+          degrees=int(os.environ['DEGREES'])
+          baseline=pathlib.Path('baseline/baseline');trial=pathlib.Path('results/candidate')
+          load=lambda path: json.loads(path.read_text())
+          b_h,c_h=load(baseline/'hoof.json'),load(trial/'hoof.json')
+          b_r,c_r=load(baseline/'rom.json'),load(trial/'rom.json')
+          b_t,c_t=load(baseline/'target_residual.json'),load(trial/'target_residual.json')
+          assert b_h['schema']==c_h['schema']=='equine.foot.science.v1'
+          assert b_r['schema']==c_r['schema']=='equine.rom.actual-three-segment.v1'
+          assert b_t['schema']==c_t['schema']=='equine.ik.actual-world-target-residual.v1'
+          assert all(r['observed_frames']==48 for r in (b_r,c_r))
+          sha=hashlib.sha256((trial/'shetland_black_ghcr.glb').read_bytes()).hexdigest()
+          assert sha==c_t['glb_sha256'] and sha != b_t['glb_sha256']
+          f=('front_L','front_R');fn=('front_L_hoof','front_R_hoof')
+          def result(h,r,t):
+              return {'mean_front_ankle_error_mm':round(500*sum(t['limbs'][x]['mean_world_ankle_target_error_m'] for x in f),3),
+                'front_samples_over_20mm':t['total_front_frames_over_20mm'],
+                'front_skate_pairs':sum(h['feet'][x]['skate_pairs_over_3cm'] for x in fn),
+                'front_hooves_reaching_45mm_clearance':sum(h['feet'][x]['frames_above_swing_clearance']>0 for x in fn),
+                'max_front_penetration_mm':round(1000*max(h['feet'][x]['max_ground_penetration_m'] for x in fn),3),
+                'rom_failure_codes':r['failure_codes']}
+          old,new=result(b_h,b_r,b_t),result(c_h,c_r,c_t)
+          extra=sorted(set(new['rom_failure_codes'])-set(old['rom_failure_codes']))
+          eligible=(new['mean_front_ankle_error_mm']<old['mean_front_ankle_error_mm']
+                    and new['front_skate_pairs']<old['front_skate_pairs']
+                    and new['front_hooves_reaching_45mm_clearance']==2
+                    and new['max_front_penetration_mm']<=old['max_front_penetration_mm']+1e-6
+                    and not extra)
+          report={'schema':'equine.ik.finite-front-z.native-ab.v1','degrees':degrees,
+            'source_original_bone_and_skin_untouched':True,'candidate_glb_sha256':sha,
+            'baseline_glb_sha256':b_t['glb_sha256'],'baseline':old,'candidate':new,
+            'new_joint_guardrail_failures':extra,
+            'proxy_criteria_met':eligible,'scientific_acceptance':False,
+            'veterinary_rom_accepted':False,'force_contact_accepted':False,'visual_acceptance':False,
+            'production_eligible':False,'merge_release_CPE_authorized':False,
+            'outcome':'BOUND_PROXIES_IMPROVED_OWNER_REVIEW_REQUIRED' if eligible else 'REJECT_OR_INCONCLUSIVE'}
+          pathlib.Path('results/finite_z_ab.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+          print('SOURCE_EXACT_30J_FINITE_Z_AB',degrees,report['outcome'],old,new)
+          PY
+      - name: Retain compact measurements, exact candidate GLB and visual witness
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-30j-front-z-${{ matrix.degrees }}-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/source_patch.json
+            results/finite_z_ab.json
+            results/candidate/hoof.json
+            results/candidate/rom.json
+            results/candidate/target_residual.json
+            results/candidate/shetland_black_ghcr.glb
+            results/candidate/shetland_black_ghcr.png
