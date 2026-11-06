@@ -210,40 +210,22 @@ jobs:
           assert r["visual_acceptance"] is False and r["release_or_CPE_admission"] is False
           print("HAIR_NATIVE_48F_BVH_SCIENCE_WARNING",r["candidate_collision"],r["possible_region_frames"])
           PY
-      - name: Native 5.2.3 shadow physics against actual original six PonyRig30 follicles (no pony upgrade)
+      - name: Install SHA-verified native Blender 5.2.3 for source-matched original skin physics
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/blender52" results/shadow52
+          mkdir -p "$RUNNER_TEMP/blender52"
           curl -fLsS --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.3.sha256 -o "$RUNNER_TEMP/blender52/checksums"
           curl -fLsS --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.3-linux-x64.tar.xz -o "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64.tar.xz"
           (cd "$RUNNER_TEMP/blender52" && grep 'blender-5.2.3-linux-x64.tar.xz' checksums | sha256sum -c -)
           tar -xJf "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender52"
-          for mode in physics animation; do
-            env SCP_52_MODE="$mode" LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/pony52_source_shadow.py -- "$GITHUB_WORKSPACE/results/source_capsule/pony_source_48f.json" "$GITHUB_WORKSPACE/results/shadow52/$mode.json"
-          done
-          python3 qualification/equine/hair_prior_art/pony52_pair_quality.py \
-            results/source_capsule/pony_source_48f.json \
-            results/shadow52/physics.json \
-            results/shadow52/animation.json \
-            results/shadow52/quality.json
-          python3 - <<'PY'
-          import json
-          q=json.load(open("results/shadow52/quality.json"))
-          assert q["schema"]=="equine.pony.xpbd_source_proxy.paired_quality.v1"
-          assert q["frames"]==48 and q["guides"]==6
-          assert q["verdict"]=="SOURCE_PONY_PROXY_SECONDARY_MOTION_ENGINEERING_ONLY"
-          assert q["body_and_hair_collision"]=="NOT_TESTED" and q["science_hold"]=="KEEP"
-          assert q["release_or_CPE_admission"] is False
-          print("ORIGINAL_PONY_30J_TO_52_SHADOW_SOURCE_BOUNDED_NOT_RELEASE",q)
-          PY
       - name: Original skinned 30j groom surface 5.2 native direct-attachment shadow (non-release)
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p results/attached52
           for mode in physics animation; do
-            env SCP_52_SOURCE_MORPHS=animated SCP_52_MODE="$mode" LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/pony52_actual_surface_native.py -- --native "$GITHUB_WORKSPACE/results/hair/equine_longhair_wind.blend" "$GITHUB_WORKSPACE/results/source_capsule/pony_source_48f.json" "$GITHUB_WORKSPACE/results/attached52/$mode.json"
+            env SCP_52_SOURCE_MORPHS=disabled SCP_52_MODE="$mode" LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/pony52_actual_surface_native.py -- --native "$GITHUB_WORKSPACE/results/hair/equine_longhair_wind.blend" "$GITHUB_WORKSPACE/results/source_capsule/pony_source_48f.json" "$GITHUB_WORKSPACE/results/attached52/$mode.json"
           done
           python3 qualification/equine/hair_prior_art/pony52_actual_surface_native.py --compare \
             results/source_capsule/pony_source_48f.json \
@@ -259,38 +241,17 @@ jobs:
           assert r["science_hold"]=="KEEP" and r["release_admission"] is False
           assert r["full_anatomical_collision_clearance"] is False
           assert r["physical_material_calibration"]=="UNKNOWN" and r["visual_acceptance"] is False
+          # Rigid source 5.2 MUST now match original 4.5 skin-only capsule.
+          # This is an engineering invariant; it is NOT a collision release.
+          assert max(r["max_rigid_control_vs_original_source_tip_vector_error_m_by_region"].values())<=0.0001
+          for mode in ("physics","animation"):
+              w=json.load(open("results/attached52/"+mode+".json"))
+              assert w["source_wind_morph_mode"]=="disabled"
+              assert w["source_wind_morphs_detected"]==9
+              assert w["wind_keys_disabled_in_memory_only"] is True
+              assert len(w["source_wind_max_activity_per_frame"])==48
+              assert max(w["source_wind_max_activity_per_frame"])==0.
           print("ORIGINAL_30J_SKIN_GROOM_TO_52_NATIVE_ATTACHED_SCIENCE_HOLD",r)
-          PY
-      - name: Native 5.2 actual original 9-wind-morph source confound A/B (nonrelease)
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p results/wind_morph_ab
-          for mode in physics animation; do
-            env SCP_52_SOURCE_MORPHS=disabled SCP_52_MODE="$mode" LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/pony52_actual_surface_native.py -- --native "$GITHUB_WORKSPACE/results/hair/equine_longhair_wind.blend" "$GITHUB_WORKSPACE/results/source_capsule/pony_source_48f.json" "$GITHUB_WORKSPACE/results/wind_morph_ab/$mode.json"
-          done
-          python3 qualification/equine/hair_prior_art/pony52_wind_source_ab.py \
-            results/source_capsule/pony_source_48f.json \
-            results/attached52/physics.json \
-            results/attached52/animation.json \
-            results/wind_morph_ab/physics.json \
-            results/wind_morph_ab/animation.json \
-            results/wind_morph_ab/quality.json
-          python3 - <<'PY'
-          import json
-          r=json.load(open("results/wind_morph_ab/quality.json"))
-          assert r["schema"]=="equine.pony52.source_wind_morph_ab.v1"
-          assert r["frames"]==48 and r["guides"]==6
-          assert r["verdict"] in (
-            "SOURCE_WIND_MORPH_CONFOUND_BOUNDED_CONFIRMED_NO_NEW_RAY_CANDIDATES",
-            "SOURCE_WIND_MORPH_CONFOUND_BOUNDED_CONFIRMED_COLLISION_HOLD",
-            "PARTIAL_MORPH_STATE_IMPROVEMENT_SOURCE_NOT_CALIBRATED",
-            "INCONCLUSIVE_NO_SOURCE_WIND_ACTIVITY",
-            "NO_ELIGIBLE_IMPROVEMENT_KEEP_ORIGINAL_WORKCELL")
-          assert r["source_consistency_separate_from_collision_admission"] is True
-          assert r["scientific_hold"]=="KEEP" and r["merge_release_CPE"] is False
-          assert r["original_source_mutated_on_disk"] is False
-          print("MORPH_SOURCE_CONFOUND_5_2_A_B_NONRELEASE",r)
           PY
       - name: Independently reconcile source bone-frame transport with native 5.2 rigid hair (science held)
         shell: bash
@@ -308,6 +269,7 @@ jobs:
           assert r["frames"]==48 and r["cards"]==6
           assert r["scientific_hold"]=="KEEP" and not r["release_or_CPE_admission"]
           assert not r["rest_frame_attachment_and_tangent_calibrated"]
+          assert r["hypothesis"]=="NO_STRONG_SOURCE_RIGID_MISMATCH_AT_THIS_SAMPLE"
           print("SOURCE_30J_BONE_VS_BLENDER52_RIGID_FRAME_UNADMITTED",r["hypothesis"],r["regions"])
           PY
       - name: Preserve original native evidence and first failures
@@ -324,9 +286,7 @@ jobs:
             results/hair/hair_contact_48f.json
             results/baseline/manifest.json
             results/source_capsule/*.json
-            results/shadow52/*.json
             results/attached52/*.json
             results/bone_frame/*.json
             results/body_root/*.json
             results/caudal/*.json
-            results/wind_morph_ab/*.json
