@@ -140,7 +140,7 @@ func inspect(path string, meta ImageMeta) (Observation,error) {
     // only the upper/side bounds are framing gates; the bottom is an
     // intentional close-up boundary and cannot be called a full-body pass.
     if meta.View=="face" {
-        if ob.Margins[0]<4 || ob.Margins[1]<4 || ob.Margins[3]<4 {
+        if ob.Margins[0]<4 || ob.Margins[1]<4 || ob.Margins[2]<4 {
             return ob,fmt.Errorf("FACE_FOREHEAD_OR_SIDE_CROPPED margins=%v",ob.Margins)
         }
     } else {
