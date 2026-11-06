@@ -10,6 +10,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 from ik_walk import animate_ik_walk
 from body_surface import create_body_surface
 from equine_sculpt import create_equine_sculpt
+from fitted_halter import make_halter
 from winter_fur import create_coat
 from mane_drape import guides as mane_guides,validate_guides
 from wool_texture import apply_to_material
@@ -113,8 +114,8 @@ def build_one(coat):
   for name,loc,sc,mat,bone in [
    ('ear',(.72,sign*.14,1.32),(.043,.033,.13),body,'ear_'+side),
    ('eye',(.795,sign*.147,1.145),(.035,.015,.031),eye,'head'),
-   ('nostril',(1.137,sign*.094,.86),(.032,.013,.023),eye,'head'),
-   ('mouth',(1.137,sign*.085,.798),(.044,.010,.008),nose,'jaw'),
+   ('nostril',(1.083,sign*.103,.904),(.027,.013,.023),eye,'head'),
+   ('mouth',(1.106,sign*.080,.818),(.034,.009,.007),nose,'jaw'),
   ]:
    rigged(ellipsoid(name+'_'+side,loc,sc,mat),arm,bone)
  for i,(p,sc,bone) in enumerate([
@@ -132,8 +133,7 @@ def build_one(coat):
  fur_receipt=create_coat(arm,body,white if coat=='pinto' else None)
  (OUT/f'fur_{coat}.json').write_text(json.dumps(fur_receipt,indent=2,sort_keys=True)+'\n')
  if pink:
-  for nm,pos,sc in [('noseband',(.97,0,.93),(.019,.162,.027)),('cheekstrap',(.81,-.164,1.02),(.023,.019,.14)),('cheekstrap2',(.81,.164,1.02),(.023,.019,.14))]:
-   rigged(ellipsoid(nm,pos,sc,pink),arm,'head')
+  make_halter(arm,pink)
  animate_ik_walk(arm,OUT/f'ik_plan_{coat}.json')
  bpy.context.scene.frame_set(1)
  bpy.ops.object.select_all(action='DESELECT')
