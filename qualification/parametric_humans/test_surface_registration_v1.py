@@ -95,6 +95,14 @@ class RegistrationTests(unittest.TestCase):
         self.assertEqual(r["stats"]["lateral"], 4)
         self.assertAlmostEqual(r["vertices"][0][0], .01)
 
+    def test_boolean_tangent_step_is_not_a_metric_bound(self):
+        # Python bool is a subclass of int: False can silently become a
+        # 0-metre bound. Source contracts must reject boolean-valued units.
+        f = fixture()
+        f["options"]["max_tangent_step_m"] = False
+        with self.assertRaisesRegex(FitRejected, "INVALID_OPTIONS"):
+            fit_once(f)
+
     def test_bad_confidence(self):
         f = fixture()
         f["correspondences"][0]["confidence"] = float("inf")
