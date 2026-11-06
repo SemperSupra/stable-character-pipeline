@@ -27,11 +27,39 @@ jobs:
             exit 2
           fi
       - name: Bounded original synthetic camera reprojection and hostile split tests
+        env:
+          SCP_CAMERA_VALIDATOR_PERF_OUT: ${{ runner.temp }}/camera-validator-performance.json
         working-directory: qualification/agent_camera_calibration
         run: |
           set -euo pipefail
           python3 -m compileall -q .
           python3 -m unittest discover -v -p 'test_*.py'
+      - name: Check independent camera validator performance and capture evidence holds
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"camera-validator-performance.json"
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.validator.performance.v1"
+          assert r["case_count"]==16
+          assert r["expected_accepted"]==4
+          assert r["rejection_detection"]=={"detected":12,"total":12}
+          assert r["false_acceptance_count"]==r["false_rejection_count"]==0
+          assert r["contract_mismatch_count"]==r["hard_error_count"]==0
+          assert r["decision"]=="PASS_DECLARED_SYNTHETIC_ORACLE_CONTROLS_ONLY"
+          assert r["external_photo_fit"]=="NOT_RUN"
+          assert r["extrinsics_authenticity"]=="UNKNOWN" and not r["merge_release_CPE_approval"]
+          print("CAMERA_VALIDATOR_QUALITY",r["validator_sha256"],r["runtime"])
+          PY
+      - name: Preserve source-bounded camera performance receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scp-camera-intrinsics-validator-quality
+          retention-days: 7
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/camera-validator-performance.json
       - name: Scientific admission remains held
         run: |
           echo 'CORRESPONDENCE_INTRINSICS_ONLY; PHOTO_IMAGE_BYTES_NOT_READ; EXTRINSICS_NOT_INDEPENDENT; REAL_PERSON_FIT_NOT_RUN; SCIENCE_UNKNOWN; RELEASE_CPE_MERGE_HELD'
