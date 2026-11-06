@@ -33,8 +33,8 @@ jobs:
           p=pathlib.Path(os.environ["SCP_VALIDATOR_PERF_OUT"])
           r=json.loads(p.read_text())
           assert r["schema"]=="scp.validator.performance.v1"
-          assert r["case_count"]==11
-          assert r["rejection_detection"]=={"detected":6,"total":6}
+          assert r["case_count"]==13
+          assert r["rejection_detection"]=={"detected":8,"total":8}
           assert r["confusion"]["ABSTAIN"]["ABSTAIN"]==3
           assert r["false_acceptance_count"]==r["false_rejection_count"]==0
           assert r["contract_mismatch_count"]==0
