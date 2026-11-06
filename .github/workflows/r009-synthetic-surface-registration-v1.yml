@@ -10,6 +10,9 @@ on:
       - "qualification/parametric_humans/disposable_parent_integration_trial.py"
       - "qualification/parametric_humans/disposable_combined_native_v1.py"
       - "qualification/parametric_humans/test_disposable_combined_native_v1.py"
+      - "qualification/parametric_humans/costume_garment_v1.py"
+      - "qualification/parametric_humans/test_costume_garment_v1.py"
+      - "qualification/parametric_humans/COSTUME_VARIANTS_V1.md"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
 
@@ -34,6 +37,9 @@ jobs:
           cd qualification/parametric_humans
           python3 -m compileall -q surface_registration_v1.py test_surface_registration_v1.py
           python3 -m unittest -v test_surface_registration_v1 test_surface_registration_quality test_surface_registration_metamorphic
+          # Original-only garment contract: five source-free controls; exact-source optional test skips on public CI.
+          python3 -m compileall -q costume_garment_v1.py test_costume_garment_v1.py
+          python3 -m unittest -v test_costume_garment_v1
           python3 - <<'PY'
           import json,os,pathlib
           p=pathlib.Path(os.environ["SCP_VALIDATOR_PERF_OUT"])
