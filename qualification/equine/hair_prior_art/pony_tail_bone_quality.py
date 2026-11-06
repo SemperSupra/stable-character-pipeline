@@ -110,5 +110,5 @@ def main():
     out=Path(sys.argv[4])
     if out.exists():raise ValueError("refuse overwrite source/bone receipt")
     out.write_text(json.dumps(r,sort_keys=True,indent=2)+"\n")
-    print("ORIGINAL_CAÙDAL_BONE_IS_NOT_TAIL_SHAFT",json.dumps(r,sort_keys=True))
+    print("ORIGINAL_CAUDAL_BONE_IS_NOT_TAIL_SHAFT",json.dumps(r,sort_keys=True))
 if __name__=="__main__":main()
