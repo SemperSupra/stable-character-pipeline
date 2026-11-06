@@ -11,6 +11,7 @@ import math
 import hashlib
 import sys
 from pathlib import Path
+from mathutils import Vector
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from guide_dynamics import Guide,simulate,report,norm,sub
 
@@ -55,16 +56,15 @@ spans=[]
 for start,stop,stride in bands:
     for lo in range(start,stop,stride):
         hi=min(stop,lo+stride)
-        # Do not blend separate bone owners into one physical guide.
-        j=lo
-        while j<hi:
-            k=j+1
-            while k<hi and card_bones[k]==card_bones[j]:
-                k+=1
-            representative=(j+k-1)//2
-            spans.append((j,k,representative))
-            j=k
-if not 40<=len(spans)<=140:
+        # Group noncontiguous hairs by the SAME skin-owner bone within a
+        # small spatial window. Do not create hundreds of 1-card groups
+        # merely because guide-generation interleaved head/neck owners.
+        owners=sorted(set(card_bones[lo:hi]))
+        for owner in owners:
+            members=tuple(i for i in range(lo,hi) if card_bones[i]==owner)
+            if members:
+                spans.append((members,members[len(members)//2]))
+if not 40<=len(spans)<=160:
     raise ValueError("unexpected reduced guide / bone partition count")
 
 # Evaluate the actual animated rig before adding any hair morph keys. This
@@ -81,7 +81,7 @@ for frame in range(1,49):
     if len(evaluated.vertices)!=1050*4:
         raise ValueError("evaluated groom topology changed")
     world=eval_obj.matrix_world.copy()
-    for _,_,j in spans:
+    for _,j in spans:
         i=j*4
         source_roots[j].append(tuple(world@((evaluated.vertices[i].co+evaluated.vertices[i+1].co)*.5)))
         source_tips[j].append(tuple(world@((evaluated.vertices[i+2].co+evaluated.vertices[i+3].co)*.5)))
@@ -99,7 +99,7 @@ scene.frame_set(1)
 groups=[]
 max_root_speed=0.
 max_dynamic_lag=0.
-for lo,hi,j in spans:
+for members,j in spans:
     trajectory=source_roots[j]
     initial=trajectory[0]
     direct=sub(source_tips[j][0],initial)
@@ -114,7 +114,7 @@ for lo,hi,j in spans:
     speed=max(norm(sub(a,b))*24 for a,b in zip(trajectory,trajectory[1:]))
     max_root_speed=max(max_root_speed,speed)
     max_dynamic_lag=max(max_dynamic_lag,max(norm(sub(history[f][-1],source_tips[j][f])) for f in range(48)))
-    groups.append((lo,hi,j,history))
+    groups.append((members,j,history))
 if len(groups)!=len(spans) or not groups:
     raise ValueError("unbounded guide simulation")
 
@@ -124,7 +124,7 @@ target_keys={}
 max_tip_shift=0.
 for frame in sample_frames:
     key=groom.shape_key_add(name="wind_%03d"%frame,from_mix=False)
-    for lo,hi,j,history in groups:
+    for members,j,history in groups:
         current=history[frame-1][-1]
         # The physics is in world coordinates. Skin-aware offsets must be
         # unrotated into each card's own rest/bind local coordinates before
@@ -133,7 +133,7 @@ for frame in sample_frames:
         shift=norm(delta)
         max_tip_shift=max(max_tip_shift,shift)
         if shift>.22:delta=tuple(x*.22/shift for x in delta)
-        for i in range(lo,hi):
+        for i in members:
             local=source_inverse_skin[frame][card_bones[i]]@Vector(delta)
             for k in (2,3):
                 data=key.data[i*4+k]
