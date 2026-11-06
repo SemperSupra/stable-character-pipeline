@@ -36,6 +36,21 @@ shapes={}
 for side in ("L","R"):
     eye=bpy.data.objects["eye_"+side]
     sign=-1 if side=="L" else 1
+    # Original shiny circular button eye is not equine. Retain its original
+    # skinned mesh and provenance, refine to a flatter lateral almond ellipse.
+    if len(eye.data.vertices)<100:raise ValueError("unexpected source eye geometry")
+    for v in eye.data.vertices:
+        v.co.x*=1.07
+        v.co.y*=.35
+        v.co.z*=.68
+    eye.location.y+=sign*.003
+    eye_shader=eye.data.materials[0]
+    eye_shader.diffuse_color=(.018,.009,.006,1.)
+    eye_shader.use_nodes=True
+    eye_bsdf=eye_shader.node_tree.nodes.get("Principled BSDF")
+    if eye_bsdf:
+        eye_bsdf.inputs["Base Color"].default_value=(.018,.009,.006,1.)
+        eye_bsdf.inputs["Roughness"].default_value=.38
     # Upper lid is a thin anatomically oriented moving skin curtain, not an
     # overlapping rigid ellipsoid. The top arc stays rooted as lower edge
     # translates across the visible eyeball via a blendshape.
@@ -44,8 +59,8 @@ for side in ("L","R"):
         u=2.*j/samples-1.
         arc=math.sqrt(max(0.,1.-u*u))
         x=.795+.036*u
-        y=sign*(.165+.002*arc)
-        upper=1.145+.032*arc
+        y=sign*(.159+.001*arc)
+        upper=1.145+.023*arc
         lidverts.extend(((x,y,upper+.002),(x,y,upper-(.0025+.003*arc))))
     for j in range(samples):
         a=2*j
@@ -65,7 +80,7 @@ for side in ("L","R"):
     for j in range(samples+1):
         u=2.*j/samples-1.
         arc=math.sqrt(max(0.,1.-u*u))
-        closed.data[2*j+1].co.z=1.145-.030*arc
+        closed.data[2*j+1].co.z=1.145-.021*arc
     shapes["blink_"+side]=lid.data.shape_keys.key_blocks["blink"]
     # Flatten glossy nostril-sphere proxy into a matte flexible equine slit.
     nostril=bpy.data.objects["nostril_"+side]
@@ -135,9 +150,20 @@ files={}
 for p in [target,*sorted(outdir.glob("face_*.png"))]:
     if p.stat().st_size<500:raise ValueError("undersized evidence "+p.name)
     files[p.name]={"bytes":p.stat().st_size,"sha256":hashlib.sha256(p.read_bytes()).hexdigest()}
+# Native dimensional guard; limits are source-specific engineering bounds.
+eye_dimensions={}
+for side in ("L","R"):
+    eye=bpy.data.objects["eye_"+side]
+    axes=[(min(v.co[i] for v in eye.data.vertices),max(v.co[i] for v in eye.data.vertices)) for i in range(3)]
+    radii=[(hi-lo)*.5 for lo,hi in axes]
+    if not (.030<radii[0]<.042 and .003<radii[1]<.007 and .017<radii[2]<.025):
+        raise ValueError("eye did not acquire flatter equine ellipse")
+    eye_dimensions[side]={"rest_eye_local_radii_m":radii,
+        "left_right_source_mesh":"original synthetic eye; modified non-destructively in derivative"}
 receipt={"schema":"equine.face.proof.v1","channels":list(sample(1)), "frames":FRAMES,
          "source_sha256":hashlib.sha256(input_scene.read_bytes()).hexdigest(),
          "morph_targets":[o for o in shapes],
+         "eyes":eye_dimensions,
          "quality":"synthetic engineering actuator proof ONLY; EquiFACS biological/visual UNKNOWN",
          "files":files}
 (outdir/"face_receipt.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
