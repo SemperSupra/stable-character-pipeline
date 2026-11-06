@@ -78,6 +78,18 @@ jobs:
             echo 'FAIL OPEN: silent AAC was accepted' >&2; exit 1
           fi
           grep -q 'FAIL_AUDIO_TRANSIENT_ALIGNMENT' "$RUNNER_TEMP/observer/decoded-negative.json"
+      - name: Baseline metadata comparator falsely accepts silent AAC container
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/observer/silent-aac-mux.mp4" <<'PYMETADATA'
+          import sys
+          from qualification.equine.av_sync.verify_av import probe_video
+          # This proves the exact parent metadata probe accepts an AAC stream
+          # whose independent decoded-waveform observer rejects as silent.
+          info = probe_video(sys.argv[1], frames=48)
+          assert any(s.get('codec_name') == 'aac' for s in info['streams'])
+          print('BASELINE_METADATA_PASS_BUT_DECODED_AUDIO_FAIL')
+          PYMETADATA
       - name: Evidence from wholly original synthetic public sources
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
