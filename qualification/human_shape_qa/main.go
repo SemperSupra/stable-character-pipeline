@@ -84,7 +84,7 @@ func bandWidth(points [][]bool, bottom, top float64, yMin, yMax int) int {
     a:=yMin+int(float64(yMax-yMin)*bottom)
     b:=yMin+int(math.Ceil(float64(yMax-yMin)*top))
     if b<a{b=a}
-    min,max:=math.MaxInt,-1
+    min,max:=int(^uint(0)>>1),-1
     for y:=a;y<=b && y<len(points);y++ {
         if y<0 {continue}
         for x,v:=range points[y] {if v {
@@ -170,7 +170,7 @@ func Evaluate(indexPath string) (Report,error) {
         key:=image.Actor+"/"+image.View
         if !expected[key] || seen[key] || image.Preset!="adventure" ||
             image.VisualAccepted || !validDigest(image.SHA256) ||
-            !math.IsFinite(image.CameraScale) || image.CameraScale<=0 {
+            (math.IsNaN(image.CameraScale) || math.IsInf(image.CameraScale,0)) || image.CameraScale<=0 {
             return result,errors.New("INVALID_DUPLICATE_OR_UNTRUSTED_CAMERA_VIEW")
         }
         seen[key]=true
