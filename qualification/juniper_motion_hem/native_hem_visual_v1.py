@@ -7,6 +7,15 @@ experimental* variant names; no source, output or Blender correctness bypass.
 """
 import sys
 from pathlib import Path
+
+# Blender's embedded Python may not inherit the process PYTHONPATH; resolve
+# the exact sibling renderer from the checked-out repository, not sys.path
+# guesses or a user-site plugin installation.
+renderer_dir=Path(__file__).resolve().parent.parent/"human_fit_candidates"
+renderer_file=renderer_dir/"render_skirt_candidate_blender.py"
+if not renderer_file.is_file():
+    raise RuntimeError("EXPECTED_SOURCE_ORIGINAL_RENDERER_MISSING")
+sys.path.insert(0,str(renderer_dir))
 import render_skirt_candidate_blender as original
 
 VALID=("baseline","juniper_skirt_14","hem_06","hem_10")
