@@ -29,6 +29,23 @@ for frame,angles in enumerate(values,1):
     if frame in (1,15,24,31):
         bpy.context.scene.render.filepath=str(out/("tail_%03d.png"%frame))
         bpy.ops.render.render(write_still=True)
+# Rear-oblique camera makes lateral tail-dock movement observable.
+from mathutils import Vector
+scene=bpy.context.scene
+original_camera=scene.camera
+rear_data=bpy.data.cameras.new("TAIL_REAR_QA_ORTHO")
+rear_camera=bpy.data.objects.new("TailRearQA",rear_data)
+scene.collection.objects.link(rear_camera)
+rear_camera.location=(-2.05,-.50,1.45)
+rear_camera.rotation_euler=(Vector((-.68,0.,.68))-rear_camera.location).to_track_quat('-Z','Y').to_euler()
+rear_data.type="ORTHO";rear_data.ortho_scale=1.45
+scene.camera=rear_camera
+for frame in (1,15,24,31):
+    scene.frame_set(frame)
+    scene.render.filepath=str(out/("tail_rear_%03d.png"%frame))
+    bpy.ops.render.render(write_still=True)
+scene.camera=original_camera
+
 bpy.context.scene.frame_set(1)
 bpy.ops.object.select_all(action="DESELECT")
 for obj in bpy.context.scene.objects:
