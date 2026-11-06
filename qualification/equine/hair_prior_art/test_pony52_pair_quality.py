@@ -4,6 +4,15 @@ import unittest
 from test_pony_source_trajectory import fixture
 from pony52_pair_quality import quality
 
+def moving_source():
+    s=fixture()
+    for g in s["guides"]:
+        for i,item in enumerate(g["samples"]):
+            displacement=.16*i/47
+            item["root_m"][0]+=(displacement)
+            item["tip_m"][0]+=(displacement)
+    return s
+
 def measured(source,mode):
     items=[]
     for f in range(48):
@@ -31,15 +40,18 @@ def measured(source,mode):
         "frames":items}
 class QualityTests(unittest.TestCase):
     def test_original_trace_plus_rigid_negative_control(self):
-        s=fixture();a=measured(s,"physics");b=measured(s,"animation")
+        s=moving_source();a=measured(s,"physics");b=measured(s,"animation")
         r=quality(s,a,b)
         self.assertEqual(r["verdict"],"SOURCE_PONY_PROXY_SECONDARY_MOTION_ENGINEERING_ONLY")
         self.assertEqual(r["max_animation_control_delta_m_by_region"],{"mane":0.,"forelock":0.,"tail":0.})
         self.assertFalse(r["release_or_CPE_admission"])
         self.assertEqual(r["body_and_hair_collision"],"NOT_TESTED")
+        self.assertGreater(r["max_actual_source_root_travel_m_by_region"]["tail"],.15)
+        self.assertLess(r["max_tip_to_source_rest_strain_fraction_by_region"]["mane"],.10)
+        self.assertTrue(r["science_warnings"])
         self.assertEqual(r,quality(s,a,b))
     def test_forged_or_incomplete_source_and_motion(self):
-        s=fixture();a=measured(s,"physics");b=measured(s,"animation")
+        s=moving_source();a=measured(s,"physics");b=measured(s,"animation")
         cases=[
             lambda x:x["frames"].pop(),
             lambda x:x["frames"][1]["samples"].pop(),
@@ -56,14 +68,24 @@ class QualityTests(unittest.TestCase):
                 mutate=copy.deepcopy(a);fn(mutate)
                 with self.assertRaises(ValueError):quality(s,mutate,b)
     def test_rigid_both_fail_closed(self):
-        s=fixture();b=measured(s,"animation");a=measured(s,"physics")
+        s=moving_source();b=measured(s,"animation");a=measured(s,"physics")
         for row in a["frames"]:
             for sample in row["samples"]:
                 sample["tip_minus_root_m"]=[0,0,-.2]
                 sample["tip_world_m"]=[sample["root_world_m"][0],sample["root_world_m"][1],sample["root_world_m"][2]-.2]
         with self.assertRaises(ValueError):quality(s,a,b)
+    def test_overstrained_proxy_is_science_warning_not_acceptance(self):
+        s=moving_source();a=measured(s,"physics");b=measured(s,"animation")
+        for row in a["frames"][1:]:
+            for sample in row["samples"]:
+                sample["tip_minus_root_m"][2]=-.5
+                sample["tip_world_m"][2]=sample["root_world_m"][2]-.5
+        q=quality(s,a,b)
+        self.assertIn("SOURCE_PROXY_GUIDE_STRAIN_OVER_10_PERCENT",q["science_warnings"])
+        self.assertEqual(q["science_hold"],"KEEP")
+
     def test_control_accidental_motion_fails_closed(self):
-        s=fixture();a=measured(s,"physics");b=measured(s,"animation")
+        s=moving_source();a=measured(s,"physics");b=measured(s,"animation")
         for row in b["frames"][1:]:
             for sample in row["samples"]:
                 sample["tip_minus_root_m"][0]+=.01
