@@ -9,7 +9,7 @@ from pathlib import Path
 from modular_wardrobe_v1 import ACTORS, PRESETS
 from test_modular_wardrobe_v1 import witness
 from verify_original_glb import decode, accessory
-from wardrobe_refinement_v2 import build,continuous_figure,SHOULDER_GUSSET_RINGS,SHOULDER_GUSSET_SIDES,trouser_hip_inset,knee_cap_to_source_joint
+from wardrobe_refinement_v2 import build,continuous_figure,SHOULDER_GUSSET_RINGS,SHOULDER_GUSSET_SIDES,trouser_hip_inset,knee_cap_to_source_joint,join_original_trouser_segments
 from wardrobe_portable_export_v2 import export
 
 class RefinementTests(unittest.TestCase):
@@ -40,6 +40,62 @@ class RefinementTests(unittest.TestCase):
         self.assertIn("' r009-evidence/changed_paths.txt; then",content)
         self.assertIn("permissions:\n  contents: read",content)
         self.assertEqual(sum(line.startswith("      - name: ") for line in content.splitlines()),6)
+
+    def test_genuine_shared_knee_ring_manifold_not_two_disconnected_tubes(self):
+        from collections import Counter
+        from humanization_v2 import v1 as src
+        for side in ("L","R"):
+            g=src.Geometry()
+            hip=src.POS["hip_"+side]
+            knee=src.POS["knee_"+side]
+            ankle=src.POS["ankle_"+side]
+            data=join_original_trouser_segments(
+                g,"slatePants",
+                (hip,knee,.110,.082,"hip_"+side,"knee_"+side,18,22),
+                (knee,ankle,.084,.060,"knee_"+side,"ankle_"+side,18,22))
+            self.assertTrue(data["watertight_at_knee"])
+            self.assertFalse(data["whole_body_watertight"])
+            self.assertTrue(data["open_at_pelvis_and_ankle"])
+            self.assertFalse(data["garment_collision_accepted"])
+            self.assertEqual(data["rings"],37)
+            self.assertEqual(data["vertices"],37*22)
+            self.assertEqual(data["triangles"],36*22*2)
+            p=g.parts["slatePants"]
+            self.assertEqual(len(p["p"]),37*22*3)
+            self.assertEqual(len(p["n"]),len(p["p"]))
+            self.assertEqual(len(p["j"]),37*22*4)
+            self.assertEqual(len(p["w"]),len(p["j"]))
+            self.assertEqual(len(p["i"]),36*22*6)
+            self.assertTrue(all(0<=k<37*22 for k in p["i"]))
+            # A true manifold at the internal knee means ALL circumference
+            # edges of its one shared ring occur in exactly two triangles.
+            edgeuse=Counter()
+            for i in range(0,len(p["i"]),3):
+                tri=p["i"][i:i+3]
+                self.assertEqual(len(set(tri)),3)
+                for a,b in ((tri[0],tri[1]),(tri[1],tri[2]),(tri[2],tri[0])):
+                    edgeuse[tuple(sorted((a,b)))]+=1
+            knee_start=data["joint_knee_ring_index"]
+            for j in range(22):
+                e=tuple(sorted((knee_start+j,knee_start+(j+1)%22)))
+                self.assertEqual(edgeuse[e],2,"knee ring may not be a seam")
+            for boundary in (0,36*22):
+                for j in range(22):
+                    e=tuple(sorted((boundary+j,boundary+(j+1)%22)))
+                    self.assertEqual(edgeuse[e],1,"pelvis/ankle openness must be explicit")
+            for j in range(22):
+                i=knee_start+j
+                self.assertEqual(p["j"][4*i:4*i+2],
+                                 [src.JIDX["hip_"+side],src.JIDX["knee_"+side]])
+                self.assertAlmostEqual(p["w"][4*i],0.,places=6)
+                self.assertAlmostEqual(p["w"][4*i+1],1.,places=6)
+            with self.assertRaisesRegex(ValueError,"JOINED_TROUSER_SOURCE_SEAM_MISMATCH"):
+                join_original_trouser_segments(
+                    src.Geometry(),"slatePants",
+                    (hip,knee,.11,.082,"hip_"+side,"knee_"+side,18,22),
+                    ((0,0,0),ankle,.084,.06,"knee_"+side,"ankle_"+side,18,22))
+        self.assertTrue(self.receipt["original_pant_legs_continuous_indexed_through_knee"])
+        self.assertFalse(self.receipt["original_waist_pant_leg_seam_closed"])
 
     def test_correct_hip_thigh_and_knee_against_exact_original_joint_rest(self):
         from humanization_v2 import v1 as source
