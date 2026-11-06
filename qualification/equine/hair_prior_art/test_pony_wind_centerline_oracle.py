@@ -58,6 +58,27 @@ class CenterlineTests(unittest.TestCase):
         self.assertEqual(a["verdict"],"DISTRIBUTED_FIVE_ROW_TO_SIX_CURVE_TRANSFER_DIFFERENCE_SCIENCE_HOLD")
         self.assertGreater(a["source_52_to_curve_52_index_resampled_point_p95_m_by_region"]["mane"],.02)
         self.assertEqual(a["source_52_to_curve_52_root_max_m_by_region"]["mane"],0.)
+    def test_native_arc_length_metric_is_not_blended_with_pointwise_error(self):
+        q=fixtures()
+        # Native original source and attached curve share endpoints. One
+        # interior bent control point changes both arc and spatial residuals.
+        for frame in q[6]["frames"]:
+            for g in frame["guides"]:
+                g["points_world_m"][2][1]+=.07
+                ref=next(x for x in q[3]["frames"][frame["frame"]-1]["guides"]
+                         if x["card_id"]==g["card_id"])
+                ref["curve_polyline_length_m"]=arc(g["points_world_m"])
+        report=compare(*q)
+        for region in ("mane","forelock","tail"):
+            actual=[]
+            for bare,curves in zip(q[5]["frames"],q[6]["frames"]):
+                targets={g["card_id"]:g for g in bare["guides"]}
+                for g in curves["guides"]:
+                    if g["region"]==region:
+                        actual.append(abs(arc(targets[g["card_id"]]["points_world_m"])-arc(g["points_world_m"])))
+            self.assertAlmostEqual(report["source_52_to_curve_52_arc_abs_max_m_by_region"][region],max(actual),places=7)
+            self.assertGreater(report["source_52_to_curve_52_arclength_resampled_point_p95_m_by_region"][region],0)
+        self.assertFalse(report["release_or_CPE_admission"])
     def test_index_and_arclength_reparam_do_not_match_unconditionally(self):
         points=[(0,0,0),(.01,0,0),(.04,0,0),(.09,0,0),(.3,0,0)]
         self.assertGreater(math.dist(sampled_index(points)[2],sampled_arclength(points)[2]),.02)

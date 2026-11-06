@@ -130,9 +130,9 @@ def compare(skin,source45,bare52,curves52,row45,row52,curvepoints52):
     ids={g["card_id"]:g["region"] for g in skin["guides"]}
     source_deltas={r:[] for r in REGIONS}
     curve_index_deltas={r:[] for r in REGIONS}
-    curve_arc_deltas={r:[] for r in REGIONS}
+    curve_arclength_sample_errors={r:[] for r in REGIONS}
     source_arc_deltas={r:[] for r in REGIONS}
-    curve_arc_deltas={r:[] for r in REGIONS}
+    curve_arclength_difference={r:[] for r in REGIONS}
     root_deltas={r:[] for r in REGIONS}
     ref_arc={r:[] for r in REGIONS}
     for fi,(a,b,c) in enumerate(zip(obs45,obs52,obsc)):
@@ -161,13 +161,13 @@ def compare(skin,source45,bare52,curves52,row45,row52,curvepoints52):
                 raise ValueError("original curve six-point arc receipt falsified")
             root_deltas[region].append(math.dist(p52[0],pc[0]))
             source_arc_deltas[region].append(abs(arc(p45)-arc(p52)))
-            curve_arc_deltas[region].append(abs(arc(p52)-arc(pc)))
+            curve_arclength_difference[region].append(abs(arc(p52)-arc(pc)))
             ref_arc[region].append(arc(p52))
             for j in range(5):
                 v45=tuple(p45[j][d]-p45[0][d] for d in range(3))
                 v52=tuple(p52[j][d]-p52[0][d] for d in range(3))
                 source_deltas[region].append(math.dist(v45,v52))
-            for sampled,output in ((sampled_index(p52),curve_index_deltas),(sampled_arclength(p52),curve_arc_deltas)):
+            for sampled,output in ((sampled_index(p52),curve_index_deltas),(sampled_arclength(p52),curve_arclength_sample_errors)):
                 for j in range(1,6):
                     a=tuple(sampled[j][d]-sampled[0][d] for d in range(3))
                     b=tuple(pc[j][d]-pc[0][d] for d in range(3))
@@ -177,7 +177,7 @@ def compare(skin,source45,bare52,curves52,row45,row52,curvepoints52):
     avg_by_region=lambda m:{r:round(sum(m[r])/len(m[r]),8) for r in REGIONS}
     mismatch_source=p95_by_region(source_deltas)
     mismatch_curve=p95_by_region(curve_index_deltas)
-    mismatch_arc=p95_by_region(curve_arc_deltas)
+    mismatch_arc=p95_by_region(curve_arclength_sample_errors)
     root=max_by_region(root_deltas)
     if not staged["observed_original_wind_activity"]:
         verdict="INCONCLUSIVE_NO_WIND_EXCITATION_SCIENCE_HOLD"
@@ -196,7 +196,7 @@ def compare(skin,source45,bare52,curves52,row45,row52,curvepoints52):
         "source_52_to_curve_52_index_resampled_point_p95_m_by_region":mismatch_curve,
         "source_52_to_curve_52_arclength_resampled_point_p95_m_by_region":mismatch_arc,
         "source_45_to_52_five_row_arc_abs_max_m_by_region":max_by_region(source_arc_deltas),
-        "source_52_to_curve_52_arc_abs_max_m_by_region":max_by_region(curve_arc_deltas),
+        "source_52_to_curve_52_arc_abs_max_m_by_region":max_by_region(curve_arclength_difference),
         "source_52_mean_five_row_arc_m_by_region":avg_by_region(ref_arc),
         "source_52_to_curve_52_root_max_m_by_region":root,
         "verdict":verdict,"full_nine_wind_channels_same_value_per_frame":True,
