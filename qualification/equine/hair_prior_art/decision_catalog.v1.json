@@ -59,7 +59,7 @@
       "role": "native_reference_backend",
       "license": "GPL application",
       "code_import": "NO",
-      "status": "API_QUALIFIED_NOT_SIMULATION_QUALIFIED",
+      "status": "THREE_GUIDE_SYNTHETIC_48F_PAIRED_CONTROL_QUALIFIED_NOT_PONY",
       "score": {
         "maturity": 2,
         "fit": 5,
@@ -68,7 +68,7 @@
       },
       "source": "https://www.blender.org/releases/5-2/",
       "evidence": "https://developer.blender.org/docs/features/nodes/xpbd_simulation/",
-      "hold": "Experimental changing API; no validated 48f equine physical/visual fit."
+      "hold": "Exact Blender 5.2.3 Physics (Experimental) generated 0.2155126 m nonrigid tip motion against 0.0000 m Animation control (public run 42263263114). Max 7.46% tip-root length variation and 30.3 mm residual deflection remain uncalibrated. No complete 30-joint pony, wind/contact/material/visual science admission."
     },
     {
       "id": "blender_groom_nodes",
@@ -237,6 +237,7 @@
     "existing_blender_4_5_15_production_pin_unchanged": true,
     "scientific_model_accepted": false,
     "merge_or_release_approved": false,
-    "next_gate": "Native 5.2.3 original-synthetic moving roots + actual 48f XPBD simulation numerical, collision, cost and visual A/B against frozen Shetland #330"
+    "next_gate": "Adapt source-exact 30-joint Shetland mane/forelock/tail root follicles into experimental 5.2 native CURVES while retaining 4.5 legacy; require 48f collision, rod material calibration, visual and temporal A/B. Source-only season continuity validated but growth simulation still missing.",
+    "evidence_run": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/42263263114"
   }
 }
