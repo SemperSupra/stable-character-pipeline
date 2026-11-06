@@ -47,6 +47,36 @@ def load(path):
     return record,hashlib.sha256(raw).hexdigest()
 
 
+def classify_proxy(old_pairs,new_pairs,old_strain,new_strain):
+    """Track orthogonal surface vs edge-strain evidence; never disguise a mixed result.
+
+    No weighted sum or score can turn these proxies into human cloth-fitness.
+    A small extra p99 strain cannot erase a large crossing reduction, but
+    neither can an intersection reduction excuse a strain regression.
+    """
+    if any(type(v) not in (int,float) or not math.isfinite(v)
+           for v in (old_pairs,new_pairs,old_strain,new_strain)) or (
+           min(old_pairs,new_pairs,old_strain,new_strain)<0) or (
+           int(old_pairs)!=old_pairs or int(new_pairs)!=new_pairs):
+        raise ValueError("FIT_COMPARATOR_BAD_PROXY_NUMBER")
+    dx=new_pairs-old_pairs
+    ds=new_strain-old_strain
+    if abs(ds)<=1e-5:ds=0.
+    crossing=("FEWER_PAIRS_UNQUALIFIED" if dx<0 else
+              "MORE_PAIRS_FAIL_PROXY" if dx>0 else "UNCHANGED")
+    strain=("LOWER_P99_STRAIN_UNQUALIFIED" if ds<0 else
+            "HIGHER_P99_STRAIN" if ds>0 else "UNCHANGED")
+    if dx==0 and ds==0:
+        aggregate="NO_MEASURABLE_PROXY_CHANGE"
+    elif dx<=0 and ds<=0:
+        aggregate="DIRECTIONAL_PROXY_IMPROVEMENT_UNQUALIFIED"
+    elif dx>=0 and ds>=0:
+        aggregate="DIRECTIONAL_PROXY_REGRESSION"
+    else:
+        aggregate="MIXED_SURFACE_AND_STRAIN_EVIDENCE_UNQUALIFIED"
+    return crossing,strain,aggregate
+
+
 def compare(baseline_path,variants,source_receipts,out):
     path=Path(out).resolve()
     if path.exists():raise FileExistsError("FIT_COMPARATOR_REFUSE_OVERWRITE")
@@ -73,13 +103,11 @@ def compare(baseline_path,variants,source_receipts,out):
                 new=after["total_body_garment_triangle_pairs"]
                 strain0=before["p99_edge_relative_strain"]
                 strain1=after["p99_edge_relative_strain"]
-                if new>old or strain1>strain0+1e-5:
-                    disposition="REGRESSION_IN_CROSSINGS_OR_EDGE_STRAIN"
-                elif new<old or strain1<strain0-1e-5:
-                    disposition="PROXY_IMPROVED_BUT_VISUAL_AND_CLEARANCE_HELD"
-                else:
-                    disposition="NO_MEASURABLE_PROXY_CHANGE"
+                crossing,edge_strain,disposition=classify_proxy(
+                    old,new,strain0,strain1)
                 rows[actor][slot]={
+                    "surface_pair_disposition":crossing,
+                    "edge_strain_disposition":edge_strain,
                     "baseline_surface_pairs":old,
                     "ablation_surface_pairs":new,
                     "delta_surface_pairs":new-old,
