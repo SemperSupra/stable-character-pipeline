@@ -15,6 +15,8 @@ on:
       - "qualification/parametric_humans/COSTUME_VARIANTS_V1.md"
       - "qualification/parametric_humans/sculpt_human_v1.py"
       - "qualification/parametric_humans/test_sculpt_human_v1.py"
+      - "qualification/parametric_humans/basemesh_admission_v1.py"
+      - "qualification/parametric_humans/test_basemesh_admission_v1.py"
       - "qualification/parametric_humans/SCULPT_RESEARCH_V1.md"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
@@ -47,6 +49,9 @@ jobs:
           # geometry tests report SKIP on public GHA, never a false PASS.
           python3 -m compileall -q sculpt_human_v1.py test_sculpt_human_v1.py
           python3 -m unittest -v test_sculpt_human_v1
+          # Pinned CC0 source geometry contract: all 11 hostile tests source-free.
+          python3 -m compileall -q basemesh_admission_v1.py test_basemesh_admission_v1.py
+          python3 -m unittest -v test_basemesh_admission_v1
           python3 - <<'PY'
           import json,os,pathlib
           p=pathlib.Path(os.environ["SCP_VALIDATOR_PERF_OUT"])
@@ -67,6 +72,28 @@ jobs:
           assert m["external_photo_fit"]=="NOT_RUN"
           assert m["anatomical_fidelity"]=="UNKNOWN" and not m["merge_release_CPE_approval"]
           print("SURFACE_METAMORPHIC_FRAME_SCALE_INDEX_PASS",m["grid_latency_ns"])
+          PY
+      - name: Qualify actual pinned MakeHuman CC0 basemesh without importing helpers as body
+        run: |
+          set -euo pipefail
+          SOURCE="$RUNNER_TEMP/r009-makehuman-core-base.obj"
+          RECEIPT="$RUNNER_TEMP/r009-makehuman-basemesh-cc0-v1.json"
+          curl --fail --location --retry 2 --connect-timeout 8 --max-time 60 --silent --show-error \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/3dobjs/base.obj" \
+            -o "$SOURCE"
+          python3 qualification/parametric_humans/basemesh_admission_v1.py \
+            --input "$SOURCE" --out "$RECEIPT" \
+            --expected-blob d26635e9326e3cca30778fd7b9c00062b03cce09
+          python3 - "$RECEIPT" <<'PY'
+          import json,sys
+          v=json.load(open(sys.argv[1]))
+          assert v["admission"]=="SOURCE_GEOMETRY_ONLY"
+          assert v["quantities"]=={"vertices":19158,"quads":18486,
+                 "body_quads":13378,"body_vertex_indices":13380,"groups":139}
+          assert v["helper_quad_faces"]==5108
+          assert not v["rig_transfer_qualified"] and not v["native_blender_qualified"]
+          assert not v["human_realism_accepted"] and not v["release_approved"]
+          print("R009_CC0_MAKEHUMAN_ACTUAL_SOURCE_ADMITTED_TOPOLOGY_ONLY")
           PY
       - name: Disposable exact-source parent BVH-v2 and child surface integration trial
         if: github.event_name == 'pull_request'
@@ -104,6 +131,7 @@ jobs:
           path: |
             ${{ runner.temp }}/r009-surface-validator-performance.json
             ${{ runner.temp }}/r009-surface-metamorphic.json
+            ${{ runner.temp }}/r009-makehuman-basemesh-cc0-v1.json
             ${{ runner.temp }}/r009-surface-parent-disposable-trial.json
 
   combined-native-v2:
