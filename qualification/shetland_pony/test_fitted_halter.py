@@ -28,6 +28,25 @@ class MuzzleAndHalterTests(unittest.TestCase):
         self.assertEqual(len(faces),256)
         self.assertTrue(all(math.isfinite(x) for p in vertices for x in p))
 
+    def test_anatomical_noseband_tilt_and_connected_cheek_hardware(self):
+        ring=nose_loop()
+        self.assertGreater(max(p[0] for p in ring)-min(p[0] for p in ring),.035)
+        self.assertLess(max(p[0] for p in ring)-min(p[0] for p in ring),.055)
+        self.assertAlmostEqual(ring[0][0],ring[32][0],places=8)
+        self.assertAlmostEqual(ring[0][2],ring[32][2],places=8)
+        left,right=cheek_path("L"),cheek_path("R")
+        self.assertEqual(tuple(right[0]),tuple(ring[0]))
+        for i in range(3):
+            self.assertAlmostEqual(left[0][i],ring[32][i],places=8)
+        crown=crown_loop()
+        for i in range(3):
+            self.assertAlmostEqual(right[-1][i],crown[0][i],places=8)
+            self.assertAlmostEqual(left[-1][i],crown[-1][i],places=8)
+        throat=throat_loop()
+        self.assertLess(min(z for _,_,z in throat),.95)
+        self.assertGreater(min(z for _,_,z in throat),.92)
+        self.assertTrue(all(math.isfinite(v) for p in throat for v in p))
+
     def test_continuity_and_symmetry(self):
         a=cheek_path("L");b=cheek_path("R")
         self.assertEqual(len(a),len(b))
