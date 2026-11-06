@@ -1,0 +1,97 @@
+name: R009 original-only parametric morphology qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r009-parametric-morphology.yml'
+      - 'qualification/original_reusable_characters/parametric_morphology_v1.py'
+      - 'qualification/original_reusable_characters/test_parametric_morphology_v1.py'
+      - 'qualification/original_reusable_characters/original_mage_outfits_v1.py'
+      - 'qualification/original_reusable_characters/test_original_mage_outfits_v1.py'
+      - 'qualification/original_reusable_characters/render_morphology_preview_blender.py'
+      - 'qualification/original_reusable_characters/ASTER_JUNIPER_MORPHOLOGY_AND_WARDROBE.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-original-morph-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-original-morphology:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Native original-only source, parameter and hostile tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 -m unittest -v test_parametric_morphology_v1 test_original_mage_outfits_v1
+      - name: Reproduce editable body, faces and portable outfit selections
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 modular_wardrobe_v1.py --out "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json"
+          python3 parametric_morphology_v1.py \
+            --input "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json" \
+            --out "${RUNNER_TEMP}/morphed.glb" \
+            --out-manifest "${RUNNER_TEMP}/morphed.json" \
+            --receipt "${RUNNER_TEMP}/morphology-receipt.json"
+          python3 wardrobe_export_preset.py \
+            --input "${RUNNER_TEMP}/morphed.glb" --manifest "${RUNNER_TEMP}/morphed.json" \
+            --out "${RUNNER_TEMP}/portable.glb" --receipt "${RUNNER_TEMP}/portable-receipt.json" \
+            --aster signature --juniper alternate
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert set(r["actor_vertex_changes"])=={"AsterOriginal","JuniperOriginal"} and all(r["actor_vertex_changes"].values()) and r["human_appearance_accepted"] is False and r["garment_fit_accepted"] is False' "${RUNNER_TEMP}/morphology-receipt.json"
+          python3 original_mage_outfits_v1.py \
+            --input "${RUNNER_TEMP}/morphed.glb" --manifest "${RUNNER_TEMP}/morphed.json" \
+            --out "${RUNNER_TEMP}/costumes.glb" \
+            --out-manifest "${RUNNER_TEMP}/costumes.json" \
+            --receipt "${RUNNER_TEMP}/costumes-receipt.json"
+          python3 -c 'import sys; from original_mage_outfits_v1 import export_adventure; export_adventure(*sys.argv[1:5], {"AsterOriginal":"adventure","JuniperOriginal":"adventure"})' \
+            "${RUNNER_TEMP}/costumes.glb" "${RUNNER_TEMP}/costumes.json" \
+            "${RUNNER_TEMP}/costumes-portable.glb" "${RUNNER_TEMP}/costumes-portable-receipt.json"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["original_new_geometry"] is True and r["garment_collision_accepted"] is False and r["human_visual_accepted"] is False' "${RUNNER_TEMP}/costumes-receipt.json"
+          sha256sum "${RUNNER_TEMP}/source.glb" "${RUNNER_TEMP}/morphed.glb" "${RUNNER_TEMP}/portable.glb" "${RUNNER_TEMP}/costumes.glb" "${RUNNER_TEMP}/costumes-portable.glb" > "${RUNNER_TEMP}/model-sha256.txt"
+      - name: Install SHA-verified official Blender 4.5.15 for bounded native previews
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "${RUNNER_TEMP}/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz"
+          (cd "${RUNNER_TEMP}"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz" -C "${RUNNER_TEMP}"
+      - name: Native source-original male and female full-body and face previews
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum "${RUNNER_TEMP}/costumes.glb" | cut -d' ' -f1)"
+          xvfb-run -a -s '-screen 0 1280x1024x24' env LIBGL_ALWAYS_SOFTWARE=1 "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/original_reusable_characters/render_morphology_preview_blender.py \
+            -- "${RUNNER_TEMP}/costumes.glb" "${RUNNER_TEMP}/native_preview" "$sha"
+          python3 -c 'import json,sys,hashlib,pathlib; d=json.load(open(sys.argv[1])); r=pathlib.Path(sys.argv[1]).parent; assert d["file_count"]==10 and len(d["images"])==10 and sorted(d["armature_counts"].values())==[35,35] and d["visual_anatomy_accepted"] is False and d["garment_clipping_accepted"] is False; assert all((r/v["name"]).is_file() and (r/v["name"]).stat().st_size==v["bytes"] and hashlib.sha256((r/v["name"]).read_bytes()).hexdigest()==v["sha256"] for v in d["images"]); assert len({v["sha256"] for v in d["images"]})>=8; print("NATIVE_PREVIEW_BYTES_PASS_10_UNREVIEWED")' "${RUNNER_TEMP}/native_preview/native_preview_receipt.json"
+      - name: Publish original-only receipts and bounded review stills
+
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: r009-original-morphology-receipts
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/source.json
+            ${{ runner.temp }}/morphed.json
+            ${{ runner.temp }}/morphology-receipt.json
+            ${{ runner.temp }}/portable-receipt.json
+            ${{ runner.temp }}/costumes.json
+            ${{ runner.temp }}/costumes-receipt.json
+            ${{ runner.temp }}/costumes-portable-receipt.json
+            ${{ runner.temp }}/model-sha256.txt
+            ${{ runner.temp }}/native_preview/*.png
+            ${{ runner.temp }}/native_preview/native_preview_receipt.json
+            ${{ runner.temp }}/native_preview/morphology_costumes_editable.blend
