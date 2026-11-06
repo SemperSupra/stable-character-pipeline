@@ -8,6 +8,7 @@ import json
 import math
 from pony_source_trajectory import classify as source_gate, xyz, distance
 from pony_body_follicle_quality import evaluate as body_quality
+from caudal_segment_oracle import verify as verify_centerline, REQUIRED as CENTERLINE_KEYS
 
 def check(source,body,caudal):
     gate=source_gate(source)
@@ -52,19 +53,14 @@ def check(source,body,caudal):
             if type(candidates)!=list or len(candidates)!=3 or [r.get("bone") for r in candidates]!=["tail_1","tail_2","tail_3"]:
                 raise ValueError("missing or duplicate true caudal bones")
             def verify(x):
-                if type(x)!=dict or set(x)!={"bone","root_distance_to_bone_centerline_m","bone_segment_fraction","nearest_bone_centerline_point_m"}:
+                if type(x)!=dict or set(x)!=CENTERLINE_KEYS:
                     raise ValueError("forged bone witness geometry")
                 if x["bone"] not in ("tail_1","tail_2","tail_3"):
                     raise ValueError("bone centerline not original tail skeleton")
-                q=xyz(x["nearest_bone_centerline_point_m"])
-                dist=distance(root,q)
-                claimed=x["root_distance_to_bone_centerline_m"]
-                t=x["bone_segment_fraction"]
-                if type(claimed) not in (int,float) or not math.isfinite(claimed) or abs(dist-claimed)>1e-5:
-                    raise ValueError("distance to caudal bone centerline not independently verified")
-                if type(t) not in (int,float) or not math.isfinite(t) or not 0<=t<=1:
-                    raise ValueError("closest caudal segment fraction false")
-                return dist
+                # Independently recompute projection from reported pose-bone
+                # endpoints. The endpoints themselves are still native-source
+                # claims, NOT an authenticated anatomical/skinned surface.
+                return verify_centerline(root,x)
             values={x["bone"]:verify(x) for x in candidates}
             closest=record["closest_tail_bone"]
             owner=record["source_owner_tail_bone"]
@@ -73,6 +69,11 @@ def check(source,body,caudal):
                 raise ValueError("nearest original caudal bone contradicted by measurements")
             if owner["bone"]!=item["owner_bone"] or abs(do-values[owner["bone"]])>1e-5:
                 raise ValueError("forged owner caudal bone correspondence")
+            # The three independent per-bone observations are the authority
+            # within this receipt. Prevent alternate forged closest/owner
+            # geometry carrying the same distance to the source root.
+            if closest!=next(x for x in candidates if x["bone"]==closest["bone"]) or owner!=next(x for x in candidates if x["bone"]==owner["bone"]):
+                raise ValueError("duplicate caudal candidate geometry disagrees")
             distnear.append(dc);distowner.append(do)
             if closest["bone"]==item["owner_bone"]:owner_nearest+=1
         body_rest=bybody[id]["rest_anchor"]["rest_root_to_skin_distance_m"]
@@ -97,6 +98,8 @@ def check(source,body,caudal):
         "caudal_bone_centerline_distances":sorted(per_card,key=lambda x:x["card_id"]),
         "body_projection_source_confirmed":qualified_body["schema"],
         "bone_centerline_not_skinned_surface":True,
+        "centerline_projection_internal_consistency_verified":True,
+        "pose_bone_endpoints_independently_authenticated":False,
         "tail_shaft_geometry_missing_or_undetermined":True,
         "no_anatomical_snapping_or_new_surface":True,
         "science_hold":"KEEP","release_or_CPE_admission":False}

@@ -59,7 +59,9 @@ for frame in range(1,49):
             dist,t,closest=project_segment(root,a,b)
             costs.append({"bone":bone,"root_distance_to_bone_centerline_m":dist,
                           "bone_segment_fraction":t,
-                          "nearest_bone_centerline_point_m":closest})
+                          "nearest_bone_centerline_point_m":closest,
+                          "bone_head_world_m":[float(v) for v in a],
+                          "bone_tail_world_m":[float(v) for v in b]})
         costs.sort(key=lambda a:(a["root_distance_to_bone_centerline_m"],a["bone"]))
         owner=next(x for x in costs if x["bone"]==g["owner_bone"])
         row["frames"].append({

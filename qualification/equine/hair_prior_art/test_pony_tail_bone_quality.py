@@ -17,7 +17,9 @@ def source():
                      "tail_3":.012 if g["owner_bone"]=="tail_3" else .032}
             candidates=[{"bone":bone,"root_distance_to_bone_centerline_m":dist,
                         "bone_segment_fraction":.5,
-                        "nearest_bone_centerline_point_m":[root[0]+dist,root[1],root[2]]}
+                        "nearest_bone_centerline_point_m":[root[0]+dist,root[1],root[2]],
+                        "bone_head_world_m":[root[0]+dist,root[1]-.05,root[2]],
+                        "bone_tail_world_m":[root[0]+dist,root[1]+.05,root[2]]}
                         for bone,dist in sorted(offsets.items())]
             candidates.sort(key=lambda x:x["bone"])
             nearest=min(candidates,key=lambda x:(x["root_distance_to_bone_centerline_m"],x["bone"]))
@@ -65,6 +67,11 @@ class CaudalTests(unittest.TestCase):
             lambda a:a[2]["tail_cards"][0]["frames"][4]["closest_tail_bone"].update(nearest_bone_centerline_point_m=[0.,0.,0.]),
             lambda a:a[2]["tail_cards"][0]["frames"][4]["closest_tail_bone"].update(bone_segment_fraction=-.2),
             lambda a:a[2]["tail_cards"][0]["frames"][4]["candidate_bone_distances"].pop(),
+            lambda a:a[2]["tail_cards"][0]["frames"][4]["candidate_bone_distances"][1].update(bone_head_world_m=[0.,0.,0.]),
+            lambda a:a[2]["tail_cards"][0]["frames"][4]["candidate_bone_distances"][1].update(bone_tail_world_m=[float("inf"),0.,0.]),
+            lambda a:a[2]["tail_cards"][0]["frames"][4]["candidate_bone_distances"][1].update(bone_segment_fraction=.3),
+            lambda a:a[2]["tail_cards"][0]["frames"][4]["candidate_bone_distances"][1].update(nearest_bone_centerline_point_m=[0.,0.,0.]),
+            lambda a:a[2]["tail_cards"][0]["frames"][4]["source_owner_tail_bone"].update(bone_head_world_m=[0.,0.,0.]),
             lambda a:a[2]["tail_cards"][0]["frames"][4]["source_owner_tail_bone"].update(bone="tail_1"),
             lambda a:a[2].update(bone_centerline_is_surface=True),
             lambda a:a[2].update(release_or_CPE_admission=True),

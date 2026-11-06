@@ -48,10 +48,10 @@ jobs:
         run: |
           set -euo pipefail
           (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py test_hair_clamp_quality.py test_hair_contact_quality.py)
-          (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_pony_source_trajectory.py test_pony52_pair_quality.py test_pony52_actual_surface_native.py test_capture_order_ab.py test_pony_skin_frame_quality.py test_pony_body_follicle_quality.py test_pony52_wind_source_ab.py test_pony_tail_bone_quality.py)
+          (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_pony_source_trajectory.py test_pony52_pair_quality.py test_pony52_actual_surface_native.py test_capture_order_ab.py test_pony_skin_frame_quality.py test_pony_body_follicle_quality.py test_pony52_wind_source_ab.py test_pony_tail_bone_quality.py test_caudal_segment_oracle.py)
           python3 qualification/equine/hair_prior_art/pony52_actual_surface_native.py --selftest
           python3 -m py_compile qualification/equine/hair_prior_art/pony_skin_frame_native.py qualification/equine/hair_prior_art/pony_skin_frame_quality.py qualification/equine/hair_prior_art/pony_body_follicle_native.py qualification/equine/hair_prior_art/pony_body_follicle_quality.py
-          python3 -m py_compile qualification/equine/hair_prior_art/pony_tail_bone_native.py qualification/equine/hair_prior_art/pony_tail_bone_quality.py qualification/equine/hair_prior_art/pony52_wind_source_ab.py
+          python3 -m py_compile qualification/equine/hair_prior_art/pony_tail_bone_native.py qualification/equine/hair_prior_art/pony_tail_bone_quality.py qualification/equine/hair_prior_art/caudal_segment_oracle.py qualification/equine/hair_prior_art/test_caudal_segment_oracle.py qualification/equine/hair_prior_art/pony52_wind_source_ab.py
           python3 -m py_compile qualification/equine/hair_prior_art/pony_source_extract_native.py qualification/equine/hair_prior_art/pony_source_trajectory.py
           python3 -m py_compile qualification/shetland_pony/guide_dynamics.py qualification/shetland_pony/guide_native.py qualification/shetland_pony/curved_groom.py qualification/shetland_pony/hair_clamp_quality.py
   native-blender:
