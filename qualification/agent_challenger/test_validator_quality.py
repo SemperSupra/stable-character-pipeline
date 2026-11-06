@@ -34,9 +34,9 @@ class ValidatorQuality(unittest.TestCase):
         self.assertEqual(report["contract_mismatch_count"], 2)
 
     def test_comparable_quality_regression_and_hold_on_different_source(self):
-        current = measure(fixture())
-        previous = copy.deepcopy(current)
-        previous["false_acceptance_count"] = -1
+        current = measure(fixture(), validator=lambda _: {
+            "decision": "RULE_ONLY_SYNTHETIC_IMPROVEMENT_OBSERVED"})
+        previous = measure(fixture())
         self.assertEqual(compare(previous, current)["decision"], "FAIL_QUALITY_REGRESSION")
         previous = copy.deepcopy(current)
         previous["source_evidence_sha256"] = "f" * 64
