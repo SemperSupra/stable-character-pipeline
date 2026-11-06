@@ -76,10 +76,10 @@ try:
             if item.name.strip().lower()=="mode":
                 try:
                     before=item.default_value
-                    if before not in ("Animation","Physics"):
+                    if before not in ("Animation","Physics (Experimental)"):
                         raise ValueError("unexpected experimental menu default "+repr(before))
-                    item.default_value="Physics"
-                    if item.default_value!="Physics":
+                    item.default_value="Physics (Experimental)"
+                    if item.default_value!="Physics (Experimental)":
                         raise ValueError("did not set native Physics enum")
                     receipt["mode_control"]={"method":"copied_node_group_interface_default",
                         "before":before,"after":item.default_value}
