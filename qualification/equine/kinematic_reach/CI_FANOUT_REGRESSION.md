@@ -22,3 +22,23 @@ scientific proof, CPE, default-branch merge or release permission.
 
 Owning authority: public Shetland DLE #293; cross-lane R009 DLE #272 and
 read-only hygiene PR #312. No protected model/data or sovereign endpoints.
+
+## Second controlled branch-head change — provider readback repaired
+
+The first synchronized trial at `f13c2e863df35f198b0224b13a486d6cf2340cb7`
+demonstrated zero native savings because the initial workflow-file-index provider
+lookup missed prior branch-native evidence. Do not call that rollout qualified.
+
+The corrected read-only selector at exact parent `b9ebb37211ebd03eeb9aedfdf168d10d015bcca8`
+queries repository-wide public Actions history, binds exact workflow path, prior
+PR and base refs, ancestor SHA, completed native-job success and unexpired
+provider-reported artifact digest. Its new source-native baseline has all eight
+workflows completed successfully.
+
+This additive change deliberately touches only this reachability-owned source
+directory. Its own 48-frame preflight must rerun natively; the other seven
+workflows may elide native steps only if the above provider proof is verified.
+The result must be measured from **actual job step conclusions/logs**, not
+inferred from green check status. Any uncertainty means rerun rather than waive.
+Scientific animal anatomy, force-bearing hoof contact, visual acceptance, rights,
+merge, release and CPE remain held.
