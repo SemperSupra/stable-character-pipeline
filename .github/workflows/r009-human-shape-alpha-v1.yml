@@ -1,0 +1,76 @@
+name: R009 original human alpha silhouette crop witness
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r009-human-shape-alpha-v1.yml'
+      - 'qualification/human_shape_qa/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-shape-alpha-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-native-alpha-observer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Go standalone hostile alpha-pixel oracle tests
+        run: |
+          set -euo pipefail
+          cd qualification/human_shape_qa
+          go test -race -count=1 ./...
+          go vet ./...
+          go build ./...
+      - name: Source-original actor with morph and genuinely different garments
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 modular_wardrobe_v1.py --out "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json"
+          python3 parametric_morphology_v1.py \
+            --input "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json" \
+            --out "${RUNNER_TEMP}/morph.glb" --out-manifest "${RUNNER_TEMP}/morph.json" \
+            --receipt "${RUNNER_TEMP}/morph-receipt.json"
+          python3 original_mage_outfits_v1.py \
+            --input "${RUNNER_TEMP}/morph.glb" --manifest "${RUNNER_TEMP}/morph.json" \
+            --out "${RUNNER_TEMP}/costumes.glb" --out-manifest "${RUNNER_TEMP}/costumes.json" \
+            --receipt "${RUNNER_TEMP}/costumes-receipt.json"
+      - name: Checksum-verified Blender 4.5.15
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "${RUNNER_TEMP}/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz"
+          (cd "${RUNNER_TEMP}"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz" -C "${RUNNER_TEMP}"
+      - name: Render six native RGBA silhouette masks in unchanged source rest pose
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum "${RUNNER_TEMP}/costumes.glb" | cut -d' ' -f1)"
+          xvfb-run -a -s '-screen 0 1280x1024x24' env LIBGL_ALWAYS_SOFTWARE=1 "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/human_shape_qa/render_alpha_blender.py \
+            -- "${RUNNER_TEMP}/costumes.glb" "${RUNNER_TEMP}/alpha" "$sha"
+      - name: Independently decode native pixels, reject cropping and false scientific approvals
+        run: |
+          set -euo pipefail
+          cd qualification/human_shape_qa
+          go run . -index "${RUNNER_TEMP}/alpha/alpha_index.json" -out "${RUNNER_TEMP}/alpha/shape_screen.json"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["verified_views"]==6 and r["crop_screen"]=="PASS_ALL_SIX_ALPHA_FRAMES_GEOMETRIC_ONLY" and r["anatomical_accuracy_accepted"] is False and r["sex_from_image_inferred"] is False and r["face_identity_accepted"] is False' "${RUNNER_TEMP}/alpha/shape_screen.json"
+      - name: Store six original-only native PNGs and byte-indexed science-abstention evidence
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: r009-original-six-alpha-shape-screen
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/alpha/*.png
+            ${{ runner.temp }}/alpha/alpha_index.json
+            ${{ runner.temp }}/alpha/shape_screen.json
+            ${{ runner.temp }}/morph-receipt.json
+            ${{ runner.temp }}/costumes-receipt.json
