@@ -29,9 +29,10 @@ def analyze(source,baseline_physics,baseline_animation,candidate_physics,candida
                 raise ValueError("not a native rest-order experiment")
             ai=receipt.get("armature_index")
             ci=receipt.get("rest_capture_index")
-            if type(ai) is not int or type(ci) is not int or (
-                 (ai<ci)!=(order=="armature_then_capture")):
-                raise ValueError("native stack reordering was not observed")
+            if (type(ai) is not int or type(ci) is not int or
+                ai<0 or ci<0 or ai==ci or ai>64 or ci>64 or
+                (ai<ci)!=(order=="armature_then_capture")):
+                raise ValueError("native modifier stack index/order not observed")
             if receipt.get("source_blend_sha256")!=source.get("source_blend_sha256"):
                 raise ValueError("source original .blend mismatch")
         quality=evaluate_pair(source,physics,animation)
