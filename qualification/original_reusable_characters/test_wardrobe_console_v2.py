@@ -19,9 +19,10 @@ class ConsoleTests(unittest.TestCase):
            "schema":"scp.original_wardrobe_manifest.v1",
            "subjects":list(ACTORS),
            "presets":{k:list(v) for k,v in PRESETS.items()},
-           "actor_slots":{a:{s:{"node":n} for n,s in enumerate(("body","hair","top","bottom","alt_top","alt_bottom"))} for a in ACTORS},
+           "actor_slots":{a:{s:{"node":n} for n,s in enumerate(("body","hair","top","bottom","footwear","alt_top","alt_bottom"))} for a in ACTORS},
            "derived_sha256":hashlib.sha256(self.data.read_bytes()).hexdigest(),
            "separate_new_geometry_for_alternate":True}
+        self.doc["actor_slots"]["AsterOriginal"]["accessory"]={"node":7}
         self.m.write_text(json.dumps(self.doc))
     def test_source_bound_inspection(self):
         r=inspect(self.m,self.data)
@@ -62,5 +63,32 @@ class ConsoleTests(unittest.TestCase):
     def test_cli_inspect_returns_same_contract(self):
         value=main(["inspect","--manifest",str(self.m),"--input",str(self.data)])
         self.assertEqual(value["presets"],inspect(self.m,self.data)["presets"])
+
+    def test_actor_optional_accessory_explicitly_omitted(self):
+        r=inspect(self.m,self.data)
+        self.assertEqual(r["optional_slot_semantics"],"EXPLICIT_OMIT_IF_MISSING")
+        self.assertEqual(r["resolved_actor_presets"]["AsterOriginal"]["signature"]["omitted_optional"],[])
+        self.assertEqual(r["resolved_actor_presets"]["JuniperOriginal"]["signature"]["omitted_optional"],["accessory"])
+        self.assertIn("accessory",r["resolved_actor_presets"]["AsterOriginal"]["signature"]["active"])
+        self.assertNotIn("accessory",r["resolved_actor_presets"]["JuniperOriginal"]["signature"]["active"])
+        self.assertEqual(r["resolved_actor_presets"]["JuniperOriginal"]["alternate"]["omitted_optional"],[])
+
+    def test_missing_required_footwear_rejected(self):
+        self.doc["actor_slots"]["JuniperOriginal"].pop("footwear")
+        self.m.write_text(json.dumps(self.doc))
+        with self.assertRaisesRegex(ValueError,"REQUIRED_PRESET_SLOT_MISSING:JuniperOriginal"):
+            inspect(self.m,self.data)
+
+    def test_unknown_extra_slot_rejected(self):
+        self.doc["actor_slots"]["JuniperOriginal"]["ghost"]={"node":999}
+        self.m.write_text(json.dumps(self.doc))
+        with self.assertRaisesRegex(ValueError,"UNKNOWN_ACTOR_SLOT:JuniperOriginal"):
+            inspect(self.m,self.data)
+
+    def test_missing_actor_slot_table_fails_closed(self):
+        self.doc["actor_slots"].pop("JuniperOriginal")
+        self.m.write_text(json.dumps(self.doc))
+        with self.assertRaises((ValueError,KeyError)):
+            inspect(self.m,self.data)
 
 if __name__=="__main__":unittest.main()
