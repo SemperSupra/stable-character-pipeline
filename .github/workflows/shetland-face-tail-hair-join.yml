@@ -5,6 +5,7 @@ on:
       - ".github/workflows/shetland-face-tail-hair-join.yml"
       - "qualification/shetland_pony/FACE_TAIL_HAIR_JOIN.md"
       - "qualification/shetland_pony/verify_motion_glb.py"
+      - "qualification/shetland_pony/render_motion_diagnostics.py"
 permissions:
   contents: read
 jobs:
@@ -140,6 +141,40 @@ jobs:
           python3 producer/qualification/shetland_pony/verify_motion_glb.py \
             results/hair/equine_longhair_wind.glb > results/motion_observer.json
           grep -F 'ENGINEERING_MOTION_OBSERVED_NOT_VISUAL_ACCEPTANCE' results/motion_observer.json
+      - name: Render all 48 native frames from four diagnostic cameras
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python producer/qualification/shetland_pony/render_motion_diagnostics.py -- "$GITHUB_WORKSPACE/results/hair/equine_longhair_wind.blend" "$GITHUB_WORKSPACE/results/diagnostic"
+      - name: Encode and cold-verify four actual 48-frame H264 diagnostic videos
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get install -y -qq --no-install-recommends ffmpeg
+          for view in side face tail mane; do
+            ffmpeg -nostdin -hide_banner -loglevel error -y -framerate 24 -start_number 1 -i "results/diagnostic/frames/$view/frame_%03d.png" -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 21 -movflags +faststart "results/diagnostic/$view.mp4"
+            test -s "results/diagnostic/$view.mp4"
+            count="$(ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of default=noprint_wrappers=1:nokey=1 "results/diagnostic/$view.mp4")"
+            test "$count" = 48
+            echo "ENCODED_48_FRAMES $view"
+          done
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          out=pathlib.Path("results/diagnostic")
+          frames=json.loads((out/"diagnostic_frames_receipt.json").read_text())
+          assert frames["fps"]==24 and frames["frames_per_camera"]==48
+          files={}
+          for view in ("side","face","tail","mane"):
+              p=out/(view+".mp4")
+              raw=p.read_bytes()
+              assert len(raw)>20000 and len(frames["views"][view])>=4
+              files[p.name]={"bytes":len(raw),"sha256":hashlib.sha256(raw).hexdigest(),
+                             "decoded_frames":48,"source_render_unique_frames":frames["views"][view]["unique_png_sha256"]}
+          (out/"diagnostic_video_receipt.json").write_text(json.dumps({"schema":"equine.motion.mp4.custody.v1",
+              "source_sha256":frames["source_sha256"],"quality":"candidate visualization, not anatomy/cloth acceptance",
+              "videos":files},sort_keys=True,indent=2)+"\n")
+          print("FOUR_NATIVE_H264_VIDEOS_STRUCTURAL_PASS",list(files))
+          PY
       - name: Preserve joined public-original model, multiview evidence and receipts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -157,4 +192,7 @@ jobs:
             results/hair/hair_receipt.json
             results/integration_receipt.json
             results/motion_observer.json
+            results/diagnostic/*.mp4
+            results/diagnostic/diagnostic_frames_receipt.json
+            results/diagnostic/diagnostic_video_receipt.json
             results/baseline/manifest.json
