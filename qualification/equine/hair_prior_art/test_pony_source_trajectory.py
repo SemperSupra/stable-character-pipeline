@@ -1,14 +1,16 @@
 import copy
 import math
 import unittest
-from pony_source_trajectory import classify,IDS,SCHEMA
+from pony_source_trajectory import classify,SCHEMA
 
 def fixture():
     guides=[]
-    for region,ids in IDS.items():
+    for region,ids in {"mane":(20,21),"forelock":(500,600),"tail":(750,1000)}.items():
         for card in ids:
             root=(.25,0.,.8)
-            guides.append({"card_id":card,"region":region,"owner_bone":("tail_2" if region=="tail" else "head" if region=="forelock" else "neck"),
+            bone=("head" if card==20 else "neck") if region=="mane" else (
+                "tail_2" if card==750 else "tail_3") if region=="tail" else "head"
+            guides.append({"card_id":card,"region":region,"owner_bone":bone,
                 "samples":[{"frame":f,"root_m":list(root),"tip_m":[.25,0.,.6]} for f in range(1,49)]})
     return {"schema":SCHEMA,"source_kind":"original_synthetic","source_blend_sha256":"a"*64,"rig":"PonyRig30",
             "cards_total":1050,"vertices_per_card":10,"fps":24,"frames":48,
