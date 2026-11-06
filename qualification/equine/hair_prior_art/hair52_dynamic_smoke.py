@@ -9,6 +9,7 @@ import bpy
 import hashlib
 import json
 import math
+import os
 import resource
 import sys
 import time
@@ -20,11 +21,15 @@ if "--" not in sys.argv or len(sys.argv[sys.argv.index("--")+1:])!=1:
 out=Path(sys.argv[sys.argv.index("--")+1])
 if out.exists():raise ValueError("would overwrite an earlier source experiment")
 out.parent.mkdir(parents=True,exist_ok=True)
+requested=os.environ.get("SCP_52_MODE","physics")
+if requested not in ("physics","animation"):
+    raise ValueError("unsupported native control mode")
 receipt={
     "schema":"equine.blender52.dynamic.original_synthetic.v1",
     "blender":bpy.app.version_string,
     "source_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
     "scene":"tiny original synthetic scalp plus THREE guide curves",
+    "control_mode":requested,
     "frames_requested":48,
     "physics_status":"EXPERIMENTAL_UNVERIFIED",
     "motion_measured":False,
@@ -78,8 +83,9 @@ try:
                     before=item.default_value
                     if before not in ("Animation","Physics (Experimental)"):
                         raise ValueError("unexpected experimental menu default "+repr(before))
-                    item.default_value="Physics (Experimental)"
-                    if item.default_value!="Physics (Experimental)":
+                    target="Physics (Experimental)" if requested=="physics" else "Animation"
+                    item.default_value=target
+                    if item.default_value!=target:
                         raise ValueError("did not set native Physics enum")
                     receipt["mode_control"]={"method":"copied_node_group_interface_default",
                         "before":before,"after":item.default_value}
@@ -133,17 +139,28 @@ try:
     receipt["frame_count"]=len(evaluated)
     if max_root_err>.04:
         receipt["errors"].append("animated_follicle_root_lost")
-    if max_shape_delta<.002:
+    if requested=="physics" and max_shape_delta<.002:
         receipt["errors"].append("no_independent_secondary_hair_motion_detected")
+    if requested=="animation" and max_shape_delta>.0001:
+        receipt["errors"].append("animation_control_was_not_rigid_follow")
     receipt["motion_measured"]=max_shape_delta>=.002 and max_root_err<=.04
-    receipt["physics_status"]="EVALUATED_SECONDARY_MOTION_OBSERVED_UNCALIBRATED" if receipt["motion_measured"] else "NO_QUALIFIED_HAIR_MOTION"
+    receipt["physics_status"]=("EVALUATED_SECONDARY_MOTION_OBSERVED_UNCALIBRATED" if
+        requested=="physics" and receipt["motion_measured"] else
+        "RIGID_ANIMATION_NEGATIVE_CONTROL" if requested=="animation" and max_shape_delta<=.0001
+        else "NO_QUALIFIED_HAIR_MOTION")
+    receipt["max_rig_local_length_strain_fraction"]=max(
+        abs(math.sqrt(sum(v*v for v in row["tip_minus_root_m"][i]))-.3)/.3
+        for row in evaluated for i in range(3))
 except Exception as e:
     import traceback
     receipt["errors"].append(stage+":"+type(e).__name__+":"+str(e)[:350])
     receipt["first_traceback"]=traceback.format_exc(limit=5)[:1400]
 receipt["wall_seconds"]=round(time.perf_counter()-started,3)
 receipt["maxrss_linux_kib"]=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-receipt["verdict"]="EXPERIMENTAL_48F_MOTION_OBSERVED_NOT_SCIENTIFIC_ACCEPTANCE" if not receipt["errors"] and receipt["motion_measured"] else "EXPERIMENTAL_MOTION_FAIL_CLOSED"
+receipt["verdict"]=("EXPERIMENTAL_48F_MOTION_OBSERVED_NOT_SCIENTIFIC_ACCEPTANCE" if
+    requested=="physics" and not receipt["errors"] and receipt["motion_measured"]
+    else "CONTROL_RIGID_FOLLOW_CONFIRMED" if requested=="animation" and not receipt["errors"] and not receipt["motion_measured"]
+    else "EXPERIMENTAL_MOTION_FAIL_CLOSED")
 out.write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
 print("BLENDER52_48F_HAIR_MOTION",json.dumps({k:receipt.get(k) for k in ("verdict","physics_status","max_relative_hair_tip_motion_m","max_root_x_error_m","wall_seconds","errors")},sort_keys=True))
 if receipt["errors"]:raise RuntimeError("; ".join(receipt["errors"]))
