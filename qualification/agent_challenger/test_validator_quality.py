@@ -43,6 +43,20 @@ class ValidatorQuality(unittest.TestCase):
         self.assertEqual(compare(previous, current)["decision"], "HOLD_DIFFERENT_CORPUS_OR_SOURCE")
         self.assertEqual(compare(current, current)["decision"], "NO_COUNT_REGRESSION_LATENCY_OBSERVATIONAL")
 
+    def test_previous_receipt_cannot_lie_about_confusion(self):
+        # Meta-validator: old source/fixture hashes do not make its own outcome
+        # claims trustworthy. A forged expected/actual case must fail closed.
+        current = measure(fixture())
+        old = copy.deepcopy(current)
+        old["cases"][1]["actual"] = "ACCEPT"
+        self.assertEqual(compare(old, current)["decision"], "HOLD_MALFORMED_REFERENCE")
+
+    def test_previous_receipt_cannot_lie_about_case_count(self):
+        current = measure(fixture())
+        old = copy.deepcopy(current)
+        old["case_count"] = 1
+        self.assertEqual(compare(old, current)["decision"], "HOLD_MALFORMED_REFERENCE")
+
     def test_corpus_has_unique_ids_and_unchanged_source(self):
         source = fixture()
         before = copy.deepcopy(source)
