@@ -5,6 +5,8 @@ on:
       - '.github/workflows/r009-parametric-morphology.yml'
       - 'qualification/original_reusable_characters/parametric_morphology_v1.py'
       - 'qualification/original_reusable_characters/test_parametric_morphology_v1.py'
+      - 'qualification/original_reusable_characters/original_mage_outfits_v1.py'
+      - 'qualification/original_reusable_characters/test_original_mage_outfits_v1.py'
       - 'qualification/original_reusable_characters/ASTER_JUNIPER_MORPHOLOGY_AND_WARDROBE.md'
   workflow_dispatch:
 permissions:
@@ -17,13 +19,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Native original-only source, parameter and hostile tests
         shell: bash
         run: |
           set -euo pipefail
           cd qualification/original_reusable_characters
-          python3 -m unittest -v test_parametric_morphology_v1
+          python3 -m unittest -v test_parametric_morphology_v1 test_original_mage_outfits_v1
       - name: Reproduce editable body, faces and portable outfit selections
         shell: bash
         run: |
@@ -40,9 +44,18 @@ jobs:
             --out "${RUNNER_TEMP}/portable.glb" --receipt "${RUNNER_TEMP}/portable-receipt.json" \
             --aster signature --juniper alternate
           python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert set(r["actor_vertex_changes"])=={"AsterOriginal","JuniperOriginal"} and all(r["actor_vertex_changes"].values()) and r["human_appearance_accepted"] is False and r["garment_fit_accepted"] is False' "${RUNNER_TEMP}/morphology-receipt.json"
-          sha256sum "${RUNNER_TEMP}/source.glb" "${RUNNER_TEMP}/morphed.glb" "${RUNNER_TEMP}/portable.glb" > "${RUNNER_TEMP}/model-sha256.txt"
+          python3 original_mage_outfits_v1.py \
+            --input "${RUNNER_TEMP}/morphed.glb" --manifest "${RUNNER_TEMP}/morphed.json" \
+            --out "${RUNNER_TEMP}/costumes.glb" \
+            --out-manifest "${RUNNER_TEMP}/costumes.json" \
+            --receipt "${RUNNER_TEMP}/costumes-receipt.json"
+          python3 -c 'import sys; from original_mage_outfits_v1 import export_adventure; export_adventure(*sys.argv[1:5], {"AsterOriginal":"adventure","JuniperOriginal":"adventure"})' \
+            "${RUNNER_TEMP}/costumes.glb" "${RUNNER_TEMP}/costumes.json" \
+            "${RUNNER_TEMP}/costumes-portable.glb" "${RUNNER_TEMP}/costumes-portable-receipt.json"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["original_new_geometry"] is True and r["garment_collision_accepted"] is False and r["human_visual_accepted"] is False' "${RUNNER_TEMP}/costumes-receipt.json"
+          sha256sum "${RUNNER_TEMP}/source.glb" "${RUNNER_TEMP}/morphed.glb" "${RUNNER_TEMP}/portable.glb" "${RUNNER_TEMP}/costumes.glb" "${RUNNER_TEMP}/costumes-portable.glb" > "${RUNNER_TEMP}/model-sha256.txt"
       - name: Publish small original-only receipts; no protected models or private artifact references
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: r009-original-morphology-receipts
@@ -53,4 +66,7 @@ jobs:
             ${{ runner.temp }}/morphed.json
             ${{ runner.temp }}/morphology-receipt.json
             ${{ runner.temp }}/portable-receipt.json
+            ${{ runner.temp }}/costumes.json
+            ${{ runner.temp }}/costumes-receipt.json
+            ${{ runner.temp }}/costumes-portable-receipt.json
             ${{ runner.temp }}/model-sha256.txt
