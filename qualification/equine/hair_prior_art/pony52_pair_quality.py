@@ -63,6 +63,38 @@ def quality(source,physics,animation):
     negative_ok=max(control.values())<=.0001
     if not negative_ok or not independent:
         raise ValueError("source-derived XPBD secondary motion not separated from rigid skin")
+    # Record numerical strain/velocity against ACTUAL source rest fibers.
+    # This is not calibrated physical acceptance, and cannot repair body
+    # collision, wind, twist, hair-hair contact or groom photorealism.
+    rest={g["card_id"]:distance(xyz(g["samples"][0]["root_m"]),xyz(g["samples"][0]["tip_m"]))
+          for g in source["guides"]}
+    strain={}
+    tip_speed={}
+    endlag={}
+    source_travel={}
+    for region,cards in by_region.items():
+        strains=[];speeds=[];lags=[];trips=[]
+        for card in cards:
+            length=rest[card]
+            p=[result["physics"][f][card] for f in range(48)]
+            strains.extend(abs(distance(v,(0.,0.,0.))/length-1.) for v in p)
+            speeds.extend(distance(p[f],p[f-1])*24 for f in range(1,48))
+            lags.append(distance(p[0],p[-1]))
+            original=next(g for g in source["guides"] if g["card_id"]==card)
+            trips.extend(distance(xyz(original["samples"][f]["root_m"]),
+                                  xyz(original["samples"][0]["root_m"])) for f in range(48))
+        strain[region]=round(max(strains),7)
+        tip_speed[region]=round(max(speeds),7)
+        endlag[region]=round(max(lags),7)
+        source_travel[region]=round(max(trips),7)
+    if max(source_travel.values())<.001:
+        raise ValueError("source pony rig never moved, invalid motion-physics experiment")
+    if max(tip_speed.values())>15:
+        raise ValueError("unbounded segment endpoint velocity")
+    science_warnings=["FULL_ORIGINAL_PONY_BODY_COLLISION_NOT_TESTED",
+                      "PHYSICAL_MATERIAL_AND_VISUAL_UNQUALIFIED"]
+    if max(strain.values())>.10:
+        science_warnings.append("SOURCE_PROXY_GUIDE_STRAIN_OVER_10_PERCENT")
     return {"schema":"equine.pony.xpbd_source_proxy.paired_quality.v1",
             "source_blend_sha256":source["source_blend_sha256"],
             "source_capsule_sha256":src["source_capsule_sha256"],
@@ -70,6 +102,11 @@ def quality(source,physics,animation):
             "max_physics_tip_delta_m_by_region":{k:round(v,7) for k,v in moves.items()},
             "max_animation_control_delta_m_by_region":{k:round(v,7) for k,v in control.items()},
             "max_physics_vs_animation_diff_m":round(maxdiff,7),
+            "max_tip_to_source_rest_strain_fraction_by_region":strain,
+            "max_physics_tip_velocity_m_s_by_region":tip_speed,
+            "end_to_start_relative_tip_displacement_m_by_region":endlag,
+            "max_actual_source_root_travel_m_by_region":source_travel,
+            "science_warnings":science_warnings,
             "verdict":"SOURCE_PONY_PROXY_SECONDARY_MOTION_ENGINEERING_ONLY",
             "body_and_hair_collision":"NOT_TESTED","visual_quality":"UNKNOWN",
             "material_calibration":"UNKNOWN","science_hold":"KEEP",
