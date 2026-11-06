@@ -50,8 +50,8 @@ jobs:
         run: |
           set -euo pipefail
           cd qualification/parametric_humans
-          python3 -m compileall -q parameters_v1.py test_parameters_v1.py morph_preview_35_v1.py test_morph_preview_35_v1.py effect_coverage_v1.py test_effect_coverage_v1.py appearance_material_v1.py test_appearance_material_v1.py
-          python3 -m unittest -v test_parameters_v1 test_morph_preview_35_v1 test_effect_coverage_v1 test_appearance_material_v1
+          python3 -m compileall -q parameters_v1.py test_parameters_v1.py morph_preview_35_v1.py test_morph_preview_35_v1.py effect_coverage_v1.py test_effect_coverage_v1.py appearance_material_v1.py test_appearance_material_v1.py gap_metrics_v1.py test_gap_metrics_v1.py
+          python3 -m unittest -v test_parameters_v1 test_morph_preview_35_v1 test_effect_coverage_v1 test_appearance_material_v1 test_gap_metrics_v1
       - name: Deterministic synthetic-state and source-catalog receipt
         run: |
           set -euo pipefail
