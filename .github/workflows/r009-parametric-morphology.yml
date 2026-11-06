@@ -1,0 +1,56 @@
+name: R009 original-only parametric morphology qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r009-parametric-morphology.yml'
+      - 'qualification/original_reusable_characters/parametric_morphology_v1.py'
+      - 'qualification/original_reusable_characters/test_parametric_morphology_v1.py'
+      - 'qualification/original_reusable_characters/ASTER_JUNIPER_MORPHOLOGY_AND_WARDROBE.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-original-morph-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-original-morphology:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native original-only source, parameter and hostile tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 -m unittest -v test_parametric_morphology_v1
+      - name: Reproduce editable body, faces and portable outfit selections
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 modular_wardrobe_v1.py --out "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json"
+          python3 parametric_morphology_v1.py \
+            --input "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json" \
+            --out "${RUNNER_TEMP}/morphed.glb" \
+            --out-manifest "${RUNNER_TEMP}/morphed.json" \
+            --receipt "${RUNNER_TEMP}/morphology-receipt.json"
+          python3 wardrobe_export_preset.py \
+            --input "${RUNNER_TEMP}/morphed.glb" --manifest "${RUNNER_TEMP}/morphed.json" \
+            --out "${RUNNER_TEMP}/portable.glb" --receipt "${RUNNER_TEMP}/portable-receipt.json" \
+            --aster signature --juniper alternate
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert set(r["actor_vertex_changes"])=={"AsterOriginal","JuniperOriginal"} and all(r["actor_vertex_changes"].values()) and r["human_appearance_accepted"] is False and r["garment_fit_accepted"] is False' "${RUNNER_TEMP}/morphology-receipt.json"
+          sha256sum "${RUNNER_TEMP}/source.glb" "${RUNNER_TEMP}/morphed.glb" "${RUNNER_TEMP}/portable.glb" > "${RUNNER_TEMP}/model-sha256.txt"
+      - name: Publish small original-only receipts; no protected models or private artifact references
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-morphology-receipts
+          retention-days: 1
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/source.json
+            ${{ runner.temp }}/morphed.json
+            ${{ runner.temp }}/morphology-receipt.json
+            ${{ runner.temp }}/portable-receipt.json
+            ${{ runner.temp }}/model-sha256.txt
