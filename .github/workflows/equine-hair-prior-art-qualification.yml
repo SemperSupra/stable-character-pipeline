@@ -97,9 +97,7 @@ jobs:
           (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_hair52_motion_quality.py)
           env SCP_52_MODE=animation LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/hair52_dynamic_smoke.py -- "$GITHUB_WORKSPACE/results/experimental52/animation_control.json"
           python3 qualification/equine/hair_prior_art/hair52_motion_quality.py \
-            results/experimental52/dynamics.json
-            results/experimental52/animation_control.json
-            results/experimental52/motion_quality.json \
+            results/experimental52/dynamics.json \
             results/experimental52/animation_control.json \
             results/experimental52/motion_quality.json
           python3 - <<'PY'
@@ -122,3 +120,5 @@ jobs:
           path: |
             results/experimental52/capability.json
             results/experimental52/dynamics.json
+            results/experimental52/animation_control.json
+            results/experimental52/motion_quality.json
