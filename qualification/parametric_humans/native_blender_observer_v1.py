@@ -56,6 +56,17 @@ def observe(path, out_dir, label):
     check(animation_ends and max(animation_ends)>1,"GLTF_ANIMATION_NOT_IMPORTED")
     end=int(round(max(animation_ends)))
     start=0
+    # Separate exact-source, 72-frame proximity evidence.  Vertex distances
+    # are diagnostic only; they do not establish cloth collision or fit.
+    sys.path.insert(0,str(Path(__file__).resolve().parent))
+    from native_gap_proxy_v1 import measure_scene
+    proximity=measure_scene(scene)
+    check(proximity["motion_frames_evaluated"]==72,
+          "GAP_PROXY_NOT_ALL_72_FRAMES")
+    proximity_out=out_dir/(label+"_garment_proximity.json")
+    check(not proximity_out.exists(),"REFUSE_OVERWRITE_GAP_EVIDENCE")
+    with proximity_out.open("x",encoding="utf-8") as fp:
+        fp.write(json.dumps(proximity,sort_keys=True,indent=2)+"\n")
     def separation(frame):
         scene.frame_set(frame)
         bpy.context.view_layer.update()
@@ -154,6 +165,9 @@ def observe(path, out_dir, label):
         "native_import_render_technical_pass":True,
         "native_diagnostic_camera": "BLENDER_Z_UP_ACTOR_SPECIFIC_WORLD_X_FRONT",
         "closeups_generated":True,
+        "garment_proxy_receipt_sha256":hashlib.sha256(proximity_out.read_bytes()).hexdigest(),
+        "garment_proximity_proxy_all_72_frames":True,
+        "garment_fit_accepted":False,
         "source_class":"ORIGINAL_SELF_AUTHORED_SYNTHETIC",
         "geometry_material_source_unchanged":True,
         "anatomical_quality_accepted":False,
