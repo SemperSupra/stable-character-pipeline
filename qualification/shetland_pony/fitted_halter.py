@@ -2,25 +2,42 @@
 Public-original engineering candidate, not a certified fit for live animals.
 """
 import math
+from equine_sculpt import HEAD
 
 # Real continuous strap strips, not scaled spherical proxies. Offsets in metres.
 NOSE_X=1.055
-NOSE_Z=.879
-NOSE_RY=.124
-NOSE_RZ=.099
+NOSE_Z=.889
+NOSE_RY=.131
+NOSE_RZ=.105
 STRAP_WIDTH=.023
 HALTER_CLEARANCE=.008
 
 def nose_loop(steps=64):
     if steps<24 or steps>256: raise ValueError("invalid ring resolution")
-    return [(NOSE_X,NOSE_RY*math.cos(2*math.pi*i/steps),
-             NOSE_Z+NOSE_RZ*math.sin(2*math.pi*i/steps)) for i in range(steps)]
+    # The head's descending axis means a constant-X noseband crosses the
+    # sculpt on its dorsal/ventral sides. Rotate the ring into the muzzle's
+    # actual local cross-sectional plane without enlarging it excessively.
+    a,b=HEAD[6],HEAD[7]
+    dx,dz=b[0]-a[0],b[1]-a[1]
+    length=math.hypot(dx,dz)
+    if length<1e-7:raise ValueError("degenerate source muzzle tangent")
+    points=[]
+    for i in range(steps):
+        angle=2*math.pi*i/steps
+        rise=NOSE_RZ*math.sin(angle)
+        points.append((NOSE_X-rise*dz/length,
+                       NOSE_RY*math.cos(angle),
+                       NOSE_Z+rise*dx/length))
+    return points
 
 def cheek_path(side):
     if side not in ("L","R"): raise ValueError("invalid side")
     s=-1 if side=="L" else 1
-    return [(1.051,s*.124,.886),(.982,s*.111,.950),(.899,s*.140,1.019),
-            (.800,s*.158,1.100),(.724,s*.151,1.174)]
+    # Anchor exactly at the lateral noseband and poll endpoints. Intermediate
+    # points offset outward to avoid compressing the skin along the jaw.
+    return [(NOSE_X,s*NOSE_RY,NOSE_Z),(.982,s*.122,.950),
+            (.899,s*.154,1.019),(.800,s*.174,1.100),
+            (.724,s*.174,1.172)]
 
 def crown_loop(steps=32):
     # Over the poll, rather than through the head; arched around its width.
@@ -30,8 +47,9 @@ def crown_loop(steps=32):
 
 def throat_loop(steps=24):
     if steps<12: raise ValueError("invalid throat samples")
-    return [(.752,.154*math.cos(math.pi*i/(steps-1)),
-             1.130-.172*math.sin(math.pi*i/(steps-1))) for i in range(steps)]
+    # Arched lower clearance with endpoints near the lateral cheekpieces.
+    return [(.752,.171*math.cos(math.pi*i/(steps-1)),
+             1.145-.210*math.sin(math.pi*i/(steps-1))) for i in range(steps)]
 
 def strap_surface(points, width=STRAP_WIDTH, closed=False):
     """Generate double-sided ribbon quad topology with oriented local tangents."""
