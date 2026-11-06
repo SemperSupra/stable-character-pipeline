@@ -14,6 +14,13 @@ class CurvedGroomTests(unittest.TestCase):
         self.assertLess(vv[4][2],(.5*self.card[0][2]+.5*self.card[2][2])-.02)
         self.assertTrue(all(len(set(f))==3 for f in ff))
         self.assertEqual((vv,ff),curve_card(self.card,11,"neck"))
+        root_width=math.dist(vv[0],vv[1])
+        tip_width=math.dist(vv[-2],vv[-1])
+        self.assertGreater(root_width,.005)
+        self.assertGreater(tip_width,0.0)
+        self.assertLess(tip_width,root_width*.13)
+        row_width=[math.dist(vv[2*i],vv[2*i+1]) for i in range(ROWS)]
+        self.assertTrue(all(row_width[i]>row_width[i+1] for i in range(ROWS-1)))
     def test_region_differences(self):
         mane,_=curve_card(self.card,2,"neck")
         tail,_=curve_card(self.card,2,"tail_1")
