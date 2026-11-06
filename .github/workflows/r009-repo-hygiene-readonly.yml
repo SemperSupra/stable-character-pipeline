@@ -18,11 +18,29 @@ jobs:
           persist-credentials: false
       - name: stdlib-only negative and deterministic tests
         working-directory: qualification/repo_hygiene
+        env:
+          SCP_VALIDATOR_PERF_OUT: ${{ runner.temp }}/r009-hygiene-validator-performance.json
         run: |
           set -euo pipefail
           go test -v ./...
           go vet ./...
           go build -trimpath -o "$RUNNER_TEMP/scp-hygiene" .
+      - name: Verify independent audit-validator quality controls and measurement receipt
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"r009-hygiene-validator-performance.json"
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.validator.performance.v1"
+          assert r["case_count"]==12
+          assert r["rejection_detection"]=={"detected":10,"total":10}
+          assert r["false_acceptance_count"]==r["false_rejection_count"]==0
+          assert r["contract_mismatch_count"]==0
+          assert r["verdict"]=="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"
+          assert not r["merge_release_CPE_approval"]
+          print("HYGIENE_VALIDATOR_QUALITY",r["validator_sha256"],r["runtime"])
+          PY
       - name: Exact public repository API inventory, fail closed on truncation
         env:
           GH_TOKEN: ${{ github.token }}
@@ -84,4 +102,6 @@ jobs:
           name: r009-public-hygiene-readonly-inventory
           retention-days: 7
           if-no-files-found: warn
-          path: ${{ runner.temp }}/r009-hygiene/
+          path: |
+            ${{ runner.temp }}/r009-hygiene/
+            ${{ runner.temp }}/r009-hygiene-validator-performance.json
