@@ -43,6 +43,8 @@ def evaluate_pair(capsule,physics,animation):
             raise ValueError("not an actual original skinned surface")
         if receipt.get("source_cards_total")!=1050 or receipt.get("source_bones")!=30 or receipt.get("captured_rest_geometry") is not True or receipt.get("surface_unique_anchor_uv") is not True:
             raise ValueError("invalid original rig/attachment ABI")
+        if receipt.get("modifier_mode")!=("Physics (Experimental)" if mode=="physics" else "Animation"):
+            raise ValueError("native experimental hair mode not actually read back")
         if receipt.get("source_kind")!="original_synthetic" or receipt.get("science_hold")!="KEEP" or receipt.get("release_admission") is not False or receipt.get("full_body_collision_accepted") is not False:
             raise ValueError("source rights/science hold bypass")
         if receipt.get("errors") or receipt.get("status")!="48F_ORIGINAL_SKIN_GROOM_NATIVE_GEOMETRY_OBSERVED":
@@ -86,32 +88,47 @@ def evaluate_pair(capsule,physics,animation):
             observed.append(row)
         normalized[mode]=observed
     physics=normalized["physics"];animation=normalized["animation"]
-    motion={};rigid={};strain={};bodynear={};crossings={}
+    motion={};rigid={};strain={};bodynear={};crossings={};source_rigid_error={}
     for region in REGION_TARGETS:
         cards=[id for id,g in ids.items() if g["region"]==region]
-        motion[region]=max(d(physics[f][id]["rel"],physics[0][id]["rel"]) for id in cards for f in range(48))
+        # On an articulated animal, *rigid* control curve direction rotates
+        # with animated bones. Compare Physics against the same-frame rigid
+        # witness, NEVER against a world-space frame-1 strand direction.
+        motion[region]=max(d(physics[f][id]["rel"],animation[f][id]["rel"]) for id in cards for f in range(48))
         rigid[region]=max(d(animation[f][id]["rel"],animation[0][id]["rel"]) for id in cards for f in range(48))
-        strain[region]=max(abs(physics[f][id]["len"]/d(point(ids[id]["samples"][0]["root_m"]),point(ids[id]["samples"][0]["tip_m"]))-1.)
+        # Measure extra physical rod strain vs the current skinned Animation
+        # control rest-shape length, not the shorter root-to-tip chord.
+        strain[region]=max(abs(physics[f][id]["len"]/animation[f][id]["len"]-1.)
                            for id in cards for f in range(48))
+        source_rigid_error[region]=max(d(animation[f][id]["rel"],
+                            tuple(ids[id]["samples"][f]["tip_m"][k]-ids[id]["samples"][f]["root_m"][k] for k in range(3)))
+                            for id in cards for f in range(48))
         bodynear[region]=min(physics[f][id]["body_dist"] for id in cards for f in range(48))
         crossings[region]=sum(physics[f][id]["hits"] for id in cards for f in range(48))
-    if max(rigid.values())>.0002:
-        raise ValueError("native rigid control unexpectedly has independent motion")
     if max(motion.values())<.001:
-        raise ValueError("original-skinned XPBD hair not distinguished from rigid control")
+        raise ValueError("same-frame Physics is not independently different from rigid Animation")
     warnings=["SKIN_GROOM_SURFACE_NOT_A_WATERTIGHT_BODY",
               "BVH_SEGMENT_HITS_AND_TIP_DISTANCE_NOT_SIGNED_PENETRATION",
               "ONLY_SIX_GUIDES_NO_FOLLOWER_LOD_OR_MATERIAL_CALIBRATION",
               "COLLISION_PRESSURE_HAIR_SELF_COLLISION_AND_WIND_NOT_VALIDATED"]
     if max(strain.values())>.10:
         warnings.append("SKIN_GROOM_ROD_LENGTH_STRAIN_GT_10PCT")
+    if max(source_rigid_error.values())>.01:
+        warnings.append("RIGID_CONTROL_STRAND_SHAPE_DIFFERS_FROM_ORIGINAL_SKIN_BY_OVER_10MM")
+    if sum(crossings.values()):
+        warnings.append("POTENTIAL_RIGGED_BODY_STRAND_INTERSECTIONS_RETAIN_SCIENCE_HOLD")
+    if bodynear["tail"]>.15:
+        warnings.append("TAIL_TIP_OVER_15CM_FROM_TESTED_BODY_SURFACE")
+    # Preserve capture-modifier ordering for independent diagnosis. The
+    # native operator itself added Capture Rest Geometry after Armature here.
     return {"schema":"equine.pony52.attached_original_groom.paired_quality.v1",
         "source_blend_sha256":capsule["source_blend_sha256"],
         "source_capsule_sha256":contract["source_capsule_sha256"],
         "guides":6,"frames":48,
-        "max_physics_relative_motion_m_by_region":{k:round(x,7) for k,x in motion.items()},
-        "max_rigid_control_relative_motion_m_by_region":{k:round(x,7) for k,x in rigid.items()},
-        "max_physics_polyline_length_strain_fraction_by_region":{k:round(x,7) for k,x in strain.items()},
+        "max_same_frame_physics_minus_animation_relative_tip_m_by_region":{k:round(x,7) for k,x in motion.items()},
+        "max_rigid_world_space_rotation_displacement_m_by_region":{k:round(x,7) for k,x in rigid.items()},
+        "max_physics_polyline_length_vs_animation_fraction_by_region":{k:round(x,7) for k,x in strain.items()},
+        "max_rigid_control_vs_original_source_tip_vector_error_m_by_region":{k:round(x,7) for k,x in source_rigid_error.items()},
         "min_tip_body_unsigned_distance_m_by_region":{k:round(x,7) for k,x in bodynear.items()},
         "potential_body_segment_ray_hits_by_region":crossings,
         "warnings":warnings,"status":"ATTACHED_ORIGINAL_SKIN_48F_ENGINEERING_PROOF_ONLY",
