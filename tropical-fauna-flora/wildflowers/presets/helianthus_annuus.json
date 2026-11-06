@@ -1,0 +1,83 @@
+{
+  "seed": 32,
+  "stems": 2,
+  "heads_per_stem": 1,
+  "petals": 26,
+  "leaf_pairs": 7,
+  "flower_radius_m": 0.13,
+  "wind_amplitude_m": 0.045,
+  "wind_period_s": 4,
+  "crown_radius_m": 0.8,
+  "stem_radius_m": 0.024,
+  "branch_count": 3,
+  "branch_levels": 2,
+  "internodes": 6,
+  "ear_count": 9,
+  "fruit_count": 6,
+  "awn_length_m": 0,
+  "leaf_scale": 1,
+  "growth_stage": 0.95,
+  "id": "helianthus_annuus",
+  "latin": "Helianthus annuus",
+  "german": "Sonnenblume",
+  "template": "sunflower",
+  "height_m": 1.65,
+  "colors_rgba": {
+    "stem": [
+      0.22,
+      0.45,
+      0.14,
+      1
+    ],
+    "leaf": [
+      0.23,
+      0.49,
+      0.15,
+      1
+    ],
+    "branch": [
+      0.29,
+      0.23,
+      0.12,
+      1
+    ],
+    "bark": [
+      0.31,
+      0.24,
+      0.15,
+      1
+    ],
+    "node": [
+      0.18,
+      0.33,
+      0.14,
+      1
+    ],
+    "grain": [
+      0.38,
+      0.28,
+      0.16,
+      1
+    ],
+    "fruit": [
+      0.27,
+      0.17,
+      0.43,
+      1
+    ],
+    "flower": [
+      1,
+      0.8,
+      0.08,
+      1
+    ],
+    "center": [
+      0.27,
+      0.18,
+      0.1,
+      1
+    ]
+  },
+  "english": "Common sunflower",
+  "thai": "ทานตะวัน"
+}

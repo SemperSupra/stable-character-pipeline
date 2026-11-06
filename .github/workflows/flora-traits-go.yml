@@ -1,0 +1,68 @@
+name: Flora organ-trait admission - Go only public CPU
+
+on:
+  pull_request:
+    paths:
+      - 'tropical-fauna-flora/cmd/floratraits/**'
+      - 'tropical-fauna-flora/examples/flora_traits_synthetic.json'
+      - '.github/workflows/flora-traits-go.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flora-traits-go
+  cancel-in-progress: true
+
+jobs:
+  trait-admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Checkout public synthetic workcell without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Go version from module
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tropical-fauna-flora/go.mod
+          cache: false
+      - name: Validate strict organ traits, replay, and red-team negatives
+        working-directory: tropical-fauna-flora
+        run: |
+          set -euo pipefail
+          go test -count=1 ./cmd/floratraits
+          go test -race -count=1 ./cmd/floratraits
+          go vet ./cmd/floratraits
+          mkdir -p out/flora-traits
+          go run ./cmd/floratraits -input examples/flora_traits_synthetic.json > out/flora-traits/trait_receipt.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          p=Path("out/flora-traits/trait_receipt.json")
+          r=json.loads(p.read_text())
+          src=Path("examples/flora_traits_synthetic.json")
+          assert r["schema"]=="scp.flora.organ-traits.receipt.v1"
+          assert r["organ_count"]==3 and r["stem_count"]==2 and r["leaf_count"]==1
+          assert r["taxon_status"]=="illustrative"
+          assert r["input_sha256"]==hashlib.sha256(src.read_bytes()).hexdigest()
+          data=json.loads(src.read_text())
+          data["taxon_status"]="verified"
+          Path("out/flora-traits/rejected_fake_verified.json").write_text(json.dumps(data))
+          print("F1F_SYNTHETIC_PROVENANCE_RECEIPT_PASS",r["input_sha256"])
+          PY
+          if go run ./cmd/floratraits -input out/flora-traits/rejected_fake_verified.json; then
+            echo 'ERROR: unsupported verified species claim was admitted' >&2
+            exit 1
+          fi
+          echo 'F1F_NEGATIVE_VERIFIED_SPECIES_CLAIM_REJECTED'
+      - name: Upload only generated synthetic trait receipt
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flora-traits-go
+          path: tropical-fauna-flora/out/flora-traits/trait_receipt.json
+          retention-days: 3
+          if-no-files-found: error

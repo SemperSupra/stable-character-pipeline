@@ -1,0 +1,46 @@
+name: Qualify OpenAlea L-Py and PlantGL on public CPU
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/flora-lpy-plantgl.yml'
+      - '.github/workcells/flora_lpy_plantgl_probe.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flora-lpy-plantgl-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout public synthetic fixture
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install exact upstream L-Py and PlantGL from OpenAlea channels
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: flora-lpy-plantgl
+          create-args: >-
+            -c openalea3
+            -c conda-forge
+            python=3.11
+            openalea.lpy
+            openalea.plantgl
+          cache-environment: false
+          cache-downloads: false
+      - name: Compile and execute real headless botanical backend APIs
+        shell: bash -l {0}
+        env:
+          QT_QPA_PLATFORM: offscreen
+          OMP_NUM_THREADS: '2'
+        run: |
+          set -euo pipefail
+          python -m py_compile .github/workcells/flora_lpy_plantgl_probe.py
+          python .github/workcells/flora_lpy_plantgl_probe.py

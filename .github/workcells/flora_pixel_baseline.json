@@ -1,0 +1,25 @@
+{
+  "schema": "scp.flora.pixel-baseline.v1",
+  "algorithm": "scp.png.rgba8.v1",
+  "qualification": "TWO_INDEPENDENT_NATIVE_PUBLIC_CPU_ARTIFACT_RUNS_PIXEL_IDENTICAL_NOT_BOTANICAL_REALISM",
+  "source_commit": "7c15c9e44aab0696f89eb2daa3d89ef5ebb4e838",
+  "reference_runs": [
+    40448254309,
+    40449723988
+  ],
+  "source_go_glb_sha256": "67b503b6903de319739ea35a456dea270739f6fde30938e6c555de6451da972a",
+  "source_plantgl_glb_sha256": "2b4800b85c69a257f80348407261d465c2987571f7a11367872b77f603dec39a",
+  "renderer_version": "4.0.2",
+  "dimension": [
+    640,
+    480
+  ],
+  "images": {
+    "ab/ab_go_banana.png": "3beb6fe7b89f1cd4658e101ea899f118dcf65aa3796fbdeca4ddfaf2a4368f4e",
+    "ab/ab_openalea_fixture.png": "67c20273d7787a25f5bd9779f73c053c3227d7b98f141bd5f397de9fd98cd384",
+    "ab/ab_go_palm.png": "931d7b440bc0a1b0c43f8a6cfbb37e9e352cb088e14f9f68694fe3fab3d9374d",
+    "blender/diagnostic_front.png": "58cfd41c1bf324239002de67322c709fd2208ac17c98f3055ac0f666a1d32148",
+    "blender/diagnostic_side.png": "75dc19e3e33371880e0fa42cf5d9f8a70071ac83ca6cd732e69e92f0419bf4f8"
+  },
+  "note": "RGBA digest includes dimensions and alpha; image encoding/file SHA is intentionally independent. Baseline is a synthetic engineering fixture; update only with explicit review and provenance."
+}

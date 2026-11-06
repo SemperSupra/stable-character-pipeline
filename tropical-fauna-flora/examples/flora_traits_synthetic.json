@@ -1,0 +1,70 @@
+{
+  "schema": "scp.flora.organ-traits.v1",
+  "units": "m",
+  "coordinate_system": "Z_UP_RIGHT_HANDED",
+  "taxon_label": "SYNTHETIC_LPY_BRANCH_FIXTURE_NOT_SPECIES",
+  "taxon_status": "illustrative",
+  "source_rights": "ORIGINAL_SYNTHETIC",
+  "organs": [
+    {
+      "id": "stem-000",
+      "mtg_vertex": 2,
+      "kind": "stem",
+      "attachment_xyz_m": [
+        0,
+        0,
+        0
+      ],
+      "traits": {
+        "length_m": 1.2,
+        "base_radius_m": 0.12,
+        "tip_radius_m": 0.08
+      },
+      "evidence": {
+        "origin": "synthetic",
+        "uncertainty_m": 0.15
+      }
+    },
+    {
+      "id": "stem-001",
+      "mtg_vertex": 3,
+      "parent_id": "stem-000",
+      "kind": "stem",
+      "attachment_xyz_m": [
+        0,
+        0,
+        1.2
+      ],
+      "traits": {
+        "length_m": 0.55,
+        "base_radius_m": 0.08,
+        "tip_radius_m": 0.04
+      },
+      "evidence": {
+        "origin": "synthetic",
+        "uncertainty_m": 0.1
+      }
+    },
+    {
+      "id": "leaf-000",
+      "mtg_vertex": 4,
+      "parent_id": "stem-001",
+      "kind": "leaf",
+      "attachment_xyz_m": [
+        0,
+        0,
+        0.55
+      ],
+      "traits": {
+        "length_m": 0.35,
+        "width_m": 0.14,
+        "thickness_m": 0.002,
+        "venation": "unknown"
+      },
+      "evidence": {
+        "origin": "synthetic",
+        "uncertainty_m": 0.1
+      }
+    }
+  ]
+}

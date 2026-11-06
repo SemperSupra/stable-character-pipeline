@@ -1,0 +1,1 @@
+{"id":"convolvulus_arvensis","latin":"Convolvulus arvensis","german":"Acker-Winde","template":"bindweed","seed":1003,"height_m":0.32,"stems":8,"heads_per_stem":1,"petals":5,"leaf_pairs":5,"flower_radius_m":0.037,"wind_amplitude_m":0.029,"wind_period_s":4.0,"colors_rgba":{"stem":[0.22,0.46,0.17,1],"leaf":[0.25,0.52,0.18,1],"flower":[0.97,0.96,0.94,1],"center":[0.84,0.77,0.32,1]}}

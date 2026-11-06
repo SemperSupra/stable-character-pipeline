@@ -1,0 +1,83 @@
+{
+  "seed": 32,
+  "stems": 5,
+  "heads_per_stem": 1,
+  "petals": 20,
+  "leaf_pairs": 7,
+  "flower_radius_m": 0.04,
+  "wind_amplitude_m": 0.085,
+  "wind_period_s": 4,
+  "crown_radius_m": 0.7,
+  "stem_radius_m": 0.012,
+  "branch_count": 3,
+  "branch_levels": 2,
+  "internodes": 12,
+  "ear_count": 9,
+  "fruit_count": 6,
+  "awn_length_m": 0,
+  "leaf_scale": 1,
+  "growth_stage": 0.95,
+  "id": "phyllostachys_aurea",
+  "latin": "Phyllostachys aurea",
+  "german": "Goldrohr-Bambus",
+  "template": "bamboo",
+  "height_m": 3.9,
+  "colors_rgba": {
+    "stem": [
+      0.46,
+      0.61,
+      0.15,
+      1
+    ],
+    "leaf": [
+      0.23,
+      0.49,
+      0.15,
+      1
+    ],
+    "branch": [
+      0.29,
+      0.23,
+      0.12,
+      1
+    ],
+    "bark": [
+      0.31,
+      0.24,
+      0.15,
+      1
+    ],
+    "node": [
+      0.35,
+      0.5,
+      0.08,
+      1
+    ],
+    "grain": [
+      0.75,
+      0.58,
+      0.24,
+      1
+    ],
+    "fruit": [
+      0.27,
+      0.17,
+      0.43,
+      1
+    ],
+    "flower": [
+      0.96,
+      0.77,
+      0.12,
+      1
+    ],
+    "center": [
+      0.39,
+      0.25,
+      0.09,
+      1
+    ]
+  },
+  "english": "Golden bamboo",
+  "thai": "ไผ่เหลือง"
+}
