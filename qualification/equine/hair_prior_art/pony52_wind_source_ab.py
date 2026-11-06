@@ -77,12 +77,24 @@ def quality(source,baseline_physics,baseline_animation,trial_physics,trial_anima
     root_ok=all(trial["max_root_error_m_by_region"][r]<=baseline["max_root_error_m_by_region"][r]+.0005 for r in REGION_TARGETS)
     body_ok=all(trial["potential_body_segment_ray_hits_by_region"][r]<=baseline["potential_body_segment_ray_hits_by_region"][r] for r in REGION_TARGETS)
     region_ok=all(trial["per_region_rigid_vs_skin_only_source_p95_m"][r]<=baseline["per_region_rigid_vs_skin_only_source_p95_m"][r]+.001 for r in REGION_TARGETS)
+    # Source-frame admission is SEPARATE from contact-science admission.
+    # Body ray-count increases cannot invalidate a correctly matched
+    # original 4.5 source-state but DO block promoting the native 5.2 hair.
+    source_state_corrected=(same_raw and source_excited and root_ok and region_ok
+        and improvement_fraction>=.95 and
+        trial["rigid_vs_skin_only_source_all_p95_m"]<=.0001)
+    delta_hits={r:trial["potential_body_segment_ray_hits_by_region"][r]-
+                baseline["potential_body_segment_ray_hits_by_region"][r] for r in REGION_TARGETS}
     if not same_raw:
         verdict="INVALID_SOURCE_EXCITATION_DIFFERENT_NATIVE_INPUTS"
     elif not source_excited:
         verdict="INCONCLUSIVE_NO_SOURCE_WIND_ACTIVITY"
-    elif improvement_fraction>=.1 and root_ok and body_ok and region_ok:
-        verdict="WIND_MORPH_CONFOUNDING_SUPPORTS_BOUNDED_CAUSAL_HYPOTHESIS"
+    elif source_state_corrected and body_ok:
+        verdict="SOURCE_WIND_MORPH_CONFOUND_BOUNDED_CONFIRMED_NO_NEW_RAY_CANDIDATES"
+    elif source_state_corrected:
+        verdict="SOURCE_WIND_MORPH_CONFOUND_BOUNDED_CONFIRMED_COLLISION_HOLD"
+    elif improvement_fraction>=.1 and root_ok and region_ok and body_ok:
+        verdict="PARTIAL_MORPH_STATE_IMPROVEMENT_SOURCE_NOT_CALIBRATED"
     else:
         verdict="NO_ELIGIBLE_IMPROVEMENT_KEEP_ORIGINAL_WORKCELL"
     return {"schema":SCHEMA,
@@ -96,6 +108,9 @@ def quality(source,baseline_physics,baseline_animation,trial_physics,trial_anima
         "rigid_p95_relative_improvement_fraction":round(improvement_fraction,8),
         "source_root_tracking_not_worse":root_ok,
         "body_ray_candidates_not_increased":body_ok,
+        "body_ray_candidate_delta_by_region":delta_hits,
+        "source_wind_confound_corrected_to_skin_only_reference":source_state_corrected,
+        "source_consistency_separate_from_collision_admission":True,
         "regional_rigid_source_errors_not_worse":region_ok,
         "verdict":verdict,
         "original_source_mutated_on_disk":False,
