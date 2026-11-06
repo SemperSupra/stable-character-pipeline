@@ -4,8 +4,10 @@ on:
     paths:
       - ".github/workflows/equine-ik-limit-ablation.yml"
       - "qualification/equine/limit_ablation/**"
+      - "qualification/equine/ci_fanout/**"
 permissions:
   contents: read
+  actions: read
 jobs:
   native-limit-ablation:
     runs-on: ubuntu-24.04
@@ -16,31 +18,49 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Fail-closed source-native proof gate
+        id: fanout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/ci_fanout -p 'test_*.py' -q
+          if ! python3 qualification/equine/ci_fanout/proof_gate.py --workcell equine-ik-limit-ablation --out "$RUNNER_TEMP/scp-ci-fanout-receipt.json"; then
+            echo "run_native=true" >> "$GITHUB_OUTPUT"
+            echo "FAIL_CLOSED_NATIVE_AFTER_SELECTOR_ERROR"
+          fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: b83187e7237186ded84989064de146be85a3cdc0
           path: source-baseline
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: b83187e7237186ded84989064de146be85a3cdc0
           path: source-candidate
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
           path: observer-hoof
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 72d83a1f10a605a50935c8e7d35a8aa8b99de4ed
           path: observer-rom
           persist-credentials: false
       - name: Qualify three-flag reversible negative control and exact source ownership
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -72,6 +92,7 @@ jobs:
           print('EXACT_SOURCE_SAME_ANATOMY_AND_TARGETS; ONLY_SOLVER_LIMIT_FLAGS_CHANGED')
           PY
       - name: Install official Blender 4.5.15 with verified SHA in ephemeral runner
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -84,6 +105,7 @@ jobs:
           (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' checksums.sha256 | sha256sum -c -)
           tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
       - name: Export actual baseline and candidate animated GLBs from independent exact 30j sources
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -98,6 +120,7 @@ jobs:
             test -s "results/$variant/shetland_black_ghcr.png"
           done
       - name: Independent actual 48-frame hoof and joint evaluation for both GLBs
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -122,6 +145,7 @@ jobs:
               "$GITHUB_WORKSPACE/results/$variant/target_residual.json"
           done
       - name: Quantify diagnostic cause without accepting unbounded anatomy
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -168,7 +192,7 @@ jobs:
           print('NEGATIVE_CONTROL_30J_IK_LIMIT_ABLATION',report['scientific_interpretation'],report['mean_front_ankle_error_reduction_m'])
           PY
       - name: Preserve public-source negative-control renders and independent receipts
-        if: always()
+        if: ${{ (always()) && steps.fanout.outputs.run_native == 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: equine-30j-ik-limit-ablation-${{ github.run_id }}

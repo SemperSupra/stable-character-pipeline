@@ -4,8 +4,10 @@ on:
     paths:
       - "qualification/equine/av_observer/**"
       - ".github/workflows/equine-av-decoded-observer.yml"
+      - "qualification/equine/ci_fanout/**"
 permissions:
   contents: read
+  actions: read
 jobs:
   observer:
     runs-on: ubuntu-24.04
@@ -14,16 +16,32 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Fail-closed source-native proof gate
+        id: fanout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/ci_fanout -p 'test_*.py' -q
+          if ! python3 qualification/equine/ci_fanout/proof_gate.py --workcell equine-av-decoded-observer --out "$RUNNER_TEMP/scp-ci-fanout-receipt.json"; then
+            echo "run_native=true" >> "$GITHUB_OUTPUT"
+            echo "FAIL_CLOSED_NATIVE_AFTER_SELECTOR_ERROR"
+          fi
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           go-version: "1.23.2"
           cache: false
       - name: Install FFmpeg in disposable public runner (preserved first RED)
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends ffmpeg
       - name: Independent observer hostile source tests and native AAC tests
+        if: steps.fanout.outputs.run_native == 'true'
         env:
           SCP_AUDIO_VALIDATOR_PERF_OUT: ${{ runner.temp }}/equine-audio-validator-performance.json
         run: |
@@ -34,6 +52,7 @@ jobs:
           go vet ./...
           go build -o "$RUNNER_TEMP/equine-av-observer" ./cmd/av_observer
       - name: Verify synthetic decoded-audio validator confusion and qualified limitations
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -53,18 +72,21 @@ jobs:
           print("DECODED_AUDIO_VALIDATOR_QUALITY",r["validator_sha256"],r["runtime"])
           PY
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 497203219d035bafd72be2d4a34786c1396526ff
           path: gait-frozen
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 630c31408d3b76575d361a51770b9a336393fd76
           path: audio-frozen
           persist-credentials: false
       - name: Actual pinned producers, AAC encode and independent decode
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           (cd gait-frozen/qualification/equine/gait && go build -o "$RUNNER_TEMP/gaitclock" ./cmd/gaitclock)
@@ -85,6 +107,7 @@ jobs:
             -audio "$RUNNER_TEMP/observer/synthetic-aac-mux.mp4" \
             -receipt "$RUNNER_TEMP/observer/decoded-pass.json"
       - name: Fail closed when same container metadata is silent
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           ffmpeg -nostdin -hide_banner -loglevel error -y \
@@ -100,6 +123,7 @@ jobs:
           fi
           grep -q 'FAIL_AUDIO_TRANSIENT_ALIGNMENT' "$RUNNER_TEMP/observer/decoded-negative.json"
       - name: Baseline metadata comparator falsely accepts silent AAC container
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           python3 - "$RUNNER_TEMP/observer/silent-aac-mux.mp4" <<'PYMETADATA'
@@ -112,7 +136,7 @@ jobs:
           print('BASELINE_METADATA_PASS_BUT_DECODED_AUDIO_FAIL')
           PYMETADATA
       - name: Evidence from wholly original synthetic public sources
-        if: always()
+        if: ${{ (always()) && steps.fanout.outputs.run_native == 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: equine-decoded-aac-observer-${{ github.run_id }}

@@ -4,6 +4,7 @@ on:
     paths:
       - ".github/workflows/equine-av-integrated-30j-contact.yml"
       - "qualification/equine/av_observer/**"
+      - "qualification/equine/ci_fanout/**"
 permissions:
   contents: read
   actions: read
@@ -15,23 +16,40 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Fail-closed source-native proof gate
+        id: fanout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/ci_fanout -p 'test_*.py' -q
+          if ! python3 qualification/equine/ci_fanout/proof_gate.py --workcell equine-av-integrated-30j-contact --out "$RUNNER_TEMP/scp-ci-fanout-receipt.json"; then
+            echo "run_native=true" >> "$GITHUB_OUTPUT"
+            echo "FAIL_CLOSED_NATIVE_AFTER_SELECTOR_ERROR"
+          fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
           path: hoof-observer
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 497203219d035bafd72be2d4a34786c1396526ff
           path: gait-frozen
           persist-credentials: false
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           go-version: "1.23.2"
           cache: false
       - name: Exact public-original integrated GLB and immutable artifact custody
+        if: steps.fanout.outputs.run_native == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: SemperSupra/stable-character-pipeline
@@ -60,6 +78,7 @@ jobs:
           print('IMMUTABLE_INTEGRATED_30J_SOURCE_GLBSHA_PASS; SCIENTIFIC_ACCEPTANCE_UNKNOWN')
           PY
       - name: Source-only Go and independent hoof hostile tests
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           (cd qualification/equine/av_observer && go test -race -count=1 ./... && go vet ./... && go build -o "$RUNNER_TEMP/contact-proxy" ./cmd/contact_proxy)
@@ -68,6 +87,7 @@ jobs:
           "$RUNNER_TEMP/gaitclock" -actor pony-black -gait walk -surface sand \
              -cycles 1 -frames-per-cycle 48 -fps 24 -out results/planned_48f.json
       - name: Install verified disposable Blender 4.5.15 runtime
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           sudo apt-get update -qq
@@ -77,6 +97,7 @@ jobs:
           (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
           tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
       - name: Independent actual 48-frame Blender evaluated four-hoof geometry
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 \
@@ -90,6 +111,7 @@ jobs:
           print('INTEGRATED_MODEL_48F_EVALUATED_HOOVES',r['scientific_verdict'])
           PY
       - name: Independently cross-check measured hoof geometry with planned sound events
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           model=results/integrated/hair/equine_longhair_wind.glb
@@ -114,7 +136,7 @@ jobs:
           print('SOURCE_EXACT_INTEGRATED_30J_CONTACT_AUDIO',r['verdict'])
           PY
       - name: Preserve immutable small scientific receipts
-        if: always()
+        if: ${{ (always()) && steps.fanout.outputs.run_native == 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: equine-integrated-30j-native-contact-${{ github.run_id }}

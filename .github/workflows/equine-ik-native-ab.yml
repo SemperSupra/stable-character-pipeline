@@ -4,8 +4,10 @@ on:
     paths:
       - ".github/workflows/equine-ik-native-ab.yml"
       - "qualification/equine/ik_ab/**"
+      - "qualification/equine/ci_fanout/**"
 permissions:
   contents: read
+  actions: read
 jobs:
   native-ik-ab:
     runs-on: ubuntu-24.04
@@ -16,31 +18,49 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Fail-closed source-native proof gate
+        id: fanout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/ci_fanout -p 'test_*.py' -q
+          if ! python3 qualification/equine/ci_fanout/proof_gate.py --workcell equine-ik-native-ab --out "$RUNNER_TEMP/scp-ci-fanout-receipt.json"; then
+            echo "run_native=true" >> "$GITHUB_OUTPUT"
+            echo "FAIL_CLOSED_NATIVE_AFTER_SELECTOR_ERROR"
+          fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: b83187e7237186ded84989064de146be85a3cdc0
           path: source-baseline
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: b83187e7237186ded84989064de146be85a3cdc0
           path: source-candidate
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
           path: observer-hoof
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 72d83a1f10a605a50935c8e7d35a8aa8b99de4ed
           path: observer-rom
           persist-credentials: false
       - name: Qualify reversible source-hashed experimental override and A/B decision rules
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -75,6 +95,7 @@ jobs:
           print('SOURCE_EXACT_MATHEMATICAL_REACH_GAIN_ONLY; NATIVE_PHYSICS_NOT_YET_EVALUATED')
           PY
       - name: Install official Blender 4.5.15 with verified SHA in ephemeral runner
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -87,6 +108,7 @@ jobs:
           (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' checksums.sha256 | sha256sum -c -)
           tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
       - name: Export actual baseline and candidate animated GLBs from independent exact 30j sources
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -101,6 +123,7 @@ jobs:
             test -s "results/$variant/shetland_black_ghcr.png"
           done
       - name: Independent actual 48-frame hoof and joint evaluation for both GLBs
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -125,6 +148,7 @@ jobs:
               "$GITHUB_WORKSPACE/results/$variant/target_residual.json"
           done
       - name: Judge relative performance without overriding scientific holds
+        if: steps.fanout.outputs.run_native == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -154,7 +178,7 @@ jobs:
                 'skate',r['baseline_front_skate_pairs'],r['candidate_front_skate_pairs'])
           PY
       - name: Retain bounded original public A/B source, visual stills and science receipts
-        if: always()
+        if: ${{ (always()) && steps.fanout.outputs.run_native == 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: equine-30j-native-ik-ab-${{ github.run_id }}

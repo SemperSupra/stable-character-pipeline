@@ -4,6 +4,7 @@ on:
     paths:
       - ".github/workflows/equine-ik-axis-matrix.yml"
       - "qualification/equine/axis_matrix/**"
+      - "qualification/equine/ci_fanout/**"
 permissions:
   contents: read
   actions: read
@@ -19,19 +20,35 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Fail-closed source-native proof gate
+        id: fanout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/ci_fanout -p 'test_*.py' -q
+          if ! python3 qualification/equine/ci_fanout/proof_gate.py --workcell equine-ik-axis-matrix --out "$RUNNER_TEMP/scp-ci-fanout-receipt.json"; then
+            echo "run_native=true" >> "$GITHUB_OUTPUT"
+            echo "FAIL_CLOSED_NATIVE_AFTER_SELECTOR_ERROR"
+          fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: b83187e7237186ded84989064de146be85a3cdc0
           path: source-axis
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
           path: observer-hoof
           persist-credentials: false
       - name: Source-exact single-axis patch and complete adversarial tests
+        if: steps.fanout.outputs.run_native == 'true'
         env:
           PROBE_AXIS: ${{ matrix.axis }}
         run: |
@@ -55,6 +72,7 @@ jobs:
           assert not r['axis_production_eligible'] and not r['source_original_modified']
           PY
       - name: Fetch immutable original synthetic baseline once, verified by model SHA
+        if: steps.fanout.outputs.run_native == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: SemperSupra/stable-character-pipeline
@@ -79,6 +97,7 @@ jobs:
           print('BASELINE_NATIVELY_EVALUATED_AND_HASH_QUALIFIED')
           PY
       - name: Install sha-qualified disposable Blender 4.5.15 runtime
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           sudo apt-get update -qq
@@ -90,6 +109,7 @@ jobs:
           (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' checksums.sha256 | sha256sum -c -)
           tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
       - name: Build real one-axis-only original synthetic GLB, preserve original source immutability
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           mkdir -p results/candidate
@@ -100,6 +120,7 @@ jobs:
           test -s results/candidate/shetland_black_ghcr.glb
           test -s results/candidate/shetland_black_ghcr.png
       - name: Independently measure actual 48f hoof, three-link ROM, and ankle-target residual
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           model="$GITHUB_WORKSPACE/results/candidate/shetland_black_ghcr.glb"
@@ -117,6 +138,7 @@ jobs:
             "$model" "$GITHUB_WORKSPACE/source-axis/qualification/shetland_pony/footpaths.py" \
             "$GITHUB_WORKSPACE/results/candidate/target_residual.json"
       - name: Compare with exact native baseline and explicitly reject production adoption
+        if: steps.fanout.outputs.run_native == 'true'
         env:
           PROBE_AXIS: ${{ matrix.axis }}
         run: |
@@ -159,7 +181,7 @@ jobs:
           print('EXACT_NATIVE_AXIS_ABLATION',axis,report['experimental_result'],report['mean_front_ankle_error_reduction_m'])
           PY
       - name: Retain independent public synthetic axis-specific source and receipts
-        if: always()
+        if: ${{ (always()) && steps.fanout.outputs.run_native == 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: equine-30j-axis-${{ matrix.axis }}-${{ github.run_id }}

@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/workflows/equine-front-z-finite-matrix.yml'
       - 'qualification/equine/finite_z/**'
+      - "qualification/equine/ci_fanout/**"
 permissions:
   contents: read
   actions: read
@@ -19,19 +20,35 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Fail-closed source-native proof gate
+        id: fanout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/ci_fanout -p 'test_*.py' -q
+          if ! python3 qualification/equine/ci_fanout/proof_gate.py --workcell equine-front-z-finite-matrix --out "$RUNNER_TEMP/scp-ci-fanout-receipt.json"; then
+            echo "run_native=true" >> "$GITHUB_OUTPUT"
+            echo "FAIL_CLOSED_NATIVE_AFTER_SELECTOR_ERROR"
+          fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: b83187e7237186ded84989064de146be85a3cdc0
           path: frozen-source
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
         with:
           repository: SemperSupra/stable-character-pipeline
           ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
           path: hoof-observer
           persist-credentials: false
       - name: Exact source, isolated patch, and hostile tests
+        if: steps.fanout.outputs.run_native == 'true'
         env:
           DEGREES: ${{ matrix.degrees }}
         run: |
@@ -55,6 +72,7 @@ jobs:
           print('FRONT_Z_FINITE_SOURCE_ONLY_PATCH_QUALIFIED')
           PY
       - name: Byte-exact original source GLB comparator, no sample substitution
+        if: steps.fanout.outputs.run_native == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: SemperSupra/stable-character-pipeline
@@ -71,6 +89,7 @@ jobs:
           test -s baseline/baseline/rom.json
           test -s baseline/baseline/target_residual.json
       - name: Disposable sha256-qualified Blender 4.5.15
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           sudo apt-get update -qq
@@ -80,6 +99,7 @@ jobs:
           (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
           tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
       - name: Build real candidate original-only 30j model and independent native observers
+        if: steps.fanout.outputs.run_native == 'true'
         run: |
           set -euo pipefail
           mkdir -p results/candidate
@@ -99,6 +119,7 @@ jobs:
              "$model" "$GITHUB_WORKSPACE/frozen-source/qualification/shetland_pony/footpaths.py" \
              "$GITHUB_WORKSPACE/results/candidate/target_residual.json"
       - name: Independent comparison and explicit no-production-promotion
+        if: steps.fanout.outputs.run_native == 'true'
         env:
           DEGREES: ${{ matrix.degrees }}
         run: |
@@ -144,7 +165,7 @@ jobs:
           print('SOURCE_EXACT_30J_FINITE_Z_AB',degrees,report['outcome'],old,new)
           PY
       - name: Retain compact measurements, exact candidate GLB and visual witness
-        if: always()
+        if: ${{ (always()) && steps.fanout.outputs.run_native == 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: equine-30j-front-z-${{ matrix.degrees }}-${{ github.run_id }}
