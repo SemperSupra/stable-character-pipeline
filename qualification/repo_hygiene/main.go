@@ -178,10 +178,17 @@ func main(){
  // Offline snapshot mode never calls a network provider or claims exact source
  // divergence completion; online live census pins and compares every drift.
  var driftEvidence DriftReviewReport
+ var rootTipEvidence RootTipReport
  if snapshotPath==""{
   driftEvidence,err=inspectDrifts(context.Background(),snap,workset,makeGithubCompare(os.Getenv("GH_TOKEN")))
   if err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
   if driftEvidence.Count!=workset.BaseSHADriftCount{fmt.Fprintln(os.Stderr,"DRIFT_EVIDENCE_MISSING");os.Exit(1)}
+  mainSHA,e:=fetchMainSHA(context.Background(),os.Getenv("GH_TOKEN"))
+  if e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(1)}
+  rootTipEvidence,e=inspectRootTips(context.Background(),snap,workset,mainSHA,
+    makeGithubCompare(os.Getenv("GH_TOKEN")))
+  if e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(1)}
+
  }
  original,e1:=json.MarshalIndent(snap,"","  "); report,e2:=json.MarshalIndent(r,"","  ")
  if e1!=nil||e2!=nil {fmt.Fprintln(os.Stderr,"JSON_MARSHAL_FAILED");os.Exit(1)}
@@ -190,6 +197,8 @@ func main(){
  if snapshotPath==""{
   artifacts=append(artifacts,struct{name string;data []byte}{"drifts.json",driftEvidence.JSON()})
   artifacts=append(artifacts,struct{name string;data []byte}{"drifts.md",[]byte(driftEvidence.Markdown())})
+  artifacts=append(artifacts,struct{name string;data []byte}{"root_tips.json",rootTipEvidence.JSON()})
+  artifacts=append(artifacts,struct{name string;data []byte}{"root_tips.md",[]byte(rootTipEvidence.Markdown())})
  }
  for _,f:=range artifacts {
   if err=writeNew(filepath.Join(out,f.name),f.data);err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
