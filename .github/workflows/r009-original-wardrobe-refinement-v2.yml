@@ -9,6 +9,8 @@ on:
       - 'qualification/original_reusable_characters/test_wardrobe_console_v2.py'
       - 'qualification/original_reusable_characters/wardrobe_portable_blender_v2.py'
       - 'qualification/original_reusable_characters/wardrobe_portable_export_v2.py'
+      - 'qualification/original_reusable_characters/visual_shin_falsifier_v1.py'
+      - 'qualification/original_reusable_characters/test_visual_shin_falsifier_v1.py'
       - '.github/workflows/r009-original-wardrobe-refinement-v2.yml'
 permissions:
   contents: read
@@ -33,7 +35,7 @@ jobs:
           git cat-file -e "$HEAD_SHA^{commit}"
           git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > r009-evidence/changed_paths.txt
-          if grep -Ev '^(qualification/original_reusable_characters/(wardrobe_refinement_v2\.py|test_wardrobe_refinement_v2\.py|wardrobe_deformation_blender_v2\.py|wardrobe_console_v2\.py|test_wardrobe_console_v2\.py|wardrobe_portable_blender_v2\.py|wardrobe_portable_export_v2\.py|WARDROBE_REFINEMENT_V2\.md)|\.github/workflows/r009-original-wardrobe-refinement-v2\.yml)$' r009-evidence/changed_paths.txt; then
+          if grep -Ev '^(qualification/original_reusable_characters/(wardrobe_refinement_v2\.py|test_wardrobe_refinement_v2\.py|wardrobe_deformation_blender_v2\.py|wardrobe_console_v2\.py|test_wardrobe_console_v2\.py|wardrobe_portable_blender_v2\.py|wardrobe_portable_export_v2\.py|visual_shin_falsifier_v1\.py|test_visual_shin_falsifier_v1\.py|WARDROBE_REFINEMENT_V2\.md)|\.github/workflows/r009-original-wardrobe-refinement-v2\.yml)$' r009-evidence/changed_paths.txt; then
             echo "OUT_OF_SCOPE_OR_PARENT_SOURCE_CHANGED"; exit 11
           fi
           git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- qualification/original_reusable_characters/wardrobe_export_preset.py
@@ -43,8 +45,8 @@ jobs:
         run: |
           set -euo pipefail
           cd qualification/original_reusable_characters
-          python3 -m compileall -q wardrobe_refinement_v2.py wardrobe_deformation_blender_v2.py wardrobe_console_v2.py wardrobe_portable_export_v2.py wardrobe_portable_blender_v2.py
-          python3 -m unittest -v test_wardrobe_refinement_v2 test_wardrobe_console_v2
+          python3 -m compileall -q wardrobe_refinement_v2.py wardrobe_deformation_blender_v2.py wardrobe_console_v2.py wardrobe_portable_export_v2.py wardrobe_portable_blender_v2.py visual_shin_falsifier_v1.py test_visual_shin_falsifier_v1.py
+          python3 -m unittest -v test_wardrobe_refinement_v2 test_wardrobe_console_v2 test_visual_shin_falsifier_v1
       - name: Build immutable v2 original geometry and truly different garment cuts
         run: |
           set -euo pipefail
@@ -101,6 +103,18 @@ jobs:
               assert hashlib.sha256(data).hexdigest()==rec["sha256"]
               assert rec["other_actor_hidden"]
           print("R009_NATIVE_GUSSET_DIAGNOSTIC_RENDERS_TECHNICAL_ONLY")
+          PY
+          (cd qualification/original_reusable_characters; python3 visual_shin_falsifier_v1.py \
+            --input ../../r009-evidence/wardrobe_signature_AsterOriginal_start_front.png \
+            --out ../../r009-evidence/aster_start_front_shin_visual.json)
+          python3 - <<'PY'
+          import json
+          r=json.load(open("r009-evidence/aster_start_front_shin_visual.json"))
+          assert r["schema"]=="scp.r009.native_shin_exposure_falsifier.v1"
+          assert r["warm_exposure_pixels"]<=20 and r["slate_pant_pixels"]>=9000
+          assert not r["source_specific_regression_detected"]
+          assert not r["human_visual_accepted"] and not r["release_approved"]
+          print("R009_SOURCE_SPECIFIC_SHIN_REGRESSION_NEGATIVE_WITNESS_PASS")
           PY
           python3 -c 'import json; d=json.load(open("r009-evidence/deformation_all72.json")); assert d["frames_sampled"]==72 and not d["human_motion_and_cloth_fit_accepted"]; assert all(d["results"][a][s]["frames_evaluated"]==72 for a in d["results"] for s in d["results"][a]); print("NATIVE_STRUCTURAL_PASS_HUMAN_HELD")'
           (cd r009-evidence; sha256sum ./* > SHA256SUMS; sha256sum -c SHA256SUMS)
