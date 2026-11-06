@@ -43,17 +43,11 @@ class PairTests(unittest.TestCase):
         for alteration in (lambda x:x["samples"].pop(),
                            lambda x:x["samples"][20].update(frame=19),
                            lambda x:x["samples"][10]["tip_world_m"][0].__setitem__(2,float("nan")),
-                           lambda x:x["samples"][20]["scalp_world_x_m"].__class__):
+                           lambda x:x["samples"][20].update(scalp_world_x_m=float("inf"))):
             clone=copy.deepcopy(a)
-            if alteration.__code__.co_argcount:
-                alteration(clone)
-            try:
+            alteration(clone)
+            with self.assertRaises(ValueError):
                 evaluate(clone,b)
-            except ValueError:
-                continue
-            else:
-                if len(clone["samples"])!=48 or clone["samples"][20]["frame"]!=21 or not math.isfinite(clone["samples"][10]["tip_world_m"][0][2]):
-                    self.fail("forged receipt accepted")
     def test_no_motion_is_not_simulation(self):
         a,b=receipt("physics"),receipt("animation")
         for row in a["samples"]:
