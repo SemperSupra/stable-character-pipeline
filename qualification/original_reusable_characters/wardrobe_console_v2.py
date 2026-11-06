@@ -13,6 +13,32 @@ from wardrobe_portable_export_v2 import export
 
 SCHEMA="scp.r009.original_wardrobe_console.v2"
 SWITCH=Path(__file__).with_name("wardrobe_switch_blender.py")
+OPTIONAL_PRESET_SLOTS=frozenset({"accessory"})
+
+def resolve_actor_presets(manifest):
+    """Explicitly omit optional missing actor slots; reject required omissions."""
+    slots_by_actor=manifest.get("actor_slots")
+    if not isinstance(slots_by_actor,dict) or set(slots_by_actor)!=set(ACTORS):
+        raise ValueError("ACTOR_SLOT_SET_DRIFT")
+    known=set().union(*(set(s) for s in PRESETS.values()))
+    resolved={}
+    for actor in ACTORS:
+        slots=slots_by_actor[actor]
+        if not isinstance(slots,dict) or set(slots)-known:
+            raise ValueError("UNKNOWN_ACTOR_SLOT:"+actor)
+        per_preset={}
+        for preset,requested in PRESETS.items():
+            requested=set(requested)
+            absent=requested-set(slots)
+            required_absent=absent-OPTIONAL_PRESET_SLOTS
+            if required_absent:
+                raise ValueError("REQUIRED_PRESET_SLOT_MISSING:"+actor+":"+preset+":"+','.join(sorted(required_absent)))
+            per_preset[preset]={
+                "active":sorted(requested&set(slots)),
+                "omitted_optional":sorted(absent),
+            }
+        resolved[actor]=per_preset
+    return resolved
 
 def inspect(manifest,source=None):
     m=json.loads(Path(manifest).read_text())
@@ -29,6 +55,8 @@ def inspect(manifest,source=None):
     return {"schema":SCHEMA,"subjects":list(ACTORS),
             "presets":{k:list(v) for k,v in PRESETS.items()},
             "actor_slots":{a:sorted(m["actor_slots"][a]) for a in ACTORS},
+            "resolved_actor_presets":resolve_actor_presets(m),
+            "optional_slot_semantics":"EXPLICIT_OMIT_IF_MISSING",
             "source_sha256":m["derived_sha256"],
             "independent_alt_cuts":bool(m.get("separate_new_geometry_for_alternate",False)),
             "human_appearance_accepted":False,"release_approved":False}
@@ -78,6 +106,10 @@ def main(argv=None):
             for name,slots in result["presets"].items():
                 print(name+": "+", ".join(slots))
             print("Distinct alternate cuts: "+("yes" if result["independent_alt_cuts"] else "no"))
+            for actor,choices in result["resolved_actor_presets"].items():
+                for preset,slots in choices.items():
+                    if slots["omitted_optional"]:
+                        print(actor+" "+preset+" omitted optional: "+", ".join(slots["omitted_optional"]))
             print("Human/cloth acceptance: NOT QUALIFIED")
             return result
     elif a.command=="export":
