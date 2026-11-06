@@ -5,7 +5,8 @@ import math
 
 SCHEMA="equine.pony.guide_source_48f.v1"
 REGIONS=("mane","forelock","tail")
-IDS={"mane":(20,300),"forelock":(500,600),"tail":(750,1000)}
+REGION_BOUNDS={"mane":(0,440),"forelock":(440,670),"tail":(670,1050)}
+REGION_BONES={"mane":{"neck","head"},"forelock":{"head"},"tail":{"tail_1","tail_2","tail_3"}}
 
 def xyz(p):
     if type(p) not in (list,tuple) or len(p)!=3 or any(type(x) not in (int,float) or not math.isfinite(x) or abs(x)>100 for x in p):
@@ -26,17 +27,17 @@ def classify(c):
     if type(c["guides"])!=list or len(c["guides"])!=6:
         raise ValueError("wrong source guide count")
     seen=set()
+    chosen={r:[] for r in REGIONS}
     for g in c["guides"]:
         if type(g)!=dict or set(g)!={"card_id","region","owner_bone","samples"}:
             raise ValueError("unqualified source guide fields")
         card,region,bone=g["card_id"],g["region"],g["owner_bone"]
-        if type(card)!=int or region not in IDS or card not in IDS[region] or card in seen:
+        if type(card)!=int or region not in REGION_BOUNDS or not REGION_BOUNDS[region][0]<=card<REGION_BOUNDS[region][1] or card in seen:
             raise ValueError("wrong/duplicate source follicle ID")
         seen.add(card)
-        if bone not in {"neck","head","tail_1","tail_2","tail_3"}:
+        chosen[region].append(bone)
+        if bone not in REGION_BONES[region]:
             raise ValueError("unknown skinned pony source")
-        if region=="tail" and not bone.startswith("tail_"):
-            raise ValueError("wrong tail bone binding")
         if type(g["samples"])!=list or len(g["samples"])!=48:
             raise ValueError("incomplete 48-frame pony root/tip")
         previous=None
@@ -50,8 +51,12 @@ def classify(c):
             if previous and distance(root,previous)>1:
                 raise ValueError("unbounded source root motion between adjacent frames")
             previous=root
-    if seen!={i for indices in IDS.values() for i in indices}:
-        raise ValueError("source hair identity coverage lost")
+    if any(len(chosen[r])!=2 for r in REGIONS):
+        raise ValueError("two distinct sampled follicles required per region")
+    if set(chosen["mane"])!={"head","neck"}:
+        raise ValueError("mane source must cover neck and head attachments")
+    if len(set(chosen["tail"]))!=2:
+        raise ValueError("tail source must cover two distinct animated bone owners")
     raw=json.dumps(c,sort_keys=True,separators=(",",":")).encode()
     return {"schema":"equine.pony.guide_source_check.v1",
             "source_capsule_sha256":hashlib.sha256(raw).hexdigest(),
