@@ -70,23 +70,26 @@ def observe(path, out_dir, label):
     scene.display.shading.color_type="MATERIAL"
     scene.display.shading.light="STUDIO"
     scene.display.shading.show_shadows=True
+    scene.display.shading.background_type="VIEWPORT"
+    scene.display.shading.background_color=(.19,.22,.26)
+    scene.display.shading.show_cavity=True
     scene.render.resolution_x=720
     scene.render.resolution_y=480
     scene.render.resolution_percentage=100
     scene.render.image_settings.file_format="PNG"
     scene.render.film_transparent=False
-    bpy.ops.object.camera_add(location=(0.,2.5,11.))
+    bpy.ops.object.camera_add(location=(0.,-11.,2.6))
     camera=bpy.context.object
     camera.name="R009TechnicalEvidenceCamera"
     camera.data.type="ORTHO"
-    camera.data.ortho_scale=9.0
+    camera.data.ortho_scale=8.3
     scene.camera=camera
     saved=[]
     for pose,frame in (("start",start),("end",end)):
         scene.frame_set(frame)
-        for view,loc in (("front",(0.,2.5,11.)),("oblique",(7.8,3.0,7.0))):
+        for view,loc in (("front",(0.,-11.5,2.5)),("oblique",(7.0,-9.0,3.0))):
             camera.location=loc
-            point=Vector((0.,1.05,0.))
+            point=Vector((0.,0.,1.05))
             direction=point-camera.location
             camera.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
             dest=out_dir/(label+"_"+pose+"_"+view+".png")
@@ -96,6 +99,28 @@ def observe(path, out_dir, label):
             check(dest.is_file() and dest.stat().st_size>2000,"NATIVE_RENDER_MISSING_OR_EMPTY")
             saved.append({"file":dest.name,"sha256":hashlib.sha256(dest.read_bytes()).hexdigest(),
                          "bytes":dest.stat().st_size,"frame":frame,"view":view})
+    # Independent closeups reveal face/garment geometry that the 2-actor
+    # overview cannot resolve, especially when actors are far apart.
+    scene.frame_set(end)
+    bpy.context.view_layer.update()
+    camera.data.ortho_scale=2.65
+    for actor in ("AsterOriginal","JuniperOriginal"):
+        actor_xyz=roots[actor].matrix_world.translation.copy()
+        target=actor_xyz+Vector((0.,0.,.95))
+        for view,offset in (("detail_front",Vector((0.,-5.0,1.0))),
+                            ("detail_oblique",Vector((3.1,-4.2,1.5)))):
+            camera.location=target+offset
+            camera.rotation_euler=(target-camera.location).to_track_quat("-Z","Y").to_euler()
+            dest=out_dir/(label+"_"+actor+"_"+view+".png")
+            check(not dest.exists(),"REFUSE_OVERWRITE_RENDER")
+            scene.render.filepath=str(dest)
+            bpy.ops.render.render(write_still=True)
+            check(dest.is_file() and dest.stat().st_size>2000,"NATIVE_DETAIL_RENDER_MISSING")
+            saved.append({"file":dest.name,
+                         "sha256":hashlib.sha256(dest.read_bytes()).hexdigest(),
+                         "bytes":dest.stat().st_size,
+                         "frame":end,"view":view,"actor":actor})
+    scene.camera.data.ortho_scale=8.3
     receipt={
         "schema":SCHEMA,"label":label,"source_sha256":source_sha,
         "blender_version":bpy.app.version_string,"render_engine":scene.render.engine,
@@ -107,6 +132,8 @@ def observe(path, out_dir, label):
         "animation_end_frame":end,
         "generated_renders":saved,
         "native_import_render_technical_pass":True,
+        "native_diagnostic_camera": "BLENDER_Z_UP_FRONT_NEGATIVE_Y",
+        "closeups_generated":True,
         "source_class":"ORIGINAL_SELF_AUTHORED_SYNTHETIC",
         "geometry_material_source_unchanged":True,
         "anatomical_quality_accepted":False,
