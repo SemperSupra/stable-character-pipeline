@@ -1,0 +1,64 @@
+name: Shetland original video temporal jump falsifier
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/visual_continuity/**"
+      - ".github/workflows/shetland-temporal-continuity.yml"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect-native-four-view:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify source hostile controls without ML dependencies
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/visual_continuity -p 'test_temporal_continuity.py' -v
+          python3 -m py_compile qualification/equine/visual_continuity/temporal_continuity.py
+      - name: Install FFmpeg for actual H264 decode on disposable public runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: Acquire byte-verified actual four-view original integrated pony source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: SemperSupra/stable-character-pipeline
+        run: |
+          set -euo pipefail
+          mkdir -p results/media
+          gh run download 42173374397 --repo "$GH_REPO" \
+            --name shetland-face-tail-hair-join-42173374397 --dir results/media
+          test -f results/media/diagnostic/side.mp4
+          test -f results/media/diagnostic/face.mp4
+          test -f results/media/diagnostic/mane.mp4
+          test -f results/media/diagnostic/tail.mp4
+      - name: Independent decoded temporal challenger and deliberate permutation attack
+        run: |
+          set -euo pipefail
+          python3 qualification/equine/visual_continuity/temporal_continuity.py \
+            --media-dir results/media/diagnostic --output results/temporal_challenger.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('results/temporal_challenger.json'))
+          assert r['visual_acceptance'] is False
+          assert r['biological_quality']=='UNKNOWN'
+          for view,z in r['views'].items():
+              assert z['normal']['flagged_center_frames_zero_based']==[],view
+              assert len(z['swapped_frames_12_36']['flagged_center_frames_zero_based'])>=3,view
+              assert z['normal']['distinct_frame_sha256']==z['swapped_frames_12_36']['distinct_frame_sha256']==48,view
+          print('INDEPENDENT_FRAME_ORDER_CHALLENGER_UNIQUE_DETECTION_PASS; BIOLOGICAL_REALISM_UNKNOWN')
+          PY
+      - name: Preserve small public-safe original-only differential evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: shetland-temporal-continuity-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: results/temporal_challenger.json
