@@ -1,0 +1,168 @@
+name: Equine exact-source native hoof geometry to planned audio falsifier
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/av_observer/**"
+      - ".github/workflows/equine-av-native-hoof-proxy.yml"
+      - "qualification/equine/ci_fanout/**"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  native-hoof-proxy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fail-closed source-native proof gate
+        id: fanout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/ci_fanout -p 'test_*.py' -q
+          if ! python3 qualification/equine/ci_fanout/proof_gate.py --workcell equine-av-native-hoof-proxy --out "$RUNNER_TEMP/scp-ci-fanout-receipt.json"; then
+            echo "run_native=true" >> "$GITHUB_OUTPUT"
+            echo "FAIL_CLOSED_NATIVE_AFTER_SELECTOR_ERROR"
+          fi
+      - name: Frozen public-original source rig and IK
+        if: steps.fanout.outputs.run_native == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 1b0a12da753ad662ec5b21f8d1aad73fba3224d9
+          path: original-ik
+          persist-credentials: false
+      - name: Frozen independent evaluated mesh observer
+        if: steps.fanout.outputs.run_native == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 7e03073f14df7e6103a30a96b8430ccb988914c8
+          path: hoof-observer
+          persist-credentials: false
+      - name: Frozen source-original gait event clock
+        if: steps.fanout.outputs.run_native == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 497203219d035bafd72be2d4a34786c1396526ff
+          path: gait-frozen
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        if: steps.fanout.outputs.run_native == 'true'
+        with:
+          go-version: "1.23.2"
+          cache: false
+      - name: Test source contract, underflow, hover, skate and forged evidence
+        if: steps.fanout.outputs.run_native == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd qualification/equine/av_observer && go test -race -count=1 ./... && go vet ./... && go build -o "$RUNNER_TEMP/hoof-proxy" ./cmd/contact_proxy)
+          (cd gait-frozen/qualification/equine/gait && go test -count=1 ./... && go build -o "$RUNNER_TEMP/gaitclock" ./cmd/gaitclock)
+          mkdir -p "$GITHUB_WORKSPACE/results" "$RUNNER_TEMP/pony-native"
+          "$RUNNER_TEMP/gaitclock" -actor pony-black -gait walk -surface sand -cycles 1 -frames-per-cycle 48 -fps 24 -out "$GITHUB_WORKSPACE/results/48f_walk_events.json"
+      - name: Acquire SHA-verified official Blender runtime in disposable public runner
+        if: steps.fanout.outputs.run_native == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python original-ik/qualification/shetland_pony/build_blender.py -- "$RUNNER_TEMP/pony-native"
+      - name: Independent native evaluated skin-mesh hoof trajectory (same actual GLB)
+        if: steps.fanout.outputs.run_native == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python hoof-observer/qualification/equine/contact_eval/observed_hooves.py -- "$RUNNER_TEMP/pony-native/shetland_black_ghcr.glb" "$GITHUB_WORKSPACE/results/hoof_science.json"
+      - name: Cross-check source-bound native geometry against planned audible footfalls
+        if: steps.fanout.outputs.run_native == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          model="$RUNNER_TEMP/pony-native/shetland_black_ghcr.glb"
+          sha="$(sha256sum "$model" | cut -d' ' -f1)"
+          # This is a SAME-RUN provenance check; cross-run independent model SHA custody remains UNKNOWN.
+          set +e
+          "$RUNNER_TEMP/hoof-proxy" -planned results/48f_walk_events.json -observed results/hoof_science.json -glb "$model" -glb-sha256 "$sha" -receipt results/hoof_audio_proxy.json
+          code=$?
+          set -e
+          if [[ "$code" != 0 && "$code" != 1 ]]; then echo 'invalid/uncertain evidence input' >&2; exit 1; fi
+          python3 - <<'PY'
+          import json,pathlib
+          r=json.loads(pathlib.Path('results/hoof_audio_proxy.json').read_text())
+          assert r['schema']=='equine.audio-contact-proxy.v1'
+          assert r['contact_truth']=='UNKNOWN_NO_FORCE_SENSOR'
+          assert r['planned_event_count']==4
+          assert len(r['source_glb_sha256'])==64 and len(r['hoof_evidence_sha256'])==64
+          assert r['verdict'] in ('FAIL_PROXY_CONTRADICTS_PLANNED_AUDIO','NO_PROXY_CONTRADICTION_CONTACT_UNKNOWN')
+          print('NATIVE_SAME_GLBSHA_HOOF_PROXY_OBSERVED='+r['verdict']+'; PHYSICAL_CONTACT_UNKNOWN')
+          PY
+      - name: Red-team planned audio event contradicted by actual source hoof swing
+        if: steps.fanout.outputs.run_native == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          model="$RUNNER_TEMP/pony-native/shetland_black_ghcr.glb"
+          sha="$(sha256sum "$model" | cut -d' ' -f1)"
+          # Select an actual elevated hind-right hoof frame between its own
+          # neighboring planned events; do not invent a synthetic trajectory.
+          python3 - <<'PYRED'
+          import json,pathlib
+          observed=json.loads(pathlib.Path('results/hoof_science.json').read_text())
+          clock=json.loads(pathlib.Path('results/48f_walk_events.json').read_text())
+          assert clock['basis']=='SYNTHETIC_PLANNED' and clock['fps']==24 and clock['sample_rate']==48000
+          beats=clock['events']
+          assert [(e['foot'],e['frame']) for e in beats]==[('HL',0),('FL',12),('HR',24),('FR',36)]
+          near=observed['near_ground_threshold_m']
+          ground=observed['assumed_ground_z_m']
+          swing=[point['frame']-1 for point in observed['evaluated_hoof_trajectories']['hind_R_hoof']
+                 if 12 < point['frame']-1 < 36 and point['min_z']-ground > near+0.02]
+          assert swing, 'no independently observed elevated hind-right frame; science hold'
+          frame=swing[len(swing)//2]
+          beats[2]['frame']=frame
+          beats[2]['sample']=frame*clock['sample_rate']//clock['fps']
+          assert [e['frame'] for e in beats] == sorted(e['frame'] for e in beats)
+          out=pathlib.Path('results/48f_walk_events_negative_swing.json')
+          out.write_text(json.dumps(clock,sort_keys=True,indent=2)+'\n')
+          print('NATIVE_HOOF_SWING_NEGATIVE_INJECTED', frame)
+          PYRED
+          set +e
+          "$RUNNER_TEMP/hoof-proxy" -planned results/48f_walk_events_negative_swing.json \
+            -observed results/hoof_science.json -glb "$model" -glb-sha256 "$sha" \
+            -receipt results/hoof_audio_negative_swing.json
+          exit_code=$?
+          set -e
+          if [[ "$exit_code" != 1 ]]; then
+            echo "FAIL OPEN: actual airborne-hoof red-team event returned $exit_code" >&2
+            exit 1
+          fi
+          python3 - <<'PYVERIFY'
+          import json,pathlib
+          r=json.loads(pathlib.Path('results/hoof_audio_negative_swing.json').read_text())
+          assert r['verdict']=='FAIL_PROXY_CONTRADICTS_PLANNED_AUDIO',r
+          assert r['event_contradictions']>=1,r
+          assert r['contact_truth']=='UNKNOWN_NO_FORCE_SENSOR',r
+          assert any('planned HR frame' in reason for reason in r['reasons']),r
+          print('NATIVE_MEASURED_HOOF_EVENT_NEGATIVE_DETECTED; FORCES_UNKNOWN')
+          PYVERIFY
+      - name: Preserve small source-original exact evidence without protected media
+        if: ${{ (always()) && steps.fanout.outputs.run_native == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-hoof-audio-proxy-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: results/*.json

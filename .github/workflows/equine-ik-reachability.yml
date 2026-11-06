@@ -1,0 +1,74 @@
+name: Equine exact-source CPU kinematic reachability preflight
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/kinematic_reach/**"
+      - ".github/workflows/equine-ik-reachability.yml"
+      - "qualification/equine/ci_fanout/**"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source-reachability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fail-closed source-native proof gate
+        id: fanout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/ci_fanout -p 'test_*.py' -q
+          if ! python3 qualification/equine/ci_fanout/proof_gate.py --workcell equine-ik-reachability --out "$RUNNER_TEMP/scp-ci-fanout-receipt.json"; then
+            echo "run_native=true" >> "$GITHUB_OUTPUT"
+            echo "FAIL_CLOSED_NATIVE_AFTER_SELECTOR_ERROR"
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: steps.fanout.outputs.run_native == 'true'
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: b83187e7237186ded84989064de146be85a3cdc0
+          path: frozen-equine-source
+          persist-credentials: false
+      - name: Run independent source-only hostile analytical tests
+        if: steps.fanout.outputs.run_native == 'true'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/equine/kinematic_reach -p 'test_kinematic_reach.py' -v
+          python3 -m py_compile qualification/equine/kinematic_reach/kinematic_reach.py
+          test "$(git -C frozen-equine-source rev-parse HEAD)" = b83187e7237186ded84989064de146be85a3cdc0
+      - name: Analyze actual source 30-joint three-link motion feasibility and bounded reversible alternatives
+        if: steps.fanout.outputs.run_native == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          python3 qualification/equine/kinematic_reach/kinematic_reach.py \
+            --source-dir frozen-equine-source/qualification/shetland_pony \
+            --out results/kinematic_reach.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('results/kinematic_reach.json'))
+          assert r['schema']=='equine.ik.reachability-hypothesis.v1'
+          assert not r['biomechanical_acceptance'] and not r['source_mutation']
+          assert r['baseline']['front_L']['infeasible_frame_count']==34
+          assert r['baseline']['front_R']['infeasible_frame_count']==34
+          assert r['baseline']['hind_L']['infeasible_frame_count']==0
+          assert r['baseline']['hind_R']['infeasible_frame_count']==0
+          candidate=[x for x in r['candidate_sweep'] if x['candidate_posterior_carpus_shift_mm']==40][0]
+          assert candidate['front_infeasible_total']==0 and candidate['front_min_margin_m']>=.003
+          print('EXACT_SOURCE_IK_68_INFEASIBLE_FRONT_FRAME_SAMPLES; HYPOTHESIS_40MM_STATIC_ONLY; ANATOMY_UNKNOWN')
+          PY
+      - name: Preserve concise immutable source-only geometry report
+        if: ${{ (always()) && steps.fanout.outputs.run_native == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-ik-reachability-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: results/kinematic_reach.json
