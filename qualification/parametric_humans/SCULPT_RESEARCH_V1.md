@@ -24,11 +24,11 @@ From `sculpt_batch` with Python 3.10+ and the two already admitted exact source 
 
 ```sh
 python -m unittest -v test_sculpt_human_v1
-python build_all.py
+python build_all.py --input-dir /path/to/source-original-costume-glbs
 python render_all_styles.py  # VTK + trimesh + Pillow for local QA only
 ```
 
-The generator `sculpt_human_v1.py` itself requires only standard-library Python and its imported sibling `costume_garment_v1.py` from public PR #336. `build_all.py` additionally uses trimesh for independent reader qualification. The eight corpus-bound tests fail closed to SKIP when their exact source fixture is unavailable on a clean public runner; three hostile source-free controls always execute. Source-specific full-suite qualification requires an independently admitted local fixture.
+The generator `sculpt_human_v1.py` itself requires only standard-library Python and its imported sibling `costume_garment_v1.py` from public PR #336. `build_all.py` additionally uses trimesh for independent reader qualification. The eight corpus-bound tests fail closed to SKIP when their exact source fixture is unavailable on a clean public runner (provide it with `SCP_SCULPT_TEST_FIXTURE`); three hostile source-free controls always execute. Source-specific full-suite qualification requires an independently admitted local fixture.
 
 Local validation: 11/11 unit/hostile tests PASS (three source-free, eight corpus-bound); 4/4 independent GLB source/native-structure import PASS; 4/4 deterministic byte-identical generator replay PASS. Blender 4.5.15 native motion/cloth tests NOT_RUN in this local workcell.
 
