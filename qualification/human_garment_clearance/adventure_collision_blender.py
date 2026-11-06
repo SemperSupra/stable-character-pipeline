@@ -113,11 +113,11 @@ def skin_edges(obj):
 HEIGHT_BINS=((0.,.60),(.60,.85),(.85,1.05),(1.05,1.25),
              (1.25,1.45),(1.45,1.80),(1.80,100.))
 
-def height_bin(garment_y):
-    if not math.isfinite(garment_y):
+def height_bin(garment_height_z):
+    if not math.isfinite(garment_height_z):
         raise RuntimeError("INVALID_INTERSECTION_POSITION")
     for lo,hi in HEIGHT_BINS:
-        if lo<=garment_y<hi:return "{:.2f}-{:.2f}".format(lo,hi)
+        if lo<=garment_height_z<hi:return "{:.2f}-{:.2f}".format(lo,hi)
     return "OUTSIDE_SOURCE_BODY_HEIGHT"
 
 def crossing_count(a,b):
@@ -126,13 +126,13 @@ def crossing_count(a,b):
     tb=BVHTree.FromPolygons(q,g,all_triangles=True,epsilon=0.000001)
     pairs=sorted(set(tuple(pair) for pair in ta.overlap(tb)))
     # Use the actual *garment* triangle centroid (not a surrogate
-    # body vertex) to localize confirmed triangle crossings vertically.
+    # body vertex) to localize confirmed triangle crossings along Blender WORLD Z.
     # This is an evidence bin, not the precise intersection coordinate.
     bins={}
     for _,garment_triangle in pairs:
         triangle=g[garment_triangle]
-        y=sum(q[v][1] for v in triangle)/3.
-        label=height_bin(y)
+        height_z=sum(q[v][2] for v in triangle)/3.
+        label=height_bin(height_z)
         bins[label]=bins.get(label,0)+1
     if sum(bins.values())!=len(pairs):
         raise RuntimeError("SURFACE_CROSSING_HEIGHT_HISTOGRAM_LOSS")
@@ -177,7 +177,7 @@ def audit(source, out, expected_sha, frames=72):
                 pair_count,height_bins=crossing_count(body,garment)
                 frame_crossing[actor][slot].append({
                     "frame":frame,"body_garment_surface_triangle_pairs":pair_count,
-                    "height_bins_m":height_bins,
+                    "height_bins_blender_world_z_m":height_bins,
                     "surface_crossing_evidence":("OBSERVED" if pair_count else
                                                  "NOT_OBSERVED_IN_THIS_FRAME"),
                 })
@@ -197,13 +197,13 @@ def audit(source, out, expected_sha, frames=72):
             violating=sum(1 for row in c if row["body_garment_surface_triangle_pairs"]>0)
             total_by_height={}
             for row in c:
-                for key,n in row["height_bins_m"].items():
+                for key,n in row["height_bins_blender_world_z_m"].items():
                     total_by_height[key]=total_by_height.get(key,0)+n
             if sum(total_by_height.values())!=count:
                 raise RuntimeError("CROSSING_HISTOGRAM_TOTAL_MISMATCH")
             result[actor][slot]={
-                "crossing_height_bins_m":dict(sorted(total_by_height.items())),
-                "crossing_height_method":"garment_triangle_centroid_height_proxy",
+                "crossing_height_bins_blender_world_z_m":dict(sorted(total_by_height.items())),
+                "crossing_height_method":"garment_triangle_centroid_blender_world_Z; imported glTF Y-up -> Blender Z-up",
                 "frames_checked":frames,
                 "per_frame":c,
                 "frames_with_surface_crossings":violating,
@@ -242,7 +242,7 @@ def audit(source, out, expected_sha, frames=72):
                           "frames_with_surface_crossings",
                           "total_body_garment_triangle_pairs",
                           "p99_edge_relative_strain","strain_policy",
-                          "surface_crossing_verdict","crossing_height_bins_m")}
+                          "surface_crossing_verdict","crossing_height_bins_blender_world_z_m")}
                           for s in SLOTS[1:]} for a in ACTORS},
                       "garment_clearance_accepted":False},sort_keys=True))
 
