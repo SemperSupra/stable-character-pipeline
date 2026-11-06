@@ -7,6 +7,7 @@ on:
       - "qualification/parametric_humans/test_surface_registration_v1.py"
       - "qualification/parametric_humans/test_surface_registration_quality.py"
       - "qualification/parametric_humans/test_surface_registration_metamorphic.py"
+      - "qualification/parametric_humans/disposable_parent_integration_trial.py"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
 
@@ -21,6 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Validate synthetic-only geometric contract
         env:
           SCP_VALIDATOR_PERF_OUT: ${{ runner.temp }}/r009-surface-validator-performance.json
@@ -51,6 +53,32 @@ jobs:
           assert m["anatomical_fidelity"]=="UNKNOWN" and not m["merge_release_CPE_approval"]
           print("SURFACE_METAMORPHIC_FRAME_SCALE_INDEX_PASS",m["grid_latency_ns"])
           PY
+      - name: Disposable exact-source parent BVH-v2 and child surface integration trial
+        if: github.event_name == 'pull_request'
+        env:
+          PARENT_HEAD_PIN: bca50fe99ba7d84e1153cda5fbdb173d7631ce4a
+          OLD_PARENT_PIN: 135d80dbec8ad0b3df15d85b426783e6d8d68d11
+          CHILD_HEAD: ${{ github.event.pull_request.head.sha }}
+          INTEGRATION_RECEIPT: ${{ runner.temp }}/r009-surface-parent-disposable-trial.json
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/parametric_humans/disposable_parent_integration_trial.py
+          python3 qualification/parametric_humans/disposable_parent_integration_trial.py
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["INTEGRATION_RECEIPT"])
+          receipt=json.loads(p.read_text())
+          assert receipt["schema"]=="scp.disposable_source_integration.v1"
+          assert receipt["parent_pr"]==308 and receipt["child_pr"]==336
+          assert receipt["combined_python_synthetic_tests"]=="PASS"
+          assert receipt["parent_bvh_schema"]=="scp.r009.original_bvh_surface_contact.v2"
+          assert receipt["child_source_scope_added"] and not receipt["unresolved_conflicts"]
+          assert not receipt["joint_native_blender_render_evaluated"]
+          assert receipt["scientific_anatomy"]=="UNKNOWN" and receipt["real_photo_fit"]=="NOT_RUN"
+          assert receipt["no_remote_branch_merge_or_push"]
+          assert not receipt["human_visual_acceptance"] and not receipt["merge_release_CPE_approval"]
+          print("DISPOSABLE_SOURCE_SYNTHETIC_ONLY_NO_PARENT_MUTATION")
+          PY
       - name: Preserve source-bounded synthetic validator performance receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -61,3 +89,4 @@ jobs:
           path: |
             ${{ runner.temp }}/r009-surface-validator-performance.json
             ${{ runner.temp }}/r009-surface-metamorphic.json
+            ${{ runner.temp }}/r009-surface-parent-disposable-trial.json
