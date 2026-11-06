@@ -85,13 +85,14 @@ func distinctPaths(in []CompareFile)([]string,error){
  if len(in)>=300 {return nil,errors.New("GITHUB_COMPARE_FILE_LIST_LIMIT_REACHED")}
  d:=map[string]bool{}
  for _,f:=range in{
-  s:=f.Filename
-  if s==""||strings.Contains(s,"
-")||strings.Contains(s,""){return nil,errors.New("UNTRUSTED_COMPARE_FILE_NAME")}
-  d[s]=true
+  name:=f.Filename
+  if name==""||strings.ContainsRune(name,rune(10))||strings.ContainsRune(name,rune(13)){
+   return nil,errors.New("UNTRUSTED_COMPARE_FILE_NAME")
+  }
+  d[name]=true
  }
  out:=make([]string,0,len(d))
- for s:=range d{out=append(out,s)}
+ for name:=range d{out=append(out,name)}
  sort.Strings(out)
  return out,nil
 }
@@ -142,18 +143,17 @@ func inspectDrifts(ctx context.Context,s Snapshot,ws Workset,compare compareFunc
 }
 func (r DriftReviewReport)Markdown()string{
  var b strings.Builder
- fmt.Fprintf(&b,"# SHA drift source compare — public read-only
+ fmt.Fprintf(&b, `# SHA drift source compare — public read-only
 
 As of %s UTC, **%d drifted PRs**, mutations **0**. These are exact GitHub compare source paths. Disjoint paths do **not** waive owner, rights, CI, custody or promotion gates.
 
-",r.AsOf,r.Count)
- b.WriteString("| Child / parent | Parent new commits | Child new commits | Current ahead / behind | Shared paths | Classification |
+`,r.AsOf,r.Count)
+ b.WriteString(`| Child / parent | Parent new commits | Child new commits | Current ahead / behind | Shared paths | Classification |
 |---|---:|---:|---:|---|---|
-")
+`)
  for _,d:=range r.Reviews{
-  fmt.Fprintf(&b,"| #%d / #%d | %d | %d | %d / %d | %s | %s |
-",
-    d.ChildPR,d.ParentPR,d.ParentNewCommits,d.ChildNewCommits,
+  fmt.Fprintf(&b, `| #%d / #%d | %d | %d | %d / %d | %s | %s |
+`,d.ChildPR,d.ParentPR,d.ParentNewCommits,d.ChildNewCommits,
     d.CurrentDivergenceAhead,d.CurrentDivergenceBehind,
     strings.Join(d.SharedModifiedPaths,", "),d.Classification)
  }
