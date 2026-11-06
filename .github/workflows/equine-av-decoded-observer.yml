@@ -44,6 +44,7 @@ jobs:
         if: steps.fanout.outputs.run_native == 'true'
         env:
           SCP_AUDIO_VALIDATOR_PERF_OUT: ${{ runner.temp }}/equine-audio-validator-performance.json
+          SCP_AUDIO_STRESS_OUT: ${{ runner.temp }}/equine-audio-stress-telemetry.json
         run: |
           set -euo pipefail
           ffmpeg -version | head -1
@@ -70,6 +71,25 @@ jobs:
           assert r["verdict"]=="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"
           assert not r["merge_release_CPE_approval"]
           print("DECODED_AUDIO_VALIDATOR_QUALITY",r["validator_sha256"],r["runtime"])
+          PY
+      - name: Preserve observed layered-noise stress and scientific holds
+        if: steps.fanout.outputs.run_native == 'true'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"equine-audio-stress-telemetry.json"
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.equine.av_stress_telemetry.v1"
+          assert len(r["cases"])==9
+          assert (r["positive_count"],r["negative_count"],r["uncalibrated_count"])==(2,2,5)
+          assert r["false_acceptance_count"]==r["false_rejection_count"]==0
+          assert r["verdict"]=="STRESS_OBSERVATION_ONLY_SCIENTIFIC_HOLD"
+          assert r["physical_contact"]=="UNKNOWN_NOT_MEASURED"
+          assert r["animal_sound_identity"]=="UNKNOWN_UNIDENTIFIED_TRANSIENTS"
+          assert r["merge_release_CPE_approval"] is False
+          print("SYNTHETIC_AV_STRESS_SCIENTIFIC_HELD",r["validator_sha256"],
+                r["uncalibrated_cases_with_pass"],r["runtime_p95_ns"])
           PY
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         if: steps.fanout.outputs.run_native == 'true'
@@ -148,3 +168,4 @@ jobs:
             ${{ runner.temp }}/observer/decoded-pass.json
             ${{ runner.temp }}/observer/decoded-negative.json
             ${{ runner.temp }}/equine-audio-validator-performance.json
+            ${{ runner.temp }}/equine-audio-stress-telemetry.json
