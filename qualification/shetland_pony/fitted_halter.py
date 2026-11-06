@@ -6,8 +6,8 @@ import math
 # Real continuous strap strips, not scaled spherical proxies. Offsets in metres.
 NOSE_X=1.055
 NOSE_Z=.879
-NOSE_RY=.111
-NOSE_RZ=.080
+NOSE_RY=.124
+NOSE_RZ=.099
 STRAP_WIDTH=.023
 HALTER_CLEARANCE=.008
 
@@ -19,14 +19,14 @@ def nose_loop(steps=64):
 def cheek_path(side):
     if side not in ("L","R"): raise ValueError("invalid side")
     s=-1 if side=="L" else 1
-    return [(1.051,s*.107,.886),(.982,s*.111,.950),(.899,s*.140,1.019),
+    return [(1.051,s*.124,.886),(.982,s*.111,.950),(.899,s*.140,1.019),
             (.800,s*.158,1.100),(.724,s*.151,1.174)]
 
 def crown_loop(steps=32):
     # Over the poll, rather than through the head; arched around its width.
     if steps<12: raise ValueError("invalid crown samples")
-    return [(.724,.154*math.cos(math.pi*i/(steps-1)),
-             1.172+.112*math.sin(math.pi*i/(steps-1))) for i in range(steps)]
+    return [(.724,.174*math.cos(math.pi*i/(steps-1)),
+             1.172+.190*math.sin(math.pi*i/(steps-1))) for i in range(steps)]
 
 def throat_loop(steps=24):
     if steps<12: raise ValueError("invalid throat samples")
