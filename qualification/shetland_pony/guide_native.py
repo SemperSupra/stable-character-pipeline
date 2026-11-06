@@ -76,6 +76,27 @@ for frame in (1,13,25,43):
     bpy.context.scene.frame_set(frame)
     bpy.context.scene.render.filepath=str(out/("hair_%03d.png"%frame))
     bpy.ops.render.render(write_still=True)
+# Separate detail views for mane and tail motion, two frames each.
+from mathutils import Vector
+scene=bpy.context.scene
+original_camera=scene.camera
+for region,loc,look,scale in (
+    ("mane",(1.05,-1.55,1.50),(.46,0.,1.11),1.07),
+    ("tail",(-1.72,-1.42,1.30),(-.73,0.,.64),1.25),
+):
+    cam_data=bpy.data.cameras.new("HAIR_QA_"+region)
+    camera=bpy.data.objects.new("HairDetailQA_"+region,cam_data)
+    scene.collection.objects.link(camera)
+    camera.location=loc
+    camera.rotation_euler=(Vector(look)-camera.location).to_track_quat('-Z','Y').to_euler()
+    cam_data.type="ORTHO";cam_data.ortho_scale=scale
+    scene.camera=camera
+    for frame in (13,25):
+        scene.frame_set(frame)
+        scene.render.filepath=str(out/("hair_detail_"+region+"_%03d.png"%frame))
+        bpy.ops.render.render(write_still=True)
+scene.camera=original_camera
+
 bpy.context.scene.frame_set(1)
 bpy.ops.object.select_all(action="DESELECT")
 for obj in bpy.context.scene.objects:
