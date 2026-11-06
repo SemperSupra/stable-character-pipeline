@@ -1,0 +1,87 @@
+name: Equine public synthetic independent decoded AAC inspection
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/av_observer/**"
+      - ".github/workflows/equine-av-decoded-observer.yml"
+permissions:
+  contents: read
+jobs:
+  observer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: "1.23.2"
+          cache: false
+      - name: Independent observer hostile source tests and native AAC tests
+        run: |
+          set -euo pipefail
+          ffmpeg -version | head -1
+          cd qualification/equine/av_observer
+          go test -race -count=1 ./...
+          go vet ./...
+          go build -o "$RUNNER_TEMP/equine-av-observer" ./cmd/av_observer
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 497203219d035bafd72be2d4a34786c1396526ff
+          path: gait-frozen
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 630c31408d3b76575d361a51770b9a336393fd76
+          path: audio-frozen
+          persist-credentials: false
+      - name: Actual pinned producers, AAC encode and independent decode
+        run: |
+          set -euo pipefail
+          (cd gait-frozen/qualification/equine/gait && go build -o "$RUNNER_TEMP/gaitclock" ./cmd/gaitclock)
+          (cd audio-frozen/qualification/equine/audio && go build -o "$RUNNER_TEMP/hoof_fol" ./cmd/hoof_fol)
+          mkdir -p "$RUNNER_TEMP/observer"
+          "$RUNNER_TEMP/gaitclock" -actor pony-black -gait walk -surface sand \
+            -cycles 1 -frames-per-cycle 48 -fps 24 -out "$RUNNER_TEMP/observer/events.json"
+          "$RUNNER_TEMP/hoof_fol" -input "$RUNNER_TEMP/observer/events.json" \
+            -wav "$RUNNER_TEMP/observer/source.wav" \
+            -receipt "$RUNNER_TEMP/observer/synth.json" -seconds 2
+          ffmpeg -nostdin -hide_banner -loglevel error -y \
+            -f lavfi -i color=c=black:s=320x180:r=24:d=2 \
+            -i "$RUNNER_TEMP/observer/source.wav" \
+            -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 160k \
+            -t 2 "$RUNNER_TEMP/observer/synthetic-aac-mux.mp4"
+          "$RUNNER_TEMP/equine-av-observer" \
+            -events "$RUNNER_TEMP/observer/events.json" \
+            -audio "$RUNNER_TEMP/observer/synthetic-aac-mux.mp4" \
+            -receipt "$RUNNER_TEMP/observer/decoded-pass.json"
+      - name: Fail closed when same container metadata is silent
+        run: |
+          set -euo pipefail
+          ffmpeg -nostdin -hide_banner -loglevel error -y \
+            -f lavfi -i color=c=black:s=320x180:r=24:d=2 \
+            -f lavfi -i anullsrc=r=48000:cl=mono \
+            -map 0:v:0 -map 1:a:0 -c:v libx264 -pix_fmt yuv420p -c:a aac \
+            -t 2 "$RUNNER_TEMP/observer/silent-aac-mux.mp4"
+          if "$RUNNER_TEMP/equine-av-observer" \
+             -events "$RUNNER_TEMP/observer/events.json" \
+             -audio "$RUNNER_TEMP/observer/silent-aac-mux.mp4" \
+             -receipt "$RUNNER_TEMP/observer/decoded-negative.json"; then
+            echo 'FAIL OPEN: silent AAC was accepted' >&2; exit 1
+          fi
+          grep -q 'FAIL_AUDIO_TRANSIENT_ALIGNMENT' "$RUNNER_TEMP/observer/decoded-negative.json"
+      - name: Evidence from wholly original synthetic public sources
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equine-decoded-aac-observer-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/observer/events.json
+            ${{ runner.temp }}/observer/synth.json
+            ${{ runner.temp }}/observer/decoded-pass.json
+            ${{ runner.temp }}/observer/decoded-negative.json
