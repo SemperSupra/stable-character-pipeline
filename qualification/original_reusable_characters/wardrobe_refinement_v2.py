@@ -94,6 +94,84 @@ def knee_cap_to_source_joint(material,center,radii,bone):
     xyz=h.v1.POS[bone]
     return tuple(xyz),(.078,.086,.076),True
 
+def join_original_trouser_segments(g,material,upper,lower):
+    """One indexed pant-leg tube crossing the true knee joint.
+
+    This replaces two independent open-ended upper/lower trouser tubes with
+    ONE source-original manifold tube (open only at hip and ankle).
+    It does NOT seal the torso, ankle, other clothes, or whole human body.
+    Shape, vertex weights and normals are authored from source joint positions.
+    """
+    if material not in ("slatePants","ochrePants"):
+        raise ValueError("JOINED_TROUSER_MATERIAL_NOT_ORIGINAL")
+    start,knee,r0,r1,hip_role,knee_role,steps,sides=upper
+    lower_knee,ankle,s0,s1,lower_knee_role,ankle_role,lower_steps,lower_sides=lower
+    if (tuple(knee)!=tuple(lower_knee) or knee_role!=lower_knee_role
+        or knee_role!="knee_"+hip_role.removeprefix("hip_")
+        or ankle_role!="ankle_"+hip_role.removeprefix("hip_")
+        or steps!=lower_steps or sides!=lower_sides
+        or steps<3 or sides<8
+        or any(not math.isfinite(v) for p in (start,knee,ankle) for v in p)
+        or min(r0,r1,s0,s1)<=0):
+        raise ValueError("JOINED_TROUSER_SOURCE_SEAM_MISMATCH")
+    # Both formerly separate ring ends now use one shared knee ring, with
+    # a smoothly averaged radius and 100% source-knee skin influence.
+    knee_radius=(r1+s0)*.5
+    centers=[]
+    radii=[]
+    for k in range(steps+1):
+        t=k/steps
+        centers.append(tuple((1-t)*a+t*b for a,b in zip(start,knee)))
+        radii.append((1-t)*r0+t*knee_radius)
+    for k in range(1,steps+1):
+        t=k/steps
+        centers.append(tuple((1-t)*a+t*b for a,b in zip(knee,ankle)))
+        radii.append((1-t)*knee_radius+t*s1)
+    part=g.part(material)
+    offset=len(part["p"])//3
+    joints=[(hip_role,knee_role),(knee_role,ankle_role)]
+    for ri,(center,radius) in enumerate(zip(centers,radii)):
+        prev=centers[max(ri-1,0)]
+        nxt=centers[min(ri+1,len(centers)-1)]
+        tangent=h.v1.unit(h.v1.sub(nxt,prev))
+        ref=(0.,0.,1.) if abs(tangent[2])<.85 else (0.,1.,0.)
+        u=h.v1.unit(h.v1.cross(tangent,ref))
+        v=h.v1.unit(h.v1.cross(tangent,u))
+        if ri<=steps:
+            role0,role1=joints[0]
+            alpha=ri/steps
+        else:
+            role0,role1=joints[1]
+            alpha=(ri-steps)/steps
+        for sidei in range(sides):
+            phi=math.tau*sidei/sides
+            direction=tuple(u[j]*math.cos(phi)+v[j]*math.sin(phi) for j in range(3))
+            xyz=tuple(center[j]+radius*direction[j] for j in range(3))
+            part["p"].extend(xyz)
+            part["n"].extend(direction)
+            part["j"].extend((h.v1.JIDX[role0],h.v1.JIDX[role1],0,0))
+            part["w"].extend((1-alpha,alpha,0.,0.))
+    for ring in range(2*steps):
+        for sector in range(sides):
+            a=offset+ring*sides+sector
+            b=offset+ring*sides+(sector+1)%sides
+            c=a+sides
+            d=b+sides
+            part["i"].extend((a,b,c,b,d,c))
+    return {
+        "source_original_only":True,
+        "joint_knee_ring_index":offset+steps*sides,
+        "first_vertex_index":offset,
+        "rings":2*steps+1,
+        "sides":sides,
+        "vertices":(2*steps+1)*sides,
+        "triangles":4*steps*sides,
+        "watertight_at_knee":True,
+        "open_at_pelvis_and_ankle":True,
+        "whole_body_watertight":False,
+        "garment_collision_accepted":False,
+    }
+
 def continuous_figure(which):
     """Replace independent torso and face lofts by one weighted trunk/head loft.
 
@@ -104,9 +182,28 @@ def continuous_figure(which):
     original_tube=h.v1.Geometry.tube
     original_ellipsoid=h.v1.Geometry.ellipsoid
     lower_counts={"inset_hip_tubes":0,"joint_aligned_kneecaps":0}
+    leg_segments={side:{} for side in ("L","R")}
     def bounded_tube(self,material,start,end,r0,r1,bone_a,bone_b,steps=10,sides=18,ellipse=(1.,1.)):
         start,r0,changed=trouser_hip_inset(material,start,end,r0,bone_a,bone_b)
         if changed:lower_counts["inset_hip_tubes"]+=1
+        # Intercept only source-original trouser legs. The body underlayer,
+        # sleeves, and original figure modules are not changed.
+        is_upper=(material in ("slatePants","ochrePants")
+                  and bone_a in ("hip_L","hip_R")
+                  and bone_b=="knee_"+bone_a.removeprefix("hip_"))
+        is_lower=(material in ("slatePants","ochrePants")
+                  and bone_a in ("knee_L","knee_R")
+                  and bone_b=="ankle_"+bone_a.removeprefix("knee_"))
+        if is_upper or is_lower:
+            side=bone_a.rsplit("_",1)[1]
+            key="upper" if is_upper else "lower"
+            if key in leg_segments[side]:
+                raise ValueError("DUPLICATED_PANT_SEGMENT_"+key+"_"+side)
+            if ellipse!=(1.,1.):
+                raise ValueError("UNSUPPORTED_ORIGINAL_PANTS_ELLIPSE")
+            leg_segments[side][key]=(tuple(start),tuple(end),r0,r1,
+                                     bone_a,bone_b,steps,sides)
+            return None
         return original_tube(self,material,start,end,r0,r1,bone_a,bone_b,
                              steps=steps,sides=sides,ellipse=ellipse)
     def aligned_ellipsoid(self,material,center,radii,bone,lat=14,lon=20):
@@ -152,6 +249,21 @@ def continuous_figure(which):
         h.v1.Geometry.tube=bounded_tube
         h.v1.Geometry.ellipsoid=aligned_ellipsoid
         geo = v1.adult_body_geometry(which)
+        # The original figure had TWO unrelated open-ended pant tubes per
+        # leg. Replace them with one shared indexed knee ring, per side.
+        pants="slatePants" if which==0 else "ochrePants"
+        joined={}
+        for side in ("L","R"):
+            if set(leg_segments[side])!={"upper","lower"}:
+                raise ValueError("INCOMPLETE_JOINED_PANT_SOURCE_"+side)
+            upper=leg_segments[side]["upper"]
+            lower=leg_segments[side]["lower"]
+            merged_upper=(upper[0],upper[1],upper[2],upper[3],
+                          upper[4],upper[5],upper[6],upper[7])
+            merged_lower=(lower[0],lower[1],lower[2],lower[3],
+                          lower[4],lower[5],lower[6],lower[7])
+            joined[side]=join_original_trouser_segments(
+                geo,pants,merged_upper,merged_lower)
         gussets=attach_shoulder_gussets_original(geo,which)
     finally:
         h.loft_anatomy = original
@@ -165,6 +277,11 @@ def continuous_figure(which):
         raise ValueError("SOURCE_SHOULDER_BRIDGE_INCOMPLETE")
     if lower_counts!={"inset_hip_tubes":2,"joint_aligned_kneecaps":2}:
         raise ValueError("SOURCE_PANTS_HIP_KNEE_CORRECTION_INCOMPLETE:"+str(lower_counts))
+    if any(not joined[side]["watertight_at_knee"] or
+           joined[side]["whole_body_watertight"] or
+           joined[side]["rings"]!=2*18+1
+           for side in ("L","R")):
+        raise ValueError("KNEE_INDEXED_RING_INCOMPLETE")
     return geo
 
 def _append(d, binary, values, kind, fmt, count, target=None):
@@ -279,6 +396,7 @@ def distinct_cuts(master_path,manifest_path):
            "alt_bottom":"flared_calf_length_culottes_v2"}
     d["extras"]["wardrobe_contract"]["source_shoulder_transition"]="CHEST_SHOULDER_WEIGHTED_OVERLAPPING_GUSSETS_V2_NOT_WATERTIGHT"
     d["extras"]["wardrobe_contract"]["source_knee_transition"]="KNEE_ELLIPSOIDS_ALIGNED_TO_REST_JOINTS_NOT_WATERTIGHT"
+    d["extras"]["wardrobe_contract"]["original_pant_leg_topology"]="SINGLE_INDEXED_37_RING_KNEE_CONNECTED_OPEN_PELVIS_ANKLE"
     d["extras"]["wardrobe_contract"]["source_thigh_tubes"]="STARTS_INSET_UNDER_PELVIS_WAIST_YOKE"
     d["extras"]["wardrobe_contract"]["cut_profile"]="ORIGINAL_DIFFERENT_TOPOLOGY_V2_RESEARCH"
     d["extras"]["wardrobe_contract"]["human_cloth_acceptance"]="UNKNOWN"
@@ -319,6 +437,8 @@ def build(out,manifest):
             "weighted_shoulder_sleeve_root_gussets":True,
             "trouser_upper_thigh_tube_starts_inset":True,
             "original_source_kneecaps_aligned_to_joint_rest":True,
+            "original_pant_legs_continuous_indexed_through_knee":True,
+            "original_waist_pant_leg_seam_closed":False,
             "shoulder_or_body_watertight":False,
             "full_body_watertight":False,
             "new_alt_topology":True,
