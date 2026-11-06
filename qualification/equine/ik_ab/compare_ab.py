@@ -33,6 +33,10 @@ def side_report(science):
         f=by[name]
         for k in ('skate_pairs_over_3cm','max_near_ground_displacement_m','max_ground_penetration_m','frames_above_swing_clearance'):
             if k not in f or not math.isfinite(float(f[k])) or float(f[k])<0:raise ValueError('invalid physical proxy '+k)
+        # JSON true/false and fractional counts must not turn into valid event counts.
+        for key,cap in (('skate_pairs_over_3cm',47),('frames_above_swing_clearance',48)):
+            if type(f[key]) is not int or f[key] > cap:
+                raise ValueError('non-integral or impossible event count '+key)
         result[name]={'skate_pairs':int(f['skate_pairs_over_3cm']),
                       'max_frame_displacement_m':float(f['max_near_ground_displacement_m']),
                       'max_penetration_m':float(f['max_ground_penetration_m']),
@@ -62,8 +66,13 @@ def compare(baseline_hoof,candidate_hoof,baseline_rom,candidate_rom,baseline_rea
     novel_rom=sorted(new_rom_fail-baseline_rom_fail)
     hind_skate_before=sum(a[f]['skate_pairs'] for f in ('hind_L_hoof','hind_R_hoof'))
     hind_skate_after=sum(b[f]['skate_pairs'] for f in ('hind_L_hoof','hind_R_hoof'))
+    # Fix science false-positive: an IK proxy never improves if any hoof
+    # penetrates the ground more deeply than in the source-baseline model.
+    new_penetration_regressions=[f for f in FEET if
+        b[f]['max_penetration_m'] > a[f]['max_penetration_m'] + 1.e-6]
     improves=(new_fail<base_fail and new_skate<base_skate and front_swing==2 and
-              not novel_rom and hind_skate_after<=hind_skate_before)
+              not novel_rom and hind_skate_after<=hind_skate_before and
+              not new_penetration_regressions)
     return {'schema':'equine.ik.native-ab.noncertifying.v1',
       'source_class':'PUBLIC_ORIGINAL_SYNTHETIC','comparison':'EXACT_30J_NATIVE_EVALUATED_GLBS',
       'baseline_glb_sha256':baseline_sha,'candidate_glb_sha256':candidate_sha,
@@ -75,6 +84,7 @@ def compare(baseline_hoof,candidate_hoof,baseline_rom,candidate_rom,baseline_rea
       'baseline_rom_failure_codes':sorted(baseline_rom_fail),
       'candidate_rom_failure_codes':sorted(new_rom_fail),
       'new_rom_failures':novel_rom,
+      'new_ground_penetration_regressions':new_penetration_regressions,
       'candidate_anatomy_veterinary_acceptance':False,
       'candidate_contact_force_accepted':False,
       'candidate_visual_accepted':False,'merge_release_CPE_authorized':False,

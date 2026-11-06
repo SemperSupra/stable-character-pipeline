@@ -55,4 +55,22 @@ class ABTests(unittest.TestCase):
  def test_same_glb_cannot_be_an_ab(self):
   with self.assertRaises(ValueError):compare(self.science(),self.science(),self.rom(),self.rom(),self.reach(34),self.reach(0),'a'*64,'a'*64)
 
+ def test_ground_penetration_regression_never_earns_improvement(self):
+  baseline=self.science()
+  candidate=self.science(0,4)
+  candidate['feet']['front_L_hoof']['max_ground_penetration_m']=.00749
+  result=compare(baseline,candidate,self.rom(),self.rom(),self.reach(34),self.reach(0),'a'*64,'b'*64)
+  self.assertEqual(result['outcome'],'REJECT_OR_INCONCLUSIVE_CANDIDATE')
+  self.assertEqual(result['new_ground_penetration_regressions'],['front_L_hoof'])
+ def test_noninteger_and_impossible_event_counts_are_rejected(self):
+  for key,bad in (('skate_pairs_over_3cm',True),
+                  ('skate_pairs_over_3cm',.5),
+                  ('skate_pairs_over_3cm',48),
+                  ('frames_above_swing_clearance',49),
+                  ('frames_above_swing_clearance',False)):
+   with self.subTest(key=key,value=bad):
+    evidence=self.science()
+    evidence['feet']['front_L_hoof'][key]=bad
+    with self.assertRaises(ValueError):side_report(evidence)
+
 if __name__=='__main__':unittest.main()
