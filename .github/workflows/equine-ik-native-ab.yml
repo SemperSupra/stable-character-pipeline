@@ -113,6 +113,10 @@ jobs:
             env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
               -b --factory-startup --python-exit-code 8 \
               --python observer-rom/qualification/equine/rom/rom_native.py -- \
+              "$model" "$GITHUB_WORKSPACE/results/$variant/rom_legacy_two_link.json"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/equine/ik_ab/rom30_native.py -- \
               "$model" "$GITHUB_WORKSPACE/results/$variant/rom.json"
           done
       - name: Judge relative performance without overriding scientific holds
@@ -157,6 +161,8 @@ jobs:
             results/candidate/hoof.json
             results/baseline/rom.json
             results/candidate/rom.json
+            results/baseline/rom_legacy_two_link.json
+            results/candidate/rom_legacy_two_link.json
             results/baseline/reach.json
             results/candidate/reach.json
             results/candidate/patch_receipt.json

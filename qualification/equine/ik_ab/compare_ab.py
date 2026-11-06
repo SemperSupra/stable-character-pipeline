@@ -46,7 +46,7 @@ def compare(baseline_hoof,candidate_hoof,baseline_rom,candidate_rom,baseline_rea
     if baseline_sha==candidate_sha:raise ValueError('candidate model unchanged')
     a,b=side_report(baseline_hoof),side_report(candidate_hoof)
     for r in (baseline_rom,candidate_rom):
-        if r.get('schema')!='equine.rom.science.v1' or r.get('observed_frames')!=48:
+        if r.get('schema')!='equine.rom.actual-three-segment.v1' or r.get('observed_frames')!=48:
             raise ValueError('missing independent 48-frame joint observer')
         if set(r.get('joint_reports',{}))!=set(('front_L','front_R','hind_L','hind_R')):
             raise ValueError('missing joint metrics')

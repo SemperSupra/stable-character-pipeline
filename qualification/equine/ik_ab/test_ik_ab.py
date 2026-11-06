@@ -29,7 +29,7 @@ class ABTests(unittest.TestCase):
      'max_ground_penetration_m':0,'frames_above_swing_clearance':front_swing if front else 8}
   return {'schema':'equine.foot.science.v1','frames':48,'source':'native_evaluated_skin_mesh','feet':f}
  def rom(self,codes=()):
-  return {'schema':'equine.rom.science.v1','observed_frames':48,'joint_reports':{n:{} for n in ('front_L','front_R','hind_L','hind_R')},'failure_codes':list(codes)}
+  return {'schema':'equine.rom.actual-three-segment.v1','observed_frames':48,'joint_reports':{n:{} for n in ('front_L','front_R','hind_L','hind_R')},'failure_codes':list(codes)}
  def reach(self,n):
   return {'schema':'equine.ik.reachability-hypothesis.v1','baseline':{'front_L':{'infeasible_frame_count':n},'front_R':{'infeasible_frame_count':n}}}
  def test_candidate_earned_by_actual_geometry_not_reach_only(self):
