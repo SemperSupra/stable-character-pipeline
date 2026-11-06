@@ -87,6 +87,20 @@ func validate(g Groom, raw []byte) Receipt {
             }
         }
         if !finite(sum)||math.Abs(sum-1)>1e-6 {bad(label+"barycentric_sum")}
+        edge1:=[3]float64{}
+        edge2:=[3]float64{}
+        for axis:=0;axis<3;axis++ {
+            edge1[axis]=f.SourceTriangle[1][axis]-f.SourceTriangle[0][axis]
+            edge2[axis]=f.SourceTriangle[2][axis]-f.SourceTriangle[0][axis]
+        }
+        cross:=[3]float64{
+            edge1[1]*edge2[2]-edge1[2]*edge2[1],
+            edge1[2]*edge2[0]-edge1[0]*edge2[2],
+            edge1[0]*edge2[1]-edge1[1]*edge2[0],
+        }
+        area2:=math.Sqrt(cross[0]*cross[0]+cross[1]*cross[1]+cross[2]*cross[2])
+        if !finite(area2)||area2<1e-10 {bad(label+"degenerate_attachment_triangle")}
+
         if len(f.SkinWeights)<1||len(f.SkinWeights)>8 {bad(label+"skin_groups")}
         skinSum:=0.0
         for bone,w:=range f.SkinWeights{
