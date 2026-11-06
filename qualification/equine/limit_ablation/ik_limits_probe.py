@@ -19,7 +19,10 @@ def ablate(original:Path,destination:Path):
         updated=updated.replace(src,dst)
     if updated==content:raise ValueError('ablation did nothing')
     if destination.exists():raise ValueError('candidate overwrite forbidden')
-    if updated.replace('=False','=True')!=content:
+    restored=updated
+    for axis in FLAGS:
+        restored=restored.replace(f'bone.use_ik_limit_{axis}=False',f'bone.use_ik_limit_{axis}=True')
+    if restored!=content:
         raise ValueError('unbounded source operation')
     destination.write_text(updated)
     return {'schema':'equine.ik.source-axis-limit-ablation.v1','source_sha256':hashlib.sha256(content.encode()).hexdigest(),
