@@ -131,6 +131,26 @@ jobs:
                           assert 0<=row["min_m"]<=row["p10_m"]<=row["p50_m"]<=row["p90_m"]<=row["max_m"]
                           assert not row["penetration_qualified"] and not row["fit_accepted"]
               print("R009_GARMENT_NEAREST_VERTEX_72FRAME_DIAGNOSTIC_ONLY "+label)
+          for label,receipt in zip(("before","after"),receipts):
+              raw=(root/(label+"_surface_bvh.json")).read_bytes()
+              assert hashlib.sha256(raw).hexdigest()==receipt["bvh_surface_receipt_sha256"]
+              bvh=json.loads(raw)
+              assert bvh["schema"]=="scp.r009.original_bvh_surface_contact.v1"
+              assert bvh["native_bvh_positive_negative_calibration"]
+              assert bvh["motion_frames_evaluated"]==12
+              assert bvh["frame_indices"]==list(range(0,143,12))
+              assert not bvh["all_72_motion_frames_evaluated_for_bvh"]
+              assert not bvh["collision_free_proven"]
+              assert not bvh["garment_fit_accepted"]
+              assert not bvh["human_visual_accepted"] and not bvh["release_approved"]
+              for actor,slots in bvh["per_actor_slot"].items():
+                  assert set(slots)=={"top","bottom","footwear"}
+                  for slot,r in slots.items():
+                      assert r["sample_count"]==12 and len(r["samples"])==12
+                      assert r["pairs_total"]==sum(
+                          x["surface_overlap_triangle_pairs"] for x in r["samples"])
+                      assert all(not x["collision_free_proven"] for x in r["samples"])
+              print("R009_BVH_12POSE_SURFACE_CONTACT_DIAGNOSTIC_ONLY "+label)
           assert receipts[0]["source_sha256"]!=receipts[1]["source_sha256"]
           print("R009_NATIVE_BLENDER_TWO_STATES_EIGHT_VIEWS_TECHNICAL_ONLY_PASS")
           PY
