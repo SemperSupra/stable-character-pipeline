@@ -36,11 +36,25 @@ shapes={}
 for side in ("L","R"):
     eye=bpy.data.objects["eye_"+side]
     sign=-1 if side=="L" else 1
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=24,ring_count=12,location=(.795,sign*.166,1.169))
-    lid=bpy.context.object
-    lid.name="upper_eyelid_"+side
-    lid.scale=(.037,.011,.018)
-    bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+    # Upper lid is a thin anatomically oriented moving skin curtain, not an
+    # overlapping rigid ellipsoid. The top arc stays rooted as lower edge
+    # translates across the visible eyeball via a blendshape.
+    lidverts=[];lidfaces=[];samples=24
+    for j in range(samples+1):
+        u=2.*j/samples-1.
+        arc=math.sqrt(max(0.,1.-u*u))
+        x=.795+.036*u
+        y=sign*(.165+.002*arc)
+        upper=1.145+.032*arc
+        lidverts.extend(((x,y,upper+.002),(x,y,upper-(.0025+.003*arc))))
+    for j in range(samples):
+        a=2*j
+        lidfaces.extend(((a,a+1,a+2),(a+1,a+3,a+2)))
+    lidmesh=bpy.data.meshes.new("upper_eyelid_"+side+"_skin")
+    lidmesh.from_pydata(lidverts,[],lidfaces)
+    lidmesh.update()
+    lid=bpy.data.objects.new("upper_eyelid_"+side,lidmesh)
+    bpy.context.collection.objects.link(lid)
     lid.data.materials.append(coat)
     group=lid.vertex_groups.new(name="head")
     group.add(list(range(len(lid.data.vertices))),1.,"REPLACE")
@@ -48,9 +62,24 @@ for side in ("L","R"):
     mod=lid.modifiers.new("follow_synthetic_head","ARMATURE");mod.object=rig
     lid.shape_key_add(name="Basis",from_mix=False)
     closed=lid.shape_key_add(name="blink",from_mix=False)
-    for v in closed.data:v.co.z-=.033
+    for j in range(samples+1):
+        u=2.*j/samples-1.
+        arc=math.sqrt(max(0.,1.-u*u))
+        closed.data[2*j+1].co.z=1.145-.030*arc
     shapes["blink_"+side]=lid.data.shape_keys.key_blocks["blink"]
+    # Flatten glossy nostril-sphere proxy into a matte flexible equine slit.
     nostril=bpy.data.objects["nostril_"+side]
+    nostril.location.y+=sign*.014
+    for vertex in nostril.data.vertices:
+        vertex.co.x*=.64;vertex.co.y*=.26;vertex.co.z*=1.08
+    nostril_mat=bpy.data.materials.get("nostril_shadow") or bpy.data.materials.new("nostril_shadow")
+    nostril_mat.use_nodes=True
+    nostril_mat.diffuse_color=(.015,.012,.013,1.)
+    nose_bsdf=nostril_mat.node_tree.nodes.get("Principled BSDF")
+    if nose_bsdf:
+        nose_bsdf.inputs["Base Color"].default_value=(.015,.012,.013,1.)
+        nose_bsdf.inputs["Roughness"].default_value=.98
+    nostril.data.materials.clear();nostril.data.materials.append(nostril_mat)
     nostril.shape_key_add(name="Basis",from_mix=False)
     flare=nostril.shape_key_add(name="flare",from_mix=False)
     for v in flare.data:
