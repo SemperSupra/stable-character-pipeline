@@ -1,0 +1,37 @@
+name: SCP source-original two-view camera heldout intrinsics challenge
+on:
+  pull_request:
+    paths:
+      - 'qualification/agent_camera_calibration/**'
+      - '.github/workflows/scp-camera-intrinsics-heldout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-correspondence-observer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Reject parent-source or separate workcell modification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only 672edf4842a409deb1e10d573148e292ec05351d HEAD > "$RUNNER_TEMP/changed"
+          cat "$RUNNER_TEMP/changed"
+          if grep -v -E '^qualification/agent_camera_calibration/|^\.github/workflows/scp-camera-intrinsics-heldout\.yml$' "$RUNNER_TEMP/changed"; then
+            echo 'FAIL SOURCE OWNERSHIP' >&2
+            exit 2
+          fi
+      - name: Bounded original synthetic camera reprojection and hostile split tests
+        working-directory: qualification/agent_camera_calibration
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q .
+          python3 -m unittest discover -v -p 'test_*.py'
+      - name: Scientific admission remains held
+        run: |
+          echo 'CORRESPONDENCE_INTRINSICS_ONLY; PHOTO_IMAGE_BYTES_NOT_READ; EXTRINSICS_NOT_INDEPENDENT; REAL_PERSON_FIT_NOT_RUN; SCIENCE_UNKNOWN; RELEASE_CPE_MERGE_HELD'
