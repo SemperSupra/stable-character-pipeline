@@ -20,6 +20,7 @@ from sculpt_human_v1 import _read_accessor
 SCHEMA = 'scp.r009.makehuman35.retarget_candidate.v0'
 SOURCE_OBJ_SHA256 = '378921118144289030c9dad2e274dadc7affd8ff394a2ac93d562252b6513de8'
 SOURCE_GLB_SHA256 = '5e86d299bffbeb478d1e4945aeaefd2692ccff67dd641ef84170122a283eca1a'
+# Exact first derived GLB pin for independent motion / wardrobe observers.
 CANDIDATE_GLB_SHA256 = '57a4cfd1d9df7e6e2f7c2e44e68765a8ca4357895d5b075f9229b78a5bbcd36a'
 ACTORS = ('AsterOriginal', 'JuniperOriginal')
 DESIGN = 'classic_adventurer'

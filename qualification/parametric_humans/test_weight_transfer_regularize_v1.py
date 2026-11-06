@@ -4,11 +4,7 @@ import json
 import os
 from pathlib import Path
 import unittest
-try:
-    import numpy as np
-    import scipy # optional public runner; exact numerical/mesh tests gate if unavailable
-except ImportError:
-    np=None
+import numpy as np
 from costume_garment_v1 import _unpack_glb
 from sculpt_human_v1 import _read_accessor
 from weight_transfer_regularize_v1 import SkinGateError,check_sha,regularize,derive,SCHEMA,SOURCE_SHA,ACTORS
@@ -30,7 +26,6 @@ class SourceFree(unittest.TestCase):
         with self.assertRaisesRegex(SkinGateError,'SOURCE_SHA_MISMATCH'):check_sha(b'bad')
         with self.assertRaisesRegex(SkinGateError,'SOURCE_DIGEST_INVALID'):check_sha(b'bad','g'*64)
         self.assertEqual(len(SOURCE_SHA),64)
-    @unittest.skipUnless(np is not None, "NumPy/SciPy unavailable; source-only contract")
     def test_weld_keeps_uv_vertices(self):
         p,f,j,w=sample()
         out,wgt,note=regularize(p,f,j,w)
@@ -41,19 +36,16 @@ class SourceFree(unittest.TestCase):
         self.assertTrue(np.array_equal(wgt[0],wgt[6]))
         self.assertLess(np.max(abs(wgt.sum(axis=1)-1)),2e-5)
         self.assertFalse(note['motion_acceptance'])
-    @unittest.skipUnless(np is not None, "NumPy/SciPy unavailable; source-only contract")
     def test_determinism(self):
         p,f,j,w=sample()
         a=regularize(p,f,j,w);b=regularize(p,f,j,w)
         self.assertTrue(np.array_equal(a[0],b[0]))
         self.assertTrue(np.array_equal(a[1],b[1]))
         self.assertEqual(a[2],b[2])
-    @unittest.skipUnless(np is not None, "NumPy/SciPy unavailable; source-only contract")
     def test_invalid_alpha_and_iterations(self):
         p,f,j,w=sample()
         for param in ({'alpha':.99},{'alpha':float('nan')},{'iterations':0},{'iterations':1.0},{'iterations':9}):
             with self.subTest(param=param),self.assertRaises(SkinGateError):regularize(p,f,j,w,**param)
-    @unittest.skipUnless(np is not None, "NumPy/SciPy unavailable; source-only contract")
     def test_invalid_faces_and_weights(self):
         p,f,j,w=sample()
         with self.assertRaises(SkinGateError):regularize(p,np.array([[0,8,2],[2,3,4]]),j,w)
@@ -64,7 +56,7 @@ class SourceFree(unittest.TestCase):
     def test_nonpromotion(self):
         self.assertIn('regularization',SCHEMA)
 
-@unittest.skipUnless(np is not None and SRC.exists(),'Exact MakeHuman 35j source and NumPy/SciPy required (absent on public CI)')
+@unittest.skipUnless(SRC.exists(),'Exact MakeHuman 35j source absent (intentional on public CI)')
 class ActualSource(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
