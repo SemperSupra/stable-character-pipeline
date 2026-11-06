@@ -6,11 +6,12 @@ emitter spheres. It NEVER claims full equine fur collision/biology/renderer.
 import hashlib
 import json
 import math
-from pony_source_trajectory import classify,IDS,xyz,distance
+from pony_source_trajectory import classify,REGIONS,xyz,distance
 
 def quality(source,physics,animation):
     src=classify(source)
-    expected=set(i for ids in IDS.values() for i in ids)
+    by_region={r:tuple(g["card_id"] for g in source["guides"] if g["region"]==r) for r in REGIONS}
+    expected=set(i for ids in by_region.values() for i in ids)
     result={}
     for mode,data in (("physics",physics),("animation",animation)):
         if type(data)!=dict or data.get("schema")!="equine.pony.xpbd_source_proxy_48f.v1" or data.get("mode")!=mode:
@@ -32,7 +33,7 @@ def quality(source,physics,animation):
                 if type(row)!=dict or set(row)!={"card_id","region","root_world_m","tip_world_m","source_root_m","tip_minus_root_m","source_skin_root_error_m"}:
                     raise ValueError("forged sampled region or field")
                 card=row["card_id"]
-                if type(card)!=int or card not in expected or card in observed or row["region"]!=next(r for r,ids in IDS.items() if card in ids):
+                if type(card)!=int or card not in expected or card in observed or row["region"]!=next(r for r,ids in by_region.items() if card in ids):
                     raise ValueError("wrong source card")
                 original=next(x for x in source["guides"] if x["card_id"]==card)
                 target=xyz(original["samples"][idx]["root_m"])
@@ -49,7 +50,7 @@ def quality(source,physics,animation):
             parsed.append(observed)
         result[mode]=parsed
     moves={};control={}
-    for region,card_ids in IDS.items():
+    for region,card_ids in by_region.items():
         moves[region]=max(distance(result["physics"][f][card],result["physics"][0][card])
             for f in range(48) for card in card_ids)
         control[region]=max(distance(result["animation"][f][card],result["animation"][0][card])
