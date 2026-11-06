@@ -84,6 +84,8 @@ def provider_proof(run: dict, jobs: list[dict], artifacts: list[dict], *, workce
                    head: str, base: str, now: dt.datetime) -> bool:
     if workcell not in WORK or not SHA_RE.fullmatch(head) or base != BASE_SHA:
         return False
+    if run.get("path") != ".github/workflows/" + workcell + ".yml":
+        return False
     if run.get("event") != "pull_request" or run.get("status") != "completed" or run.get("conclusion") != "success":
         return False
     if run.get("head_branch") != BRANCH or not SHA_RE.fullmatch(str(run.get("head_sha", ""))):
@@ -154,13 +156,17 @@ def qualify(workcell: str, head: str, base: str, token: str, *, api=api_get, dif
         result["reason"] = "run required: unknown workcell/head/base or missing provider token"
         return result
     now = now or dt.datetime.now(dt.timezone.utc)
-    path = "/actions/workflows/" + urllib.parse.quote(workcell + ".yml") + "/runs?event=pull_request&branch=" + urllib.parse.quote(BRANCH, safe="") + "&per_page=100"
+    # Repository-wide run listing covers branch-defined workflows that are not
+    # registered on default main; filter exact workflow PATH and PR/branch below.
+    path = "/actions/runs?event=pull_request&branch=" + urllib.parse.quote(BRANCH, safe="") + "&per_page=100"
     try:
         response = api(path, token)
         runs = response.get("workflow_runs")
         if not isinstance(runs, list) or len(runs) > 100:
             raise ValueError("bad provider run listing")
         for run in runs:
+            if run.get("path") != ".github/workflows/" + workcell + ".yml":
+                continue
             old = run.get("head_sha", "")
             if old == head:  # the current run cannot serve as its own independent proof
                 continue

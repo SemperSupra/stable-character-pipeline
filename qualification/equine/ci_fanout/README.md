@@ -9,3 +9,17 @@ Every workflow still triggers on PR synchronize and reports status on the latest
 Evidence reuse does not transfer scientific animal anatomy, sound authenticity, force-bearing contact, rights, CPE, merging or release authority. Independent source/CI holds remain. If the workflow topology, upstream parent, dependency manifest, runtime, ref or source classification changes, requalify; when in doubt rerun. The current explicit workcell dependency policy is conservative and fail-closed. Per-job checkout still consumes short runner startup, but expensive Blender/FFmpeg/test steps can be avoided.
 
 Local adversarial controls: `python3 -m unittest discover -s qualification/equine/ci_fanout -p 'test_*.py' -v`; `python3 -m py_compile qualification/equine/ci_fanout/proof_gate.py`. The gate only calls GET (GitHub Actions REST), never changes GitHub state. Its own output says `run_native=true/false` and names a reused native run when qualified; each successor workcell retains first failures and its original artifact custody. The source-exact protected/private boundary is unchanged.
+
+## Preserved first real selective-reuse RED and corrective lookup
+
+The first targeted regression at PR head `f13c2e863df35f198b0224b13a486d6cf2340cb7`
+changed only `qualification/equine/kinematic_reach/CI_FANOUT_REGRESSION.md`;
+all eight PR workflows reran and all eight gates selected `run_native=true` despite
+valid prior SHA-protected source results. Actual GitHub repository-wide Actions
+listing proved those prior runs and digest-bearing artifacts exist. The original
+per-workflow-file enumeration was inadequate for workcells registered only on
+the PR branch. Source now enumerates **repository-wide public Actions runs**
+filtered by exact `.path` plus PR/branch/base/ancestry/native jobs and
+artifacts, instead of depending on that narrower workflow index. Retain the
+first negative cost result; do not report savings until the next native A/B
+commit proves the other seven gates actually select `run_native=false`.
