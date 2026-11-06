@@ -10,7 +10,7 @@ from modular_wardrobe_v1 import ACTORS, PRESETS
 from test_modular_wardrobe_v1 import witness
 from verify_original_glb import decode, accessory
 from wardrobe_refinement_v2 import build
-from wardrobe_export_preset import export
+from wardrobe_portable_export_v2 import export
 
 class RefinementTests(unittest.TestCase):
     @classmethod
@@ -72,8 +72,42 @@ class RefinementTests(unittest.TestCase):
                 self.assertIn("body",active)
                 self.assertEqual(active,set(result["active_layers"][actor]))
             self.assertTrue(result["source_geometry_preserved"])
+            self.assertEqual(result["portable_export_contract"],
+                             "scp.r009.original_wardrobe_portable_export.v2")
+            self.assertEqual(d["skins"],self.d["skins"])
+            self.assertEqual(d["animations"],self.d["animations"])
+            self.assertEqual(d["meshes"],self.d["meshes"])
+            for actor in ACTORS:
+                slots=self.m["actor_slots"][actor]
+                unwanted=set(slots)-set(PRESETS[choices[actor]])
+                self.assertEqual(set(result["inactive_mesh_bindings_removed"][actor]),
+                                 unwanted)
+                for slot,entry in slots.items():
+                    node=d["nodes"][entry["node"]]
+                    if slot in unwanted:
+                        self.assertNotIn("mesh",node,
+                                         "Blender imports inactive orphan meshes")
+                        self.assertNotIn("skin",node)
+                    else:
+                        self.assertIn("mesh",node)
+                        self.assertIn("skin",node)
+
             self.assertEqual(hashlib.sha256(glb.read_bytes()).hexdigest(),
                              result["derived_sha256"])
+
+    def test_portable_export_rejects_output_reuse_and_mutations(self):
+        outputs=self.root/"first-v2.glb",self.root/"first-v2.json"
+        selected={a:"unclothed" for a in ACTORS}
+        original_sha=hashlib.sha256(self.source.read_bytes()).hexdigest()
+        export(self.source,self.manifest,*outputs,selected)
+        with self.assertRaisesRegex(FileExistsError,
+                                    "REFUSE_OVERWRITE_EXISTING_PORTABLE_OUTPUT"):
+            export(self.source,self.manifest,*outputs,selected)
+        self.assertEqual(hashlib.sha256(self.source.read_bytes()).hexdigest(),
+                         original_sha)
+        with self.assertRaisesRegex(ValueError,"SOURCE_OR_RECEIPT_OVERWRITE_REFUSED"):
+            export(self.source,self.manifest,self.source,self.root/"forbid.json",
+                   selected)
 
     def test_output_immutability_and_manifest_falsifier(self):
         with self.assertRaisesRegex(ValueError,"IMMUTABLE_OUTPUT_EXISTS"):
