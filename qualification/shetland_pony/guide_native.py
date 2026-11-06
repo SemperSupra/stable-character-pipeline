@@ -9,6 +9,7 @@ import bpy
 import json
 import math
 import hashlib
+import os
 import sys
 from pathlib import Path
 from mathutils import Vector
@@ -21,6 +22,10 @@ if "--" not in sys.argv or len(sys.argv[sys.argv.index("--")+1:])!=2:
     raise SystemExit("usage: <input.blend> <outdir>")
 source,out=map(Path,sys.argv[sys.argv.index("--")+1:])
 if not source.is_file():raise FileNotFoundError(source)
+hair_mode=os.environ.get("SCP_HAIR_MODE","baseline")
+if hair_mode not in ("baseline","rest_candidate"):
+    raise ValueError("unrecognized hair experiment mode")
+rest_stiffness=60. if hair_mode=="rest_candidate" else 0.
 out.mkdir(parents=True,exist_ok=True)
 bpy.ops.wm.open_mainfile(filepath=str(source.resolve()))
 rig=bpy.data.objects.get("PonyRig30")
@@ -108,7 +113,11 @@ for members,j in spans:
     # are the exact deformed source root from the skinned motion, including
     # deliberate tail intent when loaded from the joined source .blend.
     root_frames=[initial]+trajectory
-    history=simulate(guide,48,wind=(-4.,.55,0.),root_frames=root_frames)
+    # Source-exact restorative-force candidate; default remains legacy zero
+    # force and retains the previously qualified historical GLB behavior.
+    rest_tip_frames=[source_tips[j][0]]+source_tips[j] if rest_stiffness else None
+    history=simulate(guide,48,wind=(-4.,.55,0.),root_frames=root_frames,
+                     rest_tip_frames=rest_tip_frames,rest_stiffness=rest_stiffness)
     speed=max(norm(sub(a,b))*24 for a,b in zip(trajectory,trajectory[1:]))
     max_root_speed=max(max_root_speed,speed)
     max_dynamic_lag=max(max_dynamic_lag,max(norm(sub(history[f][-1],source_tips[j][f])) for f in range(48)))
@@ -198,6 +207,8 @@ receipt={"schema":"equine.longhair.native.proof.v1","source_sha256":hashlib.sha2
     "guide_groups":len(groups),"baked_shape_keys":len(target_keys),
     "sim_physics_hz":120,"render_fps":24,"frames":48,
     "max_raw_tip_shift_m":max_tip_shift,"clamp_m":.22,
+    "hair_mode":hair_mode,"candidate_rest_stiffness_s2":rest_stiffness,
+    "source_rest_tip_trajectory":"actual evaluated original skin, not a learned target" if rest_stiffness else "disabled",
     "clamp_quality":quality,
     "max_observed_root_speed_m_s":max_root_speed,
     "max_world_tip_lag_m":max_dynamic_lag,
@@ -206,4 +217,4 @@ receipt={"schema":"equine.longhair.native.proof.v1","source_sha256":hashlib.sha2
     "export":"baked morph guide approximations, NOT GLB native physics",
     "visual_collision_acceptance":"UNKNOWN","files":files}
 (out/"hair_receipt.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
-print("GUIDE_WIND_NATIVE_CANDIDATE_EMITTED",json.dumps({"groups":len(groups),"glb":glb.stat().st_size,"clamp_quality_verdict":quality["overall"]["verdict"],"saturated_fraction":quality["overall"]["saturated_fraction"]}))
+print("GUIDE_WIND_NATIVE_CANDIDATE_EMITTED",json.dumps({"groups":len(groups),"glb":glb.stat().st_size,"hair_mode":hair_mode,"clamp_quality_verdict":quality["overall"]["verdict"],"saturated_fraction":quality["overall"]["saturated_fraction"]}))
