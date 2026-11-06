@@ -133,12 +133,27 @@ def main():
                 raise ValueError("child source fitter was lost during combination")
             if (target / WORKFLOW).read_text() != combined_workflow:
                 raise ValueError("joint parent-native and child-scope policy differs")
-            # No bpy import here; parent current native full 72-frame Blender
-            # tests must still execute separately on an exact combined source.
+            # First re-run the exact-child synthetic source contract after
+            # creating the ephemeral parent-v2+child worktree.
             run = command(sys.executable, "-m", "unittest", "-v", *TESTS,
                           cwd=target / "qualification/parametric_humans")
             print("COMBINED_SYNTHETIC_SURFACE_UNIT_STDOUT", run.stdout[-1200:])
             print("COMBINED_SYNTHETIC_SURFACE_UNIT_STDERR", run.stderr[-1800:])
+            native_receipt = None
+            native_mode = os.environ.get("SCP_NATIVE_COMBINED", "0")
+            if native_mode not in ("0", "1"):
+                raise ValueError("UNKNOWN_COMBINED_NATIVE_MODE")
+            if native_mode == "1":
+                module_path = "qualification/parametric_humans/disposable_combined_native_v1.py"
+                # Read the module from exact merged sources; never execute
+                # a reviewer-script version which differs from child head.
+                if (target / module_path).read_bytes() != source_bytes(child, module_path):
+                    raise ValueError("COMBINED_NATIVE_PRODUCER_SOURCE_DRIFT")
+                from disposable_combined_native_v1 import execute
+                native_receipt = execute(target,
+                    os.environ["NATIVE_OUTPUT_DIR"], os.environ["SCP_BLENDER"])
+                if not native_receipt["native_blender_72_frame_v2_receipts_checked"]:
+                    raise ValueError("NATIVE_V2_RECEIPT_UNQUALIFIED")
             observed = {
                 "schema": "scp.disposable_source_integration.v1",
                 "parent_pr": 308, "child_pr": 336,
@@ -150,13 +165,16 @@ def main():
                 "combined_python_synthetic_tests": "PASS",
                 "parent_bvh_schema": "scp.r009.original_bvh_surface_contact.v2",
                 "child_source_scope_added": True,
-                "joint_native_blender_render_evaluated": False,
+                "joint_native_blender_render_evaluated": native_receipt is not None,
+                "native_blender_receipt": native_receipt,
                 "human_visual_acceptance": False,
                 "real_photo_fit": "NOT_RUN",
                 "scientific_anatomy": "UNKNOWN",
                 "no_remote_branch_merge_or_push": True,
                 "merge_release_CPE_approval": False,
-                "disposition": "DISPOSABLE_COMBINED_SOURCE_SYNTHETIC_ONLY_JOINT_NATIVE_HELD"
+                "disposition": ("DISPOSABLE_COMBINED_NATIVE_V2_TECHNICAL_ONLY_SCIENCE_HELD"
+                                if native_receipt is not None else
+                                "DISPOSABLE_COMBINED_SOURCE_SYNTHETIC_ONLY_JOINT_NATIVE_HELD")
             }
             output.write_text(json.dumps(observed, indent=2, sort_keys=True) + "\n")
             print("DISPOSABLE_PARENT_BVH_V2_AND_CHILD_SURFACE_COMBINED_SOURCE_PASS")
