@@ -66,7 +66,7 @@ jobs:
           g=json.loads(raw[20:20+n].decode().strip())
           assert max(len(s["joints"]) for s in g["skins"])>=30
           assert g["animations"]
-          names=[m.get("name","") for m in g["meshes"]]
+          names=[n.get("name","") for n in g["nodes"]]
           morph_meshes=[m for m in g["meshes"] if any(p.get("targets") for p in m["primitives"])]
           assert any("upper_eyelid_L" in x for x in names)
           assert any("upper_eyelid_R" in x for x in names)
