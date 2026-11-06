@@ -11,7 +11,7 @@ import json
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from pony_source_trajectory import classify,IDS,SCHEMA
+from pony_source_trajectory import classify,REGION_BOUNDS,SCHEMA
 
 if "--" not in sys.argv or len(sys.argv[sys.argv.index("--")+1:])!=2:
     raise SystemExit("usage: blender -b --python pony_source_extract_native.py -- <actual.blend> <source.json>")
@@ -28,17 +28,34 @@ if groom is None or groom.type!="MESH" or len(groom.data.vertices)!=10500:
     raise ValueError("original curved hair topology absent")
 if not any(m.type=="ARMATURE" and m.object==rig for m in groom.modifiers):
     raise ValueError("groom not attached to original rig")
+def exact_owner(card):
+    vertex=groom.data.vertices[card*10]
+    if len(vertex.groups)!=1:
+        raise ValueError("source follicle skin assignment not single owner")
+    assignment=vertex.groups[0]
+    owner=groom.vertex_groups[assignment.group].name
+    if abs(assignment.weight-1)>1e-6:
+        raise ValueError("non-exact original skin weight")
+    return owner
+
+# Select representative follicles BY SOURCE BONE (rather than assuming
+# fixed synthetic card IDs represent the pony's different anatomy).
+def first_owner(region,bone):
+    start,stop=REGION_BOUNDS[region]
+    found=next((i for i in range(start,stop) if exact_owner(i)==bone),None)
+    if found is None:raise ValueError("missing source region/bone "+region+":"+bone)
+    return found
+selected={
+    "mane":(first_owner("mane","neck"),first_owner("mane","head")),
+    "forelock":(REGION_BOUNDS["forelock"][0],REGION_BOUNDS["forelock"][1]-1),
+    "tail":(first_owner("tail","tail_2"),first_owner("tail","tail_3")),
+}
 records=[]
-for region,ids in IDS.items():
+for region,ids in selected.items():
+    if len(set(ids))!=2:raise ValueError("duplicate region card")
     for card in ids:
-        vertex=groom.data.vertices[card*10]
-        if len(vertex.groups)!=1:
-            raise ValueError("source follicle skin assignment not single owner")
-        assignment=vertex.groups[0]
-        owner=groom.vertex_groups[assignment.group].name
-        if abs(assignment.weight-1)>1e-6:
-            raise ValueError("non-exact original skin weight")
-        records.append({"card_id":card,"region":region,"owner_bone":owner,"samples":[]})
+        records.append({"card_id":card,"region":region,
+                        "owner_bone":exact_owner(card),"samples":[]})
 scene=bpy.context.scene
 if scene.frame_start>1 or scene.frame_end<48:
     raise ValueError("incomplete original source sequence")
