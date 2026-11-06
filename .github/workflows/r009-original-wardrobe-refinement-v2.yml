@@ -1,0 +1,128 @@
+name: R009 source-original wardrobe refinement — independent native qualification
+on:
+  pull_request:
+    paths:
+      - 'qualification/original_reusable_characters/wardrobe_refinement_v2.py'
+      - 'qualification/original_reusable_characters/test_wardrobe_refinement_v2.py'
+      - 'qualification/original_reusable_characters/wardrobe_deformation_blender_v2.py'
+      - 'qualification/original_reusable_characters/wardrobe_console_v2.py'
+      - 'qualification/original_reusable_characters/test_wardrobe_console_v2.py'
+      - 'qualification/original_reusable_characters/wardrobe_portable_blender_v2.py'
+      - 'qualification/original_reusable_characters/wardrobe_portable_export_v2.py'
+      - 'qualification/original_reusable_characters/visual_shin_falsifier_v1.py'
+      - 'qualification/original_reusable_characters/test_visual_shin_falsifier_v1.py'
+      - '.github/workflows/r009-original-wardrobe-refinement-v2.yml'
+permissions:
+  contents: read
+jobs:
+  original-geometry-skin-portable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: DOPAV exact-parent, scoped-sources, first-RED hygiene gate
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p r009-evidence
+          [[ "$BASE_SHA" =~ ^[a-f0-9]{40}$ ]] && [[ "$HEAD_SHA" =~ ^[a-f0-9]{40}$ ]]
+          git cat-file -e "$BASE_SHA^{commit}"
+          git cat-file -e "$HEAD_SHA^{commit}"
+          git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > r009-evidence/changed_paths.txt
+          if grep -Ev '^(qualification/original_reusable_characters/(wardrobe_refinement_v2\.py|test_wardrobe_refinement_v2\.py|wardrobe_deformation_blender_v2\.py|wardrobe_console_v2\.py|test_wardrobe_console_v2\.py|wardrobe_portable_blender_v2\.py|wardrobe_portable_export_v2\.py|visual_shin_falsifier_v1\.py|test_visual_shin_falsifier_v1\.py|WARDROBE_REFINEMENT_V2\.md)|\.github/workflows/r009-original-wardrobe-refinement-v2\.yml)$' r009-evidence/changed_paths.txt; then
+            echo "OUT_OF_SCOPE_OR_PARENT_SOURCE_CHANGED"; exit 11
+          fi
+          git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- qualification/original_reusable_characters/wardrobe_export_preset.py
+          git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- qualification/original_reusable_characters/modular_wardrobe_v1.py
+          printf 'base=%s\nhead=%s\noriginal-authoring-untouched=TRUE\nmutations=0\n' "$BASE_SHA" "$HEAD_SHA" > r009-evidence/source_scope.txt
+      - name: Fresh source-only adversarial A1 A3 A4 A5 tests
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 -m compileall -q wardrobe_refinement_v2.py wardrobe_deformation_blender_v2.py wardrobe_console_v2.py wardrobe_portable_export_v2.py wardrobe_portable_blender_v2.py visual_shin_falsifier_v1.py test_visual_shin_falsifier_v1.py
+          python3 -m unittest -v test_wardrobe_refinement_v2 test_wardrobe_console_v2 test_visual_shin_falsifier_v1
+      - name: Build immutable v2 original geometry and truly different garment cuts
+        run: |
+          set -euo pipefail
+          mkdir -p r009-evidence
+          cd qualification/original_reusable_characters
+          python3 wardrobe_refinement_v2.py --out ../../r009-evidence/wardrobe_v2.glb --manifest ../../r009-evidence/wardrobe_v2_manifest.json --receipt ../../r009-evidence/wardrobe_v2_build.json
+          python3 wardrobe_console_v2.py inspect --input ../../r009-evidence/wardrobe_v2.glb --manifest ../../r009-evidence/wardrobe_v2_manifest.json | tee ../../r009-evidence/console_inspect.json
+          for preset in unclothed signature alternate; do
+            python3 wardrobe_console_v2.py export --input ../../r009-evidence/wardrobe_v2.glb --manifest ../../r009-evidence/wardrobe_v2_manifest.json --out ../../r009-evidence/portable_${preset}.glb --receipt ../../r009-evidence/portable_${preset}.json --aster "${preset}" --juniper "${preset}"
+          done
+          python3 -c 'import json; b=json.load(open("../../r009-evidence/wardrobe_v2_build.json")); m=json.load(open("../../r009-evidence/wardrobe_v2_manifest.json")); assert b["contiguous_trunk_neck_head_loft"] and m["separate_new_geometry_for_alternate"] and not b["full_body_watertight"] and not m["release_approved"] and b["two_tube_baseline_selected"] and not b["original_pant_legs_continuous_indexed_through_knee"] and not b["experimental_knee_visual_quality_rejected"]'
+      - name: Install hash-verified official Blender CPU and Xvfb
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: A2 72-frame native weighted deformation and A5 portable interchange
+        run: |
+          set -euo pipefail
+          b="$RUNNER_TEMP/blender-4.5.15-linux-x64/blender"
+          src="qualification/original_reusable_characters"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$b" -b --factory-startup --python-exit-code 8 --python "$src/wardrobe_deformation_blender_v2.py" -- --input "$PWD/r009-evidence/wardrobe_v2.glb" --receipt "$PWD/r009-evidence/deformation_all72.json"
+          for preset in unclothed signature alternate; do
+            render_args=()
+            if [ "$preset" = signature ]; then
+              render_args=(--render-dir "$PWD/r009-evidence")
+            fi
+            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$b" -b --factory-startup --python-exit-code 8 --python "$src/wardrobe_portable_blender_v2.py" -- --input "$PWD/r009-evidence/portable_${preset}.glb" --portable-receipt "$PWD/r009-evidence/portable_${preset}.json" --out "$PWD/r009-evidence/native_${preset}.json" "${render_args[@]}"
+          done
+          python3 - <<'PY'
+          import hashlib,json,pathlib,struct
+          root=pathlib.Path("r009-evidence")
+          for preset in ("unclothed","signature","alternate"):
+              checked=json.loads((root/("native_"+preset+".json")).read_text())
+              assert checked["schema"]=="scp.r009.original_portable_native.v2"
+              assert not checked["exported_foreign_meshes_observed"]
+              assert checked["source_wardrobe_meshes_only_in_render"]
+              assert checked["quarantined_nonexported_importer_helpers"]==["Icosphere","Icosphere.001"]
+          receipt=json.loads((root/"native_signature.json").read_text())
+          images=receipt["diagnostic_images"]
+          assert len(images)==8 and receipt["native_technical_images_produced"]==8
+          assert not receipt["human_appearance_accepted"]
+          assert {i["actor"] for i in images}=={"AsterOriginal","JuniperOriginal"}
+          assert {i["pose"] for i in images}=={"start","end"}
+          assert {i["view"] for i in images}=={"front","oblique"}
+          for rec in images:
+              data=(root/rec["file"]).read_bytes()
+              assert len(data)>2048 and data[:8]==b"\x89PNG\r\n\x1a\n"
+              assert struct.unpack(">II",data[16:24])==(720,480)
+              assert hashlib.sha256(data).hexdigest()==rec["sha256"]
+              assert rec["other_actor_hidden"]
+          print("R009_NATIVE_GUSSET_DIAGNOSTIC_RENDERS_TECHNICAL_ONLY")
+          PY
+          (cd qualification/original_reusable_characters; python3 visual_shin_falsifier_v1.py \
+            --input ../../r009-evidence/wardrobe_signature_AsterOriginal_start_front.png \
+            --out ../../r009-evidence/aster_start_front_shin_visual.json)
+          python3 - <<'PY'
+          import json
+          r=json.load(open("r009-evidence/aster_start_front_shin_visual.json"))
+          assert r["schema"]=="scp.r009.native_shin_exposure_falsifier.v1"
+          assert r["warm_exposure_pixels"]<=20 and r["slate_pant_pixels"]>=9000
+          assert not r["source_specific_regression_detected"]
+          assert not r["human_visual_accepted"] and not r["release_approved"]
+          print("R009_SOURCE_SPECIFIC_SHIN_REGRESSION_NEGATIVE_WITNESS_PASS")
+          PY
+          python3 -c 'import json; d=json.load(open("r009-evidence/deformation_all72.json")); assert d["frames_sampled"]==72 and not d["human_motion_and_cloth_fit_accepted"]; assert all(d["results"][a][s]["frames_evaluated"]==72 for a in d["results"] for s in d["results"][a]); print("NATIVE_STRUCTURAL_PASS_HUMAN_HELD")'
+          (cd r009-evidence; sha256sum ./* > SHA256SUMS; sha256sum -c SHA256SUMS)
+      - name: Preserve original QA outcomes including first native failures
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r009-original-wardrobe-refinement-v2-technical-only
+          retention-days: 7
+          if-no-files-found: warn
+          path: r009-evidence/
