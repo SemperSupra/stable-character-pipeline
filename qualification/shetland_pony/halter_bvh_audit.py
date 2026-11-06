@@ -50,7 +50,10 @@ for frame in frames:
     for part in parts:
         obj=bpy.data.objects[part].evaluated_get(dg)
         mesh=obj.to_mesh()
-        if mesh is None or len(mesh.vertices)<12:
+        # Cheekpieces are intentionally five control points × two ribbon
+        # vertices; only the closed noseband and longer loops need more.
+        expected_min=10 if part.startswith("halter_cheek_") else 24
+        if mesh is None or len(mesh.vertices)<expected_min:
             raise ValueError("missing evaluated strap surface "+part)
         tx=head_inv@obj.matrix_world
         signed=[];distances=[]
