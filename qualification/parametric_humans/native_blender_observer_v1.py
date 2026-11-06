@@ -106,11 +106,11 @@ def observe(path, out_dir, label):
     camera.data.ortho_scale=2.65
     for actor in ("AsterOriginal","JuniperOriginal"):
         actor_xyz=roots[actor].matrix_world.translation.copy()
-        target=actor_xyz+Vector((0.,0.,.95))
+        look_at=actor_xyz+Vector((0.,0.,.95))
         for view,offset in (("detail_front",Vector((0.,-5.0,1.0))),
                             ("detail_oblique",Vector((3.1,-4.2,1.5)))):
-            camera.location=target+offset
-            camera.rotation_euler=(target-camera.location).to_track_quat("-Z","Y").to_euler()
+            camera.location=look_at+offset
+            camera.rotation_euler=(look_at-camera.location).to_track_quat("-Z","Y").to_euler()
             dest=out_dir/(label+"_"+actor+"_"+view+".png")
             check(not dest.exists(),"REFUSE_OVERWRITE_RENDER")
             scene.render.filepath=str(dest)
