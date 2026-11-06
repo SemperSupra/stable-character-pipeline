@@ -71,8 +71,8 @@ if not 40<=len(spans)<=160:
 # supports pure hair and full face→tail→hair integration without hardcoded
 # tail behavior, animation curve names, or guessed joint accelerations.
 scene=bpy.context.scene
-source_roots={j:[] for _,_,j in spans}
-source_tips={j:[] for _,_,j in spans}
+source_roots={j:[] for _,j in spans}
+source_tips={j:[] for _,j in spans}
 source_inverse_skin={}
 for frame in range(1,49):
     scene.frame_set(frame)
