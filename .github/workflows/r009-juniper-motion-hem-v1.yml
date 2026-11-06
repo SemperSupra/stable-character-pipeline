@@ -1,0 +1,179 @@
+name: R009 Juniper lower hem 72f gait-penetration falsification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r009-juniper-motion-hem-v1.yml'
+      - 'qualification/juniper_motion_hem/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-juniper-hem-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  juniper-original-lower-hem-four-source-trials:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 27
+    env:
+      PYTHONPATH: ${{ github.workspace }}/qualification/original_reusable_characters:${{ github.workspace }}/qualification/human_fit_candidates:${{ github.workspace }}/qualification/juniper_motion_hem
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Original/actor/waist isolation and strict SHA hostile cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/juniper_motion_hem
+          python3 -m unittest -v test_motion_hem_candidates_v1
+      - name: Exact strict original source and experimental Juniper-only +14 percent parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 modular_wardrobe_v1.py --out "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json"
+          python3 parametric_morphology_v1.py \
+            --input "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json" \
+            --out "${RUNNER_TEMP}/morph.glb" --out-manifest "${RUNNER_TEMP}/morph.json" \
+            --receipt "${RUNNER_TEMP}/morph-receipt.json"
+          python3 original_mage_outfits_v1.py \
+            --input "${RUNNER_TEMP}/morph.glb" --manifest "${RUNNER_TEMP}/morph.json" \
+            --out "${RUNNER_TEMP}/author.glb" --out-manifest "${RUNNER_TEMP}/author.json" \
+            --receipt "${RUNNER_TEMP}/author-receipt.json"
+          python3 strict_mage_portable_v1.py \
+            --input "${RUNNER_TEMP}/author.glb" --manifest "${RUNNER_TEMP}/author.json" \
+            --out "${RUNNER_TEMP}/baseline.glb" --receipt "${RUNNER_TEMP}/baseline-strict-receipt.json" \
+            --aster adventure --juniper adventure
+          python3 ../human_fit_candidates/fit_radial_ablations_v1.py \
+            --input "${RUNNER_TEMP}/baseline.glb" \
+            --source-receipt "${RUNNER_TEMP}/baseline-strict-receipt.json" \
+            --out "${RUNNER_TEMP}/juniper_skirt_14.glb" \
+            --receipt "${RUNNER_TEMP}/juniper_skirt_14-source-receipt.json" \
+            --variant juniper_skirt_14
+      - name: Non-overwriting lower-hem Y-up taper variants, no owner source edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in hem_03 hem_06 hem_10 lower_hem_06; do
+            python3 qualification/juniper_motion_hem/motion_hem_candidates_v1.py \
+              --input "${RUNNER_TEMP}/juniper_skirt_14.glb" \
+              --source-receipt "${RUNNER_TEMP}/juniper_skirt_14-source-receipt.json" \
+              --out "${RUNNER_TEMP}/$v.glb" \
+              --receipt "${RUNNER_TEMP}/$v-source-receipt.json" \
+              --variant "$v"
+          done
+          sha256sum "${RUNNER_TEMP}/baseline.glb" \
+            "${RUNNER_TEMP}/juniper_skirt_14.glb" \
+            "${RUNNER_TEMP}/hem_03.glb" "${RUNNER_TEMP}/hem_06.glb" \
+            "${RUNNER_TEMP}/hem_10.glb" "${RUNNER_TEMP}/lower_hem_06.glb" \
+            > "${RUNNER_TEMP}/source-hypothesis-hashes.txt"
+      - name: Install SHA-verified official Blender 4.5.15 public CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "${RUNNER_TEMP}/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz"
+          (cd "${RUNNER_TEMP}"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz" -C "${RUNNER_TEMP}"
+      - name: Actual 72-frame native skinned-body vs original-skirt full-triangle BVH on all candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in baseline juniper_skirt_14 hem_03 hem_06 hem_10 lower_hem_06; do
+            sha="$(sha256sum "${RUNNER_TEMP}/$v.glb" | cut -d' ' -f1)"
+            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 \
+              "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/human_garment_clearance/adventure_collision_blender.py \
+              -- "${RUNNER_TEMP}/$v.glb" "${RUNNER_TEMP}/$v-72f.json" "$sha"
+          done
+      - name: Compare same exact 72 frames, no result laundering
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          baseline=json.loads((root/"baseline-72f.json").read_text())
+          original=json.loads((root/"juniper_skirt_14-72f.json").read_text())
+          a=original["observations"]["JuniperOriginal"]["style_bottom"]
+          assert baseline["source_sha256"]!=original["source_sha256"]
+          assert a["frames_checked"]==72 and a["total_body_garment_triangle_pairs"]>0
+          rows={}
+          for v in ("hem_03","hem_06","hem_10","lower_hem_06"):
+            record=json.loads((root/(v+"-72f.json")).read_text())
+            meta=json.loads((root/(v+"-source-receipt.json")).read_text())
+            assert record["source_sha256"]==meta["derived_sha256"]
+            assert meta["source_sha256"]==original["source_sha256"]
+            assert not record["garment_clearance_accepted"] and record["frame_count"]==72
+            for actor in ("AsterOriginal","JuniperOriginal"):
+              for slot in ("style_top","style_bottom"):
+                if (actor,slot)==("JuniperOriginal","style_bottom"):continue
+                baseline_slot=original["observations"][actor][slot]
+                candidate_slot=record["observations"][actor][slot]
+                assert baseline_slot["total_body_garment_triangle_pairs"]==candidate_slot["total_body_garment_triangle_pairs"]
+                assert baseline_slot["p99_edge_relative_strain"]==candidate_slot["p99_edge_relative_strain"]
+            s=record["observations"]["JuniperOriginal"]["style_bottom"]
+            pair=s["total_body_garment_triangle_pairs"]
+            strain=s["p99_edge_relative_strain"]
+            rows[v]={"surface_pairs_before":a["total_body_garment_triangle_pairs"],
+                     "surface_pairs_trial":pair,
+                     "surface_pair_delta":pair-a["total_body_garment_triangle_pairs"],
+                     "p99_strain_before":a["p99_edge_relative_strain"],
+                     "p99_strain_trial":strain,
+                     "p99_strain_delta":round(strain-a["p99_edge_relative_strain"],7),
+                     "offending_frames":s["frames_with_surface_crossings"],
+                     "crossing_height_bins":s["crossing_height_bins_blender_world_z_m"],
+                     "surface_crossing_verdict":s["surface_crossing_verdict"],
+                     "garment_fit_accepted":False,"eligible_auto_select":False}
+          report={"schema":"scp.r009.juniper_motion_hem_72f_comparison.v1",
+                  "baseline_strict_glb_sha256":baseline["source_sha256"],
+                  "parent_14percent_glb_sha256":original["source_sha256"],
+                  "candidates":rows,"garment_fit_accepted":False,
+                  "cloth_physics_accepted":False,"human_anatomy_accepted":False,
+                  "merge_release_cpe_held":True}
+          (root/"comparison.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+          print(json.dumps(report,sort_keys=True))
+          PY
+      - name: Reused exact camera original native Blender 12 front side waist PNGs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/native-hem"
+          for v in baseline juniper_skirt_14 hem_06 hem_10; do
+            sha="$(sha256sum "${RUNNER_TEMP}/$v.glb" | cut -d' ' -f1)"
+            xvfb-run -a -s '-screen 0 1280x1024x24' env LIBGL_ALWAYS_SOFTWARE=1 \
+              "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/juniper_motion_hem/native_hem_visual_v1.py \
+              -- "${RUNNER_TEMP}/$v.glb" "${RUNNER_TEMP}/native-hem" "$sha" "$v"
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"native-hem"
+          png=list(root.glob("*.png"))
+          ix=list(root.glob("*.json"))
+          assert len(png)==12 and len(ix)==4,(png,ix)
+          assert all(p.stat().st_size>10000 for p in png)
+          assert set(json.loads(f.read_text())["variant"] for f in ix)=={
+            "baseline","juniper_skirt_14","hem_06","hem_10"}
+          PY
+      - name: Archive exact source 72f receipts and original native PNGs, no public models
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: r009-juniper-motion-hem-72f-receipts
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/source-hypothesis-hashes.txt
+            ${{ runner.temp }}/baseline-strict-receipt.json
+            ${{ runner.temp }}/*-source-receipt.json
+            ${{ runner.temp }}/*-72f.json
+            ${{ runner.temp }}/comparison.json
+            ${{ runner.temp }}/native-hem/*.png
+            ${{ runner.temp }}/native-hem/*.json
