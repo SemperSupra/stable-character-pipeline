@@ -1,0 +1,146 @@
+name: R009 Aster original trouser hip and hem weights 72f falsifier
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r009-aster-trouser-weight-v1.yml'
+      - 'qualification/aster_trouser_weight/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-aster-weight-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-aster-seven-source-weight-trials:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: ${{ github.workspace }}/qualification/original_reusable_characters:${{ github.workspace }}/qualification/aster_trouser_weight
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Adversarial exact-source Python regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/aster_trouser_weight
+          python3 -m unittest -v test_aster_weight_trials_v1
+      - name: Build pinned source-original adult morph and exact strict portable adventure
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 modular_wardrobe_v1.py --out "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json"
+          python3 parametric_morphology_v1.py \
+            --input "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json" \
+            --out "${RUNNER_TEMP}/morph.glb" --out-manifest "${RUNNER_TEMP}/morph.json" \
+            --receipt "${RUNNER_TEMP}/morph-receipt.json"
+          python3 original_mage_outfits_v1.py \
+            --input "${RUNNER_TEMP}/morph.glb" --manifest "${RUNNER_TEMP}/morph.json" \
+            --out "${RUNNER_TEMP}/author.glb" --out-manifest "${RUNNER_TEMP}/author.json" \
+            --receipt "${RUNNER_TEMP}/author-receipt.json"
+          python3 strict_mage_portable_v1.py \
+            --input "${RUNNER_TEMP}/author.glb" --manifest "${RUNNER_TEMP}/author.json" \
+            --out "${RUNNER_TEMP}/baseline.glb" --receipt "${RUNNER_TEMP}/baseline-strict-receipt.json" \
+            --aster adventure --juniper adventure
+      - name: Derive seven bounded Aster-only weight candidates with no geometry or animation edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          for trial in hem_00 hem_15 hem_30 hem_50 hip_linear hip_smooth combo_hem30_linear; do
+            python3 qualification/aster_trouser_weight/aster_weight_trials_v1.py \
+              --input "${RUNNER_TEMP}/baseline.glb" \
+              --strict-receipt "${RUNNER_TEMP}/baseline-strict-receipt.json" \
+              --out "${RUNNER_TEMP}/$trial.glb" \
+              --receipt "${RUNNER_TEMP}/$trial-source-receipt.json" \
+              --variant "$trial"
+          done
+          sha256sum "${RUNNER_TEMP}/baseline.glb" \
+            "${RUNNER_TEMP}/hem_00.glb" "${RUNNER_TEMP}/hem_15.glb" \
+            "${RUNNER_TEMP}/hem_30.glb" "${RUNNER_TEMP}/hem_50.glb" \
+            "${RUNNER_TEMP}/hip_linear.glb" "${RUNNER_TEMP}/hip_smooth.glb" \
+            "${RUNNER_TEMP}/combo_hem30_linear.glb" > "${RUNNER_TEMP}/sha256-original-trials.txt"
+      - name: Install checksum-verified official Blender 4.5.15
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "${RUNNER_TEMP}/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz"
+          (cd "${RUNNER_TEMP}"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz" -C "${RUNNER_TEMP}"
+      - name: Independent actual evaluated-mesh BVH and p99 strain for 72 frames each
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in baseline hem_00 hem_15 hem_30 hem_50 hip_linear hip_smooth combo_hem30_linear; do
+            sha="$(sha256sum "${RUNNER_TEMP}/$v.glb" | cut -d' ' -f1)"
+            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 \
+              "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/human_garment_clearance/adventure_collision_blender.py \
+              -- "${RUNNER_TEMP}/$v.glb" "${RUNNER_TEMP}/$v-72f.json" "$sha"
+          done
+      - name: Report independent crossing and strain components; NEVER auto-accept garment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          baseline=json.loads((root/"baseline-72f.json").read_text())
+          assert baseline["frame_count"]==72 and not baseline["garment_clearance_accepted"]
+          trials={}
+          for v in ("hem_00","hem_15","hem_30","hem_50","hip_linear","hip_smooth","combo_hem30_linear"):
+            candidate=json.loads((root/(v+"-72f.json")).read_text())
+            source=json.loads((root/(v+"-source-receipt.json")).read_text())
+            assert candidate["source_sha256"]==source["derived_sha256"]
+            assert source["source_sha256"]==baseline["source_sha256"]
+            assert candidate["frame_count"]==72 and not candidate["garment_clearance_accepted"]
+            assert set(candidate["observations"])=={"AsterOriginal","JuniperOriginal"}
+            rows={}
+            for actor in ("AsterOriginal","JuniperOriginal"):
+              rows[actor]={}
+              for slot in ("style_top","style_bottom"):
+                b=baseline["observations"][actor][slot]
+                c=candidate["observations"][actor][slot]
+                pairs0,pairs1=b["total_body_garment_triangle_pairs"],c["total_body_garment_triangle_pairs"]
+                p990,p991=b["p99_edge_relative_strain"],c["p99_edge_relative_strain"]
+                if actor=="JuniperOriginal" or slot=="style_top":
+                  assert pairs0==pairs1 and p990==p991, "NONTARGET_ACTOR_OR_GARMENT_CHANGED"
+                rows[actor][slot]={"surface_pairs_before":pairs0,"surface_pairs_trial":pairs1,
+                  "surface_pairs_delta":pairs1-pairs0,
+                  "p99_edge_strain_before":p990,"p99_edge_strain_trial":p991,
+                  "p99_edge_strain_delta":round(p991-p990,7),
+                  "offending_frames":c["frames_with_surface_crossings"],
+                  "strain_over_25pct":p991>.25,
+                  "garment_fit_accepted":False}
+            trials[v]={"source_sha256":candidate["source_sha256"],"layers":rows,
+                       "eligible_for_automatic_selection":False}
+          result={"schema":"scp.r009.aster_trouser_weight_72f_comparison.v1",
+                  "source_sha256":baseline["source_sha256"],
+                  "baseline_receipt_sha256":hashlib.sha256((root/"baseline-72f.json").read_bytes()).hexdigest(),
+                  "trials":trials,"garment_clearance_accepted":False,
+                  "human_motion_accepted":False,"physically_simulated_cloth":False,
+                  "release_merge_cpe_held":True}
+          (root/"comparison.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          print(json.dumps({"schema":result["schema"],
+            "aster_trouser":{v:x["layers"]["AsterOriginal"]["style_bottom"]
+                             for v,x in trials.items()}},sort_keys=True))
+          PY
+      - name: Archive small source-bound receipts only, no GLBs or private data
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: r009-aster-original-trouser-weight-72f-receipts
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/sha256-original-trials.txt
+            ${{ runner.temp }}/baseline-strict-receipt.json
+            ${{ runner.temp }}/*-source-receipt.json
+            ${{ runner.temp }}/*-72f.json
+            ${{ runner.temp }}/comparison.json
