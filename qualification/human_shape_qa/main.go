@@ -136,14 +136,25 @@ func inspect(path string, meta ImageMeta) (Observation,error) {
     if ob.Coverage<0.01 || ob.Coverage>0.80{return ob,errors.New("SILHOUETTE_COVERAGE_OUT_OF_RANGE")}
     ob.Bounds=Rect{minx,miny,maxx,maxy}
     ob.Margins=[4]int{minx,miny,w-1-maxx,h-1-maxy}
-    for _,v:=range ob.Margins{if v<4{return ob,errors.New("SILHOUETTE_CROPPED")}}
+    // Face captures intentionally crop the torso below the neck. For them,
+    // only the upper/side bounds are framing gates; the bottom is an
+    // intentional close-up boundary and cannot be called a full-body pass.
+    if meta.View=="face" {
+        if ob.Margins[0]<4 || ob.Margins[1]<4 || ob.Margins[3]<4 {
+            return ob,fmt.Errorf("FACE_FOREHEAD_OR_SIDE_CROPPED margins=%v",ob.Margins)
+        }
+    } else {
+        for _,v:=range ob.Margins {
+            if v<4{return ob,fmt.Errorf("SILHOUETTE_CROPPED margins=%v",ob.Margins)}
+        }
+    }
     ob.UpperBandWidth=bandWidth(mask,.14,.34,miny,maxy)
     ob.MiddleBandWidth=bandWidth(mask,.42,.62,miny,maxy)
     ob.LowerBandWidth=bandWidth(mask,.72,.92,miny,maxy)
     if ob.UpperBandWidth==0 || ob.MiddleBandWidth==0 || ob.LowerBandWidth==0 {
         return ob,errors.New("SILHOUETTE_MISSING_BANDS")
     }
-    ob.Result="PASS_ALPHA_COMPLETENESS_AND_BOUNDS_ONLY"
+    if meta.View=="face" {ob.Result="PASS_FACE_TOP_AND_SIDE_FRAMING_ONLY"} else {ob.Result="PASS_FULL_BODY_ALPHA_COMPLETENESS_ONLY"}
     return ob,nil
 }
 func Evaluate(indexPath string) (Report,error) {
