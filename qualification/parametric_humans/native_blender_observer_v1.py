@@ -70,6 +70,8 @@ def observe(path, out_dir, label):
     scene.display.shading.color_type="MATERIAL"
     scene.display.shading.light="STUDIO"
     scene.display.shading.show_shadows=True
+    if scene.world is None:
+        scene.world=bpy.data.worlds.new("R009SyntheticTechnicalWorld")
     scene.world.color=(.22,.25,.29)
     scene.display.shading.background_type="WORLD"
     scene.display.shading.background_color=(.19,.22,.26)
