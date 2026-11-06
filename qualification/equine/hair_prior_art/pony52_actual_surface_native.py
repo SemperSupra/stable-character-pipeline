@@ -151,12 +151,18 @@ def main_native(args):
         raise ValueError("source blend did not match original 4.5 tested native result")
     mode=os.environ.get("SCP_52_MODE","physics")
     if mode not in ("physics","animation"):raise ValueError("unrecognized native physics mode")
+    morph_mode=os.environ.get("SCP_52_SOURCE_MORPHS","animated")
+    if morph_mode not in ("animated","disabled"):
+        raise ValueError("invalid source morph control; require explicit animated/disabled")
     rest_order=os.environ.get("SCP_52_REST_ORDER","armature_then_capture")
     if rest_order not in ("armature_then_capture","capture_then_armature"):
         raise ValueError("unknown source rest-capture experiment; no silent default")
     out.parent.mkdir(parents=True,exist_ok=True)
     receipt={"schema":SCHEMA,"mode":mode,"source_kind":"original_synthetic",
         "rest_capture_order":rest_order,"source_rest_order_experiment":True,
+        "source_wind_morph_mode":morph_mode,"source_wind_morphs_detected":0,
+        "source_wind_max_activity_per_frame":[],"source_wind_max_raw_activity_per_frame":[],
+        "wind_keys_disabled_in_memory_only":morph_mode=="disabled",
         "source_blend_sha256":capsule["source_blend_sha256"],
         "source_capsule_sha256":contract["source_capsule_sha256"],
         "source_surface":"geometric_coat_mane_tail",
@@ -181,8 +187,21 @@ def main_native(args):
         receipt["source_surface_has_armature_skin"]=True
         if len(groom.data.polygons)!=1050*8:
             raise ValueError("source grooming triangle topology changed")
+        wind_keys=[k for k in groom.data.shape_keys.key_blocks if k.name.startswith("wind_")] if groom.data.shape_keys else []
+        if len(wind_keys)!=9:
+            raise ValueError("source .blend did not retain nine original animated wind morph keys")
+        receipt["source_wind_morphs_detected"]=len(wind_keys)
+        def apply_source_wind_policy():
+            raw=max(abs(float(key.value)) for key in wind_keys)
+            if morph_mode=="disabled":
+                for key in wind_keys:key.value=0.
+            bpy.context.view_layer.update()
+            applied=max(abs(float(key.value)) for key in wind_keys)
+            if morph_mode=="disabled" and applied>1e-7:
+                raise ValueError("wind disabled source morph did not read back zero")
+            return raw,applied
         scene.frame_set(0);scene.frame_set(1)
-        bpy.context.view_layer.update()
+        receipt["source_wind_f1_raw_before_override"],receipt["source_wind_f1_applied"]=apply_source_wind_policy()
         stage="construct_original_unique_uv_root_anchors"
         # Each of 1050 source cards receives its own UV tile; NEVER reuse
         # the render UV set, where all cards deliberately overlap.
@@ -299,7 +318,10 @@ def main_native(args):
             raise ValueError("BVH raycast independent positive/negative controls broken")
         scene.frame_set(0);bpy.context.view_layer.update()
         for frame in range(1,49):
-            scene.frame_set(frame);bpy.context.view_layer.update()
+            scene.frame_set(frame)
+            raw,applied=apply_source_wind_policy()
+            receipt["source_wind_max_raw_activity_per_frame"].append(float(raw))
+            receipt["source_wind_max_activity_per_frame"].append(float(applied))
             deps=bpy.context.evaluated_depsgraph_get()
             evalhair=hair.evaluated_get(deps)
             if evalhair.type!="CURVES" or len(evalhair.data.curves)!=6 or len(evalhair.data.points)!=36:
@@ -348,7 +370,7 @@ def main_native(args):
     receipt["elapsed_s"]=round(time.perf_counter()-start,4)
     receipt["status"]="48F_ORIGINAL_SKIN_GROOM_NATIVE_GEOMETRY_OBSERVED" if not receipt["errors"] else "NATIVE_REAL_SOURCE_FAIL_CLOSED"
     out.write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n")
-    print("PONY_52_REAL_SKIN_SURFACE",json.dumps({k:receipt.get(k) for k in ("mode","rest_capture_order","status","frame_count","guide_count","maximum_actual_root_error_m","elapsed_s","errors")},sort_keys=True))
+    print("PONY_52_REAL_SKIN_SURFACE",json.dumps({k:receipt.get(k) for k in ("mode","rest_capture_order","source_wind_morph_mode","source_wind_f1_raw_before_override","status","frame_count","guide_count","maximum_actual_root_error_m","elapsed_s","errors")},sort_keys=True))
     if receipt["errors"]:raise RuntimeError("; ".join(receipt["errors"]))
 
 def selftest():
