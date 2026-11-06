@@ -100,7 +100,9 @@ jobs:
               assert r["imported_armatures"]>=2 and r["imported_meshes"]>=8
               assert r["initial_source_root_separation"]-r["final_source_root_separation"]>2
               assert not r["human_visual_accepted"] and not r["release_approved"]
-              assert len(r["generated_renders"])==4
+              assert len(r["generated_renders"])==8
+              assert r["native_diagnostic_camera"]=="BLENDER_Z_UP_FRONT_NEGATIVE_Y"
+              assert r["closeups_generated"]
               for image in r["generated_renders"]:
                   raw=(root/image["file"]).read_bytes()
                   assert raw[:8]==b"\x89PNG\r\n\x1a\n"
@@ -109,7 +111,8 @@ jobs:
           assert receipts[0]["source_sha256"]!=receipts[1]["source_sha256"]
           print("R009_NATIVE_BLENDER_TWO_STATES_EIGHT_VIEWS_TECHNICAL_ONLY_PASS")
           PY
-          sha256sum r009-native-evidence/* > r009-native-evidence/SHA256SUMS
+          (cd r009-native-evidence; sha256sum ./* > SHA256SUMS)
+          (cd r009-native-evidence; sha256sum -c SHA256SUMS)
       - name: Preserve exact source/evidence, including first native failures
         if: always()
         uses: actions/upload-artifact@v4
