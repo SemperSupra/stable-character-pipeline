@@ -107,8 +107,24 @@ def run(src,preset_receipt,out,render_dir=None):
                 "object_location":[round(float(v),5) for v in ob.location],
                 "hide_render":bool(ob.hide_render),
                 "collections":[c.name for c in ob.users_collection]})
-        print("R009_UNEXPECTED_IMPORT_MESH_DIAGNOSTIC "+json.dumps(diagnostic,sort_keys=True),flush=True)
-        raise ValueError("UNTRUSTED_STARTUP_OR_FOREIGN_MESH:"+str(foreign))
+        print("R009_IMPORTER_AUXILIARY_SHAPE_DIAGNOSTIC "+json.dumps(diagnostic,sort_keys=True),flush=True)
+        # Blender glTF importer creates an Icosphere custom-bone-display
+        # mesh for each armature in its glTF_not_exported helper collection.
+        # These are not in the original glTF mesh/node source at all.
+        # They are about 2 m across and otherwise occlude native PNGs.
+        # Quarantine ONLY proven non-exported, unparented Icosphere helpers;
+        # still fail closed for any unknown imported/exported scene mesh.
+        if len(diagnostic)>len(ACTORS) or any(
+            not entry["name"].startswith("Icosphere")
+            or entry["mesh_name"]!=entry["name"]
+            or entry["collections"]!=["glTF_not_exported"]
+            or entry["parent"] is not None
+            or entry["vertex_count"]<10
+            for entry in diagnostic):
+            raise ValueError("UNTRUSTED_EXPORTED_OR_FOREIGN_MESH:"+str(foreign))
+        for name in foreign:
+            bpy.data.objects[name].hide_render=True
+        print("R009_NONEXPORTED_Icosphere_HELPERS_HIDDEN "+json.dumps(foreign),flush=True)
     observed={a:set() for a in ACTORS}
     for ob in bpy.data.objects:
         if ob.type!="MESH":continue
@@ -129,6 +145,9 @@ def run(src,preset_receipt,out,render_dir=None):
         if not {"body","hair"}.issubset(observed[actor]):
             raise ValueError("PORTABLE_BODY_MISSING")
     result={"schema":"scp.r009.original_portable_native.v2",
+        "quarantined_nonexported_importer_helpers":foreign,
+        "exported_foreign_meshes_observed":False,
+        "source_wardrobe_meshes_only_in_render":True,
         "source_sha256":hashlib.sha256(src.read_bytes()).hexdigest(),
         "actors":{a:sorted(observed[a]) for a in ACTORS},
         "joint_count_per_actor":35,"scene_skin_import":"PASS",
