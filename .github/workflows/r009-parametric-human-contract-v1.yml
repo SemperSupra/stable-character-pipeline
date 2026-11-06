@@ -4,6 +4,7 @@ on:
     paths:
       - 'qualification/parametric_humans/**'
       - '.github/workflows/r009-parametric-human-contract-v1.yml'
+      - '.github/workflows/r009-synthetic-surface-registration-v1.yml'
 permissions:
   contents: read
 jobs:
@@ -27,7 +28,7 @@ jobs:
           git cat-file -e "$HEAD_SHA^{commit}"
           git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > r009-parametric-evidence/changed_paths.txt
-          if grep -Ev '^(qualification/parametric_humans/|\.github/workflows/r009-parametric-(human-contract|native-blender)-v1\.yml$)' r009-parametric-evidence/changed_paths.txt; then
+          if grep -Ev '^(qualification/parametric_humans/|\.github/workflows/(r009-parametric-(human-contract|native-blender)-v1|r009-synthetic-surface-registration-v1)\.yml$)' r009-parametric-evidence/changed_paths.txt; then
             echo "OUT_OF_SCOPE_SOURCE_OR_REPOSITORY_MUTATION"
             exit 11
           fi
@@ -36,7 +37,7 @@ jobs:
           import json,os,pathlib
           p=pathlib.Path("r009-parametric-evidence")
           changed=(p/"changed_paths.txt").read_text().splitlines()
-          assert changed and all(x.startswith("qualification/parametric_humans/") or x in (".github/workflows/r009-parametric-human-contract-v1.yml",".github/workflows/r009-parametric-native-blender-v1.yml") for x in changed)
+          assert changed and all(x.startswith("qualification/parametric_humans/") or x in (".github/workflows/r009-parametric-human-contract-v1.yml",".github/workflows/r009-parametric-native-blender-v1.yml",".github/workflows/r009-synthetic-surface-registration-v1.yml") for x in changed)
           record={"schema":"scp.r009.source_scope_hygiene.v1",
                   "base_sha":os.environ["BASE_SHA"],
                   "head_sha":os.environ["HEAD_SHA"],
