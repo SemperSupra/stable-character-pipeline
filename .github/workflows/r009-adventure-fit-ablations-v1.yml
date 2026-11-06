@@ -1,0 +1,118 @@
+name: R009 original human garment radius A/B native 72f falsification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r009-adventure-fit-ablations-v1.yml'
+      - 'qualification/human_fit_candidates/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-fit-ablations-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  four-candidates-vs-source-original:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: ${{ github.workspace }}/qualification/original_reusable_characters:${{ github.workspace }}/qualification/human_fit_candidates
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Original-only source-byte and hostile candidate checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/human_fit_candidates
+          python3 -m unittest -v test_fit_radial_ablations_v1
+      - name: One source-original 35-joint, 72-frame strict portable producer
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 modular_wardrobe_v1.py --out "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json"
+          python3 parametric_morphology_v1.py \
+            --input "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json" \
+            --out "${RUNNER_TEMP}/morph.glb" --out-manifest "${RUNNER_TEMP}/morph.json" \
+            --receipt "${RUNNER_TEMP}/morph-receipt.json"
+          python3 original_mage_outfits_v1.py \
+            --input "${RUNNER_TEMP}/morph.glb" --manifest "${RUNNER_TEMP}/morph.json" \
+            --out "${RUNNER_TEMP}/author.glb" --out-manifest "${RUNNER_TEMP}/author.json" \
+            --receipt "${RUNNER_TEMP}/author-receipt.json"
+          python3 strict_mage_portable_v1.py \
+            --input "${RUNNER_TEMP}/author.glb" --manifest "${RUNNER_TEMP}/author.json" \
+            --out "${RUNNER_TEMP}/baseline.glb" --receipt "${RUNNER_TEMP}/baseline-receipt.json" \
+            --aster adventure --juniper adventure
+      - name: Generate four separate SHA-bound hypotheses without altering baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in lower_8 upper_8 both_8 both_14; do
+            python3 qualification/human_fit_candidates/fit_radial_ablations_v1.py \
+              --input "${RUNNER_TEMP}/baseline.glb" \
+              --source-receipt "${RUNNER_TEMP}/baseline-receipt.json" \
+              --out "${RUNNER_TEMP}/$v.glb" \
+              --receipt "${RUNNER_TEMP}/$v-ablation.json" --variant "$v"
+          done
+          sha256sum "${RUNNER_TEMP}/baseline.glb" \
+            "${RUNNER_TEMP}/lower_8.glb" "${RUNNER_TEMP}/upper_8.glb" \
+            "${RUNNER_TEMP}/both_8.glb" "${RUNNER_TEMP}/both_14.glb" \
+            > "${RUNNER_TEMP}/candidate-glb-sha256.txt"
+      - name: Install official Blender 4.5.15 with SHA verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "${RUNNER_TEMP}/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz"
+          (cd "${RUNNER_TEMP}"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz" -C "${RUNNER_TEMP}"
+      - name: Run exact same independent full 72-frame BVH observer on baseline and four candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in baseline lower_8 upper_8 both_8 both_14; do
+            sha="$(sha256sum "${RUNNER_TEMP}/$v.glb" | cut -d' ' -f1)"
+            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 \
+              "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/human_garment_clearance/adventure_collision_blender.py \
+              -- "${RUNNER_TEMP}/$v.glb" "${RUNNER_TEMP}/$v-72f.json" "$sha"
+          done
+      - name: Independent source-verified baseline/candidate comparison (no false fit acceptance)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 qualification/human_fit_candidates/compare_72f_v1.py \
+            --baseline "${RUNNER_TEMP}/baseline-72f.json" \
+            --experiment-root "${RUNNER_TEMP}" \
+            --out "${RUNNER_TEMP}/ablation-comparison.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"ablation-comparison.json").read_text())
+          assert r["schema"]=="scp.r009.original_mage_72f_fit_comparison.v1"
+          assert len(r["variants"])==4
+          assert r["garment_clearance_accepted"] is False
+          assert r["appearance_accepted"] is False
+          assert r["merge_release_cpe_held"] is True
+          for v in r["variants"].values():
+            assert v["eligible_for_automatic_promotion"] is False
+            assert set(v["by_actor"])=={"AsterOriginal","JuniperOriginal"}
+          PY
+      - name: Archive source-bound numeric receipts only, no GLBs or protected assets
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: r009-original-fit-ablations-72f-receipts
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/candidate-glb-sha256.txt
+            ${{ runner.temp }}/baseline-receipt.json
+            ${{ runner.temp }}/baseline-72f.json
+            ${{ runner.temp }}/*-ablation.json
+            ${{ runner.temp }}/*-72f.json
+            ${{ runner.temp }}/ablation-comparison.json
