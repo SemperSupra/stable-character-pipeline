@@ -7,8 +7,11 @@ on:
       - "qualification/shetland_pony/guide_native.py"
       - "qualification/shetland_pony/curved_groom.py"
       - "qualification/shetland_pony/test_curved_groom.py"
-      - "qualification/shetland_pony/hair_clamp_quality.py"
+      - "qualification/shetland_pony/hair_clamp_quality.py qualification/shetland_pony/hair_contact_quality.py qualification/shetland_pony/hair_body_collision_native.py"
       - "qualification/shetland_pony/test_hair_clamp_quality.py"
+      - "qualification/shetland_pony/hair_contact_quality.py"
+      - "qualification/shetland_pony/test_hair_contact_quality.py"
+      - "qualification/shetland_pony/hair_body_collision_native.py"
       - ".github/workflows/shetland-hair-native.yml"
 permissions:
   contents: read
@@ -23,7 +26,7 @@ jobs:
       - name: Pure Python deterministic hostile qualification
         run: |
           set -euo pipefail
-          (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py test_hair_clamp_quality.py)
+          (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py test_hair_clamp_quality.py test_hair_contact_quality.py)
           python3 -m py_compile qualification/shetland_pony/guide_dynamics.py qualification/shetland_pony/guide_native.py qualification/shetland_pony/curved_groom.py qualification/shetland_pony/hair_clamp_quality.py
   native-blender:
     needs: source-hostile
@@ -102,6 +105,21 @@ jobs:
           assert len(list(dir.glob("hair_*.png")))==8
           print("NATIVE_HAIR_STRUCTURAL_PASS; VISUAL/BIOMECHANICAL_ACCEPTANCE_NOT_ASSERTED")
           PY
+      - name: Independently evaluate actual skinned 48f long-hair/body crossing (science hold)
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender/blender-4.5.15-linux-x64/blender" -b --factory-startup --python-exit-code 8 --python qualification/shetland_pony/hair_body_collision_native.py -- "$GITHUB_WORKSPACE/results/hair/equine_longhair_wind.blend" "$GITHUB_WORKSPACE/results/hair/hair_contact_48f.json"
+          python3 - <<'PY'
+          import json
+          r=json.load(open("results/hair/hair_contact_48f.json"))
+          assert r["schema"]=="equine.hair_body.contact_screen.v1"
+          assert r["frames"]==48 and r["frames_examined"]==48
+          assert r["source_cards"]==1050 and r["triangles_distal_75pct_per_frame"]==6300
+          assert r["scientific_hold"]=="KEEP"
+          assert r["visual_acceptance"] is False and r["release_or_CPE_admission"] is False
+          print("HAIR_NATIVE_48F_BVH_SCIENCE_WARNING",r["candidate_collision"],r["possible_region_frames"])
+          PY
       - name: Preserve original native evidence and first failures
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -113,4 +131,5 @@ jobs:
             results/hair/*.glb
             results/hair/*.png
             results/hair/*_receipt.json
+            results/hair/hair_contact_48f.json
             results/baseline/manifest.json
