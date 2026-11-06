@@ -19,6 +19,8 @@ from humanization_v2 import v1
 
 SCHEMA="scp.r009.aster_original_trouser_skinweight_trials.v1"
 OPTIONS={
+ "hem_00":("baseline",.00),
+ "hem_15":("baseline",.15),
  "hem_30":("baseline",.30),
  "hem_50":("baseline",.50),
  "hip_linear":("linear",1.),
