@@ -13,6 +13,7 @@ from mathutils.bvhtree import BVHTree
 import hashlib
 import json
 import math
+import time
 import sys
 from pathlib import Path
 
@@ -78,8 +79,9 @@ if any(bpy.data.objects.get(name) is None or bpy.data.objects[name].type!="MESH"
 limits={"mane":(0,440),"forelock":(440,670),"tail":(670,1050)}
 if any(b-a!=REGION_CARDS[name] for name,(a,b) in limits.items()):
     raise ValueError("source card partition drift")
-rows=[];states={r:set() for r in limits};all_faces_count=None
+rows=[];states={r:set() for r in limits};timings=[]
 for frame in range(1,49):
+    started=time.perf_counter()
     scene.frame_set(frame)
     dg=bpy.context.evaluated_depsgraph_get()
     points,faces=evaluated_points_and_triangles(groom,dg)
@@ -87,6 +89,8 @@ for frame in range(1,49):
         raise ValueError("changed longhair card topology in evaluated scene")
     region_faces={r:[] for r in limits}
     face_to_card={r:[] for r in limits}
+    tip_zone_faces={r:[] for r in limits}
+    tip_zone_to_card={r:[] for r in limits}
     for face in faces:
         card=face[0]//VERTS_PER_CARD
         if card<0 or card>=1050 or any(i//VERTS_PER_CARD!=card for i in face):
@@ -97,9 +101,13 @@ for frame in range(1,49):
         r="mane" if card<440 else "forelock" if card<670 else "tail"
         region_faces[r].append(face)
         face_to_card[r].append(card)
-    if sum(len(v) for v in region_faces.values())!=6300:
+        if min((i%VERTS_PER_CARD)//2 for i in face)>=3:
+            tip_zone_faces[r].append(face)
+            tip_zone_to_card[r].append(card)
+    if sum(len(v) for v in region_faces.values())!=6300 or sum(len(v) for v in tip_zone_faces.values())!=2100:
         raise ValueError("unexpected distal 75pct card polygon count")
     region_bvhs={r:make_bvh(points,region_faces[r]) for r in limits}
+    tip_bvhs={r:make_bvh(points,tip_zone_faces[r]) for r in limits}
     for region,(first,stop) in limits.items():
         digest=hashlib.sha256()
         for card in range(first,stop, max(1,(stop-first)//17)):
@@ -113,6 +121,10 @@ for frame in range(1,49):
             collider=make_bvh(target_points,target_faces)
             crossings=region_bvhs[region].overlap(collider)
             touched={face_to_card[region][h] for h,_ in crossings}
+            tip_crossings=tip_bvhs[region].overlap(collider)
+            tip_touched={tip_zone_to_card[region][h] for h,_ in tip_crossings}
+            if not tip_touched.issubset(touched):
+                raise ValueError("last-quarter contacts not subset of distal-75pct contacts")
             distances=[]
             for card in range(first,stop):
                 a=card*VERTS_PER_CARD
@@ -124,9 +136,11 @@ for frame in range(1,49):
                 distances.append(distance)
             rows.append({"frame":frame,"region":region,"obstacle":name,
                          "face_pairs":len(crossings),"card_count":len(touched),
+                         "tip_face_pairs":len(tip_crossings),"tip_card_count":len(tip_touched),
                          "tip_samples":stop-first,
                          "tips_within_5mm":sum(d<.005 for d in distances),
                          "min_tip_distance_m":min(distances)})
+    timings.append(time.perf_counter()-started)
     if frame in (1,12,24,36,48):
         print("EQUINE_HAIR_BODY_NATIVE_POSE",frame,"measured_targets",sum(len(x) for x in OBSTACLES.values()))
 result=classify(rows)
@@ -134,6 +148,13 @@ result.update({"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
                "engine":"Blender 4.5 source-evaluated skin and native BVHTree, triangles",
                "frames_examined":48,
                "source_cards":1050,"triangles_distal_75pct_per_frame":6300,
+               "triangles_last_quarter_per_frame":2100,
+               "native_observer_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+               "runtime_diagnostic_seconds":{"samples":48,
+                   "p50":round(sorted(timings)[23],4),
+                   "p95":round(sorted(timings)[math.ceil(.95*48)-1],4),
+                   "total":round(sum(timings),3),
+                   "comparability":"runner hardware/workload uncontrolled; diagnostic only"},
                "tip_sample_definition":"centroid of two final strand vertices per card",
                "deliberate_exclusion":"follicle first 25pct of each long-hair card only",
                "unique_tip_state_signatures_per_region":{r:len(states[r]) for r in limits},
@@ -142,6 +163,6 @@ result.update({"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
                "scientific_hold":"KEEP"})
 out.write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
 print("EQUINE_HAIR_BODY_48F_CONTACT_SCIENCE_HOLD",
-      result["candidate_collision"],
+      result["candidate_collision"],"tip_region_frames",result["tip_zone_possible_region_frames"],
       json.dumps({r:{o:a["hair_card_frame_observations"] for o,a in v["obstacle_contacts"].items()}
                    for r,v in result["regions"].items()},sort_keys=True))
