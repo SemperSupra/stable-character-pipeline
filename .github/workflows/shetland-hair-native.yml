@@ -13,6 +13,7 @@ on:
       - "qualification/equine/hair_prior_art/pony_source_extract_native.py"
       - "qualification/equine/hair_prior_art/pony52_source_shadow.py"
       - "qualification/equine/hair_prior_art/pony52_actual_surface_native.py"
+      - "qualification/equine/hair_prior_art/test_pony52_actual_surface_native.py"
       - "qualification/equine/hair_prior_art/pony52_pair_quality.py"
       - "qualification/equine/hair_prior_art/test_pony52_pair_quality.py"
       - "qualification/shetland_pony/test_hair_clamp_quality.py"
@@ -34,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           (cd qualification/shetland_pony && python3 -m unittest -v test_guide_dynamics.py test_curved_groom.py test_hair_clamp_quality.py test_hair_contact_quality.py)
-          (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_pony_source_trajectory.py test_pony52_pair_quality.py)
+          (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_pony_source_trajectory.py test_pony52_pair_quality.py test_pony52_actual_surface_native.py)
           python3 qualification/equine/hair_prior_art/pony52_actual_surface_native.py --selftest
           python3 -m py_compile qualification/equine/hair_prior_art/pony_source_extract_native.py qualification/equine/hair_prior_art/pony_source_trajectory.py
           python3 -m py_compile qualification/shetland_pony/guide_dynamics.py qualification/shetland_pony/guide_native.py qualification/shetland_pony/curved_groom.py qualification/shetland_pony/hair_clamp_quality.py
