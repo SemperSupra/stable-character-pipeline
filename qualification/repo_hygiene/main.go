@@ -175,10 +175,23 @@ func main(){
  if err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
  r,err:=audit(snap,stale);if err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
  workset,err:=buildWorkset(snap);if err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
+ // Offline snapshot mode never calls a network provider or claims exact source
+ // divergence completion; online live census pins and compares every drift.
+ var driftEvidence DriftReviewReport
+ if snapshotPath==""{
+  driftEvidence,err=inspectDrifts(context.Background(),snap,workset,makeGithubCompare(os.Getenv("GH_TOKEN")))
+  if err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
+  if driftEvidence.Count!=workset.BaseSHADriftCount{fmt.Fprintln(os.Stderr,"DRIFT_EVIDENCE_MISSING");os.Exit(1)}
+ }
  original,e1:=json.MarshalIndent(snap,"","  "); report,e2:=json.MarshalIndent(r,"","  ")
  if e1!=nil||e2!=nil {fmt.Fprintln(os.Stderr,"JSON_MARSHAL_FAILED");os.Exit(1)}
  if err=os.Mkdir(out,0700);err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
- for _,f:=range []struct{name string; data []byte}{{"snapshot.json",append(original,'\n')},{"report.json",append(report,'\n')},{"audit.md",[]byte(renderMD(r))},{"roots.json",workset.JSON()},{"roots.md",[]byte(workset.Markdown())}} {
+ artifacts:=[]struct{name string; data []byte}{{"snapshot.json",append(original,'\n')},{"report.json",append(report,'\\n')},{"audit.md",[]byte(renderMD(r))},{"roots.json",workset.JSON()},{"roots.md",[]byte(workset.Markdown())}}
+ if snapshotPath==""{
+  artifacts=append(artifacts,struct{name string;data []byte}{"drifts.json",driftEvidence.JSON()})
+  artifacts=append(artifacts,struct{name string;data []byte}{"drifts.md",[]byte(driftEvidence.Markdown())})
+ }
+ for _,f:=range artifacts {
   if err=writeNew(filepath.Join(out,f.name),f.data);err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
  }
  fmt.Printf("AUDIT_OK repo=%s PRs=%d roots=%d descendants=%d draft=%d stacked=%d needs_lineage=%d stale=%d complete=%t mutations=0 output=%s\n",repo,r.PRsScanned,workset.RootCount,workset.StackedCount,r.Stats["draft"],r.Stats["stacked_active"],r.Stats["nondefault_missing_parent"],r.Stats["stale_review"],r.Complete,out)
