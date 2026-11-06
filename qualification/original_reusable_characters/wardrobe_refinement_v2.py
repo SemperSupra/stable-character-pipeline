@@ -75,9 +75,11 @@ def trouser_hip_inset(material,start,end,radius,bone_a,bone_b):
         or not bone_a.startswith("hip_")
         or bone_b!="knee_"+bone_a.removeprefix("hip_")):
         return tuple(start),radius,False
-    fraction=.24
+    # First .24 setback exposed unclothed skin at the pelvis; visually RED.
+    # Retain a small 7.5% inset so the thigh shell remains under the coat hem.
+    fraction=.075
     moved=tuple(a+fraction*(b-a) for a,b in zip(start,end))
-    return moved,min(radius,.106),True
+    return moved,min(radius,.110),True
 
 def knee_cap_to_source_joint(material,center,radii,bone):
     """Align only original pant kneecap ellipsoids with 17-joint rest centers.
