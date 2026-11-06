@@ -13,6 +13,7 @@ import hashlib
 import json
 import math
 import struct
+import sys
 from pathlib import Path
 
 HEAD = "sculpt_equine_brow_bridge_muzzle"
@@ -122,7 +123,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--blend", required=True)
     p.add_argument("--receipt", required=True)
-    args = p.parse_args()
+    args = p.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else [])
     out = Path(args.receipt)
     if out.exists():
         raise ValueError("refuse overwrite prior evidence")
