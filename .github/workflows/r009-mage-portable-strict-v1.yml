@@ -1,0 +1,83 @@
+name: R009 original mage strict portable import qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r009-mage-portable-strict-v1.yml'
+      - 'qualification/original_reusable_characters/strict_mage_portable_v1.py'
+      - 'qualification/original_reusable_characters/test_strict_mage_portable_v1.py'
+      - 'qualification/original_reusable_characters/strict_mage_blender_witness.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-mage-portable-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-original-mage-portable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Source original deterministic strict portable and hostile tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 -m unittest -v test_strict_mage_portable_v1
+          python3 modular_wardrobe_v1.py --out "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json"
+          python3 parametric_morphology_v1.py \
+            --input "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json" \
+            --out "${RUNNER_TEMP}/morph.glb" --out-manifest "${RUNNER_TEMP}/morph.json" \
+            --receipt "${RUNNER_TEMP}/morph-receipt.json"
+          python3 original_mage_outfits_v1.py \
+            --input "${RUNNER_TEMP}/morph.glb" --manifest "${RUNNER_TEMP}/morph.json" \
+            --out "${RUNNER_TEMP}/authoring.glb" --out-manifest "${RUNNER_TEMP}/authoring.json" \
+            --receipt "${RUNNER_TEMP}/authoring-receipt.json"
+          python3 strict_mage_portable_v1.py \
+            --input "${RUNNER_TEMP}/authoring.glb" --manifest "${RUNNER_TEMP}/authoring.json" \
+            --out "${RUNNER_TEMP}/adventure.glb" --receipt "${RUNNER_TEMP}/adventure.json" \
+            --aster adventure --juniper adventure
+          python3 strict_mage_portable_v1.py \
+            --input "${RUNNER_TEMP}/authoring.glb" --manifest "${RUNNER_TEMP}/authoring.json" \
+            --out "${RUNNER_TEMP}/mixed.glb" --receipt "${RUNNER_TEMP}/mixed.json" \
+            --aster alternate --juniper signature
+          sha256sum "${RUNNER_TEMP}/authoring.glb" "${RUNNER_TEMP}/adventure.glb" "${RUNNER_TEMP}/mixed.glb" > "${RUNNER_TEMP}/portable-sha256.txt"
+      - name: Install official checksum-verified Blender 4.5.15
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "${RUNNER_TEMP}/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz"
+          (cd "${RUNNER_TEMP}"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz" -C "${RUNNER_TEMP}"
+      - name: Real Blender strict import (both new cuts, plus mixed legacy)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for mode in adventure mixed; do
+            sha="$(sha256sum "${RUNNER_TEMP}/$mode.glb" | cut -d' ' -f1)"
+            if [ "$mode" = adventure ]; then choices='{"AsterOriginal":"adventure","JuniperOriginal":"adventure"}'; else choices='{"AsterOriginal":"alternate","JuniperOriginal":"signature"}'; fi
+            xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+              -b --factory-startup --python-exit-code 8 \
+              --python qualification/original_reusable_characters/strict_mage_blender_witness.py \
+              -- "${RUNNER_TEMP}/$mode.glb" "${RUNNER_TEMP}/$mode-native.json" "$sha" "$choices"
+            python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["native_blender_import"]=="PASS_STRICT_MESH_VISIBILITY_ONLY" and sorted(r["armatures"].values())==[35,35] and r["skin_collision_accepted"] is False' "${RUNNER_TEMP}/$mode-native.json"
+          done
+      - name: Publish receipts only (no large binaries or private sources)
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: r009-strict-original-mage-portable-receipts
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/authoring-receipt.json
+            ${{ runner.temp }}/adventure.json
+            ${{ runner.temp }}/mixed.json
+            ${{ runner.temp }}/adventure-native.json
+            ${{ runner.temp }}/mixed-native.json
+            ${{ runner.temp }}/portable-sha256.txt
