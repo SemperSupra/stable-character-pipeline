@@ -1,0 +1,25 @@
+{
+  "schema": "scp.flora.architecture.v0.2",
+  "source_status": "original-synthetic-illustration",
+  "units": "metres, seconds, radians",
+  "coordinate_system": "Y-up; ground plane Y=0",
+  "families": ["grass", "wheat", "oats", "maize", "sunflower", "grapevine", "bamboo", "shrub", "tree", "conifer"],
+  "presets": ["Festuca pratensis", "Triticum aestivum", "Avena sativa", "Zea mays", "Helianthus annuus", "Vitis vinifera", "Phyllostachys aurea", "Corylus avellana", "Quercus robur", "Picea abies", "Secale cereale", "Malus domestica"],
+  "dynamics": {
+    "model": "bounded-kinematic-wind-displacement",
+    "gltf_targets": 4,
+    "keyframes": 13,
+    "default_loop_seconds": 4,
+    "root_lock_contract": "vertex with Y=0 has zero morph displacement",
+    "limitations": ["rest-pose normals", "no XPBD", "no contact", "no true plant growth"]
+  },
+  "classification": {
+    "qualifies": "binary GLB validation and deterministic synthetic generation",
+    "does_not_qualify": ["botanical species likeness", "physical plant dynamics", "scientific growth", "automated terrain fitting", "production LOD"]
+  },
+  "output_policy": {
+    "git": "Go source, presets, tests, DLE notes, hashes and small JSON receipts",
+    "drive": "generated GLB, full ZIP, GIF and contact sheet",
+    "third_party": "none vendored in prototype; source adaptations separately qualified"
+  }
+}

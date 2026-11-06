@@ -38,6 +38,8 @@ type Preset struct {
 	ID            string                `json:"id"`
 	Latin         string                `json:"latin"`
 	German        string                `json:"german"`
+	English       string                `json:"english,omitempty"`
+	Thai          string                `json:"thai,omitempty"`
 	Template      string                `json:"template"`
 	Seed          int64                 `json:"seed"`
 	Height        float32               `json:"height_m"`
@@ -49,6 +51,16 @@ type Preset struct {
 	WindAmplitude float32               `json:"wind_amplitude_m"`
 	WindPeriod    float32               `json:"wind_period_s"`
 	Colors        map[string][4]float32 `json:"colors_rgba"`
+	CrownRadius   float32               `json:"crown_radius_m"`
+	StemRadius    float32               `json:"stem_radius_m"`
+	BranchCount   int                   `json:"branch_count"`
+	BranchLevels  int                   `json:"branch_levels"`
+	Internodes    int                   `json:"internodes"`
+	EarCount      int                   `json:"ear_count"`
+	FruitCount    int                   `json:"fruit_count"`
+	AwnLength     float32               `json:"awn_length_m"`
+	LeafScale     float32               `json:"leaf_scale"`
+	GrowthStage   float32               `json:"growth_stage"`
 }
 
 type Geo struct {
@@ -327,6 +339,24 @@ func build(s Preset) *Model {
 		m.drawBindweed()
 	case "mayweed":
 		m.drawMayweed()
+	case "grass":
+		m.drawGrass()
+	case "wheat", "oats":
+		m.drawCereal()
+	case "maize":
+		m.drawMaize()
+	case "sunflower":
+		m.drawSunflower()
+	case "grapevine":
+		m.drawGrapevine()
+	case "bamboo":
+		m.drawBamboo()
+	case "shrub":
+		m.drawShrub()
+	case "tree":
+		m.drawTree(false)
+	case "conifer":
+		m.drawTree(true)
 	}
 	return m
 }
@@ -504,7 +534,7 @@ func writeGLB(path string, m *Model) error {
 		"asset": map[string]interface{}{"version": "2.0", "generator": "flora-gen-prototype"},
 		"scene": 0, "scenes": []interface{}{map[string]interface{}{"nodes": []int{0}}},
 		"nodes":      []interface{}{map[string]interface{}{"name": s.ID, "mesh": 0}},
-		"meshes":     []interface{}{map[string]interface{}{"name": s.Latin, "primitives": prims, "weights": []float32{0, 0, 0, 0}, "extras": map[string]interface{}{"species_id": s.ID, "seed": s.Seed, "parametric_source": "presets/" + s.ID + ".json", "wind_type": "morph-target-approximation", "vertices": totalVerts, "triangles": totalFaces}}},
+		"meshes":     []interface{}{map[string]interface{}{"name": s.Latin, "primitives": prims, "weights": []float32{0, 0, 0, 0}, "extras": map[string]interface{}{"species_id": s.ID, "seed": s.Seed, "labels": map[string]string{"la": s.Latin, "en": s.English, "de": s.German, "th": s.Thai}, "parametric_source": "presets/" + s.ID + ".json", "wind_type": "morph-target-approximation", "template": s.Template, "growth_stage_snapshot": s.GrowthStage, "vertices": totalVerts, "triangles": totalFaces}}},
 		"materials":  materials,
 		"animations": []interface{}{map[string]interface{}{"name": "wind_sway_loop", "samplers": []interface{}{map[string]interface{}{"input": ta, "output": wa, "interpolation": "LINEAR"}}, "channels": []interface{}{map[string]interface{}{"sampler": 0, "target": map[string]interface{}{"node": 0, "path": "weights"}}}}},
 		"buffers":    []interface{}{map[string]interface{}{"byteLength": 0}}, "bufferViews": g.Views, "accessors": g.Accessors,
@@ -535,11 +565,30 @@ func writeGLB(path string, m *Model) error {
 	return os.WriteFile(path, out.Bytes(), 0644)
 }
 func validate(s Preset) error {
-	if s.ID == "" || s.Latin == "" || s.Height <= 0 || s.Height > 3 || s.Stems < 1 || s.Stems > 32 || s.HeadsPerStem < 1 || s.HeadsPerStem > 24 || s.Petals < 1 || s.Petals > 64 || s.LeafPairs < 1 || s.LeafPairs > 24 || s.FlowerRadius <= 0 || s.FlowerRadius > .15 || s.WindPeriod <= 0 || s.WindPeriod > 120 || s.WindAmplitude < 0 || s.WindAmplitude > s.Height*.5 {
-		return fmt.Errorf("invalid preset scalar values or unsafe geometry budget")
+	// Input parsing and geometry budgets are deliberately fail-closed, including NaN/Inf.
+	maxH := float32(3)
+	if s.Template == "tree" || s.Template == "conifer" {
+		maxH = 35
+	}
+	if s.Template == "bamboo" {
+		maxH = 12
+	}
+	scalars := []float32{s.Height, s.FlowerRadius, s.WindPeriod, s.WindAmplitude, s.CrownRadius, s.StemRadius, s.AwnLength, s.LeafScale, s.GrowthStage}
+	for _, v := range scalars {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("nonfinite parameter")
+		}
+	}
+	if s.ID == "" || s.Latin == "" || s.Height <= 0 || s.Height > maxH || s.Stems < 1 || s.Stems > 32 || s.HeadsPerStem < 1 || s.HeadsPerStem > 24 || s.Petals < 1 || s.Petals > 64 || s.LeafPairs < 1 || s.LeafPairs > 24 || s.FlowerRadius <= 0 || s.FlowerRadius > .5 || s.WindPeriod <= 0 || s.WindPeriod > 120 || s.WindAmplitude < 0 || s.WindAmplitude > s.Height*.5 {
+		return fmt.Errorf("invalid preset scalar or geometry budget")
 	}
 	switch s.Template {
 	case "yarrow", "knapweed", "bindweed", "mayweed":
+		return nil
+	case "grass", "wheat", "oats", "maize", "sunflower", "grapevine", "bamboo", "shrub", "tree", "conifer":
+		if s.BranchCount < 1 || s.BranchCount > 7 || s.BranchLevels < 0 || s.BranchLevels > 3 || s.Internodes < 2 || s.Internodes > 20 || s.EarCount < 1 || s.EarCount > 40 || s.FruitCount < 1 || s.FruitCount > 16 || s.CrownRadius <= 0 || s.CrownRadius > 12 || s.StemRadius <= 0 || s.StemRadius > .8 || s.LeafScale <= 0 || s.LeafScale > 3 || s.GrowthStage <= 0 || s.GrowthStage > 1 || s.AwnLength < 0 || s.AwnLength > .15 {
+			return fmt.Errorf("invalid architecture parameter budget")
+		}
 		return nil
 	default:
 		return fmt.Errorf("unsupported template %q", s.Template)
