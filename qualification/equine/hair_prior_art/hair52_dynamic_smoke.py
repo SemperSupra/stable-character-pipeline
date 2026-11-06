@@ -66,10 +66,10 @@ try:
     # NodeSocketMenu, not a normal modifier IDProperty. Copy the GN group to
     # prevent mutation of a shared asset, and set the interface default.
     original_group=modifier.node_group
-    modifier.node_group=original_group.copy()
-    modifier.node_group.name="ShetlandOriginalExperimentalPhysics"
+    private_group=original_group.copy()
+    private_group.name="ShetlandOriginalExperimentalPhysics"
     input_interfaces=[]
-    for item in modifier.node_group.interface.items_tree:
+    for item in private_group.interface.items_tree:
         if item.item_type=="SOCKET" and item.in_out=="INPUT":
             input_interfaces.append({"name":item.name,"id":item.identifier,
                 "socket_type":item.socket_type,"default_repr":repr(getattr(item,"default_value","UNAVAILABLE"))[:120]})
@@ -87,6 +87,13 @@ try:
                     receipt["errors"].append("physics_mode_control:"+str(e)[:180])
     stage="motion setup"
     receipt["modifier_inputs"]=input_interfaces
+    # Fresh NodesModifier must be allocated *after* the copied group's
+    # experimental menu default changes. Avoid retaining the earlier
+    # modifier's cached Animation value from its original creation.
+    hair.modifiers.remove(modifier)
+    modifier=hair.modifiers.new(name="ShetlandExperimentalHairPhysics",type="NODES")
+    modifier.node_group=private_group
+    receipt["modifier_binding"]="fresh_nodes_modifier_after_private_group_mode_set"
     if not any(item["name"].lower()=="mode" for item in input_interfaces):
         raise ValueError("no motion mode interface; experimental ABI unknown")
     scene=bpy.context.scene
