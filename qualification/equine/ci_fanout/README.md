@@ -23,3 +23,29 @@ filtered by exact `.path` plus PR/branch/base/ancestry/native jobs and
 artifacts, instead of depending on that narrower workflow index. Retain the
 first negative cost result; do not report savings until the next native A/B
 commit proves the other seven gates actually select `run_native=false`.
+
+## Second real source-provenance RED — live PR association is mutable
+
+The subsequent one-workcell trial at `62da7c41e5248e5257f41cc885ff36049c0a50eb`
+also legitimately ran all eleven native jobs. Independent direct readback proved
+*why*: the provider's old successful AAC run `42230229378` retains immutable
+`head_sha=b9ebb37211ebd03eeb9aedfdf168d10d015bcca8` and
+`head_commit.id` equal to that historical SHA, but its attached
+`pull_requests[0].head.sha` had moved to the then-current
+`62da7c41e5248e5257f41cc885ff36049c0a50eb`! This live relation is **not**
+a frozen evidence anchor. The previous gate incorrectly equated it with the
+historical run's SHA. That predicate discarded real native proof despite a
+correct branch-history diff and complete provider artifacts.
+
+The corrected gate now binds historical proof to `run.head_sha ==
+run.head_commit.id`, exact provider workflow path, matching public repo ID,
+PR number and ref, frozen base SHA **and** verified Git parent ancestry; it
+never requires the moving PR relation's head SHA to equal historical run SHA.
+The adversarial corpus explicitly tests this dynamic association and refuses
+forged immutable heads, cross-repository sources, changed base, bad artifacts
+and other unsafe cases. Zero scientific or release authorization follows.
+
+Future savings still require an exact-head real job-level observation that
+separate unrelated workcells skipped their native steps and their checks stayed
+green. Retain both failed optimization trials as first failures; do not silently
+reinterpret them as cost reductions.

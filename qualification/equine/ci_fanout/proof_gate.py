@@ -22,6 +22,8 @@ from pathlib import Path
 
 REPO = "SemperSupra/stable-character-pipeline"
 PR = 331
+REPO_ID = 1431315908  # Source public GitHub repository identity; changes fail closed.
+BASE_REF = "workcell/shetland-source48-av-sync-20261105"
 BRANCH = "workcell/shetland-decoded-aac-observer-20261106"
 # This is the exact frozen parent, not an invitation to assume future rebases.
 BASE_SHA = "574be73409714696c94028b33e8814fd7110394a"
@@ -90,8 +92,19 @@ def provider_proof(run: dict, jobs: list[dict], artifacts: list[dict], *, workce
         return False
     if run.get("head_branch") != BRANCH or not SHA_RE.fullmatch(str(run.get("head_sha", ""))):
         return False
+    # GitHub's historical run.head_sha and head_commit.id are immutable, but
+    # run.pull_requests[0].head.sha is a LIVE projection of the PR and may
+    # advance AFTER the historical job completed. Never compare that live
+    # relation to the frozen historical head or valid proofs falsely vanish.
+    if (run.get("head_commit") or {}).get("id") != run["head_sha"]:
+        return False
     p = run.get("pull_requests") or []
-    if len(p) != 1 or p[0].get("number") != PR or p[0].get("head", {}).get("sha") != run["head_sha"] or p[0].get("base", {}).get("sha") != base:
+    if len(p) != 1 or p[0].get("number") != PR:
+        return False
+    phead, pbase = p[0].get("head") or {}, p[0].get("base") or {}
+    if (phead.get("ref") != BRANCH or (phead.get("repo") or {}).get("id") != REPO_ID or
+        pbase.get("ref") != BASE_REF or (pbase.get("repo") or {}).get("id") != REPO_ID or
+        pbase.get("sha") != base):
         return False
     try:
         created = dt.datetime.fromisoformat(run["created_at"].replace("Z", "+00:00"))
@@ -120,6 +133,8 @@ def provider_proof(run: dict, jobs: list[dict], artifacts: list[dict], *, workce
 
 def git_delta(earlier: str, latest: str) -> list[str] | None:
     if not SHA_RE.fullmatch(earlier) or not SHA_RE.fullmatch(latest):
+        return None
+    if subprocess.run(["git", "merge-base", "--is-ancestor", BASE_SHA, earlier], capture_output=True, check=False).returncode != 0:
         return None
     if subprocess.run(["git", "merge-base", "--is-ancestor", earlier, latest], capture_output=True, check=False).returncode != 0:
         return None

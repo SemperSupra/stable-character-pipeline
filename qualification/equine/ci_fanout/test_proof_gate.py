@@ -9,9 +9,12 @@ NOW = dt.datetime(2026, 11, 6, 14, 0, tzinfo=dt.timezone.utc)
 def proof(workcell):
     run_id=10003
     r={"id":run_id,"event":"pull_request","status":"completed","conclusion":"success",
-       "head_branch":BRANCH,"head_sha":OLD,"created_at":"2026-11-06T12:00:00Z",
+       "head_branch":BRANCH,"head_sha":OLD,"head_commit":{"id":OLD},
+       "created_at":"2026-11-06T12:00:00Z",
        "path":".github/workflows/"+workcell+".yml",
-       "pull_requests":[{"number":331,"head":{"sha":OLD},"base":{"sha":BASE_SHA}}]}
+       "pull_requests":[{"number":331,
+          "head":{"sha":HEAD,"ref":BRANCH,"repo":{"id":1431315908}},
+          "base":{"sha":BASE_SHA,"ref":"workcell/shetland-source48-av-sync-20261105","repo":{"id":1431315908}}}]}
     jobs=[{"status":"completed","conclusion":"success"} for x in WORK[workcell][1]]
     arts=[{"name":name+str(run_id),"size_in_bytes":1234,"expired":False,"digest":"sha256:"+"f"*64}
           for name in WORK[workcell][1]]
@@ -47,6 +50,10 @@ class Gate(unittest.TestCase):
                    lambda r,j,a:a[0].update(size_in_bytes=0),
                    lambda r,j,a:a.pop(),
                    lambda r,j,a:r.update(head_sha="f"*40),
+                   lambda r,j,a:r["head_commit"].update(id="f"*40),
+                   lambda r,j,a:r["pull_requests"][0]["head"].update(ref="wrong"),
+                   lambda r,j,a:r["pull_requests"][0]["head"]["repo"].update(id=0),
+                   lambda r,j,a:r["pull_requests"][0]["base"].update(ref="wrong"),
                    lambda r,j,a:r.update(path=".github/workflows/wrong.yml")]
         import copy
         for i,mutate in enumerate(negatives):
