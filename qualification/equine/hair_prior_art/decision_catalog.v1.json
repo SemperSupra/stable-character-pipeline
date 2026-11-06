@@ -1,0 +1,243 @@
+{
+  "schema": "equine.hair.prior_art.v1",
+  "reviewed_on": "2026-11-06",
+  "corpus": "multilingual primary-source concept sweep, not exhaustive patent clearance",
+  "coverage": {
+    "languages": [
+      "en",
+      "de",
+      "fr",
+      "zh-Hans",
+      "ja",
+      "th",
+      "es"
+    ],
+    "query_terms": {
+      "en": [
+        "hair physics",
+        "fur groom",
+        "Cosserat rods",
+        "strand shading"
+      ],
+      "de": [
+        "Haarsimulation",
+        "Fell",
+        "Stäbe"
+      ],
+      "fr": [
+        "simulation fourrure",
+        "cheveux",
+        "mèches"
+      ],
+      "zh-Hans": [
+        "毛发动力学",
+        "毛发仿真"
+      ],
+      "ja": [
+        "毛髪",
+        "揺れ物"
+      ],
+      "th": [
+        "จำลองขนสัตว์",
+        "ผม"
+      ],
+      "es": [
+        "simulación de pelo",
+        "pelaje"
+      ]
+    },
+    "observations": "English upstream primary technical documentation was most actionable. French, Chinese and Spanish official Blender docs corroborate XPBD vocabulary; searched German, Japanese and Thai without independent verified technical advantage. No inference that other research is absent.",
+    "language_source_urls": [
+      "https://docs.blender.org/manual/zh-hans/5.4/modeling/geometry_nodes/simulation/hair_dynamics.html",
+      "https://docs.blender.org/manual/fr/5.2/modeling/geometry_nodes/simulation/hair_dynamics.html",
+      "https://docs.blender.org/manual/es/latest/modeling/geometry_nodes/simulation/xpbd_solver.html"
+    ]
+  },
+  "candidates": [
+    {
+      "id": "blender52_gn_xpbd",
+      "role": "native_reference_backend",
+      "license": "GPL application",
+      "code_import": "NO",
+      "status": "THREE_GUIDE_SYNTHETIC_48F_PAIRED_CONTROL_QUALIFIED_NOT_PONY",
+      "score": {
+        "maturity": 2,
+        "fit": 5,
+        "portability": 3,
+        "license_clarity": 5
+      },
+      "source": "https://www.blender.org/releases/5-2/",
+      "evidence": "https://developer.blender.org/docs/features/nodes/xpbd_simulation/",
+      "hold": "Exact Blender 5.2.3 Physics (Experimental) generated 0.2155126 m nonrigid tip motion against 0.0000 m Animation control (public run 42263263114). Max 7.46% tip-root length variation and 30.3 mm residual deflection remain uncalibrated. No complete 30-joint pony, wind/contact/material/visual science admission."
+    },
+    {
+      "id": "blender_groom_nodes",
+      "role": "procedural_groom_and_shader",
+      "license": "GPL application",
+      "code_import": "NO",
+      "status": "CANDIDATE",
+      "score": {
+        "maturity": 4,
+        "fit": 5,
+        "portability": 4,
+        "license_clarity": 5
+      },
+      "source": "https://docs.blender.org/manual/en/latest/render/shader_nodes/shader/hair_principled.html",
+      "evidence": "https://www.blender.org/download/demo-files/",
+      "hold": "Each demo/CC0 asset rights separate; no source-identity match."
+    },
+    {
+      "id": "tressfx",
+      "role": "gpu_runtime_hair",
+      "license": "MIT",
+      "code_import": "NOT_YET",
+      "status": "CANDIDATE",
+      "score": {
+        "maturity": 4,
+        "fit": 4,
+        "portability": 3,
+        "license_clarity": 5
+      },
+      "source": "https://github.com/GPUOpen-Effects/TressFX",
+      "evidence": "https://gpuopen.com/tressfx/",
+      "hold": "GPU/Vulkan/DirectX dependencies, separate bundled demo art."
+    },
+    {
+      "id": "position_based_dynamics",
+      "role": "rod_reference_solver",
+      "license": "MIT",
+      "code_import": "NOT_YET",
+      "status": "CANDIDATE",
+      "score": {
+        "maturity": 4,
+        "fit": 4,
+        "portability": 4,
+        "license_clarity": 5
+      },
+      "source": "https://github.com/InteractiveComputerGraphics/PositionBasedDynamics",
+      "evidence": "https://github.com/InteractiveComputerGraphics/PositionBasedDynamics/blob/master/LICENSE",
+      "hold": "C++ Eigen dependencies, not ready native Blender adapter."
+    },
+    {
+      "id": "openusd_basis_curves",
+      "role": "canonical_groom_interchange",
+      "license": "OpenUSD",
+      "code_import": "NOT_YET",
+      "status": "CANDIDATE",
+      "score": {
+        "maturity": 5,
+        "fit": 5,
+        "portability": 5,
+        "license_clarity": 4
+      },
+      "source": "https://openusd.org/release/api/class_usd_geom_basis_curves.html",
+      "evidence": "https://openusd.org/release/api/class_usd_geom_basis_curves.html",
+      "hold": "Authoritative curves separate from GLB runtime; investigate exact version & primvars."
+    },
+    {
+      "id": "tressfx_godot",
+      "role": "godot_runtime_adapter",
+      "license": "MIT code; bundled assets vary",
+      "code_import": "NOT_YET",
+      "status": "ENGINE_SPECIFIC",
+      "score": {
+        "maturity": 2,
+        "fit": 3,
+        "portability": 2,
+        "license_clarity": 4
+      },
+      "source": "https://github.com/ismailivanov/TressFX-Godot",
+      "evidence": "https://github.com/ismailivanov/TressFX-Godot/blob/main/README.md",
+      "hold": "Requires Godot 4.7, frame-dependent physics, sample art rights."
+    },
+    {
+      "id": "unity_demo_team_hair",
+      "role": "reference_architecture",
+      "license": "Unity Companion License",
+      "code_import": "NO",
+      "status": "REFERENCE_ONLY",
+      "score": {
+        "maturity": 3,
+        "fit": 3,
+        "portability": 1,
+        "license_clarity": 5
+      },
+      "source": "https://github.com/Unity-Technologies/com.unity.demoteam.hair",
+      "evidence": "https://github.com/Unity-Technologies/com.unity.demoteam.hair/blob/master/LICENSE.md",
+      "hold": "Do not import into independent generic pipeline as MIT."
+    },
+    {
+      "id": "pyelastica",
+      "role": "physical_rod_validation",
+      "license": "UNVERIFIED_DEPENDENCY_MATRIX",
+      "code_import": "NO",
+      "status": "RESEARCH_ONLY",
+      "score": {
+        "maturity": 3,
+        "fit": 3,
+        "portability": 3,
+        "license_clarity": 2
+      },
+      "source": "https://github.com/GazzolaLab/PyElastica",
+      "evidence": "https://github.com/GazzolaLab/PyElastica",
+      "hold": "License/transitives, numerical/material calibration and scalability pending."
+    },
+    {
+      "id": "houdini_hair_fur",
+      "role": "industrial_reference",
+      "license": "PROPRIETARY_APPLICATION",
+      "code_import": "NO",
+      "status": "REFERENCE_ONLY",
+      "score": {
+        "maturity": 5,
+        "fit": 5,
+        "portability": 1,
+        "license_clarity": 5
+      },
+      "source": "https://www.sidefx.com/docs/houdini/fur/index.html",
+      "evidence": "https://www.sidefx.com/docs/houdini/fur/index.html",
+      "hold": "Do not depend on paid proprietary runtime for $0 baseline."
+    },
+    {
+      "id": "monohair",
+      "role": "image_video_hair_reconstruction",
+      "license": "UNQUALIFIED_MODEL_AND_DATA_RIGHTS",
+      "code_import": "NO",
+      "status": "RESEARCH_ONLY",
+      "score": {
+        "maturity": 3,
+        "fit": 3,
+        "portability": 2,
+        "license_clarity": 1
+      },
+      "source": "https://github.com/KeyuWu-CS/MonoHair",
+      "evidence": "https://github.com/KeyuWu-CS/MonoHair",
+      "hold": "Human-specific scalp/data and asset consent; not equine physics."
+    },
+    {
+      "id": "nvidia_warp",
+      "role": "optional_cuda_backend",
+      "license": "Apache-2.0 plus libmathdx separately licensed",
+      "code_import": "NOT_YET",
+      "status": "CANDIDATE",
+      "score": {
+        "maturity": 4,
+        "fit": 3,
+        "portability": 2,
+        "license_clarity": 3
+      },
+      "source": "https://github.com/NVIDIA/warp",
+      "evidence": "https://github.com/NVIDIA/warp",
+      "hold": "GPU/dependency constraints and no packaged hair groom."
+    }
+  ],
+  "admission": {
+    "source_code_from_third_party_imported": false,
+    "reference_models_or_photos_imported": false,
+    "existing_blender_4_5_15_production_pin_unchanged": true,
+    "scientific_model_accepted": false,
+    "merge_or_release_approved": false,
+    "next_gate": "Adapt source-exact 30-joint Shetland mane/forelock/tail root follicles into experimental 5.2 native CURVES while retaining 4.5 legacy; require 48f collision, rod material calibration, visual and temporal A/B. Source-only season continuity validated but growth simulation still missing.",
+    "evidence_run": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/42263263114"
+  }
+}

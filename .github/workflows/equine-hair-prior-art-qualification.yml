@@ -1,0 +1,124 @@
+name: Equine groom contract and experimental Blender 5.2 backend qualification
+on:
+  pull_request:
+    paths:
+      - "qualification/equine/hair_prior_art/**"
+      - ".github/workflows/equine-hair-prior-art-qualification.yml"
+permissions:
+  contents: read
+jobs:
+  portable-source-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Host Go standard-library only, offline conformance vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/equine/hair_prior_art
+          go version
+          GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local go test -v ./...
+          GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local go run . sample.groom.json > source-groom-receipt.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open("source-groom-receipt.json"))
+          assert r["schema"]=="equine.groom.check.v1"
+          assert r["verdict"]=="PASS_SOURCE_SCHEMA_ONLY" and r["fiber_count"]==1
+          assert r["scientific_hold"] is True and r["release_admission"] is False
+          assert r["region_counts"]=={"mane":1}
+          print("GROOM_SOURCE_CONTRACT_ONLY_PASS",r["source_sha256"])
+          PY
+      - name: Retain source-only conformance receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: equine-groom-source-contract-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: qualification/equine/hair_prior_art/source-groom-receipt.json
+  blender-52-capability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    container:
+      image: ghcr.io/blender/runner-images/bpy:1.0.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Fetch and SHA256-verify official independent 5.2.3 LTS binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl xz-utils libegl1 libgl1 libgl1-mesa-dri libgbm1
+          mkdir -p "$RUNNER_TEMP/blender52"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.3.sha256 -o "$RUNNER_TEMP/blender52/checksums"
+          curl -fLsS --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.3-linux-x64.tar.xz -o "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP/blender52" && grep 'blender-5.2.3-linux-x64.tar.xz' checksums | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64.tar.xz" -C "$RUNNER_TEMP/blender52"
+      - name: Headless 5.2.3 experimental XPBD and curves capability ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results/experimental52
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/hair52_capability_probe.py -- "$GITHUB_WORKSPACE/results/experimental52/capability.json"
+          python3 - <<'PY'
+          import json
+          r=json.load(open("results/experimental52/capability.json"))
+          assert r["expected_binary_version"]=="5.2.3"
+          assert r["verdict"]=="CAPABILITY_AVAILABLE_NOT_SIMULATION_PROOF"
+          assert r["feature_status"]=="EXPERIMENTAL" and r["simulation_executed"] is False
+          assert r["science_hold"]=="KEEP" and r["crossing_contact_qualified"] is False
+          assert r["production_version_4_5_15_untouched"] is True
+          print("EXPERIMENTAL_API_VISIBLE_NATIVE_SOLVER_NOT_QUALIFIED")
+          PY
+      - name: Actual synthetic 48f native hair physics/rig motion verification (unaccepted RDTE)
+        shell: bash
+        run: |
+          set -euo pipefail
+          env LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/hair52_dynamic_smoke.py -- "$GITHUB_WORKSPACE/results/experimental52/dynamics.json"
+          python3 - <<'PY'
+          import json
+          r=json.load(open("results/experimental52/dynamics.json"))
+          assert r["schema"]=="equine.blender52.dynamic.original_synthetic.v1"
+          assert r["verdict"]=="EXPERIMENTAL_48F_MOTION_OBSERVED_NOT_SCIENTIFIC_ACCEPTANCE"
+          assert r["frame_count"]==48 and r["motion_measured"] is True
+          assert r["visual_collision_quality"]=="UNKNOWN" and r["source_and_release_hold"]=="KEEP"
+          assert r["production_blender_4_5_15_untouched"] is True
+          print("EXPERIMENTAL_48F_NATIVE_SECONDARY_MOTION_NOT_PONY_RELEASE")
+          PY
+      - name: Independent 48f rigid-animation negative control and paired numerical oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd qualification/equine/hair_prior_art && python3 -m unittest -v test_hair52_motion_quality.py)
+          env SCP_52_MODE=animation LIBGL_ALWAYS_SOFTWARE=1 "$RUNNER_TEMP/blender52/blender-5.2.3-linux-x64/blender" -b --factory-startup --python-exit-code 9 --python qualification/equine/hair_prior_art/hair52_dynamic_smoke.py -- "$GITHUB_WORKSPACE/results/experimental52/animation_control.json"
+          python3 qualification/equine/hair_prior_art/hair52_motion_quality.py \
+            results/experimental52/dynamics.json \
+            results/experimental52/animation_control.json \
+            results/experimental52/motion_quality.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open("results/experimental52/motion_quality.json"))
+          assert r["verdict"]=="PAIRED_NATIVE_SECONDARY_MOTION_ENGINEERING_OBSERVED"
+          assert r["measured_samples"]==48 and r["guides"]==3
+          assert r["physics_tip_span_m"]>.01 and r["animation_control_span_m"]<=.0001
+          assert not r["physical_material_calibrated"] and not r["production_upgrade_approved"]
+          assert not r["merge_release_CPE"] and r["science_and_visual"]=="UNKNOWN"
+          print("EXP_NATIVE_PAIRED_CONTROL_PROVEN_NOT_RELEASE",r)
+          PY
+      - name: Preserve experimental headless ABI evidence including first RED
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: equine-blender52-xpbd-capability-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            results/experimental52/capability.json
+            results/experimental52/dynamics.json
+            results/experimental52/animation_control.json
+            results/experimental52/motion_quality.json
