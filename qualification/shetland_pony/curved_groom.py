@@ -78,9 +78,15 @@ def make_curved_groom(groom):
             uv.data[li].uv=(float(index%2),float(index//2)/(ROWS-1))
     original=mesh
     groom.data=new
+    # Blender may clear Object vertex-group slots when replacing mesh data.
+    # Recreate exactly the captured source labels, then rebind each follicle
+    # to its prior owner. Never silently remap names to index positions.
+    for label in sorted(set(bones)):
+        if groom.vertex_groups.get(label) is None:
+            groom.vertex_groups.new(name=label)
     for i,bone in enumerate(bones):
         group=groom.vertex_groups.get(bone)
-        if group is None:raise ValueError("source bone group vanished")
+        if group is None:raise ValueError("unable to recreate original skin group")
         group.add(list(range(i*VERTS_PER_CARD,(i+1)*VERTS_PER_CARD)),1.,"REPLACE")
     if original.users==0:bpy.data.meshes.remove(original)
     if len(groom.data.vertices)!=1050*VERTS_PER_CARD:
