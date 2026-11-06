@@ -61,6 +61,10 @@ def fit_once(document):
     options = document.get("options")
     if not isinstance(options, dict):
         raise FitRejected("MISSING_OPTIONS")
+    numeric_options = ("max_normal_step_m", "max_tangent_step_m",
+                       "min_confidence", "max_triangle_area_ratio")
+    if any(type(options.get(key)) not in (int, float) for key in numeric_options):
+        raise FitRejected("INVALID_OPTIONS")
     try:
         max_normal = float(options["max_normal_step_m"])
         max_tangent = float(options["max_tangent_step_m"])
