@@ -42,3 +42,7 @@ The result must be measured from **actual job step conclusions/logs**, not
 inferred from green check status. Any uncertainty means rerun rather than waive.
 Scientific animal anatomy, force-bearing hoof contact, visual acceptance, rights,
 merge, release and CPE remain held.
+
+## Third controlled single-workcell regression — exact native readback required
+
+At parent 89d2bc4aae6f26e4dcb34daa1f0990609af54ed8 the corrected historical-run SHA binding is source-exact and all eight PR native baselines are terminal green. This documentation-only change intentionally modifies **only** the reachability workcell-owned directory. New native work must execute for `equine-ik-reachability`; the other seven must emit fresh current-head checks referencing eligible immutable prior source native evidence and must skip expensive execution, or the fanout reduction FAILS. Inspect all 11 job steps rather than equating green workflow with native reuse. Preserve frozen source, existing scientific REDs, rights, merge/release/CPE holds and first regression failures.
