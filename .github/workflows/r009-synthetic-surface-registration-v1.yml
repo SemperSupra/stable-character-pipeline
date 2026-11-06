@@ -13,6 +13,9 @@ on:
       - "qualification/parametric_humans/costume_garment_v1.py"
       - "qualification/parametric_humans/test_costume_garment_v1.py"
       - "qualification/parametric_humans/COSTUME_VARIANTS_V1.md"
+      - "qualification/parametric_humans/sculpt_human_v1.py"
+      - "qualification/parametric_humans/test_sculpt_human_v1.py"
+      - "qualification/parametric_humans/SCULPT_RESEARCH_V1.md"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
 
@@ -40,6 +43,10 @@ jobs:
           # Original-only garment contract: five source-free controls; exact-source optional test skips on public CI.
           python3 -m compileall -q costume_garment_v1.py test_costume_garment_v1.py
           python3 -m unittest -v test_costume_garment_v1
+          # Source-free human-sculpt hostile tests; eight exact-original-source
+          # geometry tests report SKIP on public GHA, never a false PASS.
+          python3 -m compileall -q sculpt_human_v1.py test_sculpt_human_v1.py
+          python3 -m unittest -v test_sculpt_human_v1
           python3 - <<'PY'
           import json,os,pathlib
           p=pathlib.Path(os.environ["SCP_VALIDATOR_PERF_OUT"])
