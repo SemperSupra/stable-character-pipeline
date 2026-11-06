@@ -1,0 +1,102 @@
+name: R009 original-only male/female face detail derivative and native counterfactual
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r009-face-detail-v2.yml'
+      - 'qualification/human_face_detail/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-face-detail-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-facial-landmark-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Original source deterministic facial control, actor isolation and hostile tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/human_face_detail
+          python3 -m unittest -v test_facial_detail_v2
+      - name: Exact authoring source original morphology before/after derived face meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd qualification/original_reusable_characters
+          python3 modular_wardrobe_v1.py --out "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json"
+          python3 parametric_morphology_v1.py \
+            --input "${RUNNER_TEMP}/source.glb" --manifest "${RUNNER_TEMP}/source.json" \
+            --out "${RUNNER_TEMP}/before.glb" --out-manifest "${RUNNER_TEMP}/before.json" \
+            --receipt "${RUNNER_TEMP}/before-receipt.json"
+          cd ../../
+          python3 qualification/human_face_detail/facial_detail_v2.py \
+            --input "${RUNNER_TEMP}/before.glb" --manifest "${RUNNER_TEMP}/before.json" \
+            --out "${RUNNER_TEMP}/after.glb" --out-manifest "${RUNNER_TEMP}/after.json" \
+            --receipt "${RUNNER_TEMP}/face-receipt.json"
+          sha256sum "${RUNNER_TEMP}/before.glb" "${RUNNER_TEMP}/after.glb" > "${RUNNER_TEMP}/face-source-sha256.txt"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"face-receipt.json").read_text())
+          assert all(r["vertex_changes_by_material"][a]["eyeWhite"]>0 for a in
+                     ("AsterOriginal","JuniperOriginal"))
+          assert not r["sex_inferred_from_images"] and not r["native_visual_accepted"]
+          PY
+      - name: Official Blender 4.5.15, SHA verified, public CPU only
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "${RUNNER_TEMP}/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz"
+          (cd "${RUNNER_TEMP}"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "${RUNNER_TEMP}/blender-4.5.15-linux-x64.tar.xz" -C "${RUNNER_TEMP}"
+      - name: Independent native changed-pixel oracle selftest
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/human_face_detail/render_face_delta_blender.py \
+            -- --selftest
+      - name: Real native fixed-face rest-pose counterfactual frames and differential pixels
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$(sha256sum "${RUNNER_TEMP}/before.glb" | cut -d' ' -f1)"
+          after="$(sha256sum "${RUNNER_TEMP}/after.glb" | cut -d' ' -f1)"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "${RUNNER_TEMP}/blender-4.5.15-linux-x64/blender" \
+            -b --factory-startup --python-exit-code 8 \
+            --python qualification/human_face_detail/render_face_delta_blender.py \
+            -- "${RUNNER_TEMP}/before.glb" "${RUNNER_TEMP}/after.glb" "${RUNNER_TEMP}/face-review" "$before" "$after"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"face-review/face_delta_native_receipt.json").read_text())
+          assert set(r["differential_pixel_tests"])=={"AsterOriginal","JuniperOriginal"}
+          assert all(x["changed_pixels_RGB_gt_0.042"]>=100
+                     for x in r["differential_pixel_tests"].values())
+          assert r["artistic_face_quality_accepted"] is False
+          assert r["sex_inferred_from_image"] is False
+          assert r["owner_rights_release_merge_cpe_held"] is True
+          PY
+      - name: Store original-only four face PNGs, hashes and receipts; not model binaries
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: r009-source-original-face-detail-native-comparison
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/face-review/*.png
+            ${{ runner.temp }}/face-review/face_delta_native_receipt.json
+            ${{ runner.temp }}/face-receipt.json
+            ${{ runner.temp }}/before-receipt.json
+            ${{ runner.temp }}/face-source-sha256.txt
