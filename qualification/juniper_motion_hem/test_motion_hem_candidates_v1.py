@@ -52,8 +52,22 @@ class HemTests(unittest.TestCase):
                 out,rec=self.derived(v,"case-"+v)
                 doc,b=decode(out.read_bytes())
                 for key in ("nodes","skins","animations","materials","meshes",
-                            "accessors","bufferViews"):
+                            "bufferViews"):
                     self.assertEqual(source[key],doc[key],key)
+                # POSITION bounds legitimately change when a skirt radius
+                # changes; all accessor identity/layout fields stay fixed.
+                target_positions={
+                    prim["attributes"]["POSITION"]
+                    for prim in source["meshes"][meshid]["primitives"]
+                }
+                for ai,(orig_acc,new_acc) in enumerate(zip(
+                        source["accessors"],doc["accessors"])):
+                    if ai in target_positions:
+                        for k in set(orig_acc)|set(new_acc):
+                            if k not in ("min","max"):
+                                self.assertEqual(orig_acc.get(k),new_acc.get(k))
+                    else:
+                        self.assertEqual(orig_acc,new_acc)
                 self.assertGreater(rec["changed_skirt_vertices"],50)
                 self.assertEqual(doc["extras"]["juniper_motion_hem_trial"]["variant"],v)
                 for k,mesh in enumerate(source["meshes"]):
@@ -106,13 +120,16 @@ class HemTests(unittest.TestCase):
             e,f=atten((lo+hi)/2,lo,hi)
             self.assertAlmostEqual(e,.5);self.assertLess(f,0.)
     def test_normal_renormalization_and_true_noop(self):
-        coords=[(.2,.65,.15),(-.2,.65,.15),(.22,1.1,.14)]
-        normals=[(.8,.2,.56)]*3
+        # Construct a genuinely sized original ring fixture: deformation
+        # must affect >50 vertices before the source tool permits output.
+        coords=[((.2 if i%2 else -.2)+.001*i,.65,.15)
+                for i in range(60)]+[(.22,1.1,.14)]
+        normals=[(.8,.2,.56)]*len(coords)
         new,n,c=deform(coords,normals,.06,.66,.91)
-        self.assertEqual(new[2],coords[2])
-        self.assertEqual(n[2],normals[2])
-        self.assertGreater(c,0)
-        for v in n[:2]:
+        self.assertEqual(new[-1],coords[-1])
+        self.assertEqual(n[-1],normals[-1])
+        self.assertEqual(c,60)
+        for v in n[:60]:
             self.assertAlmostEqual(sum(x*x for x in v),1.,places=5)
 
 if __name__=="__main__":unittest.main()
