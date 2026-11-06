@@ -87,7 +87,15 @@ def run(src,preset_receipt,out,render_dir=None):
         raise ValueError("PORTABLE_SOURCE_SHA_MISMATCH")
     if src==out:raise ValueError("SOURCE_OVERWRITE_REFUSED")
     if out.exists():raise FileExistsError("REFUSE_OVERWRITE_NATIVE_RECEIPT")
+    # Blender --factory-startup still creates Cube/Camera/Light by default.
+    # These unrelated startup objects masked the actual torso and legs in the
+    # first native render even while wardrobe-node import checks passed.
+    bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=str(src))
+    foreign=[ob.name for ob in bpy.data.objects if ob.type=="MESH"
+             and not ob.name.startswith(ACTORS)]
+    if foreign:
+        raise ValueError("UNTRUSTED_STARTUP_OR_FOREIGN_MESH:"+str(foreign))
     observed={a:set() for a in ACTORS}
     for ob in bpy.data.objects:
         if ob.type!="MESH":continue
