@@ -11,7 +11,7 @@ import tempfile
 import unittest
 import zlib
 
-from disposable_combined_native_v1 import validate_native_receipts, FRAMES, ACTORS, SLOTS
+from disposable_combined_native_v1 import validate_native_receipts, validate_png_stream, FRAMES, ACTORS, SLOTS
 
 
 def png_bytes():
@@ -143,6 +143,53 @@ class CombinedNativeNegativeControls(unittest.TestCase):
         p = self.root / 'before_surface_bvh.json'
         p.write_text(p.read_text() + ' ')
         with self.assertRaisesRegex(ValueError, 'BVH_RECEIPT_SHA_MISMATCH'):
+            validate_native_receipts(self.root)
+
+    def test_native_png_structure_is_independently_decoded(self):
+        checked = validate_png_stream(png_bytes())
+        self.assertEqual((checked['width'], checked['height']), (720, 480))
+        self.assertEqual(checked['channels'], 3)
+        self.assertEqual(checked['decoded_bytes'], 480 * (1 + 720 * 3))
+
+    def test_forged_png_hash_cannot_mask_chunk_crc_damage(self):
+        item = self.native['before']['generated_renders'][0]
+        p = self.root / item['file']
+        raw = bytearray(p.read_bytes())
+        marker = raw.index(b'IDAT')
+        raw[marker + 5] ^= 1  # corrupt compressed IDAT, retain old CRC
+        p.write_bytes(raw)
+        item['sha256'] = hashlib.sha256(raw).hexdigest()
+        self.write()  # Native JSON now claims the exact forged byte digest.
+        with self.assertRaisesRegex(ValueError, 'PNG_BYTE_OR_DIMENSION_MISMATCH'):
+            validate_native_receipts(self.root)
+
+    def test_forged_png_hash_cannot_mask_trailing_bytes(self):
+        item = self.native['before']['generated_renders'][0]
+        p = self.root / item['file']
+        raw = p.read_bytes() + b'\\x00\\x00junk'
+        p.write_bytes(raw)
+        item['sha256'] = hashlib.sha256(raw).hexdigest()
+        self.write()
+        with self.assertRaisesRegex(ValueError, 'PNG_BYTE_OR_DIMENSION_MISMATCH'):
+            validate_native_receipts(self.root)
+
+    def test_rehashed_valid_crc_but_invalid_row_filter_rejected(self):
+        item = self.native['before']['generated_renders'][0]
+        p = self.root / item['file']
+        raw = p.read_bytes()
+        marker = raw.index(b'IDAT')
+        length = struct.unpack('>I', raw[marker-4:marker])[0]
+        start = marker + 4
+        decoded = bytearray(zlib.decompress(raw[start:start+length]))
+        decoded[0] = 7  # invalid PNG scanline filter, all outer checks valid
+        data = zlib.compress(bytes(decoded))
+        replacement = (struct.pack('>I', len(data)) + b'IDAT' + data +
+                       struct.pack('>I', zlib.crc32(b'IDAT' + data)))
+        raw = raw[:marker-4] + replacement + raw[start+length+4:]
+        p.write_bytes(raw)
+        item['sha256'] = hashlib.sha256(raw).hexdigest()
+        self.write()
+        with self.assertRaisesRegex(ValueError, 'PNG_BYTE_OR_DIMENSION_MISMATCH'):
             validate_native_receipts(self.root)
 
     def test_same_before_after_rejected(self):
