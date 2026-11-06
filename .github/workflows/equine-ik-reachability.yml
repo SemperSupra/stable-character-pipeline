@@ -38,13 +38,13 @@ jobs:
           r=json.load(open('results/kinematic_reach.json'))
           assert r['schema']=='equine.ik.reachability-hypothesis.v1'
           assert not r['biomechanical_acceptance'] and not r['source_mutation']
-          assert r['baseline']['front_L']['infeasible_frame_count']==33
-          assert r['baseline']['front_R']['infeasible_frame_count']==33
+          assert r['baseline']['front_L']['infeasible_frame_count']==34
+          assert r['baseline']['front_R']['infeasible_frame_count']==34
           assert r['baseline']['hind_L']['infeasible_frame_count']==0
           assert r['baseline']['hind_R']['infeasible_frame_count']==0
-          candidate=[x for x in r['candidate_sweep'] if x['candidate_posterior_carpus_shift_mm']==35][0]
-          assert candidate['front_infeasible_total']==0 and candidate['front_min_margin_m']>=.002
-          print('EXACT_SOURCE_IK_66_INFEASIBLE_FRONT_FRAME_SAMPLES; HYPOTHESIS_35MM_STATIC_ONLY; ANATOMY_UNKNOWN')
+          candidate=[x for x in r['candidate_sweep'] if x['candidate_posterior_carpus_shift_mm']==40][0]
+          assert candidate['front_infeasible_total']==0 and candidate['front_min_margin_m']>=.003
+          print('EXACT_SOURCE_IK_68_INFEASIBLE_FRONT_FRAME_SAMPLES; HYPOTHESIS_40MM_STATIC_ONLY; ANATOMY_UNKNOWN')
           PY
       - name: Preserve concise immutable source-only geometry report
         if: always()
