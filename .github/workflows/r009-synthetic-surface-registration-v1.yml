@@ -45,6 +45,12 @@ on:
       - "qualification/parametric_humans/WEIGHT_REGULARIZATION_V1.md"
       - "qualification/parametric_humans/evidence/makehuman35_weight_regularization_20261106.json"
       - "qualification/parametric_humans/SCULPT_RESEARCH_V1.md"
+      - "qualification/parametric_humans/footwear_last_v1.py"
+      - "qualification/parametric_humans/test_footwear_last_v1.py"
+      - "qualification/parametric_humans/test_footwear_last_contract_v1.py"
+      - "qualification/parametric_humans/observe_footwear_last_72_v1.py"
+      - "qualification/parametric_humans/FOOTWEAR_LAST_RESEARCH_V1.md"
+      - "qualification/parametric_humans/evidence/footwear_last_evidence_v1.json"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
 
@@ -91,6 +97,9 @@ jobs:
           # Source-only bounded 35-joint weight regularization checks; real 72f source is in private Drive.
           python3 -m compileall -q weight_transfer_regularize_v1.py test_weight_transfer_sourcefree_v1.py
           python3 -m unittest -v test_weight_transfer_sourcefree_v1
+          # Footwear: only stdlib source contract on public runners; full CC0-body/72f QA is source-bound in private Drive.
+          python3 -m compileall -q footwear_last_v1.py test_footwear_last_v1.py test_footwear_last_contract_v1.py observe_footwear_last_72_v1.py
+          python3 -m unittest -v test_footwear_last_contract_v1
           python3 - <<'PY'
           import json,os,pathlib
           p=pathlib.Path(os.environ["SCP_VALIDATOR_PERF_OUT"])
