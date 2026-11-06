@@ -69,6 +69,29 @@ def attach_shoulder_gussets_original(g,which):
                     "weight_roles":["chest","shoulder_"+side]}
     return made
 
+def trouser_hip_inset(material,start,end,radius,bone_a,bone_b):
+    """Move only the original two pant thigh tube starts inside the waist yoke."""
+    if (material not in ("slatePants","ochrePants")
+        or not bone_a.startswith("hip_")
+        or bone_b!="knee_"+bone_a.removeprefix("hip_")):
+        return tuple(start),radius,False
+    fraction=.24
+    moved=tuple(a+fraction*(b-a) for a,b in zip(start,end))
+    return moved,min(radius,.106),True
+
+def knee_cap_to_source_joint(material,center,radii,bone):
+    """Align only original pant kneecap ellipsoids with 17-joint rest centers.
+
+    Source original had y=.340 while the actual knee joint is y=.490 m,
+    generating visible gaps between upper and lower skinned pant tubes.
+    """
+    if (material not in ("slatePants","ochrePants")
+        or bone not in ("knee_L","knee_R")
+        or abs(center[1]-.340)>1e-6):
+        return tuple(center),tuple(radii),False
+    xyz=h.v1.POS[bone]
+    return tuple(xyz),(.078,.086,.076),True
+
 def continuous_figure(which):
     """Replace independent torso and face lofts by one weighted trunk/head loft.
 
@@ -76,6 +99,18 @@ def continuous_figure(which):
     Preserve parent clothing, face decorations, hair, armature and source names.
     """
     original = h.loft_anatomy
+    original_tube=h.v1.Geometry.tube
+    original_ellipsoid=h.v1.Geometry.ellipsoid
+    lower_counts={"inset_hip_tubes":0,"joint_aligned_kneecaps":0}
+    def bounded_tube(self,material,start,end,r0,r1,bone_a,bone_b,steps=10,sides=18,ellipse=(1.,1.)):
+        start,r0,changed=trouser_hip_inset(material,start,end,r0,bone_a,bone_b)
+        if changed:lower_counts["inset_hip_tubes"]+=1
+        return original_tube(self,material,start,end,r0,r1,bone_a,bone_b,
+                             steps=steps,sides=sides,ellipse=ellipse)
+    def aligned_ellipsoid(self,material,center,radii,bone,lat=14,lon=20):
+        center,radii,changed=knee_cap_to_source_joint(material,center,radii,bone)
+        if changed:lower_counts["joint_aligned_kneecaps"]+=1
+        return original_ellipsoid(self,material,center,radii,bone,lat=lat,lon=lon)
     skin = "skinWarm" if which == 0 else "skinCool"
     counts = {"head_removed": 0, "trunk_replaced": 0}
     def intercept(g, mat, rings, bones, sides=32):
@@ -112,16 +147,22 @@ def continuous_figure(which):
         return original(g,mat,rings,bones,sides=sides)
     try:
         h.loft_anatomy = intercept
+        h.v1.Geometry.tube=bounded_tube
+        h.v1.Geometry.ellipsoid=aligned_ellipsoid
         geo = v1.adult_body_geometry(which)
         gussets=attach_shoulder_gussets_original(geo,which)
     finally:
         h.loft_anatomy = original
+        h.v1.Geometry.tube=original_tube
+        h.v1.Geometry.ellipsoid=original_ellipsoid
     if counts != {"head_removed":1,"trunk_replaced":1}:
         raise ValueError("TOPOLOGY_REPLACEMENT_UNEXPECTED:"+str(counts))
     if set(gussets)!={"L","R"} or any(
         x["added_vertices"]!=160 or x["added_triangles"]!=256
         for x in gussets.values()):
         raise ValueError("SOURCE_SHOULDER_BRIDGE_INCOMPLETE")
+    if lower_counts!={"inset_hip_tubes":2,"joint_aligned_kneecaps":2}:
+        raise ValueError("SOURCE_PANTS_HIP_KNEE_CORRECTION_INCOMPLETE:"+str(lower_counts))
     return geo
 
 def _append(d, binary, values, kind, fmt, count, target=None):
@@ -235,6 +276,8 @@ def distinct_cuts(master_path,manifest_path):
            "alt_top":"cropped_sleeveless_vest_v2",
            "alt_bottom":"flared_calf_length_culottes_v2"}
     d["extras"]["wardrobe_contract"]["source_shoulder_transition"]="CHEST_SHOULDER_WEIGHTED_OVERLAPPING_GUSSETS_V2_NOT_WATERTIGHT"
+    d["extras"]["wardrobe_contract"]["source_knee_transition"]="KNEE_ELLIPSOIDS_ALIGNED_TO_REST_JOINTS_NOT_WATERTIGHT"
+    d["extras"]["wardrobe_contract"]["source_thigh_tubes"]="STARTS_INSET_UNDER_PELVIS_WAIST_YOKE"
     d["extras"]["wardrobe_contract"]["cut_profile"]="ORIGINAL_DIFFERENT_TOPOLOGY_V2_RESEARCH"
     d["extras"]["wardrobe_contract"]["human_cloth_acceptance"]="UNKNOWN"
     result=glb_pack(d,b)
@@ -272,6 +315,8 @@ def build(out,manifest):
             "derived_sha256":m["derived_sha256"],
             "contiguous_trunk_neck_head_loft":True,
             "weighted_shoulder_sleeve_root_gussets":True,
+            "trouser_upper_thigh_tube_starts_inset":True,
+            "original_source_kneecaps_aligned_to_joint_rest":True,
             "shoulder_or_body_watertight":False,
             "full_body_watertight":False,
             "new_alt_topology":True,
