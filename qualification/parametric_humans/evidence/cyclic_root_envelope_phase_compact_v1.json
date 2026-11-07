@@ -1,0 +1,58 @@
+{
+  "ankle_witness_sha256": "4019fe9a032d66b767a9715500156b4afcdc2df6cd7ddb6293bb0ec682516541",
+  "cpu_dual_gate_verdict": "PASS_FLOOR_AND_CONTINUITY_PROXY_ONLY",
+  "cyclic_candidate_glb_sha256": "1ac4c25a501db1a82ce2d729ae4b00d4b6298f673ed5a498f9e4245fa0b87d7d",
+  "date": "2026-11-07",
+  "first_rejected_noncyclic_glb_sha256": "612f16118e75e28563b1a43ef6c0bf357812b923454f3434475f17070bf5fce9",
+  "floor_proxy": {
+    "AsterOriginal": {
+      "frames_dual_hover": 0,
+      "frames_penetrating": 0,
+      "max_root_y_second_diff_m": 0.004,
+      "max_root_y_step_m": 0.002,
+      "worst_shoe_y_m": 0.00019999966025352478
+    },
+    "JuniperOriginal": {
+      "frames_dual_hover": 0,
+      "frames_penetrating": 0,
+      "max_root_y_second_diff_m": 0.004,
+      "max_root_y_step_m": 0.002,
+      "worst_shoe_y_m": 0.00019999966025352478
+    }
+  },
+  "foot_ik_implemented": false,
+  "gait_accepted": false,
+  "merge_or_release": "HELD",
+  "native_blender_qualified": false,
+  "original_glb_sha256": "b92f755607b9175b0e7874fa60f6d64eca1eb939d609947b672cc46b36e0d748",
+  "original_only_integration_tests_passed_locally": 2,
+  "original_sole_receipt_sha256": "c86d2a6d2ee2f324a3974723fdb2cdc5e29f59d5f033d7414b8e0aaf08409640",
+  "parent_base_SHA_drift": "HELD",
+  "phase_sensitivity": {
+    "AsterOriginal": {
+      "L": {
+        "robust_stance_proxy_transition_count": 43,
+        "threshold_sensitive_transition_count": 3
+      },
+      "R": {
+        "robust_stance_proxy_transition_count": 37,
+        "threshold_sensitive_transition_count": 2
+      }
+    },
+    "JuniperOriginal": {
+      "L": {
+        "robust_stance_proxy_transition_count": 39,
+        "threshold_sensitive_transition_count": 3
+      },
+      "R": {
+        "robust_stance_proxy_transition_count": 40,
+        "threshold_sensitive_transition_count": 4
+      }
+    }
+  },
+  "rejected_noncyclic_Juniper_wrap_step_m": -0.0033864201977849007,
+  "release_approved": false,
+  "schema": "scp.r009.cyclic_floor_phase_research_compact.v1",
+  "source_only_tests_passed": 33,
+  "source_only_tests_skipped_private_inputs": 1
+}

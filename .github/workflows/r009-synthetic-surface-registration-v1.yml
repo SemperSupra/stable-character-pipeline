@@ -101,6 +101,15 @@ on:
       - "qualification/parametric_humans/verify_root_y_floor_trial_v1.py"
       - "qualification/parametric_humans/SHOE_FLOOR_72FRAME_RESEARCH_V1.md"
       - "qualification/parametric_humans/evidence/shoe_floor_72frame_first_red_v1.json"
+      - "qualification/parametric_humans/phase_window_sensitivity_v1.py"
+      - "qualification/parametric_humans/root_y_lipschitz_envelope_v1.py"
+      - "qualification/parametric_humans/root_y_envelope_glb_v1.py"
+      - "qualification/parametric_humans/root_y_envelope_dual_gate_v1.py"
+      - "qualification/parametric_humans/test_phase_window_sensitivity_v1.py"
+      - "qualification/parametric_humans/test_root_y_envelope_dual_gate_v1.py"
+      - "qualification/parametric_humans/test_root_y_envelope_glb_source_v1.py"
+      - "qualification/parametric_humans/PHASE_WINDOW_ROOT_ENVELOPE_RDTE_V1.md"
+      - "qualification/parametric_humans/evidence/cyclic_root_envelope_phase_compact_v1.json"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
 
@@ -166,6 +175,9 @@ jobs:
           # R009 source-free phase correction and root-height RED; never admit private GLBs to public CI.
           python3 -m compileall -q ankle_sole_phase_witness_v1.py foot_phase_reclassification_gate_v1.py test_foot_phase_reclassification_gate_v1.py root_y_floor_registration_trial_v1.py verify_root_y_floor_trial_v1.py root_y_trial_gate_v1.py test_root_y_trial_gate_v1.py
           python3 -m unittest -v test_foot_phase_reclassification_gate_v1 test_root_y_trial_gate_v1
+          # Source-free cyclic floor-Y envelope and phase threshold sensitivity; owner-only GLB tests skip.
+          python3 -m compileall -q phase_window_sensitivity_v1.py root_y_lipschitz_envelope_v1.py root_y_envelope_glb_v1.py root_y_envelope_dual_gate_v1.py test_phase_window_sensitivity_v1.py test_root_y_envelope_dual_gate_v1.py test_root_y_envelope_glb_source_v1.py
+          python3 -m unittest -v test_phase_window_sensitivity_v1 test_root_y_envelope_dual_gate_v1 test_root_y_envelope_glb_source_v1
           # Independent 72f Pareto gate: source-free validation of multi-metric regression semantics.
           python3 -m compileall -q garment_motion_regression_gate_v1.py test_garment_motion_regression_gate_v1.py
           python3 -m unittest -v test_garment_motion_regression_gate_v1
