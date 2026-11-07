@@ -1,0 +1,58 @@
+{
+  "actual_source_glb_preserved": true,
+  "first_red": {
+    "hovering": [],
+    "native_blender_evaluated": false,
+    "realistic_gait_accepted": false,
+    "rejects": [
+      {
+        "actor": "AsterOriginal",
+        "affected_frames": 72,
+        "min_y_m": -0.01316331047564745
+      },
+      {
+        "actor": "JuniperOriginal",
+        "affected_frames": 72,
+        "min_y_m": -0.013142220675945282
+      }
+    ],
+    "release_approved": false,
+    "schema": "scp.r009.shoe_floor_gate.v1",
+    "source_sha256": "b92f755607b9175b0e7874fa60f6d64eca1eb939d609947b672cc46b36e0d748",
+    "verdict": "RED_FOOT_FLOOR_PENETRATION"
+  },
+  "frames_each_actor": 72,
+  "full72_raw_receipt_sha256": "7f9b4162da6bbe468b9af7760f18279b228854af02c19c78bd1d2e1f871af65c",
+  "native_blender_evaluated": false,
+  "natural_gait_accepted": false,
+  "owner_merge_CPE_hold": "HELD",
+  "physical_contact_accepted": false,
+  "release_approved": false,
+  "schema": "scp.r009.shoe_floor_research_compact.v1",
+  "source_class": "self_authored_synthetic_plus_pinned_CC0_MakeHuman_body",
+  "source_sha256": "b92f755607b9175b0e7874fa60f6d64eca1eb939d609947b672cc46b36e0d748",
+  "summary": {
+    "AsterOriginal": {
+      "diagnostic_only_root_clearance_shift_m_max": 0.01316331047564745,
+      "diagnostic_only_root_clearance_shift_m_min": 0.007379184477031231,
+      "foot_frame_count_below_minus_1mm": 110,
+      "frames_both_feet_above_plus_10mm": 0,
+      "frames_with_sole_below_minus_1mm": 72,
+      "frames_with_sole_below_minus_5mm": 72,
+      "max_root_shift_delta_m_per_frame": 0.005420907400548458,
+      "stance_min_mean_y_m": -0.00973239055989931,
+      "worst_min_y_m": -0.01316331047564745
+    },
+    "JuniperOriginal": {
+      "diagnostic_only_root_clearance_shift_m_max": 0.013142220675945282,
+      "diagnostic_only_root_clearance_shift_m_min": 0.007485095877200365,
+      "foot_frame_count_below_minus_1mm": 109,
+      "frames_both_feet_above_plus_10mm": 0,
+      "frames_with_sole_below_minus_1mm": 72,
+      "frames_with_sole_below_minus_5mm": 72,
+      "max_root_shift_delta_m_per_frame": 0.005244733300060034,
+      "stance_min_mean_y_m": -0.009802340814429853,
+      "worst_min_y_m": -0.013142220675945282
+    }
+  }
+}
