@@ -1,0 +1,360 @@
+name: R009 synthetic surface registration contract
+
+on:
+  pull_request:
+    paths:
+      - "qualification/parametric_humans/surface_registration_v1.py"
+      - "qualification/parametric_humans/test_surface_registration_v1.py"
+      - "qualification/parametric_humans/test_surface_registration_quality.py"
+      - "qualification/parametric_humans/test_surface_registration_metamorphic.py"
+      - "qualification/parametric_humans/disposable_parent_integration_trial.py"
+      - "qualification/parametric_humans/disposable_combined_native_v1.py"
+      - "qualification/parametric_humans/test_disposable_combined_native_v1.py"
+      - "qualification/parametric_humans/costume_garment_v1.py"
+      - "qualification/parametric_humans/test_costume_garment_v1.py"
+      - "qualification/parametric_humans/COSTUME_VARIANTS_V1.md"
+      - "qualification/parametric_humans/sculpt_human_v1.py"
+      - "qualification/parametric_humans/test_sculpt_human_v1.py"
+      - "qualification/parametric_humans/retarget_makehuman_v0.py"
+      - "qualification/parametric_humans/test_retarget_makehuman_v0.py"
+      - "qualification/parametric_humans/observe_makehuman35_motion_v0.py"
+      - "qualification/parametric_humans/test_observe_makehuman35_motion_v0.py"
+      - "qualification/parametric_humans/observe_makehuman35_garment_v0.py"
+      - "qualification/parametric_humans/observe_makehuman35_garment_72_v1.py"
+      - "qualification/parametric_humans/test_observe_makehuman35_garment_72_v1.py"
+      - "qualification/parametric_humans/DYNAMIC_SIGNED_CONTACT_V1.md"
+      - "qualification/parametric_humans/evidence/full72_signed_contact_summary_v1.json"
+      - "qualification/parametric_humans/fit_signed_clearance_v0.py"
+      - "qualification/parametric_humans/test_fit_signed_clearance_v0.py"
+      - "qualification/parametric_humans/render_candidate_qa_v0.py"
+      - "qualification/parametric_humans/MAKEHUMAN35_RETARGET_CANDIDATE_V0.md"
+      - "qualification/parametric_humans/evidence/makehuman35_retarget_20261106.json"
+      - "qualification/parametric_humans/basemesh_admission_v1.py"
+      - "qualification/parametric_humans/test_basemesh_admission_v1.py"
+      - "qualification/parametric_humans/basemesh_body_only_v1.py"
+      - "qualification/parametric_humans/test_basemesh_body_only_v1.py"
+      - "qualification/parametric_humans/test_sculpt_triangle_repair_v1.py"
+      - "qualification/parametric_humans/test_sculpt_topology_gate_v1.py"
+      - "qualification/parametric_humans/sculpt_triangle_repair_v1.py"
+      - "qualification/parametric_humans/sculpt_topology_gate_v1.py"
+      - "qualification/parametric_humans/HUMAN_TOPOLOGY_BASEMESH_RDTE_V1.md"
+      - "qualification/parametric_humans/weight_transfer_regularize_v1.py"
+      - "qualification/parametric_humans/test_weight_transfer_sourcefree_v1.py"
+      - "qualification/parametric_humans/test_weight_transfer_regularize_v1.py"
+      - "qualification/parametric_humans/build_regularization_evidence_v1.py"
+      - "qualification/parametric_humans/WEIGHT_REGULARIZATION_V1.md"
+      - "qualification/parametric_humans/evidence/makehuman35_weight_regularization_20261106.json"
+      - "qualification/parametric_humans/SCULPT_RESEARCH_V1.md"
+      - "qualification/parametric_humans/footwear_last_v1.py"
+      - "qualification/parametric_humans/test_footwear_last_v1.py"
+      - "qualification/parametric_humans/test_footwear_last_contract_v1.py"
+      - "qualification/parametric_humans/observe_footwear_last_72_v1.py"
+      - "qualification/parametric_humans/FOOTWEAR_LAST_RESEARCH_V1.md"
+      - "qualification/parametric_humans/evidence/footwear_last_evidence_v1.json"
+      - "qualification/parametric_humans/garment_motion_regression_gate_v1.py"
+      - "qualification/parametric_humans/test_garment_motion_regression_gate_v1.py"
+      - "qualification/parametric_humans/SKIRT_MOTION_REGRESSION_RESEARCH_V1.md"
+      - "qualification/parametric_humans/evidence/skirt_hem_grade_first_red_v1.json"
+      - "qualification/parametric_humans/triangle_surface_bvh_v1.py"
+      - "qualification/parametric_humans/test_triangle_surface_bvh_v1.py"
+      - "qualification/parametric_humans/garment_radial_trial_v1.py"
+      - "qualification/parametric_humans/triangle_vertex_contact_gate_v1.py"
+      - "qualification/parametric_humans/test_triangle_vertex_contact_gate_v1.py"
+      - "qualification/parametric_humans/TRIANGLE_CONTACT_RESEARCH_V1.md"
+      - "qualification/parametric_humans/evidence/triangle_contact_evidence_v1.json"
+      - "qualification/parametric_humans/armhole_profile_contract_v1.py"
+      - "qualification/parametric_humans/armhole_actor_specific_v1.py"
+      - "qualification/parametric_humans/test_armhole_profile_contract_v1.py"
+      - "qualification/parametric_humans/test_armhole_actor_specific_v1.py"
+      - "qualification/parametric_humans/contact_pose_batch_v1.py"
+      - "qualification/parametric_humans/test_contact_pose_batch_v1.py"
+      - "qualification/parametric_humans/compute_armhole_chunk_v1.py"
+      - "qualification/parametric_humans/ARMHOLE_RELATIVE_RDTE_V1.md"
+      - "qualification/parametric_humans/evidence/armhole_relative_compact_evidence_v1.json"
+      - "qualification/parametric_humans/contact_hotspots_v1.py"
+      - "qualification/parametric_humans/test_contact_hotspots_v1.py"
+      - "qualification/parametric_humans/skirt_yoke_weight_trial_v1.py"
+      - "qualification/parametric_humans/skirt_yoke_profile_contract_v1.py"
+      - "qualification/parametric_humans/test_skirt_yoke_weight_trial_v1.py"
+      - "qualification/parametric_humans/test_skirt_yoke_profile_contract_v1.py"
+      - "qualification/parametric_humans/garment_skinned_strain_v1.py"
+      - "qualification/parametric_humans/skirt_bounded_research_gate_v1.py"
+      - "qualification/parametric_humans/test_skirt_bounded_research_gate_v1.py"
+      - "qualification/parametric_humans/SKIRT_YOKE_RESEARCH_V1.md"
+      - "qualification/parametric_humans/evidence/skirt_yoke_relative_research_v1.json"
+      - "qualification/parametric_humans/shoe_floor_contact_v1_schema.py"
+      - "qualification/parametric_humans/shoe_floor_contact_v1.py"
+      - "qualification/parametric_humans/shoe_floor_gate_v1.py"
+      - "qualification/parametric_humans/test_shoe_floor_gate_v1.py"
+      - "qualification/parametric_humans/sole_phase_root_feasibility_v1.py"
+      - "qualification/parametric_humans/test_sole_phase_root_feasibility_v1.py"
+      - "qualification/parametric_humans/SOLE_PHASE_ROOT_FEASIBILITY_V1.md"
+      - "qualification/parametric_humans/evidence/sole_phase_root_feasibility_v1.json"
+      - "qualification/parametric_humans/evidence/phase_aware_floor_compact_receipt_v1.json"
+      - "qualification/parametric_humans/FOOT_PHASE_RECLASSIFICATION_ROOTY_RDTE_V1.md"
+      - "qualification/parametric_humans/ankle_sole_phase_witness_v1.py"
+      - "qualification/parametric_humans/foot_phase_reclassification_gate_v1.py"
+      - "qualification/parametric_humans/root_y_floor_registration_trial_v1.py"
+      - "qualification/parametric_humans/root_y_trial_gate_v1.py"
+      - "qualification/parametric_humans/test_foot_phase_reclassification_gate_v1.py"
+      - "qualification/parametric_humans/test_root_y_trial_gate_v1.py"
+      - "qualification/parametric_humans/verify_root_y_floor_trial_v1.py"
+      - "qualification/parametric_humans/SHOE_FLOOR_72FRAME_RESEARCH_V1.md"
+      - "qualification/parametric_humans/evidence/shoe_floor_72frame_first_red_v1.json"
+      - "qualification/parametric_humans/phase_window_sensitivity_v1.py"
+      - "qualification/parametric_humans/root_y_lipschitz_envelope_v1.py"
+      - "qualification/parametric_humans/root_y_envelope_glb_v1.py"
+      - "qualification/parametric_humans/root_y_envelope_dual_gate_v1.py"
+      - "qualification/parametric_humans/test_phase_window_sensitivity_v1.py"
+      - "qualification/parametric_humans/test_root_y_envelope_dual_gate_v1.py"
+      - "qualification/parametric_humans/test_root_y_envelope_glb_source_v1.py"
+      - "qualification/parametric_humans/PHASE_WINDOW_ROOT_ENVELOPE_RDTE_V1.md"
+      - "qualification/parametric_humans/evidence/cyclic_root_envelope_phase_compact_v1.json"
+      - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate synthetic-only geometric contract
+        env:
+          SCP_VALIDATOR_PERF_OUT: ${{ runner.temp }}/r009-surface-validator-performance.json
+          SCP_SURFACE_METAMORPHIC_OUT: ${{ runner.temp }}/r009-surface-metamorphic.json
+        run: |
+          set -euo pipefail
+          cd qualification/parametric_humans
+          python3 -m compileall -q surface_registration_v1.py test_surface_registration_v1.py
+          python3 -m unittest -v test_surface_registration_v1 test_surface_registration_quality test_surface_registration_metamorphic
+          # Original-only garment contract: five source-free controls; exact-source optional test skips on public CI.
+          python3 -m compileall -q costume_garment_v1.py test_costume_garment_v1.py
+          python3 -m unittest -v test_costume_garment_v1
+          # Source-free human-sculpt hostile tests; eight exact-original-source
+          # geometry tests report SKIP on public GHA, never a false PASS.
+          python3 -m compileall -q sculpt_human_v1.py test_sculpt_human_v1.py
+          python3 -m unittest -v test_sculpt_human_v1
+          # Pinned CC0 source geometry contract: all 11 hostile tests source-free.
+          python3 -m compileall -q basemesh_admission_v1.py test_basemesh_admission_v1.py
+          python3 -m unittest -v test_basemesh_admission_v1
+          python3 -m compileall -q basemesh_body_only_v1.py test_basemesh_body_only_v1.py
+          python3 -m unittest -v test_basemesh_body_only_v1
+          # Topology and index-only repair are source-free here; real GLB source remains private/Drive.
+          python3 -m compileall -q sculpt_topology_gate_v1.py test_sculpt_topology_gate_v1.py sculpt_triangle_repair_v1.py test_sculpt_triangle_repair_v1.py
+          python3 -m unittest -v test_sculpt_topology_gate_v1 test_sculpt_triangle_repair_v1
+          # Retarget: source-free deterministic tests; exact archived GLB tests intentionally skip on public runners.
+          python3 -m compileall -q retarget_makehuman_v0.py test_retarget_makehuman_v0.py observe_makehuman35_motion_v0.py test_observe_makehuman35_motion_v0.py observe_makehuman35_garment_v0.py fit_signed_clearance_v0.py test_fit_signed_clearance_v0.py render_candidate_qa_v0.py
+          python3 -m compileall -q observe_makehuman35_garment_72_v1.py test_observe_makehuman35_garment_72_v1.py
+          python3 -m unittest -v test_retarget_makehuman_v0
+          # Source-only bounded 35-joint weight regularization checks; real 72f source is in private Drive.
+          python3 -m compileall -q weight_transfer_regularize_v1.py test_weight_transfer_sourcefree_v1.py
+          python3 -m unittest -v test_weight_transfer_sourcefree_v1
+          # Footwear: only stdlib source contract on public runners; full CC0-body/72f QA is source-bound in private Drive.
+          python3 -m compileall -q footwear_last_v1.py test_footwear_last_v1.py test_footwear_last_contract_v1.py observe_footwear_last_72_v1.py
+          python3 -m unittest -v test_footwear_last_contract_v1
+          # Actor-specific armhole & bounded 73-pose assembler: 19 stdlib controls;
+          # exact owner-only 35-joint source tests explicitly SKIP in public CI.
+          python3 -m compileall -q armhole_profile_contract_v1.py armhole_actor_specific_v1.py test_armhole_profile_contract_v1.py test_armhole_actor_specific_v1.py contact_pose_batch_v1.py test_contact_pose_batch_v1.py compute_armhole_chunk_v1.py
+          python3 -m unittest -v test_armhole_profile_contract_v1 test_armhole_actor_specific_v1 test_contact_pose_batch_v1
+          # Juniper yoke: native/VTK producer remains private-source, run stdlib veto contracts only.
+          python3 -m compileall -q contact_hotspots_v1.py skirt_yoke_weight_trial_v1.py skirt_yoke_profile_contract_v1.py garment_skinned_strain_v1.py skirt_bounded_research_gate_v1.py test_contact_hotspots_v1.py test_skirt_yoke_weight_trial_v1.py test_skirt_yoke_profile_contract_v1.py test_skirt_bounded_research_gate_v1.py
+          python3 -m unittest -v test_skirt_yoke_profile_contract_v1 test_skirt_bounded_research_gate_v1
+          # Original-only 72-frame sole-height witness: source-free strict frame/floor veto.
+          python3 -m compileall -q shoe_floor_contact_v1_schema.py shoe_floor_contact_v1.py shoe_floor_gate_v1.py test_shoe_floor_gate_v1.py
+          python3 -m unittest -v test_shoe_floor_gate_v1
+          # Independent bilateral root-only geometric impossibility gate: stdlib and source-free.
+          python3 -m compileall -q sole_phase_root_feasibility_v1.py test_sole_phase_root_feasibility_v1.py
+          python3 -m unittest -v test_sole_phase_root_feasibility_v1
+          # R009 source-free phase correction and root-height RED; never admit private GLBs to public CI.
+          python3 -m compileall -q ankle_sole_phase_witness_v1.py foot_phase_reclassification_gate_v1.py test_foot_phase_reclassification_gate_v1.py root_y_floor_registration_trial_v1.py verify_root_y_floor_trial_v1.py root_y_trial_gate_v1.py test_root_y_trial_gate_v1.py
+          python3 -m unittest -v test_foot_phase_reclassification_gate_v1 test_root_y_trial_gate_v1
+          # Source-free cyclic floor-Y envelope and phase threshold sensitivity; owner-only GLB tests skip.
+          python3 -m compileall -q phase_window_sensitivity_v1.py root_y_lipschitz_envelope_v1.py root_y_envelope_glb_v1.py root_y_envelope_dual_gate_v1.py test_phase_window_sensitivity_v1.py test_root_y_envelope_dual_gate_v1.py test_root_y_envelope_glb_source_v1.py
+          python3 -m unittest -v test_phase_window_sensitivity_v1 test_root_y_envelope_dual_gate_v1 test_root_y_envelope_glb_source_v1
+          # Independent 72f Pareto gate: source-free validation of multi-metric regression semantics.
+          python3 -m compileall -q garment_motion_regression_gate_v1.py test_garment_motion_regression_gate_v1.py
+          python3 -m unittest -v test_garment_motion_regression_gate_v1
+          # Triangle-vs-vertex two-metric veto: stdlib on public GHA;
+          # VTK/NumPy/SciPy and exact archived GLB are explicit non-public science gates.
+          python3 -m compileall -q triangle_surface_bvh_v1.py test_triangle_surface_bvh_v1.py garment_radial_trial_v1.py triangle_vertex_contact_gate_v1.py test_triangle_vertex_contact_gate_v1.py
+          python3 -m unittest -v test_triangle_surface_bvh_v1 test_triangle_vertex_contact_gate_v1
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["SCP_VALIDATOR_PERF_OUT"])
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.validator.performance.v1"
+          assert r["case_count"]==13
+          assert r["rejection_detection"]=={"detected":8,"total":8}
+          assert r["confusion"]["ABSTAIN"]["ABSTAIN"]==3
+          assert r["false_acceptance_count"]==r["false_rejection_count"]==0
+          assert r["contract_mismatch_count"]==0
+          assert r["verdict"]=="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"
+          print("SURFACE_VALIDATOR_QUALITY",r["validator_sha256"],r["runtime"])
+          m=json.loads(pathlib.Path(os.environ["SCP_SURFACE_METAMORPHIC_OUT"]).read_text())
+          assert m["schema"]=="scp.validator.metamorphic.v1"
+          assert m["grid_vertices"]==1089 and m["grid_triangles"]==2048
+          assert len(m["metamorphic_checks"])==4 and all(m["metamorphic_checks"].values())
+          assert m["validator_sha256"]==r["validator_sha256"]
+          assert m["external_photo_fit"]=="NOT_RUN"
+          assert m["anatomical_fidelity"]=="UNKNOWN" and not m["merge_release_CPE_approval"]
+          print("SURFACE_METAMORPHIC_FRAME_SCALE_INDEX_PASS",m["grid_latency_ns"])
+          PY
+      - name: Qualify actual pinned MakeHuman CC0 basemesh without importing helpers as body
+        run: |
+          set -euo pipefail
+          SOURCE="$RUNNER_TEMP/r009-makehuman-core-base.obj"
+          RECEIPT="$RUNNER_TEMP/r009-makehuman-basemesh-cc0-v1.json"
+          curl --fail --location --retry 2 --connect-timeout 8 --max-time 60 --silent --show-error \
+            "https://raw.githubusercontent.com/makehumancommunity/makehuman/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/3dobjs/base.obj" \
+            -o "$SOURCE"
+          python3 qualification/parametric_humans/basemesh_admission_v1.py \
+            --input "$SOURCE" --out "$RECEIPT" \
+            --expected-blob d26635e9326e3cca30778fd7b9c00062b03cce09
+          python3 qualification/parametric_humans/basemesh_body_only_v1.py \
+            --input "$SOURCE" --out "$RUNNER_TEMP/r009-makehuman-body-only.obj" \
+            --receipt "$RUNNER_TEMP/r009-makehuman-body-only-v1.json" \
+            --expected-blob d26635e9326e3cca30778fd7b9c00062b03cce09
+          python3 - "$RUNNER_TEMP/r009-makehuman-body-only-v1.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          assert r["selected_group"]=="body" and r["body_quads"]==13378 and r["body_vertices"]==13380
+          assert r["excluded_helper_quads"]==5108 and r["body_uvs"]==14517
+          assert r["body_only_geometry_extracted"] and not r["rig_transfer_qualified"]
+          assert not r["human_realism_accepted"] and not r["release_approved"]
+          print("R009_MAKEHUMAN_BODY_ONLY_EXTRACTED_SOURCE_PINNED_TECHNICAL_ONLY")
+          PY
+          python3 - "$RECEIPT" <<'PY'
+          import json,sys
+          v=json.load(open(sys.argv[1]))
+          assert v["admission"]=="SOURCE_GEOMETRY_ONLY"
+          assert v["quantities"]=={"vertices":19158,"quads":18486,
+                 "body_quads":13378,"body_vertex_indices":13380,"groups":139}
+          assert v["helper_quad_faces"]==5108
+          assert not v["rig_transfer_qualified"] and not v["native_blender_qualified"]
+          assert not v["human_realism_accepted"] and not v["release_approved"]
+          print("R009_CC0_MAKEHUMAN_ACTUAL_SOURCE_ADMITTED_TOPOLOGY_ONLY")
+          PY
+      - name: Disposable exact-source parent BVH-v2 and child surface integration trial
+        if: github.event_name == 'pull_request'
+        env:
+          PARENT_HEAD_PIN: bca50fe99ba7d84e1153cda5fbdb173d7631ce4a
+          OLD_PARENT_PIN: 135d80dbec8ad0b3df15d85b426783e6d8d68d11
+          CHILD_HEAD: ${{ github.event.pull_request.head.sha }}
+          INTEGRATION_RECEIPT: ${{ runner.temp }}/r009-surface-parent-disposable-trial.json
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/parametric_humans/disposable_parent_integration_trial.py
+          python3 qualification/parametric_humans/disposable_parent_integration_trial.py
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["INTEGRATION_RECEIPT"])
+          receipt=json.loads(p.read_text())
+          assert receipt["schema"]=="scp.disposable_source_integration.v1"
+          assert receipt["parent_pr"]==308 and receipt["child_pr"]==336
+          assert receipt["combined_python_synthetic_tests"]=="PASS"
+          assert receipt["parent_bvh_schema"]=="scp.r009.original_bvh_surface_contact.v2"
+          assert receipt["child_source_scope_added"] and not receipt["unresolved_conflicts"]
+          assert not receipt["joint_native_blender_render_evaluated"]
+          assert receipt["scientific_anatomy"]=="UNKNOWN" and receipt["real_photo_fit"]=="NOT_RUN"
+          assert receipt["no_remote_branch_merge_or_push"]
+          assert not receipt["human_visual_acceptance"] and not receipt["merge_release_CPE_approval"]
+          print("DISPOSABLE_SOURCE_SYNTHETIC_ONLY_NO_PARENT_MUTATION")
+          PY
+      - name: Preserve source-bounded synthetic validator performance receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r009-synthetic-surface-validator-performance
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/r009-surface-validator-performance.json
+            ${{ runner.temp }}/r009-surface-metamorphic.json
+            ${{ runner.temp }}/r009-makehuman-basemesh-cc0-v1.json
+            ${{ runner.temp }}/r009-makehuman-body-only-v1.json
+            ${{ runner.temp }}/r009-makehuman-body-only.obj
+            ${{ runner.temp }}/r009-surface-parent-disposable-trial.json
+
+  combined-native-v2:
+    # Original public synthetic actor sources ONLY. Never use private person
+    # scans, vendor captures, protected runner tokens, or private GHA minutes.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Independent source-only native receipt falsifiers
+        run: |
+          set -euo pipefail
+          cd qualification/parametric_humans
+          python3 -m compileall -q disposable_parent_integration_trial.py disposable_combined_native_v1.py test_disposable_combined_native_v1.py
+          python3 -m unittest -v test_disposable_combined_native_v1
+      - name: Install exact hash-verified Blender 4.5.15 on public CPU
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Disposable exact-head merged sources native 72-frame BVH v2
+        env:
+          PARENT_HEAD_PIN: bca50fe99ba7d84e1153cda5fbdb173d7631ce4a
+          OLD_PARENT_PIN: 135d80dbec8ad0b3df15d85b426783e6d8d68d11
+          CHILD_HEAD: ${{ github.event.pull_request.head.sha }}
+          INTEGRATION_RECEIPT: ${{ runner.temp }}/r009-native-combined-source.json
+          SCP_NATIVE_COMBINED: "1"
+          SCP_BLENDER: ${{ runner.temp }}/blender-4.5.15-linux-x64/blender
+          NATIVE_OUTPUT_DIR: ${{ runner.temp }}/r009-disposable-native-v2
+        run: |
+          set -euo pipefail
+          python3 qualification/parametric_humans/disposable_parent_integration_trial.py
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["INTEGRATION_RECEIPT"])
+          v=json.loads(p.read_text())
+          assert v["schema"]=="scp.disposable_source_integration.v1"
+          assert v["parent_pr"]==308 and v["child_pr"]==336
+          assert v["parent_bvh_schema"]=="scp.r009.original_bvh_surface_contact.v2"
+          assert v["combined_python_synthetic_tests"]=="PASS"
+          assert v["joint_native_blender_render_evaluated"] is True
+          n=v["native_blender_receipt"]
+          assert n["schema"]=="scp.r009.disposable_combined_native.v1"
+          assert n["native_blender_72_frame_v2_receipts_checked"] is True
+          assert n["blender_native_states"]==2 and n["total_native_diagnostic_views"]==16
+          assert n["per_state_bvh_actor_slot_samples"]==432
+          assert set(n["states"])=={"before","after"}
+          assert all(x["frames_bvh_evaluated"]==72 and
+                     x["native_views_verified"]==8 for x in n["states"].values())
+          assert n["real_photo_fit"]=="NOT_RUN"
+          assert n["scientific_anatomy"]=="UNKNOWN"
+          assert n["garment_fit_accepted"] is False
+          assert n["visual_realism_accepted"] is False
+          assert n["merge_release_CPE_approval"] is False
+          assert v["no_remote_branch_merge_or_push"] is True
+          assert v["human_visual_acceptance"] is False
+          assert v["merge_release_CPE_approval"] is False
+          print("R009_DISPOSABLE_JOINT_NATIVE_72_FRAME_BVH_V2_TECHNICAL_ONLY")
+          PY
+          (cd "$NATIVE_OUTPUT_DIR"; sha256sum ./* > SHA256SUMS; sha256sum -c SHA256SUMS)
+      - name: Retain technical-only native receipt, 16 images, frame evidence and first failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r009-disposable-joined-native-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/r009-native-combined-source.json
+            ${{ runner.temp }}/r009-disposable-native-v2/

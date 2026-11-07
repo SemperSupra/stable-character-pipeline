@@ -4,6 +4,7 @@ on:
     paths:
       - 'qualification/parametric_humans/**'
       - '.github/workflows/r009-parametric-native-blender-v1.yml'
+      - '.github/workflows/r009-synthetic-surface-registration-v1.yml'
 permissions:
   contents: read
 jobs:
@@ -26,7 +27,7 @@ jobs:
           git cat-file -e "$HEAD_SHA^{commit}"
           git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
           git diff --name-only "$BASE_SHA" "$HEAD_SHA" | sort > r009-native-evidence/changed_paths.txt
-          if grep -Ev '^(qualification/parametric_humans/|\.github/workflows/r009-parametric-(human-contract|native-blender)-v1\.yml$)' r009-native-evidence/changed_paths.txt; then
+          if grep -Ev '^(qualification/parametric_humans/|\.github/workflows/(r009-parametric-(human-contract|native-blender)-v1|r009-synthetic-surface-registration-v1)\.yml$)' r009-native-evidence/changed_paths.txt; then
             echo "INVALID_SCOPE_OR_SOURCE_MUTATION"; exit 11
           fi
           git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- qualification/original_reusable_characters/

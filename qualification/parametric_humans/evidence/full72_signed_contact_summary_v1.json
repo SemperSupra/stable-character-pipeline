@@ -1,0 +1,84 @@
+{
+  "actor_count": 2,
+  "all_distance_signs_calibrated": true,
+  "anatomical_motion_accepted": false,
+  "characters": {
+    "AsterOriginal": {
+      "costume_bottom": {
+        "frame_count": 72,
+        "frames_fraction_gt_1pct": 20,
+        "max_fraction_gt_5mm": 0.025,
+        "mean_fraction_gt_5mm": 0.007725694444444445,
+        "worst_frame": 16
+      },
+      "costume_top": {
+        "frame_count": 72,
+        "frames_fraction_gt_1pct": 0,
+        "max_fraction_gt_5mm": 0.0,
+        "mean_fraction_gt_5mm": 0.0,
+        "worst_frame": 0
+      },
+      "costume_trim": {
+        "frame_count": 72,
+        "frames_fraction_gt_1pct": 0,
+        "max_fraction_gt_5mm": 0.0,
+        "mean_fraction_gt_5mm": 0.0,
+        "worst_frame": 0
+      },
+      "footwear": {
+        "frame_count": 72,
+        "frames_fraction_gt_1pct": 72,
+        "max_fraction_gt_5mm": 0.2,
+        "mean_fraction_gt_5mm": 0.1972442680776014,
+        "worst_frame": 21
+      }
+    },
+    "JuniperOriginal": {
+      "costume_bottom": {
+        "frame_count": 72,
+        "frames_fraction_gt_1pct": 22,
+        "max_fraction_gt_5mm": 0.01875,
+        "mean_fraction_gt_5mm": 0.005772569444444445,
+        "worst_frame": 12
+      },
+      "costume_top": {
+        "frame_count": 72,
+        "frames_fraction_gt_1pct": 0,
+        "max_fraction_gt_5mm": 0.0,
+        "mean_fraction_gt_5mm": 0.0,
+        "worst_frame": 0
+      },
+      "costume_trim": {
+        "frame_count": 72,
+        "frames_fraction_gt_1pct": 0,
+        "max_fraction_gt_5mm": 0.0,
+        "mean_fraction_gt_5mm": 0.0,
+        "worst_frame": 0
+      },
+      "footwear": {
+        "frame_count": 72,
+        "frames_fraction_gt_1pct": 72,
+        "max_fraction_gt_5mm": 0.2,
+        "mean_fraction_gt_5mm": 0.19720017636684303,
+        "worst_frame": 7
+      }
+    }
+  },
+  "cloth_collision_accepted": false,
+  "evaluated_source_glb_sha256": "366fc2964e0e156988b0207735d89b8dbba18d6b92d0ac453e0d4fc7846fe99f",
+  "footwear_failure_in_all_frames": true,
+  "frames_per_actor": 72,
+  "full_report_sha256": "abbece44c55f218275402b19809f3c38cc5a4688bd2a76adf9e6a62c4f50fb43",
+  "garments_per_actor": 4,
+  "including_rest_states": 73,
+  "positive_clearance_for_bodice_and_trim_72frames": true,
+  "prior_reds_preserved": [
+    "shoe_vertex_projection_changes_face_orientation_and_stretches_edges_gt6x",
+    "uniform_enlargement_does_not_resolve_footwear_penetration",
+    "skirt_dynamic_penetration_persists"
+  ],
+  "release_approved": false,
+  "schema": "scp.r009.makehuman35.72frame_signed_contact_summary.v1",
+  "scope": "vertex-to-surface signed contact; not continuous triangle collision or native cloth simulation",
+  "total_vertex_surface_state_slots": 584
+}

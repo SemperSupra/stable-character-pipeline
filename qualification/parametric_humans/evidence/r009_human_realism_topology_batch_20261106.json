@@ -1,0 +1,115 @@
+{
+  "schema": "scp.r009.original_human.realism_topology_independent_batch.v1",
+  "date": "2026-11-06",
+  "authority": {
+    "public_dle": "https://github.com/SemperSupra/stable-character-pipeline/issues/272",
+    "source_pr": "https://github.com/SemperSupra/stable-character-pipeline/pull/336",
+    "source_scope": "ORIGINAL_SELF_AUTHORED_SYNTHETIC_ONLY",
+    "merged": false,
+    "released": false
+  },
+  "source_evidence": {
+    "source_four_outfit_glbs": "existing Aster/Juniper original-owner Drive custody; source bytes unchanged",
+    "original_classic_sha256": "5feefae5bbd708a0e85172ff11080e0092cf2b94815110be3a0d9811acbccd29",
+    "sculpt_classic_sha256": "333ec1ad3da471698962862a71ed3d5bcbbc007efabc00b2880e6f0508118036"
+  },
+  "measured_actual_glb": {
+    "actors": [
+      "AsterOriginal",
+      "JuniperOriginal"
+    ],
+    "rig_joint_count_each": 35,
+    "original": {
+      "body_surface_islands_per_actor": 34,
+      "main_body_primitive_islands": 30,
+      "boundary_edges": 2844,
+      "zero_area_triangles": 144,
+      "unused_vertices": 48
+    },
+    "first_sculpt": {
+      "body_surface_islands_per_actor": 31,
+      "main_body_primitive_islands": 8,
+      "new_sculpt_primitive_islands": 19,
+      "boundary_edges": 1908,
+      "zero_area_triangles": 144,
+      "unused_vertices": 6710
+    },
+    "repaired": {
+      "outfit_glb_count": 4,
+      "actor_outfit_combinations": 8,
+      "zero_area_triangles_removed_per_actor_per_outfit": 144,
+      "removed_total_across_eight": 1152,
+      "remaining_zero_area_triangles_per_actor": 0,
+      "remaining_body_islands_per_actor": 31,
+      "unused_vertices_per_actor": 6710,
+      "second_run_byte_identical": true
+    },
+    "classification": "GEOMETRY_DEGENERATES_CORRECTED; HUMAN_CONTINUITY_NOT_ACCEPTED"
+  },
+  "official_makehuman_cc0": {
+    "repository": "makehumancommunity/makehuman",
+    "commit": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+    "base_obj_git_blob_sha1": "d26635e9326e3cca30778fd7b9c00062b03cce09",
+    "source_url": "https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/3dobjs/base.obj",
+    "source_observed_via_connected_github": true,
+    "vertices": 19158,
+    "quads": 18486,
+    "groups": 139,
+    "visible_body_quads": 13378,
+    "visible_body_referenced_vertices": 13380,
+    "other_helper_quads": 5108,
+    "visual_base_imported_into_blender": false,
+    "our_rig_35_retargeted": false,
+    "asset_license": "CC0-1.0",
+    "code_licenses": "MakeHuman AGPL; MPFB GPL; code NOT bundled"
+  },
+  "local_tests": {
+    "basemesh_admission": 11,
+    "topology": 7,
+    "triangle_repair": 6,
+    "total": 24,
+    "pass": 24,
+    "actual_source_cases": 5,
+    "local_deps": "Python stdlib + existing project source; real source carried privately",
+    "github_actions_at_new_head": "NOT_RUN"
+  },
+  "custody": {
+    "google_drive_url": "https://drive.google.com/file/d/1La0_C1MrBwoRl26NKjXgWuvgEPZQGvVU/view",
+    "folder": "R009 Aster-Juniper Modular Wardrobe — 2026-11-05 (owner-private)",
+    "bundle_sha256": "d11eeb90a7f597bca40e9705dddf077f2836150a4a53ccbf619b22b4a84e35ba",
+    "bundle_bytes": 2978742,
+    "files": 15,
+    "drive_rehydration_whole_byte_sha256_match": true,
+    "zip_crc": "PASS",
+    "contains": [
+      "six offline scripts/tests",
+      "four repaired GLBs",
+      "actual topology before/after receipts",
+      "source-bound machine receipt",
+      "README"
+    ],
+    "source_binary_in_public_git": false
+  },
+  "scientific_holds": [
+    "31 disconnected source-primitive-local body islands per actor remain; face, scalp and limb surfaces are not unified quad human anatomy.",
+    "6,710 orphan attribute vertices per actor after reversible original-sculpt crop; do not confuse index-only repair with buffer compaction.",
+    "Exact MakeHuman CC0 base source read for topology/license, but actual Blender geometry import, target morph mapping and 35-joint skin transfer NOT_RUN.",
+    "No native 72-frame actual repaired costume render/collision classification, no facial realism or human visual acceptance.",
+    "Existing stacked PR336 parent-base SHA drift and source-owner integration review remain HELD."
+  ],
+  "next_dopav_baton": [
+    "Source-owning draft PR336: integrate and test the six source-only read-only validators from the private SHA-pinned Drive bundle as first-class code, preserving existing scopes.",
+    "Run official MakeHuman base OBJ source SHA1/CC0 admission on a standard public $0 GH Actions workflow using the pinned repo commit; do not ship helper group as visible human.",
+    "Run native Blender CC0 test body import, source rig difference matrix and 35-joint mapping with fail-closed missing joints, scale and axis controls.",
+    "Only then retarget four removable outfit garment layers and measure Blender evaluated 72-frame skin strain, dynamic interpenetration and human visual inspection.",
+    "Keep public original-only source, private Naomi/Alison, protected rights, CPE and merge/release boundaries."
+  ],
+  "hygiene": {
+    "new_prs": 0,
+    "new_tracking_issues": 0,
+    "merges": 0,
+    "closures": 0,
+    "private_paid_actions": 0,
+    "source_binary_committed_to_public": 0
+  }
+}
