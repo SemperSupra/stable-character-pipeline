@@ -71,6 +71,17 @@ on:
       - "qualification/parametric_humans/compute_armhole_chunk_v1.py"
       - "qualification/parametric_humans/ARMHOLE_RELATIVE_RDTE_V1.md"
       - "qualification/parametric_humans/evidence/armhole_relative_compact_evidence_v1.json"
+      - "qualification/parametric_humans/contact_hotspots_v1.py"
+      - "qualification/parametric_humans/test_contact_hotspots_v1.py"
+      - "qualification/parametric_humans/skirt_yoke_weight_trial_v1.py"
+      - "qualification/parametric_humans/skirt_yoke_profile_contract_v1.py"
+      - "qualification/parametric_humans/test_skirt_yoke_weight_trial_v1.py"
+      - "qualification/parametric_humans/test_skirt_yoke_profile_contract_v1.py"
+      - "qualification/parametric_humans/garment_skinned_strain_v1.py"
+      - "qualification/parametric_humans/skirt_bounded_research_gate_v1.py"
+      - "qualification/parametric_humans/test_skirt_bounded_research_gate_v1.py"
+      - "qualification/parametric_humans/SKIRT_YOKE_RESEARCH_V1.md"
+      - "qualification/parametric_humans/evidence/skirt_yoke_relative_research_v1.json"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
   workflow_dispatch:
 
@@ -124,6 +135,9 @@ jobs:
           # exact owner-only 35-joint source tests explicitly SKIP in public CI.
           python3 -m compileall -q armhole_profile_contract_v1.py armhole_actor_specific_v1.py test_armhole_profile_contract_v1.py test_armhole_actor_specific_v1.py contact_pose_batch_v1.py test_contact_pose_batch_v1.py compute_armhole_chunk_v1.py
           python3 -m unittest -v test_armhole_profile_contract_v1 test_armhole_actor_specific_v1 test_contact_pose_batch_v1
+          # Juniper yoke: native/VTK producer remains private-source, run stdlib veto contracts only.
+          python3 -m compileall -q contact_hotspots_v1.py skirt_yoke_weight_trial_v1.py skirt_yoke_profile_contract_v1.py garment_skinned_strain_v1.py skirt_bounded_research_gate_v1.py test_contact_hotspots_v1.py test_skirt_yoke_weight_trial_v1.py test_skirt_yoke_profile_contract_v1.py test_skirt_bounded_research_gate_v1.py
+          python3 -m unittest -v test_skirt_yoke_profile_contract_v1 test_skirt_bounded_research_gate_v1
           # Independent 72f Pareto gate: source-free validation of multi-metric regression semantics.
           python3 -m compileall -q garment_motion_regression_gate_v1.py test_garment_motion_regression_gate_v1.py
           python3 -m unittest -v test_garment_motion_regression_gate_v1
