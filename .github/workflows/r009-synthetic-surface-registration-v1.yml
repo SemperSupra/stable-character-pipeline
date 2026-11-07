@@ -90,6 +90,15 @@ on:
       - "qualification/parametric_humans/test_sole_phase_root_feasibility_v1.py"
       - "qualification/parametric_humans/SOLE_PHASE_ROOT_FEASIBILITY_V1.md"
       - "qualification/parametric_humans/evidence/sole_phase_root_feasibility_v1.json"
+      - "qualification/parametric_humans/evidence/phase_aware_floor_compact_receipt_v1.json"
+      - "qualification/parametric_humans/FOOT_PHASE_RECLASSIFICATION_ROOTY_RDTE_V1.md"
+      - "qualification/parametric_humans/ankle_sole_phase_witness_v1.py"
+      - "qualification/parametric_humans/foot_phase_reclassification_gate_v1.py"
+      - "qualification/parametric_humans/root_y_floor_registration_trial_v1.py"
+      - "qualification/parametric_humans/root_y_trial_gate_v1.py"
+      - "qualification/parametric_humans/test_foot_phase_reclassification_gate_v1.py"
+      - "qualification/parametric_humans/test_root_y_trial_gate_v1.py"
+      - "qualification/parametric_humans/verify_root_y_floor_trial_v1.py"
       - "qualification/parametric_humans/SHOE_FLOOR_72FRAME_RESEARCH_V1.md"
       - "qualification/parametric_humans/evidence/shoe_floor_72frame_first_red_v1.json"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
@@ -154,6 +163,9 @@ jobs:
           # Independent bilateral root-only geometric impossibility gate: stdlib and source-free.
           python3 -m compileall -q sole_phase_root_feasibility_v1.py test_sole_phase_root_feasibility_v1.py
           python3 -m unittest -v test_sole_phase_root_feasibility_v1
+          # R009 source-free phase correction and root-height RED; never admit private GLBs to public CI.
+          python3 -m compileall -q ankle_sole_phase_witness_v1.py foot_phase_reclassification_gate_v1.py test_foot_phase_reclassification_gate_v1.py root_y_floor_registration_trial_v1.py verify_root_y_floor_trial_v1.py root_y_trial_gate_v1.py test_root_y_trial_gate_v1.py
+          python3 -m unittest -v test_foot_phase_reclassification_gate_v1 test_root_y_trial_gate_v1
           # Independent 72f Pareto gate: source-free validation of multi-metric regression semantics.
           python3 -m compileall -q garment_motion_regression_gate_v1.py test_garment_motion_regression_gate_v1.py
           python3 -m unittest -v test_garment_motion_regression_gate_v1

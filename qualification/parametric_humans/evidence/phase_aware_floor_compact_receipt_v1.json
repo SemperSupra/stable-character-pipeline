@@ -1,0 +1,74 @@
+{
+  "CPE_hold": "HELD",
+  "date": "2026-11-07",
+  "derived_sha256": "c44a8a393e304595c0479a7907f6d53a71c9b69ddf45bc11ef43c15d52c6ba24",
+  "gait_accepted": false,
+  "human_realism_accepted": false,
+  "ik_applied": false,
+  "local_source_free_tests_pass": 43,
+  "merge_hold": "HELD",
+  "native_blender_actual_derivative_NOT_RUN": true,
+  "original_files_unchanged": true,
+  "original_sha256": "b92f755607b9175b0e7874fa60f6d64eca1eb939d609947b672cc46b36e0d748",
+  "parent_base_drift_hold": "HELD",
+  "physical_foot_contact_qualified": false,
+  "protected_scans_public": false,
+  "release_approved": false,
+  "root_y_research": {
+    "actors": {
+      "AsterOriginal": {
+        "frames_both_feet_hovering": 0,
+        "frames_penetrating_floor": 0,
+        "root_y_acceleration_max_m_per_frame2": 0.008466392755508423,
+        "root_y_acceleration_violation": true,
+        "root_y_step_max_m": 0.005420907400548458,
+        "root_y_step_violation": true,
+        "worst_shoe_y_m": 0.0
+      },
+      "JuniperOriginal": {
+        "frames_both_feet_hovering": 0,
+        "frames_penetrating_floor": 0,
+        "root_y_acceleration_max_m_per_frame2": 0.008281189948320389,
+        "root_y_acceleration_violation": true,
+        "root_y_step_max_m": 0.005244733300060034,
+        "root_y_step_violation": true,
+        "worst_shoe_y_m": 0.0
+      }
+    },
+    "after_shoe_height_sha256": "6eacae3f2cd9e77c80e40290e107cb98925599a37238ce82bcddab9fd8a22266",
+    "candidate_receipt_sha256": "d944d35a828d69e3c741added277daaccb1942af197b0c2456819e8730ce6f95",
+    "continuity_gate": "RED_ROOT_Y_JERK",
+    "floor_proxy": "PASS_72_FRAMES_BOTH_ACTORS",
+    "second_production_byte_identical": true,
+    "source_bin_prefix_retained": true,
+    "two_root_animation_channels_changed_only": true
+  },
+  "schema": "scp.r009.phase_aware_root_y_counterexample_research.v1",
+  "scientific_correction": {
+    "actors": {
+      "AsterOriginal": {
+        "old_conflicts": 12,
+        "old_conflicts_reclassified_as_moving_foot": 12,
+        "old_conflicts_retained_stationary": 0,
+        "stationary_dual_disagreement_max_m": 0.005363447148488687,
+        "stationary_dual_transitions": 13
+      },
+      "JuniperOriginal": {
+        "old_conflicts": 12,
+        "old_conflicts_reclassified_as_moving_foot": 12,
+        "old_conflicts_retained_stationary": 0,
+        "stationary_dual_disagreement_max_m": 0.004749180287492383,
+        "stationary_dual_transitions": 10
+      }
+    },
+    "new_phase_verdict": "CORRECT_PRIOR_DUAL_CONTACT_CONFOUND_RESEARCH_ONLY",
+    "prior_dual_support_conflict_claim": "OVERSTATED_FOR_MOVING_FEET",
+    "shoe_proximity_threshold_m": 0.008,
+    "source_ankle_evidence_sha256": "4019fe9a032d66b767a9715500156b4afcdc2df6cd7ddb6293bb0ec682516541",
+    "source_phase_result_sha256": "47ab252975986f832179ac2102d178cfd01f712ca0dd1dbcb5b3a06e84c3ebdb",
+    "stationary_threshold_m_per_frame": 0.008
+  },
+  "source_class": "original_synthetic_aster_juniper_plus_cc0_makehuman_body",
+  "technical_acceptance": "HOLD_ROOT_Y_JERK",
+  "wardrobe_collisions_accepted": false
+}
