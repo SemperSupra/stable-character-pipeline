@@ -95,6 +95,16 @@ func reviewNativeGateV1(input string) nativeGateWitness {
 		if inTriple || strings.HasPrefix(trimmed, "#") {
 			continue
 		}
+		// Obvious unreachable Python control-flow must never supply native
+		// evidence; complex dynamic control-flow is outside this static gate.
+		// Static parity is always advisory, never executable acceptance.
+		if strings.HasPrefix(trimmed, "if False:") ||
+			strings.HasPrefix(trimmed, "if 0:") ||
+			strings.HasPrefix(trimmed, "if not True:") ||
+			strings.HasPrefix(trimmed, "while False:") {
+			contradicted = true
+			continue
+		}
 		// A shell/Python workflow can contain many harmless conditionals; only
 		// signatures in the named heredoc qualify as static REVIEW evidence.
 		// This lexical scanner cannot prove Python control-flow execution; it
@@ -243,5 +253,18 @@ func TestNativeGateStableDigest(t *testing.T) {
 	a, b := reviewNativeGateV1(parent72Workflow), reviewNativeGateV1(parent72Workflow)
 	if a.SourceSHA256 != b.SourceSHA256 || len(a.SourceSHA256) != 64 {
 		t.Fatal("unstable source digest")
+	}
+}
+
+// First-RED regression: lexical assertion signatures inside an explicit
+// disabled Python branch must not be misclassified as executed coverage.
+func TestNativeGateExplicitDeadCodeFailClosed(t *testing.T) {
+	for _, guard := range []string{"if False:", "if 0:", "if not True:", "while False:"} {
+		x := strings.Replace(parent72Workflow,
+			"          assert bvh[\"schema\"]",
+			"          "+guard+"\n            assert bvh[\"schema\"]", 1)
+		if w := reviewNativeGateV1(x); w.StaticClass != "UNKNOWN_HELD" {
+			t.Fatalf("disabled branch %q falsely credited as live evidence: %+v", guard, w)
+		}
 	}
 }
