@@ -46,11 +46,16 @@ jobs:
           streams=[]
           with av.open(str(p)) as inp:
               assert {s.type for s in inp.streams}=={"audio","video"}
+              counts={"audio":0,"video":0}
+              for frame in inp.decode():
+                  if isinstance(frame,av.AudioFrame):
+                      counts["audio"]+=1
+                  elif isinstance(frame,av.VideoFrame):
+                      counts["video"]+=1
+              assert counts["audio"]>0 and counts["video"]>0, "both streams must actually decode"
               for s in inp.streams:
-                  decoded=sum(1 for frame in inp.decode(s))
-                  assert decoded>0, "codec stream must actually decode"
                   streams.append({"type":s.type,"codec":s.codec_context.name,"time_base":str(s.time_base),
-                                  "decoded_frames":decoded,"duration_ticks":s.duration})
+                                  "decoded_frames":counts[s.type],"duration_ticks":s.duration})
           assert {s["type"] for s in streams}=={"audio","video"}
           url=os.environ["CANDIDATE_URL"]
           receipt={
