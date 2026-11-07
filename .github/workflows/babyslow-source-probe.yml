@@ -33,6 +33,7 @@ jobs:
             https://jingxuan.douyin.com/m/video/7659375754270414830
             https://www.bilibili.com/video/BV1hnfdBpEFG/
             https://www.youtube.com/shorts/fhZV_F0I8Eg
+            https://www.snapchat.com/@babyslw/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYemJ5dGN3b3piAaCdqL5JAaCdqL42AAAAAw
         run: |
           set -euo pipefail
           mkdir -p output
@@ -78,13 +79,29 @@ jobs:
               probe={"page_url":url}
               try:
                   r=subprocess.run(cmd,capture_output=True,text=True,timeout=45)
+                  diagnostic=r.stderr.lower()[:12000]
+                  categories=[
+                      ("http_429",["http error 429","too many requests"]),
+                      ("http_403",["http error 403","403 forbidden"]),
+                      ("http_401",["http error 401","401 unauthorized"]),
+                      ("http_404",["http error 404","404 not found"]),
+                      ("login_required",["sign in","login required","log in to"]),
+                      ("human_verification",["not a bot","captcha","verify you are human","human verification"]),
+                      ("cookie_required",["cookies are required","cookie is required","cookies needed"]),
+                      ("js_runtime",["javascript runtime","js runtime","js interpreter","javascript challenge"]),
+                      ("unsupported_url",["unsupported url","no suitable extractor"]),
+                      ("georestriction",["not available in your country","geo-restricted","geo restricted"]),
+                      ("network_dns_or_tls",["certificate verify failed","name or service not known","connection timed out"]),
+                      ("format_unavailable",["no video formats found","requested format is not available"]),
+                  ]
+                  reasons=[key for key,needles in categories if any(x in diagnostic for x in needles)]
                   if r.returncode==0:
                       obj=json.loads(r.stdout)
                       probe.update({"status":"metadata_found","extractor":obj.get("extractor_key"),"video_id":obj.get("id"),
                                     "duration_seconds":obj.get("duration"),"upload_date":obj.get("upload_date"),
                                     "audio_present_claimed":obj.get("acodec")!="none" if obj.get("acodec") else None})
                   else:
-                      probe.update({"status":"metadata_unavailable","returncode":r.returncode,"error_class":"extractor_or_network_rejected"})
+                      probe.update({"status":"metadata_unavailable","returncode":r.returncode,"error_class":reasons[0] if reasons else "extractor_or_network_rejected"})
               except subprocess.TimeoutExpired:
                   probe.update({"status":"metadata_unavailable","error_class":"timeout"})
               except (json.JSONDecodeError,ValueError):
