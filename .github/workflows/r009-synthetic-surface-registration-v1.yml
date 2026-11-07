@@ -86,6 +86,10 @@ on:
       - "qualification/parametric_humans/shoe_floor_contact_v1.py"
       - "qualification/parametric_humans/shoe_floor_gate_v1.py"
       - "qualification/parametric_humans/test_shoe_floor_gate_v1.py"
+      - "qualification/parametric_humans/sole_phase_root_feasibility_v1.py"
+      - "qualification/parametric_humans/test_sole_phase_root_feasibility_v1.py"
+      - "qualification/parametric_humans/SOLE_PHASE_ROOT_FEASIBILITY_V1.md"
+      - "qualification/parametric_humans/evidence/sole_phase_root_feasibility_v1.json"
       - "qualification/parametric_humans/SHOE_FLOOR_72FRAME_RESEARCH_V1.md"
       - "qualification/parametric_humans/evidence/shoe_floor_72frame_first_red_v1.json"
       - ".github/workflows/r009-synthetic-surface-registration-v1.yml"
@@ -147,6 +151,9 @@ jobs:
           # Original-only 72-frame sole-height witness: source-free strict frame/floor veto.
           python3 -m compileall -q shoe_floor_contact_v1_schema.py shoe_floor_contact_v1.py shoe_floor_gate_v1.py test_shoe_floor_gate_v1.py
           python3 -m unittest -v test_shoe_floor_gate_v1
+          # Independent bilateral root-only geometric impossibility gate: stdlib and source-free.
+          python3 -m compileall -q sole_phase_root_feasibility_v1.py test_sole_phase_root_feasibility_v1.py
+          python3 -m unittest -v test_sole_phase_root_feasibility_v1
           # Independent 72f Pareto gate: source-free validation of multi-metric regression semantics.
           python3 -m compileall -q garment_motion_regression_gate_v1.py test_garment_motion_regression_gate_v1.py
           python3 -m unittest -v test_garment_motion_regression_gate_v1
