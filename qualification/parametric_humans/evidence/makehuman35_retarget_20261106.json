@@ -1,0 +1,86 @@
+{
+  "Git_pr": 336,
+  "bundle_bytes": 6293298,
+  "bundle_drive_url": "https://drive.google.com/file/d/1Il_C4EN3SrT2ttN7bIiIx7t1c8AMK6CW/view",
+  "bundle_sha256": "b10c6a977df8a099cedc28c5ce076d1bcf1fd5b93e04162ed46e5b80d03501f5",
+  "clearance": {
+    "footwear_unchanged_gt_5mm_inside_rest_fraction": {
+      "AsterOriginal": 0.19682539682539682,
+      "JuniperOriginal": 0.19682539682539682
+    },
+    "garment_approved": false,
+    "sample_frames": [
+      "rest",
+      0,
+      24,
+      48,
+      71
+    ],
+    "signed_cloth_full72_not_run": true,
+    "top_bottom_trim_rest_gt_5mm_inside_fraction": {
+      "AsterOriginal": {
+        "costume_bottom": 0.0,
+        "costume_top": 0.0,
+        "costume_trim": 0.0
+      },
+      "JuniperOriginal": {
+        "costume_bottom": 0.0,
+        "costume_top": 0.0,
+        "costume_trim": 0.0
+      }
+    }
+  },
+  "date": "2026-11-06",
+  "derived": {
+    "candidate_sha256": "57a4cfd1d9df7e6e2f7c2e44e68765a8ca4357895d5b075f9229b78a5bbcd36a",
+    "hybrid_clearance_sha256": "366fc2964e0e156988b0207735d89b8dbba18d6b92d0ac453e0d4fc7846fe99f"
+  },
+  "exact_head_CI_status": "NOT_OBSERVED_AT_STAGE_TIME",
+  "mesh_geometry": {
+    "after_geometric_weld_components_per_actor": 1,
+    "candidate_body_triangles_per_actor": 26756,
+    "geom_vertices_per_actor": 13380,
+    "uv_seam_split_vertices_per_actor": 14517,
+    "visible_body_source_quads": 13378,
+    "watertight_welded": true
+  },
+  "motion": {
+    "Aster_p99_max": 1.2816095352172852,
+    "CPU_skin_evaluated_frames_per_actor": 72,
+    "Juniper_p99_max": 1.2730097770690918,
+    "motion_accepted": false,
+    "native_blender_evaluated": false
+  },
+  "program_authority": "public R009 DLE #272; child draft PR #336; parent #308 drift held",
+  "release_approved": false,
+  "research_runtime": {
+    "Pillow": "12.3.0",
+    "numpy": "2.3.5",
+    "python": "3.13.5",
+    "scipy": "1.17.0",
+    "trimesh": "4.11.1",
+    "vtk": "9.6.2"
+  },
+  "schema": "scp.r009.makehuman35.parallel_batch_evidence.v0",
+  "science_first_failures_preserved": true,
+  "source_class": "original fictional avatars + licensed MakeHuman CC0 core body",
+  "source_holds": [
+    "Aster/Master mapping PROVISIONAL",
+    "Aster male morphology NOT ACCEPTED",
+    "Juniper appearance NOT ACCEPTED",
+    "native Blender transfer NOT RUN",
+    "hair/eyes/shoes not retargeted",
+    "no full garment collision acceptance"
+  ],
+  "source_original_bytes_preserved": true,
+  "source_paths_committed": false,
+  "source_pins": {
+    "makehuman_obj_sha256": "378921118144289030c9dad2e274dadc7affd8ff394a2ac93d562252b6513de8",
+    "original_character_sha256": "5e86d299bffbeb478d1e4945aeaefd2692ccff67dd641ef84170122a283eca1a"
+  },
+  "source_tests": {
+    "local_failures": 0,
+    "local_passed": 18,
+    "local_total": 18
+  }
+}

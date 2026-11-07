@@ -1,0 +1,117 @@
+{
+  "actors": {
+    "AsterOriginal": {
+      "amplitude_m": 0.0,
+      "changed_vertices": 0,
+      "inverted_faces": 0,
+      "max_edge_stretch": 1.0,
+      "source_mesh_retained": true
+    },
+    "JuniperOriginal": {
+      "amplitude_m": 0.01,
+      "changed_vertices": 150,
+      "inverted_faces": 0,
+      "max_edge_stretch": 1.0956274112558786
+    }
+  },
+  "body_anatomical_realism_accepted": false,
+  "candidate_bvh73_sha256": "68b922b99f42ece23abc466c51acba93d919a04fd3dfe92fa9b189df241976c5",
+  "candidate_gate": {
+    "all_72_frames_evaluated": true,
+    "improvements_count": 73,
+    "regressions": [],
+    "verdict": "PASS_RELATIVE_ONLY"
+  },
+  "candidate_sha256": "ae2b809ffa5cf5dfee0adf2f6b88b0a864e3588b95638de4c8b86e83a6e524af",
+  "date": "2026-11-07",
+  "full73_paired_gate_sha256": "5b9b8d31f72f395db95639f3a97097407bfb5ff24d1ddf66df6eab2cd349b5b3",
+  "garment_fit_accepted": false,
+  "merge_CPE_owner_hold": "HELD",
+  "native_blender_evaluated": false,
+  "no_source_overwrite": true,
+  "original_bvh73_sha256": "1ce2519abec9dd154b6509b8f539f35fe7f2a322c07671d53f390ba4eeded7d0",
+  "parent_base_SHA_drift": "HELD",
+  "partitioned_evaluated_73_poses": true,
+  "per_actor_slot": {
+    "AsterOriginal": {
+      "costume_bottom": {
+        "triangles_after": 1721,
+        "triangles_before": 1721,
+        "vertex_mean_after": 0.00761986301369863,
+        "vertex_mean_before": 0.00761986301369863
+      },
+      "costume_top": {
+        "triangles_after": 693,
+        "triangles_before": 693,
+        "vertex_mean_after": 0.0,
+        "vertex_mean_before": 0.0
+      },
+      "costume_trim": {
+        "triangles_after": 0,
+        "triangles_before": 0,
+        "vertex_mean_after": 0.0,
+        "vertex_mean_before": 0.0
+      },
+      "footwear": {
+        "triangles_after": 0,
+        "triangles_before": 0,
+        "vertex_mean_after": 0.0,
+        "vertex_mean_before": 0.0
+      }
+    },
+    "JuniperOriginal": {
+      "costume_bottom": {
+        "triangles_after": 1317,
+        "triangles_before": 1317,
+        "vertex_mean_after": 0.0056934931506849315,
+        "vertex_mean_before": 0.0056934931506849315
+      },
+      "costume_top": {
+        "triangles_after": 292,
+        "triangles_before": 516,
+        "vertex_mean_after": 0.0,
+        "vertex_mean_before": 0.0
+      },
+      "costume_trim": {
+        "triangles_after": 0,
+        "triangles_before": 0,
+        "vertex_mean_after": 0.0,
+        "vertex_mean_before": 0.0
+      },
+      "footwear": {
+        "triangles_after": 0,
+        "triangles_before": 0,
+        "vertex_mean_after": 0.0,
+        "vertex_mean_before": 0.0
+      }
+    }
+  },
+  "physical_cloth_qualified": false,
+  "rejected_mixed_candidate": {
+    "improvements_count": 97,
+    "regressions": [
+      {
+        "delta": 1,
+        "metric": "AsterOriginal/costume_top/18/triangles"
+      },
+      {
+        "delta": 1,
+        "metric": "AsterOriginal/costume_top/37/triangles"
+      },
+      {
+        "delta": 1,
+        "metric": "AsterOriginal/costume_top/66/triangles"
+      }
+    ],
+    "sha256": "301864cb2d650e488b30bce44682ffe17d5e54b8ec725100fa8886b533912f32",
+    "verdict": "RED_REGRESSION"
+  },
+  "release_approved": false,
+  "schema": "scp.r009.armhole_source_relative_technical_v1",
+  "signed_baseline73_sha256": "a981477df2b95b9c169be0baf978d57a8afbcb4b1536f0e0b62724d8da13e8b1",
+  "signed_candidate73_sha256": "c98023796cc478a7cb067c2b5fc8e556fa8ab2ae8b0f43e9bb3f34fe9006dbbc",
+  "source_class": "original_synthetic_characters_plus_CC0_MakeHuman_body",
+  "source_compound_unchanged_for_Aster": true,
+  "source_geometry_preserved": true,
+  "source_sha256": "a8b493eaba59c965713f4f70f0dccebebcfcc4f3d4ba9aa712d79915e1a05739"
+}

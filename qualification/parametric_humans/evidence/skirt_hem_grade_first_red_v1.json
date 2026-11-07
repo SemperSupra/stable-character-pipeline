@@ -1,0 +1,47 @@
+{
+  "authority": "SemperSupra/stable-character-pipeline/issues/272",
+  "baseline_sha256": "a8b493eaba59c965713f4f70f0dccebebcfcc4f3d4ba9aa712d79915e1a05739",
+  "candidate_sha256": "8718a6361d46faaa31cf65a70791f05ece02cb66049abd5ef8a3e8fef60603be",
+  "cloth_accepted": false,
+  "date": "2026-11-07",
+  "face_reversal_fraction": 0.0,
+  "geometry_cut_accepted": false,
+  "improvement_count": 1,
+  "method": "all 72 frames CPU skinned source-original signed garment vertex inclusion",
+  "owning_pr": 336,
+  "regression_count": 7,
+  "regressions": [
+    {
+      "delta": 0.00625,
+      "path": "AsterOriginal/costume_bottom/rest"
+    },
+    {
+      "delta": 0.001128472222,
+      "path": "AsterOriginal/costume_bottom/mean_72"
+    },
+    {
+      "delta": 14,
+      "path": "AsterOriginal/costume_bottom/frames_above_one_pct"
+    },
+    {
+      "delta": 0.01875,
+      "path": "JuniperOriginal/costume_bottom/rest"
+    },
+    {
+      "delta": 0.003125,
+      "path": "JuniperOriginal/costume_bottom/max_72"
+    },
+    {
+      "delta": 0.005989583333,
+      "path": "JuniperOriginal/costume_bottom/mean_72"
+    },
+    {
+      "delta": 23,
+      "path": "JuniperOriginal/costume_bottom/frames_above_one_pct"
+    }
+  ],
+  "release_approved": false,
+  "schema": "scp.r009.skirt_hem_grade_first_red.v1",
+  "source_signed_qa_complete": true,
+  "verdict": "RED_REGRESSION"
+}

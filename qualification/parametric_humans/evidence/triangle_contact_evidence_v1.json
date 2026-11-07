@@ -1,0 +1,144 @@
+{
+  "actors": {
+    "AsterOriginal": {
+      "costume_bottom": {
+        "crossing_frame_count": 59,
+        "maximum_frame_pairs": 45,
+        "total_pairs": 1721
+      },
+      "costume_top": {
+        "crossing_frame_count": 73,
+        "maximum_frame_pairs": 12,
+        "total_pairs": 693
+      },
+      "costume_trim": {
+        "crossing_frame_count": 0,
+        "maximum_frame_pairs": 0,
+        "total_pairs": 0
+      },
+      "footwear": {
+        "crossing_frame_count": 0,
+        "maximum_frame_pairs": 0,
+        "total_pairs": 0
+      }
+    },
+    "JuniperOriginal": {
+      "costume_bottom": {
+        "crossing_frame_count": 51,
+        "maximum_frame_pairs": 38,
+        "total_pairs": 1317
+      },
+      "costume_top": {
+        "crossing_frame_count": 73,
+        "maximum_frame_pairs": 10,
+        "total_pairs": 516
+      },
+      "costume_trim": {
+        "crossing_frame_count": 0,
+        "maximum_frame_pairs": 0,
+        "total_pairs": 0
+      },
+      "footwear": {
+        "crossing_frame_count": 0,
+        "maximum_frame_pairs": 0,
+        "total_pairs": 0
+      }
+    }
+  },
+  "any_triangle_crossings": true,
+  "date": "2026-11-07",
+  "full_73_pose_receipt_sha256": "1ce2519abec9dd154b6509b8f539f35fe7f2a322c07671d53f390ba4eeded7d0",
+  "full_native_blender_evaluated": false,
+  "garment_fit_accepted": false,
+  "owner_merge_and_parent_base_sha_drift": "HELD",
+  "physics_accepted": false,
+  "poses_per_actor": 73,
+  "protected_source_maintained_separately": true,
+  "realism_accepted": false,
+  "release_approved": false,
+  "schema": "scp.r009.makehuman35.triangle_bvh72_and_radial_falsifier.v1",
+  "source_binary_preserved": true,
+  "source_class": "SOURCE_ORIGINAL_SYNTHETIC_PLUS_ADMITTED_CC0_MAKEHUMAN",
+  "source_sha256": "a8b493eaba59c965713f4f70f0dccebebcfcc4f3d4ba9aa712d79915e1a05739",
+  "test_result": "Local unit tests: 21 passed + 1 optional actual-source test skipped unless exact original GLB set (22/22 passed when set)",
+  "trial_evidence": {
+    "costume_bottom_radial_08_trial": {
+      "disposition": "REJECTED_NOT_ACCEPTED",
+      "dual_verdict": "RED_REGRESSION",
+      "eight_pose_triangle_totals": {
+        "AsterOriginal": {
+          "costume_bottom": 33,
+          "costume_top": 75,
+          "costume_trim": 0,
+          "footwear": 0
+        },
+        "JuniperOriginal": {
+          "costume_bottom": 82,
+          "costume_top": 54,
+          "costume_trim": 0,
+          "footwear": 0
+        }
+      },
+      "paired_nine_pose_improvement_count": 18,
+      "paired_nine_pose_regression_count": 7,
+      "sha256": "ff9f64da60598c47dd1205e305c5ee7fe06ab26fb7c9492c5fd093d779217c6c"
+    },
+    "costume_bottom_radial_14_trial": {
+      "disposition": "REJECTED_NOT_ACCEPTED",
+      "dual_verdict": "RED_REGRESSION",
+      "eight_pose_triangle_totals": {
+        "AsterOriginal": {
+          "costume_bottom": 8,
+          "costume_top": 75,
+          "costume_trim": 0,
+          "footwear": 0
+        },
+        "JuniperOriginal": {
+          "costume_bottom": 6,
+          "costume_top": 54,
+          "costume_trim": 0,
+          "footwear": 0
+        }
+      },
+      "paired_nine_pose_improvement_count": 16,
+      "paired_nine_pose_regression_count": 10,
+      "sha256": "95c719cc3e1758615a470596dff5e0c3b78a0e9d3015bac7373780a6fab7c6ca"
+    },
+    "costume_top_radial_06_trial": {
+      "disposition": "REJECTED_NOT_ACCEPTED",
+      "eight_pose_triangle_totals": {
+        "AsterOriginal": {
+          "costume_bottom": 123,
+          "costume_top": 300,
+          "costume_trim": 0,
+          "footwear": 0
+        },
+        "JuniperOriginal": {
+          "costume_bottom": 114,
+          "costume_top": 338,
+          "costume_trim": 0,
+          "footwear": 0
+        }
+      },
+      "sha256": "962a34c7a217cc935d1e257f34b9eb70a5b9bb819a79c495f938e1a0539a7108"
+    },
+    "costume_top_radial_12_trial": {
+      "disposition": "REJECTED_NOT_ACCEPTED",
+      "eight_pose_triangle_totals": {
+        "AsterOriginal": {
+          "costume_bottom": 123,
+          "costume_top": 1051,
+          "costume_trim": 0,
+          "footwear": 0
+        },
+        "JuniperOriginal": {
+          "costume_bottom": 114,
+          "costume_top": 1014,
+          "costume_trim": 0,
+          "footwear": 0
+        }
+      },
+      "sha256": "789e89cfb848683ace7b4415fb18f67ae73ad4123d0b5802bed98016f55571da"
+    }
+  }
+}

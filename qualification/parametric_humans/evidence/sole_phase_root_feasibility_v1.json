@@ -1,0 +1,163 @@
+{
+  "actors": {
+    "AsterOriginal": {
+      "conflict_examples": [
+        {
+          "frame_to": 8,
+          "opposing_root_motion_m": 0.120547161,
+          "unavoidable_best_case_foot_slip_m": 0.06027358
+        },
+        {
+          "frame_to": 9,
+          "opposing_root_motion_m": 0.080918871,
+          "unavoidable_best_case_foot_slip_m": 0.040459435
+        },
+        {
+          "frame_to": 10,
+          "opposing_root_motion_m": 0.027012873,
+          "unavoidable_best_case_foot_slip_m": 0.013506436
+        },
+        {
+          "frame_to": 18,
+          "opposing_root_motion_m": 0.10669513,
+          "unavoidable_best_case_foot_slip_m": 0.053347565
+        },
+        {
+          "frame_to": 28,
+          "opposing_root_motion_m": 0.090293523,
+          "unavoidable_best_case_foot_slip_m": 0.045146761
+        },
+        {
+          "frame_to": 37,
+          "opposing_root_motion_m": 0.11403212,
+          "unavoidable_best_case_foot_slip_m": 0.05701606
+        },
+        {
+          "frame_to": 38,
+          "opposing_root_motion_m": 0.071218554,
+          "unavoidable_best_case_foot_slip_m": 0.035609277
+        },
+        {
+          "frame_to": 47,
+          "opposing_root_motion_m": 0.09879864,
+          "unavoidable_best_case_foot_slip_m": 0.04939932
+        },
+        {
+          "frame_to": 56,
+          "opposing_root_motion_m": 0.120547161,
+          "unavoidable_best_case_foot_slip_m": 0.06027358
+        },
+        {
+          "frame_to": 57,
+          "opposing_root_motion_m": 0.080918871,
+          "unavoidable_best_case_foot_slip_m": 0.040459435
+        },
+        {
+          "frame_to": 58,
+          "opposing_root_motion_m": 0.027012873,
+          "unavoidable_best_case_foot_slip_m": 0.013506436
+        },
+        {
+          "frame_to": 66,
+          "opposing_root_motion_m": 0.10669513,
+          "unavoidable_best_case_foot_slip_m": 0.053347565
+        }
+      ],
+      "conflicting_dual_support_transitions": 12,
+      "dual_contact_transitions": 23,
+      "dual_root_motion_disagreement_max_m": 0.12054716050624847,
+      "persistent_foot_transitions": 94,
+      "root_translation_only_lower_bound_max_slip_m": 0.06027358025312424,
+      "root_y_clearance_max_m": 0.01316331047564745,
+      "root_y_clearance_max_step_m": 0.005420907400548458,
+      "root_y_clearance_min_m": 0.007379184477031231
+    },
+    "JuniperOriginal": {
+      "conflict_examples": [
+        {
+          "frame_to": 4,
+          "opposing_root_motion_m": 0.113165798,
+          "unavoidable_best_case_foot_slip_m": 0.056582899
+        },
+        {
+          "frame_to": 5,
+          "opposing_root_motion_m": 0.070014927,
+          "unavoidable_best_case_foot_slip_m": 0.035007463
+        },
+        {
+          "frame_to": 14,
+          "opposing_root_motion_m": 0.097852297,
+          "unavoidable_best_case_foot_slip_m": 0.048926149
+        },
+        {
+          "frame_to": 23,
+          "opposing_root_motion_m": 0.119839936,
+          "unavoidable_best_case_foot_slip_m": 0.059919968
+        },
+        {
+          "frame_to": 24,
+          "opposing_root_motion_m": 0.079793118,
+          "unavoidable_best_case_foot_slip_m": 0.039896559
+        },
+        {
+          "frame_to": 25,
+          "opposing_root_motion_m": 0.02598238,
+          "unavoidable_best_case_foot_slip_m": 0.01299119
+        },
+        {
+          "frame_to": 33,
+          "opposing_root_motion_m": 0.10578192,
+          "unavoidable_best_case_foot_slip_m": 0.05289096
+        },
+        {
+          "frame_to": 43,
+          "opposing_root_motion_m": 0.089142249,
+          "unavoidable_best_case_foot_slip_m": 0.044571124
+        },
+        {
+          "frame_to": 52,
+          "opposing_root_motion_m": 0.113165798,
+          "unavoidable_best_case_foot_slip_m": 0.056582899
+        },
+        {
+          "frame_to": 53,
+          "opposing_root_motion_m": 0.070015287,
+          "unavoidable_best_case_foot_slip_m": 0.035007644
+        },
+        {
+          "frame_to": 62,
+          "opposing_root_motion_m": 0.097852297,
+          "unavoidable_best_case_foot_slip_m": 0.048926149
+        },
+        {
+          "frame_to": 71,
+          "opposing_root_motion_m": 0.119839936,
+          "unavoidable_best_case_foot_slip_m": 0.059919968
+        }
+      ],
+      "conflicting_dual_support_transitions": 12,
+      "dual_contact_transitions": 22,
+      "dual_root_motion_disagreement_max_m": 0.11983993556350472,
+      "persistent_foot_transitions": 93,
+      "root_translation_only_lower_bound_max_slip_m": 0.05991996778175236,
+      "root_y_clearance_max_m": 0.013142220675945282,
+      "root_y_clearance_max_step_m": 0.005244733300060034,
+      "root_y_clearance_min_m": 0.007485095877200365
+    }
+  },
+  "conflict_threshold_m": 0.02,
+  "foot_lock_accepted": false,
+  "frames": 72,
+  "gait_accepted": false,
+  "local_tests_passed": 17,
+  "native_blender_evaluated": false,
+  "physical_cloth_qualified": false,
+  "release_approved": false,
+  "root_shift_applied": false,
+  "root_translation_only": true,
+  "run_date": "2026-11-07",
+  "schema": "scp.r009.root_only_footlock_feasibility.v1",
+  "source_only_public_ci_suitable": true,
+  "source_sha256": "b92f755607b9175b0e7874fa60f6d64eca1eb939d609947b672cc46b36e0d748",
+  "verdict": "RED_ROOT_TRANSLATION_ONLY_CONFLICT"
+}

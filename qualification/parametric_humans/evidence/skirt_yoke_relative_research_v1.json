@@ -1,0 +1,109 @@
+{
+  "body_realism_accepted": false,
+  "candidate_sha256": "b92f755607b9175b0e7874fa60f6d64eca1eb939d609947b672cc46b36e0d748",
+  "contact_face_atlas": {
+    "AsterOriginal": {
+      "costume_bottom": {
+        "nine_pose_total_pairs": 160,
+        "sampled_pose_count": 9
+      },
+      "costume_top": {
+        "nine_pose_total_pairs": 84,
+        "sampled_pose_count": 9
+      }
+    },
+    "JuniperOriginal": {
+      "costume_bottom": {
+        "nine_pose_total_pairs": 126,
+        "sampled_pose_count": 9
+      },
+      "costume_top": {
+        "nine_pose_total_pairs": 36,
+        "sampled_pose_count": 9
+      }
+    }
+  },
+  "date": "2026-11-07",
+  "first_red_hypotheses": [
+    {
+      "pairs_after": 999,
+      "pairs_before": 1317,
+      "profile": "strength=.35 hip=.30",
+      "rejected": true,
+      "worsened_frames": 8
+    },
+    {
+      "pairs_after": 741,
+      "pairs_before": 1317,
+      "profile": "strength=.30 hip=.70",
+      "rejected": true,
+      "worsened_frames": 3
+    }
+  ],
+  "garment_fit_accepted": false,
+  "gate": {
+    "actor_count": 2,
+    "anatomical_realism_accepted": false,
+    "baseline_sha256": "ae2b809ffa5cf5dfee0adf2f6b88b0a864e3588b95638de4c8b86e83a6e524af",
+    "candidate_sha256": "b92f755607b9175b0e7874fa60f6d64eca1eb939d609947b672cc46b36e0d748",
+    "contact_improvement_count": 81,
+    "contact_regression_count": 0,
+    "deformation_examples": [],
+    "deformation_violations_count": 0,
+    "garment_fit_accepted": false,
+    "juniper_skirt": {
+      "triangles_after": 526,
+      "triangles_before": 1317,
+      "vertex_mean_after": 0.0008561643835616438,
+      "vertex_mean_before": 0.0056934931506849315
+    },
+    "limits": {
+      "fraction_area_lt_quarter": 0.0,
+      "fraction_strained_gt_50pct": 0.0,
+      "max_edge_ratio": 1.15,
+      "min_edge_ratio": 0.8,
+      "min_triangle_area_ratio": 0.8,
+      "p99_edge_ratio": 1.15
+    },
+    "native_blender_evaluated": false,
+    "other_actor_and_slots_unchanged": true,
+    "physical_cloth_qualified": false,
+    "pose_count": 73,
+    "release_approved": false,
+    "schema": "scp.r009.skirt_contact_strain_candidate_gate.v1",
+    "verdict": "PASS_BOUNDED_RELATIVE_RESEARCH_ONLY"
+  },
+  "independent_source_audit": {
+    "all_joint_ids_valid": true,
+    "all_weights_finite_normalized": true,
+    "candidate_sha256": "b92f755607b9175b0e7874fa60f6d64eca1eb939d609947b672cc46b36e0d748",
+    "changed_active_node_names": [
+      "JuniperOriginal_Wardrobe_costume_bottom"
+    ],
+    "exact_second_build_byte_identical": true,
+    "extra_mesh_count": 1,
+    "garment_fit_accepted": false,
+    "new_skirt_triangles": 512,
+    "new_skirt_vertices": 320,
+    "original_mesh_library_preserved": true,
+    "realism_accepted": false,
+    "release_approved": false,
+    "schema": "scp.r009.skirt_yoke_independent_derivative_audit.v1",
+    "source_animations_unchanged": true,
+    "source_bytes_prefix_identical": true,
+    "source_materials_unchanged": true,
+    "source_scene_unchanged": true,
+    "source_sha256": "ae2b809ffa5cf5dfee0adf2f6b88b0a864e3588b95638de4c8b86e83a6e524af",
+    "source_skins_unchanged": true
+  },
+  "local_tests": {
+    "failure": 0,
+    "source_admitted": 32
+  },
+  "native_blender_evaluated": false,
+  "owner_merge_CPE_hold": "HELD",
+  "physical_cloth_qualified": false,
+  "release_approved": false,
+  "schema": "scp.r009.skirt_yoke_relative_research_evidence.v1",
+  "source_sha256": "ae2b809ffa5cf5dfee0adf2f6b88b0a864e3588b95638de4c8b86e83a6e524af"
+}
