@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'releasemodel/**'
+      - 'releasegate/**'
+      - 'releaseproof/**'
       - '.github/workflows/releasemodel.yml'
 permissions:
   contents: read
