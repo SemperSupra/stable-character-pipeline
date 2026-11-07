@@ -1,0 +1,84 @@
+name: babyslow-source-probe-drive-bridge
+on:
+  push:
+    branches:
+      - qualification/babyslow-metadata-drive-20261107
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: babyslow-probe-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout public-safe workcell
+        uses: actions/checkout@v4
+      - name: Install source-inspection tool
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/babyslow-probe-venv
+          /tmp/babyslow-probe-venv/bin/pip install --disable-pip-version-check --quiet "yt-dlp"
+          /tmp/babyslow-probe-venv/bin/python -m yt_dlp --version
+          ffmpeg -version | head -n 1
+          ffprobe -version | head -n 1
+      - name: Metadata-only target and original synthetic AV test
+        shell: bash
+        env:
+          CANDIDATE_URL: https://jingxuan.douyin.com/m/video/7659375754270414830
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          ffmpeg -hide_banner -loglevel error -y \
+            -f lavfi -i "testsrc2=size=320x240:rate=24:duration=2" \
+            -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=2" \
+            -c:v libx264 -preset ultrafast -pix_fmt yuv420p \
+            -c:a aac -b:a 96k -movflags +faststart \
+            -shortest output/original_synthetic_av.mp4
+          /tmp/babyslow-probe-venv/bin/python - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          p=pathlib.Path("output/original_synthetic_av.mp4")
+          info=subprocess.run(["ffprobe","-v","error","-show_format","-show_streams","-of","json",str(p)],capture_output=True,text=True,timeout=15,check=True)
+          streams=json.loads(info.stdout)["streams"]
+          assert {s["codec_type"] for s in streams}=={"audio","video"}
+          url=os.environ["CANDIDATE_URL"]
+          receipt={
+              "schema_version":"scp.public_source_probe.v1",
+              "rights_gate":"metadata_only__performer_media_not_acquired",
+              "candidate_page_url":url,
+              "source_has_authorized_media_bytes":False,
+              "runner_mode":"public_standard_cpu_no_secrets",
+              "git_sha":os.getenv("GITHUB_SHA"),
+              "run_id":os.getenv("GITHUB_RUN_ID"),
+              "synthetic":{"filename":p.name,"sha256":hashlib.sha256(p.read_bytes()).hexdigest(),"size_bytes":p.stat().st_size,
+                           "streams":[{"type":s["codec_type"],"codec":s["codec_name"],"time_base":s.get("time_base"),"duration":s.get("duration"),"sample_rate":s.get("sample_rate"),
+                                       "width":s.get("width"),"height":s.get("height"),"r_frame_rate":s.get("r_frame_rate")} for s in streams]},
+          }
+          cmd=["/tmp/babyslow-probe-venv/bin/python","-m","yt_dlp","--dump-single-json","--skip-download","--no-playlist","--no-warnings",url]
+          try:
+              r=subprocess.run(cmd,capture_output=True,text=True,timeout=65)
+              if r.returncode==0:
+                  obj=json.loads(r.stdout)
+                  receipt["probe"]={"status":"metadata_found","extractor":obj.get("extractor_key"),"video_id":obj.get("id"),"duration_seconds":obj.get("duration"),"upload_date":obj.get("upload_date"),
+                       "audio_present_claimed":obj.get("acodec")!="none" if obj.get("acodec") else None}
+              else:
+                  receipt["probe"]={"status":"metadata_unavailable","returncode":r.returncode,"error_class":"extractor_or_network_rejected"}
+          except subprocess.TimeoutExpired:
+              receipt["probe"]={"status":"metadata_unavailable","error_class":"timeout"}
+          except (json.JSONDecodeError,ValueError):
+              receipt["probe"]={"status":"metadata_unavailable","error_class":"non_json_metadata"}
+          pathlib.Path("output/receipt.json").write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n",encoding="utf-8")
+          pathlib.Path("output/README.txt").write_text("Original synthetic audio/video only. No Babyslow performance media or song downloaded. Candidate metadata probe is not rights authorization.\n",encoding="utf-8")
+          print("BINARY_TEST=PASS; source_metadata="+receipt["probe"]["status"]+"; performer_media=NOT_ACQUIRED")
+          PY
+      - name: Upload 1-day public-safe transit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: babyslow-source-probe-publicsafe
+          path: output/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
