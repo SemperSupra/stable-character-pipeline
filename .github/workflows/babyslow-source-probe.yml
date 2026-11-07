@@ -20,10 +20,12 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m venv /tmp/babyslow-probe-venv
-          /tmp/babyslow-probe-venv/bin/pip install --disable-pip-version-check --quiet "yt-dlp"
+          /tmp/babyslow-probe-venv/bin/pip install --disable-pip-version-check --quiet "yt-dlp" "imageio-ffmpeg==0.6.0" "av==16.0.1"
+          ln -s "$(/tmp/babyslow-probe-venv/bin/python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /tmp/babyslow-probe-venv/bin/ffmpeg
+          export PATH="/tmp/babyslow-probe-venv/bin:$PATH"
           /tmp/babyslow-probe-venv/bin/python -m yt_dlp --version
           ffmpeg -version | head -n 1
-          ffprobe -version | head -n 1
+          /tmp/babyslow-probe-venv/bin/python -c "import av; print('PyAV='+av.__version__)"
       - name: Metadata-only target and original synthetic AV test
         shell: bash
         env:
@@ -31,6 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p output
+          export PATH="/tmp/babyslow-probe-venv/bin:$PATH"
           ffmpeg -hide_banner -loglevel error -y \
             -f lavfi -i "testsrc2=size=320x240:rate=24:duration=2" \
             -f lavfi -i "sine=frequency=440:sample_rate=48000:duration=2" \
@@ -38,11 +41,17 @@ jobs:
             -c:a aac -b:a 96k -movflags +faststart \
             -shortest output/original_synthetic_av.mp4
           /tmp/babyslow-probe-venv/bin/python - <<'PY'
-          import hashlib, json, os, pathlib, subprocess
+          import hashlib, json, os, pathlib, subprocess, av
           p=pathlib.Path("output/original_synthetic_av.mp4")
-          info=subprocess.run(["ffprobe","-v","error","-show_format","-show_streams","-of","json",str(p)],capture_output=True,text=True,timeout=15,check=True)
-          streams=json.loads(info.stdout)["streams"]
-          assert {s["codec_type"] for s in streams}=={"audio","video"}
+          streams=[]
+          with av.open(str(p)) as inp:
+              assert {s.type for s in inp.streams}=={"audio","video"}
+              for s in inp.streams:
+                  decoded=sum(1 for frame in inp.decode(s))
+                  assert decoded>0, "codec stream must actually decode"
+                  streams.append({"type":s.type,"codec":s.codec_context.name,"time_base":str(s.time_base),
+                                  "decoded_frames":decoded,"duration_ticks":s.duration})
+          assert {s["type"] for s in streams}=={"audio","video"}
           url=os.environ["CANDIDATE_URL"]
           receipt={
               "schema_version":"scp.public_source_probe.v1",
@@ -53,8 +62,7 @@ jobs:
               "git_sha":os.getenv("GITHUB_SHA"),
               "run_id":os.getenv("GITHUB_RUN_ID"),
               "synthetic":{"filename":p.name,"sha256":hashlib.sha256(p.read_bytes()).hexdigest(),"size_bytes":p.stat().st_size,
-                           "streams":[{"type":s["codec_type"],"codec":s["codec_name"],"time_base":s.get("time_base"),"duration":s.get("duration"),"sample_rate":s.get("sample_rate"),
-                                       "width":s.get("width"),"height":s.get("height"),"r_frame_rate":s.get("r_frame_rate")} for s in streams]},
+                           "streams":streams},
           }
           cmd=["/tmp/babyslow-probe-venv/bin/python","-m","yt_dlp","--dump-single-json","--skip-download","--no-playlist","--no-warnings",url]
           try:
