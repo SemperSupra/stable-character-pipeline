@@ -1,0 +1,65 @@
+name: upstream-metube-independent-api-smoke
+on:
+  push:
+    branches: [qualification/upstream-metube-contract-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  metube-api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Launch upstream stock container on loopback only
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull ghcr.io/alexta69/metube:latest
+          docker image inspect ghcr.io/alexta69/metube:latest --format='UPSTREAM_IMAGE_DIGEST={{index .RepoDigests 0}}'
+          mkdir -p /tmp/metube-audit-storage
+          docker run -d --name metube-audit -p 127.0.0.1:18081:8081 -v /tmp/metube-audit-storage:/downloads -e MAX_CONCURRENT_DOWNLOADS=1 ghcr.io/alexta69/metube:latest
+          for i in $(seq 1 45); do
+            if curl --fail --silent --show-error http://127.0.0.1:18081/version >/tmp/metube-version.json 2>/dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs metube-audit | tail -60
+          exit 2
+      - name: Independent read-only and malformed-request API contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,urllib.request,urllib.error
+          base='http://127.0.0.1:18081/'
+          observed={}
+          for name in ('history','formats','presets','version'):
+              with urllib.request.urlopen(base+name, timeout=12) as r:
+                  body=r.read(1000000)
+                  if r.status!=200: raise RuntimeError('unexpected read status')
+                  value=json.loads(body)
+                  if name=='history' and not all(k in value for k in ('done','queue','pending')): raise RuntimeError('history shape')
+                  observed[name]={'http_status':r.status,'payload_type':type(value).__name__,'sha256':hashlib.sha256(body).hexdigest()}
+          for endpoint,payload in [('add',{}),('browse',{})]:
+              req=urllib.request.Request(base+endpoint,data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'},method='POST')
+              try:
+                  urllib.request.urlopen(req, timeout=12)
+                  raise RuntimeError('invalid request incorrectly accepted')
+              except urllib.error.HTTPError as e:
+                  if e.code not in (400,422): raise
+                  observed['invalid_'+endpoint]={'http_status':e.code}
+          receipt={'schema':'scp.upstream_api_probe.v1','upstream':'alexta69/metube',
+                    'access_boundary':'loopback_only_no_builtin_auth','default_auth':'none, authenticating proxy needed',
+                    'status':'REST_READ_AND_NEGATIVE_PATHS_PASS_NOT_ACCESSIBLE_UI_CERTIFICATION',
+                    'observed':observed,'run_id':os.getenv('GITHUB_RUN_ID'),'sha':os.getenv('GITHUB_SHA')}
+          pathlib.Path('output/receipt.json').write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n')
+          print('UPSTREAM_METUBE_REAL_API_SMOKE=PASS',list(observed))
+          PY
+      - name: Publish public-safe contract evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-metube-api-publicsafe
+          path: output/receipt.json
+          retention-days: 1
+          if-no-files-found: error
