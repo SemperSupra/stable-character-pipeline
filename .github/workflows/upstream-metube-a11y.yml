@@ -1,0 +1,73 @@
+name: upstream-metube-a11y-browser-qualification
+on:
+  push:
+    branches: [qualification/upstream-metube-accessibility-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ui-a11y:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Start pinned stock web UI, loopback only
+        run: |
+          set -euo pipefail
+          docker pull ghcr.io/alexta69/metube@sha256:96dfbf0d5b2944e4ee38f6ce1b34bb0e75a1a3c74eaefd93424ed11284cb72b2
+          mkdir -p /tmp/metube-a11y
+          docker run -d --name metube-a11y -p 127.0.0.1:18081:8081 -v /tmp/metube-a11y:/downloads ghcr.io/alexta69/metube@sha256:96dfbf0d5b2944e4ee38f6ce1b34bb0e75a1a3c74eaefd93424ed11284cb72b2
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18081/version >/dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          docker logs metube-a11y | tail -40
+          exit 2
+      - name: Install Playwright Chromium and axe
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/metube-a11y-run
+          cd /tmp/metube-a11y-run
+          npm init -y >/dev/null
+          npm install --silent --no-audit --no-fund playwright@1.56.1 @axe-core/playwright@4.10.1
+          npx playwright install --with-deps chromium
+      - name: Real desktop and mobile browser/axe checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/metube-a11y-run
+          mkdir -p evidence
+          node <<'JS'
+          const fs=require('fs');
+          const {chromium}=require('playwright');
+          const AxeBuilder=require('@axe-core/playwright').default;
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const result={schema:'scp.upstream_accessibility_observation.v1', upstream:'MeTube', source_image:'sha256:96dfbf0d5b2944e4ee38f6ce1b34bb0e75a1a3c74eaefd93424ed11284cb72b2', 
+              run_id:process.env.GITHUB_RUN_ID, surfaces:[]};
+            for(const scenario of [{name:'desktop',width:1280,height:800},{name:'mobile',width:390,height:844}]){
+              const ctx=await browser.newContext({viewport:{width:scenario.width,height:scenario.height},reducedMotion:'reduce'});
+              const page=await ctx.newPage();
+              await page.goto('http://127.0.0.1:18081/',{waitUntil:'domcontentloaded',timeout:25000});
+              await page.waitForTimeout(1800);
+              await page.screenshot({path:'evidence/'+scenario.name+'.png',fullPage:true});
+              const axes=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa']).analyze();
+              const focus=[];
+              for(let i=0;i<8;i++){await page.keyboard.press('Tab');focus.push(await page.evaluate(()=>({tag:document.activeElement?.tagName||null,text:(document.activeElement?.getAttribute('aria-label')||document.activeElement?.textContent||'').trim().slice(0,80)})));}
+              result.surfaces.push({scenario, title:await page.title(),lang:await page.locator('html').getAttribute('lang'),
+                violations:axes.violations.map(x=>({id:x.id,impact:x.impact,nodes:x.nodes.length,description:x.description})),
+                violation_count:axes.violations.length,passes_count:axes.passes.length,focus_first8:focus});
+              await ctx.close();
+            }
+            await browser.close();
+            fs.writeFileSync('evidence/summary.json',JSON.stringify(result,null,2)+'\n');
+            console.log('UPSTREAM_METUBE_BROWSER_AXE_OBSERVED',result.surfaces.map(x=>({scenario:x.scenario.name,violations:x.violation_count,passes:x.passes_count,lang:x.lang})));
+          })().catch(e=>{console.error('BROWSER_SMOKE_FAILED',e.message);process.exit(2)});
+          JS
+      - name: Preserve original screenshot and accessibility evidence (not an acceptance claim)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metube-a11y-pilot-publicsafe
+          path: /tmp/metube-a11y-run/evidence/
+          retention-days: 1
+          if-no-files-found: error
