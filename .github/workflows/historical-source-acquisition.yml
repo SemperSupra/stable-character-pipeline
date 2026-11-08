@@ -1,0 +1,88 @@
+name: historical-source-acquisition-source-qualified
+on:
+  push:
+    branches: [qualification/historical-source-acquisition-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-domain-film:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download and inspect official Wikimedia public-domain film
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          python3 -m venv /tmp/film-venv
+          /tmp/film-venv/bin/pip install --quiet --disable-pip-version-check av==16.0.1
+          curl --fail --location --silent --show-error --retry 1 --connect-timeout 12 --max-time 65 --max-filesize 15000000             --output output/Serpentintaenzerin_1895_original.webm             'https://upload.wikimedia.org/wikipedia/commons/8/87/Serpentint%C3%A4nzerin.webm'
+          /tmp/film-venv/bin/python - <<'PY'
+          import av,hashlib,json,os,pathlib
+          p=pathlib.Path('output/Serpentintaenzerin_1895_original.webm')
+          if not 50000 < p.stat().st_size < 15000000: raise RuntimeError('invalid size')
+          count={'video':0,'audio':0}; samples=[];streams=[]
+          with av.open(str(p)) as inp:
+              for s in inp.streams:
+                  if s.type in count:
+                      streams.append({'type':s.type,'codec':s.codec_context.name,'time_base':str(s.time_base),'duration_ticks':s.duration})
+              for frame in inp.decode():
+                  if isinstance(frame,av.VideoFrame):
+                      count['video']+=1
+                      if len(samples)<16: samples.append({'pts':frame.pts,'time_base':str(frame.time_base)})
+                  elif isinstance(frame,av.AudioFrame): count['audio']+=1
+          if count['video']<10: raise RuntimeError('video not decodable')
+          receipt={'schema':'scp.source_acquisition_receipt.v1',
+            'source_page':'https://commons.wikimedia.org/wiki/File:Serpentint%C3%A4nzerin.webm',
+            'source_url':'https://upload.wikimedia.org/wikipedia/commons/8/87/Serpentint%C3%A4nzerin.webm',
+            'label':'1895 Max Skladanowsky serpentintanzerin',
+            'rights':'Wikimedia Commons marks file public domain; recording is historically silent',
+            'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size,
+            'counts':count,'streams':streams,'video_pts_first16':samples,
+            'status':'ORIGINAL_BYTES_DECODED','git_sha':os.getenv('GITHUB_SHA'),'run_id':os.getenv('GITHUB_RUN_ID')}
+          pathlib.Path('output/receipt.json').write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n')
+          print('PUBLIC_DOMAIN_VIDEO_DECODE=PASS',receipt['sha256'],receipt['bytes'],count)
+          PY
+      - name: Short-lived public-domain artifact for private Drive
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pd-1895-serpentine-source
+          path: output/
+          retention-days: 1
+          if-no-files-found: error
+  cmu-motion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download bounded CMU Charleston ASF AMC and verify structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          for n in 93.asf 93_01.amc; do
+            curl --fail --location --silent --show-error --retry 1 --connect-timeout 12 --max-time 65               --max-filesize 12000000 --output "output/$n" "https://mocap.cs.cmu.edu/subjects/93/$n"
+          done
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,re
+          d=pathlib.Path('output'); a=(d/'93.asf').read_bytes();m=(d/'93_01.amc').read_bytes()
+          if not (a.lstrip().startswith(b':version') and b':bonedata' in a and b':hierarchy' in a): raise RuntimeError('invalid ASF')
+          if b':DEGREES' not in m: raise RuntimeError('invalid AMC')
+          frames=sum(bool(re.fullmatch(r'\d+',s.strip())) for s in m.decode('ascii').splitlines())
+          if frames<5: raise RuntimeError('insufficient frames')
+          receipt={'schema':'scp.source_acquisition_receipt.v1','source_page':'https://mocap.cs.cmu.edu/subjects/93/',
+              'subject':'CMU 93 Charleston','rights':'Official CMU permits research and commercial derivatives, forbids raw data resale',
+              'files':[{'name':n,'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()} for n,b in [('93.asf',a),('93_01.amc',m)]],
+              'frames':frames,'status':'ASF_AMC_STRUCTURE_PASS_NO_VIDEO_OR_MUSIC','git_sha':os.getenv('GITHUB_SHA'),'run_id':os.getenv('GITHUB_RUN_ID')}
+          (d/'receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          print('CMU_MOCAP_STRUCTURAL_ACQUISITION=PASS',frames)
+          PY
+      - name: Short-lived raw-mocap artifact for private Drive
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmu-93-charleston-motion-source
+          path: output/
+          retention-days: 1
+          if-no-files-found: error
