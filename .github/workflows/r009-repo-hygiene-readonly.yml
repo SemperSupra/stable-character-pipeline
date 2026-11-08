@@ -95,6 +95,31 @@ jobs:
           cat "$RUNNER_TEMP/r009-hygiene/drifts.md"
           cat "$RUNNER_TEMP/r009-hygiene/root_tips.md"
           (cd "$RUNNER_TEMP/r009-hygiene"; sha256sum ./{snapshot.json,report.json,audit.md,roots.json,roots.md,drifts.json,drifts.md,root_tips.json,root_tips.md} > SHA256SUMS; sha256sum -c SHA256SUMS)
+      - name: Exact public source Git merge-tree dry runs (no branch mutation)
+        timeout-minutes: 5
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -B qualification/repo_hygiene/virtual_merge_git_v1.py
+          python3 - <<'PY'
+          import json,os,pathlib
+          r=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"r009-hygiene/virtual_git_merge_v1.json").read_text())
+          assert r["schema"]=="scp.r009.disposable_git_merge_tree.v1"
+          assert r["repo"]=="SemperSupra/stable-character-pipeline"
+          assert r["complete"] and r["case_count"]==len(r["results"])==4
+          assert r["mutations"]==0 and not r["owner_approval"]
+          assert r["verdict"]=="FOUR_DISJOINT_SOURCE_MERGE_TREE_CANDIDATES_HELD"
+          assert sorted(x["child_pr"] for x in r["results"])==[95,117,119,332]
+          for x in r["results"]:
+              assert x["disposition"]=="GIT_MERGE_TREE_NO_LOSS_REVIEW_HOLD"
+              assert x["parent_changed"] and x["child_changed"]
+              assert not(set(x["parent_changed"])&set(x["child_changed"]))
+              assert x["virtual_file_count"]>0 and len(x["virtual_git_tree_sha"])==40
+              assert x["mutations"]==0 and not x["owner_approval"]
+          print("R009_GIT_MERGE_TREE_NO_LOSS_REVIEW_HOLD 4 SOURCE_TRIPLETS VERIFIED")
+          PY
+          (cd "$RUNNER_TEMP/r009-hygiene"; sha256sum virtual_git_merge_v1.json >> SHA256SUMS; sha256sum -c SHA256SUMS)
       - name: Preserve first failure and independent report artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 Node24
         if: always()
