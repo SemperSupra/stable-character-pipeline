@@ -120,6 +120,33 @@ jobs:
           print("R009_GIT_MERGE_TREE_NO_LOSS_REVIEW_HOLD 4 SOURCE_TRIPLETS VERIFIED")
           PY
           (cd "$RUNNER_TEMP/r009-hygiene"; sha256sum virtual_git_merge_v1.json >> SHA256SUMS; sha256sum -c SHA256SUMS)
+      - name: Replay offline Go and Python suites on disposable merged public trees
+        timeout-minutes: 5
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -B qualification/repo_hygiene/virtual_merge_runtime_v1.py
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"r009-hygiene/virtual_git_combined_runtime_v1.json"
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.r009.disposable_merged_runtime.v1"
+          assert r["repo"]=="SemperSupra/stable-character-pipeline"
+          assert r["cases_tested"]==len(r["results"])==3
+          assert sorted(x["child_pr"] for x in r["results"])==[95,117,119]
+          assert r["not_rerun"]==[332]
+          assert r["verdict"]=="THREE_PUBLIC_SOURCE_MERGED_LOCAL_SUITES_PASS_REVIEW_HOLD"
+          assert r["no_new_external_media_or_provider_download"]
+          assert r["mutations"]==0 and not r["owner_approval"]
+          for result in r["results"]:
+              assert result["local_suites"]=="PASS" and result["mutations"]==0
+              assert not result["owner_merge_approval"]
+              assert result["external_provider_downloads"]=="NOT_RUN"
+              assert result["checks"] and all(c["exit_status"]==0 for c in result["checks"])
+          print("R009_DISPOSABLE_MERGED_SOURCE_LOCAL_SUITES 3 PASS OWNER_MERGE_HELD")
+          PY
+          (cd "$RUNNER_TEMP/r009-hygiene"; sha256sum virtual_git_combined_runtime_v1.json >> SHA256SUMS; sha256sum -c SHA256SUMS)
       - name: Preserve first failure and independent report artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 Node24
         if: always()
