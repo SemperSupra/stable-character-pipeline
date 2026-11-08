@@ -74,11 +74,7 @@ func makeGithubCompare(token string) compareFunc {
    io.Copy(io.Discard,io.LimitReader(res.Body,2048))
    return CompareResponse{},fmt.Errorf("SOURCE_COMPARE_HTTP_%d",res.StatusCode)
   }
-  var data CompareResponse
-  if err=json.NewDecoder(io.LimitReader(res.Body,8<<20)).Decode(&data);err!=nil{
-   return CompareResponse{},err
-  }
-  return data,nil
+  return decodeCompareJSON(res.Body)
  }
 }
 func distinctPaths(in []CompareFile)([]string,error){
