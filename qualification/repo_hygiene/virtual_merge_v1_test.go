@@ -41,7 +41,18 @@ func TestVirtualTreeHostileEvidenceFailsClosed(t *testing.T) {
 		name   string
 		change func(*VirtualTreeTriplet)
 	}{
-		{"duplicate parent and child changed path", func(x *VirtualTreeTriplet) { x.CurrentChildTree.Tree[1].SHA = strings.Repeat("f", 40) }},
+		{"duplicate parent and child changed path", func(x *VirtualTreeTriplet) {
+			found := false
+			for i := range x.CurrentChildTree.Tree {
+				if x.CurrentChildTree.Tree[i].Path == "docs/plan.md" {
+					x.CurrentChildTree.Tree[i].SHA = strings.Repeat("f", 40)
+					found = true
+				}
+			}
+			if !found {
+				panic("negative fixture path not found")
+			}
+		}},
 		{"truncated tree", func(x *VirtualTreeTriplet) { x.CurrentParentTree.Truncated = true }},
 		{"invalid head", func(x *VirtualTreeTriplet) { x.CurrentParentCommit = "bad" }},
 		{"wrong private repo", func(x *VirtualTreeTriplet) { x.Repo = "SemperSupra/stable-character-pipeline-private" }},

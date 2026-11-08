@@ -23,6 +23,142 @@ jobs:
         run: |
           set -euo pipefail
           go test -v ./...
+          # Repeated hostile replay catches nondeterminism in map-backed fixture order.
+          go test -race -count=50 -run '^TestVirtualTreeHostileEvidenceFailsClosed
+          go build -trimpath -o "$RUNNER_TEMP/scp-hygiene" .
+      - name: Verify independent audit-validator quality controls and measurement receipt
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"r009-hygiene-validator-performance.json"
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.validator.performance.v1"
+          assert r["case_count"]==14
+          assert r["rejection_detection"]=={"detected":12,"total":12}
+          assert r["false_acceptance_count"]==r["false_rejection_count"]==0
+          assert r["contract_mismatch_count"]==0
+          assert r["verdict"]=="PASS_SYNTHETIC_VALIDATOR_CONTROLS_ONLY"
+          assert not r["merge_release_CPE_approval"]
+          print("HYGIENE_VALIDATOR_QUALITY",r["validator_sha256"],r["runtime"])
+          PY
+      - name: Exact public repository API inventory, fail closed on truncation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/scp-hygiene" --repo SemperSupra/stable-character-pipeline --as-of "$(date -u +%F)" --out "$RUNNER_TEMP/r009-hygiene" --max-pages 20 --stale-days 14
+          head -n 20 "$RUNNER_TEMP/r009-hygiene/audit.md"
+          # Root graph/first failures are part of the legible run evidence;
+          # do not truncate any observed drift holds or the entire root priority list.
+          cat "$RUNNER_TEMP/r009-hygiene/roots.md"
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])/"r009-hygiene"
+          report=json.loads((root/"report.json").read_text())
+          graph=json.loads((root/"roots.json").read_text())
+          assert report["complete"] and graph["complete"]
+          assert report["prs_scanned"]==graph["total_open"]
+          assert graph["root_count"]+graph["stacked_count"]==graph["total_open"]
+          assert graph["mutations"]==report["mutations"]==0
+          assert graph["base_sha_drift_count"]==len(graph["base_sha_drifts"])
+          for x in graph["base_sha_drifts"]:
+              assert x["disposition"]=="BASE_SHA_DRIFT_HELD_NO_MERGE_CLOSE_DELETE"
+              print("R009_HYGIENE_BASE_SHA_DRIFT child=%s parent=%s old_base=%s current_parent=%s" %
+                    (x["child_pr"],x["parent_pr"],x["observed_base_sha"],x["observed_parent_head_sha"]))
+          detailed=json.loads((root/"drifts.json").read_text())
+          assert detailed["count"]==graph["base_sha_drift_count"]==len(detailed["reviews"])
+          assert detailed["mutations"]==0 and not detailed["owner_approval"]
+          allowed={"DISJOINT_PATHS_REVIEW_ONLY","SHARED_PATHS_CONFLICT_REVIEW","HISTORY_UNVERIFIED_HELD"}
+          assert all(v["classification"] in allowed and
+                     v["action"]=="RETAIN_UNMERGED_OWNER_AND_EXACT_CI_REVIEW_REQUIRED"
+                     for v in detailed["reviews"])
+          for d in detailed["reviews"]:
+              print("R009_DRIFT_SOURCE_REVIEW child=%d parent=%d class=%s overlap=%d ahead=%d behind=%d" %
+                  (d["child_pr"],d["parent_pr"],d["classification"],
+                   len(d["shared_modified_paths"]),d["current_divergence_ahead"],d["current_divergence_behind"]))
+          tips=json.loads((root/"root_tips.json").read_text())
+          assert tips["schema"]=="scp.r009.public_root_tip_reachability.v1"
+          assert tips["source_complete"] and len(tips["main_sha"])==40
+          assert tips["root_count"]==graph["root_count"]
+          assert tips["root_tips_checked"]==len(tips["tips"])
+          assert tips["mutations"]==0 and not tips["owner_approval"]
+          assert tips["root_tips_checked"]==sum(tips[k] for k in
+              ("integrated_ancestors_review_only","unmerged_source_roots","diverged_roots","other_held"))
+          assert all(x["action"]=="RETAIN_UNMERGED_UNTIL_EXACT_OWNER_AND_RIGHTS_REVIEW"
+                     for x in tips["tips"])
+          print("R009_MAIN_ROOT_TIP_READ_ONLY main=%s roots=%d leaf_tips=%d already_in_main=%d unmerged=%d diverged=%d" %
+                (tips["main_sha"],tips["root_count"],tips["root_tips_checked"],
+                 tips["integrated_ancestors_review_only"],tips["unmerged_source_roots"],tips["diverged_roots"]))
+          print("R009_HYGIENE_SUMMARY roots=%d descendants=%d drift=%d open=%d" %
+                (graph["root_count"],graph["stacked_count"],graph["base_sha_drift_count"],graph["total_open"]))
+          PY
+          cat "$RUNNER_TEMP/r009-hygiene/drifts.md"
+          cat "$RUNNER_TEMP/r009-hygiene/root_tips.md"
+          (cd "$RUNNER_TEMP/r009-hygiene"; sha256sum ./{snapshot.json,report.json,audit.md,roots.json,roots.md,drifts.json,drifts.md,root_tips.json,root_tips.md} > SHA256SUMS; sha256sum -c SHA256SUMS)
+      - name: Exact public source Git merge-tree dry runs (no branch mutation)
+        timeout-minutes: 5
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -B qualification/repo_hygiene/virtual_merge_git_v1.py
+          python3 - <<'PY'
+          import json,os,pathlib
+          r=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"r009-hygiene/virtual_git_merge_v1.json").read_text())
+          assert r["schema"]=="scp.r009.disposable_git_merge_tree.v1"
+          assert r["repo"]=="SemperSupra/stable-character-pipeline"
+          assert r["complete"] and r["case_count"]==len(r["results"])==4
+          assert r["mutations"]==0 and not r["owner_approval"]
+          assert r["verdict"]=="FOUR_DISJOINT_SOURCE_MERGE_TREE_CANDIDATES_HELD"
+          assert sorted(x["child_pr"] for x in r["results"])==[95,117,119,332]
+          for x in r["results"]:
+              assert x["disposition"]=="GIT_MERGE_TREE_NO_LOSS_REVIEW_HOLD"
+              assert x["parent_changed"] and x["child_changed"]
+              assert not(set(x["parent_changed"])&set(x["child_changed"]))
+              assert x["virtual_file_count"]>0 and len(x["virtual_git_tree_sha"])==40
+              assert x["mutations"]==0 and not x["owner_approval"]
+          print("R009_GIT_MERGE_TREE_NO_LOSS_REVIEW_HOLD 4 SOURCE_TRIPLETS VERIFIED")
+          PY
+          (cd "$RUNNER_TEMP/r009-hygiene"; sha256sum virtual_git_merge_v1.json >> SHA256SUMS; sha256sum -c SHA256SUMS)
+      - name: Replay offline Go and Python suites on disposable merged public trees
+        timeout-minutes: 5
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -B qualification/repo_hygiene/virtual_merge_runtime_v1.py
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"r009-hygiene/virtual_git_combined_runtime_v1.json"
+          r=json.loads(p.read_text())
+          assert r["schema"]=="scp.r009.disposable_merged_runtime.v1"
+          assert r["repo"]=="SemperSupra/stable-character-pipeline"
+          assert r["cases_tested"]==len(r["results"])==3
+          assert sorted(x["child_pr"] for x in r["results"])==[95,117,119]
+          assert r["not_rerun"]==[332]
+          assert r["verdict"]=="THREE_PUBLIC_SOURCE_MERGED_LOCAL_SUITES_PASS_REVIEW_HOLD"
+          assert r["no_new_external_media_or_provider_download"]
+          assert r["mutations"]==0 and not r["owner_approval"]
+          for result in r["results"]:
+              assert result["local_suites"]=="PASS" and result["mutations"]==0
+              assert not result["owner_merge_approval"]
+              assert result["external_provider_downloads"]=="NOT_RUN"
+              assert result["checks"] and all(c["exit_status"]==0 for c in result["checks"])
+          print("R009_DISPOSABLE_MERGED_SOURCE_LOCAL_SUITES 3 PASS OWNER_MERGE_HELD")
+          PY
+          (cd "$RUNNER_TEMP/r009-hygiene"; sha256sum virtual_git_combined_runtime_v1.json >> SHA256SUMS; sha256sum -c SHA256SUMS)
+      - name: Preserve first failure and independent report artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 Node24
+        if: always()
+        with:
+          name: r009-public-hygiene-readonly-inventory-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/r009-hygiene/
+            ${{ runner.temp }}/r009-hygiene-validator-performance.json
+ ./...
           go vet ./...
           go build -trimpath -o "$RUNNER_TEMP/scp-hygiene" .
       - name: Verify independent audit-validator quality controls and measurement receipt
