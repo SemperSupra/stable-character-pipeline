@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 Node24
         with:
           persist-credentials: false
       - name: stdlib-only negative and deterministic tests
@@ -49,7 +49,7 @@ jobs:
           "$RUNNER_TEMP/scp-hygiene" --repo SemperSupra/stable-character-pipeline --as-of "$(date -u +%F)" --out "$RUNNER_TEMP/r009-hygiene" --max-pages 20 --stale-days 14
           head -n 20 "$RUNNER_TEMP/r009-hygiene/audit.md"
           # Root graph/first failures are part of the legible run evidence;
-          # do not truncate the five drift holds or the entire root priority list.
+          # do not truncate any observed drift holds or the entire root priority list.
           cat "$RUNNER_TEMP/r009-hygiene/roots.md"
           python3 - <<'PY'
           import json,os,pathlib
@@ -96,7 +96,7 @@ jobs:
           cat "$RUNNER_TEMP/r009-hygiene/root_tips.md"
           (cd "$RUNNER_TEMP/r009-hygiene"; sha256sum ./{snapshot.json,report.json,audit.md,roots.json,roots.md,drifts.json,drifts.md,root_tips.json,root_tips.md} > SHA256SUMS; sha256sum -c SHA256SUMS)
       - name: Preserve first failure and independent report artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2 Node24
         if: always()
         with:
           name: r009-public-hygiene-readonly-inventory-${{ github.run_id }}-${{ github.run_attempt }}
