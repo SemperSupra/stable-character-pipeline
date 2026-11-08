@@ -1,0 +1,19 @@
+name: historical-dance-match-contract
+on:
+  push:
+    branches: [qualification/historical-dance-matches-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-evidence-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source-only evidence contract and negative controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s source_catalog -p 'test_*.py' -v
+          python3 -m json.tool source_catalog/historical_dance_matches.v1.json >/dev/null
+          sha256sum source_catalog/historical_dance_matches.v1.json

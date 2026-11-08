@@ -1,0 +1,176 @@
+{
+  "schema_version": "scp.historical_dance_evidence.v1",
+  "workset": "SemperSupra/stable-character-pipeline#349",
+  "discovery_date": "2026-11-08",
+  "sources_classification": "Primary period footage and filmed modern reconstruction MUST NOT be conflated",
+  "records": [
+    {
+      "id": "loc-24-bouree-la-savoye",
+      "kind": "modern_reconstruction",
+      "video_catalog": "https://www.loc.gov/collections/dance-instruction-manuals-from-1490-to-1920/articles-and-essays/video-directory/",
+      "video_clip_number": 24,
+      "video_label": "Bourée from La Savoye",
+      "video_duration_sec": 20,
+      "filmed_year": 1998,
+      "original_choreography_year": 1709,
+      "choreography_source": "Pecour / Feuillet, Recueil de dances, 1709 (#073), p. 54",
+      "performers": [
+        "Thomas Baird"
+      ],
+      "reconstructor": "Thomas Baird",
+      "music": {
+        "work": "Méduse, Act I",
+        "composer": "Charles Hubert Gervais",
+        "composition_year": 1697,
+        "recording_artist": "Susan Manus, violin",
+        "original_era_audio": false
+      },
+      "study_targets": [
+        "footwork",
+        "upper-body carriage",
+        "turn alignment"
+      ],
+      "source_page_verified": true,
+      "actual_media_acquired": false,
+      "direct_video_url": null,
+      "media_sha256": null,
+      "rights_state": "modern_1998_performance_requires_item_specific_review"
+    },
+    {
+      "id": "loc-36-pavane-forward",
+      "kind": "modern_reconstruction",
+      "video_catalog": "https://www.loc.gov/collections/dance-instruction-manuals-from-1490-to-1920/articles-and-essays/video-directory/",
+      "video_clip_number": 36,
+      "video_label": "Pavane steps for moving forward",
+      "video_duration_sec": 24,
+      "filmed_year": 1998,
+      "original_choreography_year": 1589,
+      "choreography_source": "Thoinot Arbeau, Orchésographie (#219), p. 27 recto–27 verso, steps simple and double",
+      "performers": [
+        "Cheryl Stafford"
+      ],
+      "reconstructor": "Elizabeth Aldrich",
+      "music": {
+        "work": "Belle qui tiens ma vie",
+        "composer": "Thoinot Arbeau",
+        "composition_year": null,
+        "recording_artist": "Susan Manus, violin",
+        "original_era_audio": false
+      },
+      "study_targets": [
+        "walking carriage",
+        "measured steps",
+        "period posture"
+      ],
+      "source_page_verified": true,
+      "actual_media_acquired": false,
+      "direct_video_url": null,
+      "media_sha256": null,
+      "rights_state": "modern_1998_performance_requires_item_specific_review"
+    },
+    {
+      "id": "loc-39-pavane-paired",
+      "kind": "modern_reconstruction",
+      "video_catalog": "https://www.loc.gov/collections/dance-instruction-manuals-from-1490-to-1920/articles-and-essays/video-directory/",
+      "video_clip_number": 39,
+      "video_label": "Paired Pavane",
+      "video_duration_sec": 78,
+      "filmed_year": 1998,
+      "original_choreography_year": 1589,
+      "choreography_source": "Thoinot Arbeau, Orchésographie (#219), p. 27 recto–29 verso",
+      "performers": [
+        "Cheryl Stafford",
+        "Thomas Baird"
+      ],
+      "reconstructor": "Elizabeth Aldrich",
+      "music": {
+        "work": "Belle qui tiens ma vie",
+        "composer": "Thoinot Arbeau",
+        "composition_year": null,
+        "recording_artist": "Susan Manus, violin",
+        "original_era_audio": false
+      },
+      "study_targets": [
+        "paired spacing",
+        "partner synchronization",
+        "direction reversals"
+      ],
+      "source_page_verified": true,
+      "actual_media_acquired": false,
+      "direct_video_url": null,
+      "media_sha256": null,
+      "rights_state": "modern_1998_performance_requires_item_specific_review"
+    },
+    {
+      "id": "loc-59-varsovienne",
+      "kind": "modern_reconstruction",
+      "video_catalog": "https://www.loc.gov/collections/dance-instruction-manuals-from-1490-to-1920/articles-and-essays/video-directory/",
+      "video_clip_number": 59,
+      "video_label": "Varsovienne / Varsoviana",
+      "video_duration_sec": 28,
+      "filmed_year": 1998,
+      "original_choreography_year": 1850,
+      "choreography_source": "Ferrero, The art of dancing (#067), p. 147–148; other manuals also referenced",
+      "performers": [
+        "Cheryl Stafford",
+        "Thomas Baird"
+      ],
+      "reconstructor": "Elizabeth Aldrich",
+      "music": {
+        "work": "Violet Waltz",
+        "composer": "R. Albert",
+        "composition_year": 1850,
+        "recording_artist": "Boris Gurevich, piano",
+        "original_era_audio": false
+      },
+      "study_targets": [
+        "pair footwork",
+        "triple meter",
+        "historical social dance"
+      ],
+      "source_page_verified": true,
+      "actual_media_acquired": false,
+      "direct_video_url": null,
+      "media_sha256": null,
+      "rights_state": "modern_1998_performance_requires_item_specific_review"
+    },
+    {
+      "id": "commons-1895-serpentintanzerin",
+      "kind": "period_film",
+      "video_catalog": "https://commons.wikimedia.org/wiki/File:Serpentint%C3%A4nzerin.webm",
+      "video_clip_number": null,
+      "video_label": "Die Serpentintänzerin (Max Skladanowsky)",
+      "video_duration_sec": 20.215,
+      "filmed_year": 1895,
+      "original_choreography_year": null,
+      "choreography_source": null,
+      "performers": [
+        "Unidentified dancer in original film"
+      ],
+      "reconstructor": null,
+      "music": {
+        "work": null,
+        "composer": null,
+        "composition_year": null,
+        "recording_artist": null,
+        "original_era_audio": false
+      },
+      "study_targets": [
+        "fabric motion",
+        "arm sweeps",
+        "occluded limbs",
+        "early camera limitations"
+      ],
+      "source_page_verified": true,
+      "actual_media_acquired": true,
+      "direct_video_url": "https://upload.wikimedia.org/wikipedia/commons/8/87/Serpentint%C3%A4nzerin.webm",
+      "media_sha256": "e5eaaa6c8123d3262dc2679a2bb4bd21c3305aa85e7800a05c756880a0b1ba63",
+      "media_bytes": 1603751,
+      "media_video_frames": 604,
+      "media_audio_frames": 948,
+      "rights_state": "wikimedia_public_domain_mark",
+      "private_custody_url": "https://drive.google.com/file/d/1wdHFNzcreymu9EmOHggw8EKeCwNrGfCp/view",
+      "notes": "1895 original silent film; present Vorbis stream is a modern accompaniment or later encoding and is NOT authentic 1895 music."
+    }
+  ]
+}
