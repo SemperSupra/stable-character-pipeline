@@ -1,0 +1,49 @@
+name: Babyslow real yt-dlp localhost smoke (original media)
+on:
+  push:
+    branches:
+      - qualification/babyslow-metadata-drive-20261107
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-ytdlp-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Install standard pip wheel toolchain
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/babyslow-real-ytdlp
+          /tmp/babyslow-real-ytdlp/bin/pip install --disable-pip-version-check --quiet yt-dlp imageio-ffmpeg==0.6.0 av==16.0.1
+          ln -s "$(/tmp/babyslow-real-ytdlp/bin/python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" /tmp/babyslow-real-ytdlp/bin/ffmpeg
+          /tmp/babyslow-real-ytdlp/bin/yt-dlp --version
+      - name: Real yt-dlp extractor + original localhost A/V + actual decoder
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="/tmp/babyslow-real-ytdlp/bin:$PATH"
+          mkdir -p /tmp/scp-localsrv /tmp/scp-localdownloads /tmp/scp-state
+          ffmpeg -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=96x96:rate=12:duration=2' -f lavfi -i 'sine=frequency=440:sample_rate=16000:duration=2' -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac -b:a 64k -shortest /tmp/scp-localsrv/original.mp4
+          python3 -m http.server --bind 127.0.0.1 --directory /tmp/scp-localsrv 8765 > /tmp/scp-server.log 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in {1..30}; do if curl -fsS -o /dev/null http://127.0.0.1:8765/original.mp4; then break; fi; sleep 0.1; done
+          yt-dlp --ignore-config --no-progress --no-colors --no-mtime --yes-playlist --playlist-start 1 --playlist-end 1 --format 'bv*+ba/b' --merge-output-format mkv --write-info-json --no-write-playlist-metafiles --download-archive /tmp/scp-state/archive.txt --paths /tmp/scp-localdownloads --output '%(extractor_key)s/%(id)s.%(ext)s' 'http://127.0.0.1:8765/original.mp4' >/tmp/scp-ytlog.txt 2>&1 || { echo 'actual yt-dlp invocation failed'; exit 2; }
+          /tmp/babyslow-real-ytdlp/bin/python - <<'PY'
+          import pathlib, av, hashlib, json
+          root=pathlib.Path('/tmp/scp-localdownloads')
+          media=[x for x in root.rglob('*') if x.suffix.lower() in {'.mp4','.mkv','.mov','.webm','.m4v'}]
+          assert len(media)==1,(len(media),'actual yt-dlp must download exactly one video')
+          path=media[0]
+          counts={'audio':0,'video':0}
+          with av.open(str(path)) as inp:
+              for frame in inp.decode():
+                  if isinstance(frame,av.AudioFrame): counts['audio']+=1
+                  if isinstance(frame,av.VideoFrame): counts['video']+=1
+          assert counts['video']>0 and counts['audio']>0,counts
+          print(json.dumps({'actual_ytdlp_downloading':True,'source':'original localhost synthetic', 'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'decoded':counts,'classification':'public_safe_synthetic_only'}))
+          PY
+          yt-dlp --ignore-config --no-progress --no-colors --download-archive /tmp/scp-state/archive.txt --paths /tmp/scp-localdownloads --output '%(extractor_key)s/%(id)s.%(ext)s' 'http://127.0.0.1:8765/original.mp4' >/tmp/scp-second.txt 2>&1 || { echo 'archive retry failure'; exit 3; }
+          test "$(find /tmp/scp-localdownloads -type f \( -name '*.mp4' -o -name '*.mkv' \) | wc -l)" = "1"
+          echo 'NATIVE_YTDLP_HTTP_DOWNLOAD_AND_ARCHIVE=PASS'
