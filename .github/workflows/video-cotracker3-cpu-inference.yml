@@ -75,6 +75,23 @@ jobs:
             --out qualification/video_physics_bakeoff/learned_tracking/results/first-actual-cpu.json \
             --workdir "$TMP_VIDEO"
           "$PYENV/bin/python" -m json.tool qualification/video_physics_bakeoff/learned_tracking/results/first-actual-cpu.json >/dev/null
+      - name: Independent second learned-model trial with occlusion and direction reversal
+        env:
+          EXTERNAL_SRC: ${{ runner.temp }}/cotracker-research-source
+          EXTERNAL_WEIGHTS: ${{ runner.temp }}/cotracker-research-checkpoint.pth
+          PYENV: ${{ runner.temp }}/cotracker-pyenv
+          TMP_VIDEO: ${{ runner.temp }}/cotracker-robustness-video
+          OMP_NUM_THREADS: '2'
+          MKL_NUM_THREADS: '2'
+          CUDA_VISIBLE_DEVICES: ''
+        run: |
+          set -euo pipefail
+          timeout 600s "$PYENV/bin/python" \
+            qualification/video_physics_bakeoff/learned_tracking/cotracker_robustness.py \
+            --source "$EXTERNAL_SRC" --checkpoint "$EXTERNAL_WEIGHTS" \
+            --out qualification/video_physics_bakeoff/learned_tracking/results/robustness-actual-cpu.json \
+            --workdir "$TMP_VIDEO"
+          "$PYENV/bin/python" -m json.tool qualification/video_physics_bakeoff/learned_tracking/results/robustness-actual-cpu.json >/dev/null
       - name: Retain only synthetic scientific receipt and disposable runtime inventory
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
