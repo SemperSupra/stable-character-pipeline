@@ -8,6 +8,7 @@ import (
  "errors"
  "flag"
  "fmt"
+ "io"
  "math"
  "os"
  "os/exec"
@@ -49,8 +50,10 @@ type Receipt struct {
 var freezeRx=regexp.MustCompile(`freeze_start:\s*([0-9.]+)`)
 var blackRx=regexp.MustCompile(`black_start:\s*([0-9.]+)`)
 func hashFile(path string)(string,error){
- b,e:=os.ReadFile(path); if e!=nil{return "",e}
- h:=sha256.Sum256(b);return hex.EncodeToString(h[:]),nil
+ f,e:=os.Open(path); if e!=nil{return "",e}
+ defer f.Close()
+ h:=sha256.New();if _,e=io.Copy(h,f);e!=nil{return "",e}
+ return hex.EncodeToString(h.Sum(nil)),nil
 }
 func finite(f float64)bool{return !math.IsNaN(f)&&!math.IsInf(f,0)}
 func analyzeMotion(path string)(string,[]string,map[string]float64,error){
@@ -95,7 +98,9 @@ func analyzeVideo(path string,motion bool)(string,[]string,map[string]float64,er
 func evaluate(root string,c Case)Result{
  r:=Result{ID:c.ID,Kind:c.Kind,Expected:c.Expect,Verdict:"UNKNOWN",Findings:[]string{},Metrics:map[string]float64{}}
  if c.ID==""||c.Path==""||strings.Contains(c.Path,"..")||filepath.IsAbs(c.Path){r.Error="invalid id or path";return r}
- path:=filepath.Join(root,c.Path)
+ base,e:=filepath.EvalSymlinks(root);if e!=nil{r.Error="fixture root: "+e.Error();return r}
+ path,e:=filepath.EvalSymlinks(filepath.Join(root,c.Path));if e!=nil{r.Error="fixture: "+e.Error();return r}
+ rel,e:=filepath.Rel(base,path);if e!=nil||rel==".."||strings.HasPrefix(rel,".."+string(os.PathSeparator)){r.Error="fixture escapes root";return r}
  sha,e:=hashFile(path);if e!=nil{r.Error=e.Error();return r};r.SourceSHA256=sha
  switch c.Kind{
  case "motion":r.Verdict,r.Findings,r.Metrics,e=analyzeMotion(path)
@@ -103,7 +108,7 @@ func evaluate(root string,c Case)Result{
  default:e=errors.New("unsupported case kind")
  }
  if e!=nil{r.Error=e.Error();r.Verdict="UNKNOWN"}
- r.MatchesOracle=r.Verdict==r.Expected
+ r.MatchesOracle=r.Error==""&&r.Verdict==r.Expected
  return r
 }
 func run(manifest,output string)error{
