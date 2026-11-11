@@ -1,0 +1,81 @@
+name: original-animated-3d-gait-video-rdte
+on:
+  pull_request:
+    paths:
+      - 'qualification/original_3d_gait_corpus/**'
+      - '.github/workflows/original-3d-gait-corpus.yml'
+permissions:
+  contents: read
+concurrency:
+  group: original-3d-gait-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  generate-and-verify:
+    name: Original 3D GLB + 48-frame H264 / ${{ matrix.variant }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        variant: [clean, knee_reverse, foot_slide]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install only in fresh disposable Ubuntu runner
+        env:
+          VENV: ${{ runner.temp }}/gait-corpus-venv
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m venv "$VENV"
+          "$VENV/bin/python" -m pip install --disable-pip-version-check --no-cache-dir \
+            numpy==2.3.5 opencv-python-headless==4.13.0.92
+          ffmpeg -hide_banner -version | head -n1
+          "$VENV/bin/python" -c 'import cv2,numpy; print("SCIENTIFIC_RUNTIME",cv2.__version__,numpy.__version__)'
+      - name: Generate real glTF 2.0 animated full-body mesh and both H264 camera views
+        env:
+          VENV: ${{ runner.temp }}/gait-corpus-venv
+          OUT: ${{ runner.temp }}/original-3d-gait
+          CASE: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          "$VENV/bin/python" qualification/original_3d_gait_corpus/build_corpus.py \
+            --out "$OUT" --variants "$CASE"
+          "$VENV/bin/python" qualification/original_3d_gait_corpus/verify_corpus.py \
+            "$OUT" "$CASE"
+          sha256sum qualification/original_3d_gait_corpus/build_corpus.py \
+            qualification/original_3d_gait_corpus/verify_corpus.py >"$OUT/source-sha256.txt"
+          "$VENV/bin/python" -m pip freeze >"$OUT/pinned-environment.txt"
+      - name: Prevent false-green empty/short videos or missing animated 3D
+        env:
+          OUT: ${{ runner.temp }}/original-3d-gait
+          CASE: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          test -s "$OUT/$CASE.glb"
+          test -s "$OUT/$CASE""_ground_truth.json"
+          test -s "$OUT/manifest.json"
+          for camera in side three_quarter; do
+            clip="$OUT/$CASE""_$camera.mp4"
+            test -s "$clip"
+            frames="$(ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of csv=p=0 "$clip")"
+            test "$frames" = 48
+          done
+          python3 - "$OUT/manifest.json" "$CASE" <<'PY'
+          import json,sys
+          manifest=json.load(open(sys.argv[1]))
+          assert manifest["result"]=="QUALIFIED_SOURCE_SYNTHETIC"
+          assert manifest["total_videos"]==2 and len(manifest["cases"])==1
+          assert manifest["cases"][0]["case"]==sys.argv[2]
+          PY
+      - name: Upload only original CC0 mesh, video and scientific receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-3d-gait-${{ matrix.variant }}-v1
+          path: ${{ runner.temp }}/original-3d-gait/
+          retention-days: 14
+          if-no-files-found: warn
