@@ -9,6 +9,7 @@ import sys
 
 MAX_PIXELS = 1920 * 1080
 MAX_FRAMES = 300
+MAX_DECODED_BYTES = 120_000_000
 
 
 def probe(path):
@@ -20,7 +21,7 @@ def probe(path):
         raise ValueError('expected one video stream')
     s = streams[0]
     w, h, n = int(s['width']), int(s['height']), int(s['nb_read_frames'])
-    if w < 4 or h < 4 or w*h > MAX_PIXELS or n < 4 or n > MAX_FRAMES:
+    if w < 4 or h < 4 or w*h > MAX_PIXELS or n < 4 or n > MAX_FRAMES or w*h*n > MAX_DECODED_BYTES:
         raise ValueError('video outside bounded RDT&E profile')
     return w, h, n
 
@@ -55,7 +56,11 @@ def analyze(path):
     elif significant:
         uncertainties.append('SCENE_CUT_OR_LIGHTING_CHANGE')
     status = 'FAIL' if findings else ('UNKNOWN' if uncertainties else 'PASS')
-    hsh = hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024*1024), b''):
+            digest.update(block)
+    hsh = digest.hexdigest()
     return {'schema':'scp.temporal-pixels.v1', 'verdict':status, 'input_sha256':hsh,
             'dimensions':[w,h], 'decoded_frames':n,
             'metrics':{'mean_luma_min':round(min(means),4), 'mean_luma_max':round(max(means),4),
