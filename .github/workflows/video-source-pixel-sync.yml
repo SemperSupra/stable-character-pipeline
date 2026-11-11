@@ -1,0 +1,55 @@
+name: video-original-source-pixel-sync
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_physics_bakeoff/source_pixel_link/**'
+      - '.github/workflows/video-source-pixel-sync.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-source-pixel-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synced-source-video:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: FFmpeg in disposable Ubuntu VM only
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          ffmpeg -version | head -n 1
+      - name: Run twelve independent real H264 and provenance controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_physics_bakeoff/source_pixel_link -p 'test_*.py' -v
+      - name: Acquire exact pinned external geometry judge in isolated tree
+        env:
+          JUDGE_TREE: ${{ runner.temp }}/joint-geometry-judge
+        run: |
+          set -euo pipefail
+          git init -q "$JUDGE_TREE"
+          git -C "$JUDGE_TREE" remote add origin https://github.com/SemperSupra/stable-character-pipeline.git
+          git -C "$JUDGE_TREE" fetch -q --depth 1 origin bcccffbc016b980974fb46397e6eaa6e6f6d0b45
+          git -C "$JUDGE_TREE" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$JUDGE_TREE" rev-parse HEAD)" = bcccffbc016b980974fb46397e6eaa6e6f6d0b45
+      - name: Build source-coupled 3D joint scenes, actually encode and decode, independently inspect native pixels
+        env:
+          JUDGE_TREE: ${{ runner.temp }}/joint-geometry-judge
+          RESULTS: ${{ runner.temp }}/source-pixel-synchronization
+        run: |
+          set -euo pipefail
+          mkdir -p "$RESULTS"
+          python3 qualification/video_physics_bakeoff/source_pixel_link/source_pixel.py \
+            --geometry-root "$JUDGE_TREE" --out "$RESULTS/receipt.json"
+          python3 -m json.tool "$RESULTS/receipt.json" >/dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: synchronized-original-source-joints-and-h264
+          path: ${{ runner.temp }}/source-pixel-synchronization/
+          retention-days: 7
+          if-no-files-found: error
