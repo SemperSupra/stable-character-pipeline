@@ -39,6 +39,17 @@ jobs:
           mkdir -p results
           go run ./cmd/bakeoff -manifest fixtures/cases.json -out results/baseline.json
           python3 -m json.tool results/baseline.json >/dev/null
+      - name: Offline standalone Kaggle scientific capsule and hostile receipt checks
+        working-directory: qualification/video_physics_bakeoff/kaggle_accelerators
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s . -p 'test_*.py' -v
+          python3 videoqa_kaggle_probe.py --backend cpu --out /tmp/videoqa-cpu-receipt.json
+          python3 verify_direct_receipt.py --receipt /tmp/videoqa-cpu-receipt.json --backend cpu --code-sha256 "$(sha256sum videoqa_kaggle_probe.py | cut -d' ' -f1)"
+          if python3 videoqa_kaggle_probe.py --backend auto; then
+            echo "Unattested CPU runner incorrectly accepted as Kaggle accelerator"
+            exit 2
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cpu-bakeoff-receipt
