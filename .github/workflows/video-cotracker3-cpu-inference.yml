@@ -1,0 +1,85 @@
+name: video-cotracker3-actual-cpu-inference-rdte
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_physics_bakeoff/learned_tracking/**'
+      - '.github/workflows/video-cotracker3-cpu-inference.yml'
+permissions:
+  contents: read
+concurrency:
+  group: cotracker3-cpu-first-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actual-research-cpu:
+    name: Actual CoTracker3 learned checkpoint on original H264 frames
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Disposable FFmpeg runtime (no persistent host)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: Source-only independent decoded-video and negative controls
+        working-directory: qualification/video_physics_bakeoff/learned_tracking
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v
+      - name: Acquire exact-revision research-only upstream source and 102MB checkpoint
+        env:
+          EXTERNAL_SRC: ${{ runner.temp }}/cotracker-research-source
+          EXTERNAL_WEIGHTS: ${{ runner.temp }}/cotracker-research-checkpoint.pth
+        run: |
+          set -euo pipefail
+          git init -q "$EXTERNAL_SRC"
+          git -C "$EXTERNAL_SRC" remote add origin https://github.com/facebookresearch/co-tracker.git
+          git -C "$EXTERNAL_SRC" fetch -q --depth 1 origin 82e02e8029753ad4ef13cf06be7f4fc5facdda4d
+          git -C "$EXTERNAL_SRC" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$EXTERNAL_SRC" rev-parse HEAD)" = 82e02e8029753ad4ef13cf06be7f4fc5facdda4d
+          test -f "$EXTERNAL_SRC/LICENSE.md"
+          curl -fsSL --retry 2 --connect-timeout 20 --max-time 600 \
+            https://huggingface.co/facebook/cotracker3/resolve/acc21f9dba34834006a50432bde26b86aa68d794/scaled_offline.pth \
+            -o "$EXTERNAL_WEIGHTS"
+          echo "2670d4562ed69326dda775a26e54883925cd11b6fc9b24cb7aa9f8078bce7834  $EXTERNAL_WEIGHTS" | sha256sum --check --status
+          test "$(stat -c %s "$EXTERNAL_WEIGHTS")" = 101890938
+          echo "COTRACKER_SOURCE_AND_WEIGHT_PIN_VERIFIED=1"
+      - name: Install isolated CPU PyTorch in disposable VM-local venv
+        env:
+          PYENV: ${{ runner.temp }}/cotracker-pyenv
+          PIP_NO_CACHE_DIR: '1'
+        run: |
+          set -euo pipefail
+          python3 -m venv "$PYENV"
+          "$PYENV/bin/python" -m pip install --disable-pip-version-check numpy==1.26.4
+          "$PYENV/bin/python" -m pip install --disable-pip-version-check torch==2.6.0 \
+            --index-url https://download.pytorch.org/whl/cpu
+          mkdir -p qualification/video_physics_bakeoff/learned_tracking/results
+          "$PYENV/bin/python" -m pip freeze >qualification/video_physics_bakeoff/learned_tracking/results/environment.txt
+      - name: Execute real pretrained video-point tracking on decoded original synthetic H264
+        env:
+          EXTERNAL_SRC: ${{ runner.temp }}/cotracker-research-source
+          EXTERNAL_WEIGHTS: ${{ runner.temp }}/cotracker-research-checkpoint.pth
+          PYENV: ${{ runner.temp }}/cotracker-pyenv
+          TMP_VIDEO: ${{ runner.temp }}/cotracker-synthetic-video
+          OMP_NUM_THREADS: '2'
+          MKL_NUM_THREADS: '2'
+          CUDA_VISIBLE_DEVICES: ''
+        run: |
+          set -euo pipefail
+          timeout 600s "$PYENV/bin/python" \
+            qualification/video_physics_bakeoff/learned_tracking/cotracker_cpu.py \
+            --source "$EXTERNAL_SRC" --checkpoint "$EXTERNAL_WEIGHTS" \
+            --out qualification/video_physics_bakeoff/learned_tracking/results/first-actual-cpu.json \
+            --workdir "$TMP_VIDEO"
+          "$PYENV/bin/python" -m json.tool qualification/video_physics_bakeoff/learned_tracking/results/first-actual-cpu.json >/dev/null
+      - name: Retain only synthetic scientific receipt and disposable runtime inventory
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cotracker3-first-learned-cpu-receipts
+          path: qualification/video_physics_bakeoff/learned_tracking/results/
+          retention-days: 7
+          if-no-files-found: warn
