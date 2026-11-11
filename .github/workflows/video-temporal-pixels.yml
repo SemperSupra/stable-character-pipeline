@@ -1,0 +1,31 @@
+name: video-temporal-pixels-research
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_physics_bakeoff/temporal_pixels/**'
+      - '.github/workflows/video-temporal-pixels.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  temporal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install FFmpeg on disposable public Ubuntu VM
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          command -v ffmpeg
+          command -v ffprobe
+      - name: Real H.264 video decoding and independent hostile controls
+        working-directory: qualification/video_physics_bakeoff/temporal_pixels
+        run: |
+          set -euo pipefail
+          python3 -VV
+          ffmpeg -version | head -n1
+          python3 -m unittest -v
