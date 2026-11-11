@@ -1,0 +1,38 @@
+name: R009 public synthetic disposable OCI qualification
+
+on:
+  push:
+    branches:
+      - rdte/r009-public-playwright-venue-smoke-20261111
+  pull_request:
+    paths:
+      - qualification/r009/public_disposable_oci_smoke.sh
+      - .github/workflows/r009-public-disposable-oci.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r009-public-disposable-oci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-disposable-oci:
+    name: Synthetic OCI cold start / teardown
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build, cold-start twice, verify read-only and dispose
+        run: bash qualification/r009/public_disposable_oci_smoke.sh
+      - name: Upload synthetic-only receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r009-public-synthetic-disposable-oci
+          path: synthetic-oci-evidence/
+          if-no-files-found: warn
+          retention-days: 3
