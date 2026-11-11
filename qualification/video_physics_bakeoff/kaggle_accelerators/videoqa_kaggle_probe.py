@@ -16,6 +16,7 @@ import sys
 
 SCHEMA = 'scp.videoqa.kaggle-motion-probe.v1'
 RESULT_SCHEMA = 'scp.videoqa.kaggle-motion-receipt.v1'
+EXPECTED_FIXTURE_SHA256 = 'f40ded92073bc8ee9d8680b47cdd4da3a92f270ab218224e8f252e3b99639f20'
 
 
 def fixtures():
@@ -121,7 +122,7 @@ def run(kind: str):
         scores, device = tpu_scores(traces)
     else:
         raise ValueError('INVALID_BACKEND')
-    verdicts = verify(scores, sha, hashlib.sha256(data).hexdigest())
+    verdicts = verify(scores, EXPECTED_FIXTURE_SHA256, sha)
     result = {'schema': RESULT_SCHEMA, 'workload': 'videoqa-motion-v1',
               'requested_backend': kind, 'actual_backend': device['backend'],
               'status': 'PASS', 'source_sha256': sha, 'device': device,
