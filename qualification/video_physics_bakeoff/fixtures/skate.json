@@ -1,0 +1,1 @@
+{"schema":"scp.motion-observation.v1","samples":[{"time_s":0,"foot_x_m":0.1,"foot_y_m":0,"contact":true},{"time_s":0.1,"foot_x_m":0.16,"foot_y_m":0,"contact":true},{"time_s":0.2,"foot_x_m":0.22,"foot_y_m":0,"contact":true}]}
