@@ -1,0 +1,36 @@
+name: video-qa-reference-ab
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_physics_bakeoff/quality_reference_ab/**'
+      - '.github/workflows/video-qa-reference-ab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: video-reference-ab-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synthetic-reference-ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Observe clean worker tools
+        run: |
+          set -euo pipefail
+          ffmpeg -version | head -n1
+          python3 --version
+      - name: Execute genuine synthetic decoded-video A/B and hostile controls
+        env:
+          OUT_DIR: ${{ runner.temp }}/video-qa-reference-ab
+        run: |
+          set -euo pipefail
+          bash qualification/video_physics_bakeoff/quality_reference_ab/qualify.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-qa-reference-ab-receipt
+          path: ${{ runner.temp }}/video-qa-reference-ab/receipt.json
+          retention-days: 7
