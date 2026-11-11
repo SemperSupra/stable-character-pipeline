@@ -21,9 +21,11 @@ python3 -m unittest -v
 python3 videoqa_kaggle_probe.py --backend cpu
 ```
 
-Tested 2026-11-11: **7/7 independent unit controls PASS**. Same source executed on a CPU-only environment with `--backend gpu` and `--backend tpu`: both exited 2 without pretending that an accelerator was available. Exact committed Git blob SHA IDs: `videoqa_kaggle_probe.py` `d7c23c375170d1584c580d90961da5efb7d43e4b` and `test_videoqa_kaggle_probe.py` `f43992127f58bb2347ac89a008eb5250c63f3362`, matching the locally executed source bytes. **Actual Kaggle CPU/GPU/TPU runs are not performed or claimed.**
+Tested 2026-11-11: **7/7 independent unit controls PASS**. Same source executed on a CPU-only environment with `--backend gpu` and `--backend tpu`: both exited 2 without pretending that an accelerator was available. Exact committed Git blob SHA IDs: `videoqa_kaggle_probe.py` `19c753d4b85cc17bff1084edce7ba38f8daf14d2` and `test_videoqa_kaggle_probe.py` `aac964261a089fddb2eb08db55da7abf60a6eaa2`, matching the locally executed source bytes. **Actual Kaggle CPU/GPU/TPU runs are not performed or claimed.**
 
 ## Existing Agent Dispatch admission sequence
+
+The payload also pins the synthetic input independently to SHA256 `f40ded92073bc8ee9d8680b47cdd4da3a92f270ab218224e8f252e3b99639f20`, preventing self-comparison from accepting fixture drift.
 
 The existing protected launcher currently recognizes three **other** fixed workloads: `gpu-cuda-smoke-v1`, `tpu-v5e8-device-v1`, and `tpu-jax-bridge-v1`; it does not yet admit the video QA payload or a CPU variant. Propose three *reviewed typed* extensions (not arbitrary script selectors): `videoqa-cpu-motion-v1`, `videoqa-gpu-t4x2-motion-v1`, and `videoqa-tpu-v5e8-motion-v1`.
 
