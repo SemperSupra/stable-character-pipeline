@@ -13,5 +13,5 @@ for name in baseline candidate; do
     ffmpeg -nostdin -hide_banner -loglevel warning -i "$OUT_DIR/$name.mp4" -i "$OUT_DIR/reference.mkv" -lavfi "$metric=stats_file=$OUT_DIR/$name.$metric" -frames:v 36 -fps_mode passthrough -an -f null - 2>"$OUT_DIR/$name.$metric.log"
   done
 done
-python3 "$(dirname "$0")/score.py" "$OUT_DIR"
-python3 "$(dirname "$0")/hostile_test.py" "$OUT_DIR"
+python3 "score.py" "$OUT_DIR"
+python3 "hostile_test.py" "$OUT_DIR"
