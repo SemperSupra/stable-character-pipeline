@@ -1,6 +1,7 @@
+import hashlib
 import math
 import unittest
-from videoqa_kaggle_probe import fixtures, source_bytes, cpu_scores, verify, run, validate_traces
+from videoqa_kaggle_probe import EXPECTED_FIXTURE_SHA256, fixtures, source_bytes, cpu_scores, verify, run, validate_traces
 
 class ResearchProbeTest(unittest.TestCase):
     def test_cpu_real_synthetic_metric(self):
@@ -12,6 +13,7 @@ class ResearchProbeTest(unittest.TestCase):
     def test_source_exact(self):
         data = source_bytes(fixtures())
         self.assertIn(b'scp.videoqa.kaggle-motion-probe.v1', data)
+        self.assertEqual(hashlib.sha256(data).hexdigest(), EXPECTED_FIXTURE_SHA256)
     def test_injected_score_rejected(self):
         with self.assertRaisesRegex(ValueError, 'METRIC_ORACLE_MISMATCH'):
             verify([0.] * 8, 'x', 'x')
