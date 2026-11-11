@@ -1,0 +1,6 @@
+# Reference-free temporal pixel checks (RDT&E)
+Independent conventional signal-processing sibling of gait-geometry QA and reference-based PSNR/SSIM #359, under public Visual QA DLE #150. Runs on disposable CPU-only standard public GitHub Actions or local ephemeral Linux with FFmpeg/FFprobe and Python standard library. No model weights, privileged runtime, network service or protected character media.
+
+Four distinct original 36-frame H.264 clips are generated in a temporary directory, containing a moving bright patch on stable background, high-frequency alternating brightness, one intentional brightness cut and a black scene. Actual decoded grayscale frames are measured; missing/truncated files cause INVALID_EVIDENCE, not scientific UNKNOWN. The model returns FAIL for repeated flicker or black frames, UNKNOWN for single abrupt scene cut and PASS on the stable control. Six local tests passed on 2026-11-11.
+
+This is not optical flow or physics simulation. The thresholds are synthetic research hypotheses, and natural camera cuts, light flashes and artistic edits require explicit abstention or human review. Do not promote these results to realism, physics, protected-human quality or release gates. Pull request draft/unmerged; the independent path-scoped public CI must complete before cloud qualification.
