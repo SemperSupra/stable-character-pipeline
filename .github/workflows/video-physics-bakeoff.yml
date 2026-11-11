@@ -1,0 +1,79 @@
+name: video-physics-bakeoff-research
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_physics_bakeoff/**'
+      - '.github/workflows/video-physics-bakeoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: video-physics-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  deterministic:
+    name: CPU negative controls and decoded-video witnesses
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install FFmpeg only on disposable public runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep -q 'libx264'
+      - name: Observe ephemeral tools
+        run: |
+          set -euo pipefail
+          go version
+          ffmpeg -version | head -n1
+          ffprobe -version | head -n1
+          python3 --version
+      - name: Build, unit-test and run offline baseline
+        working-directory: qualification/video_physics_bakeoff
+        env:
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+          GOWORK: 'off'
+        run: |
+          set -euo pipefail
+          go test ./...
+          bash scripts/generate-videos.sh
+          mkdir -p results
+          go run ./cmd/bakeoff -manifest fixtures/cases.json -out results/baseline.json
+          python3 -m json.tool results/baseline.json >/dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cpu-bakeoff-receipt
+          path: qualification/video_physics_bakeoff/results/baseline.json
+          retention-days: 7
+  source-acquisition:
+    name: Pinned source ${{ matrix.candidate }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        candidate: [HumanScore, PhysTrace, PVBench, RoboJudge, CoTracker3, DOVER, PyIQA]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Acquire exact source in disposable directory (no weights or execution)
+        working-directory: qualification/video_physics_bakeoff
+        env:
+          CANDIDATE: ${{ matrix.candidate }}
+          WORK_ROOT: ${{ runner.temp }}/untrusted-upstream
+        run: |
+          set -euo pipefail
+          bash scripts/acquire-source.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pinned-source-${{ matrix.candidate }}
+          path: qualification/video_physics_bakeoff/results/source-${{ matrix.candidate }}.json
+          retention-days: 7
