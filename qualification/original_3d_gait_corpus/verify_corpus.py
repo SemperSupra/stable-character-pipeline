@@ -13,10 +13,10 @@ def digest(path):
  return h.hexdigest()
 
 
-def verify(root):
+def verify(root, only_case=None):
  root=pathlib.Path(root)
  records=[]
- for variant in ('clean','knee_reverse','foot_slide'):
+ for variant in ((only_case,) if only_case else ('clean','knee_reverse','foot_slide')):
   glb=root/(variant+'.glb')
   raw=glb.read_bytes();magic,vers,total=struct.unpack_from('<III',raw)
   assert magic==0x46546c67 and vers==2 and total==len(raw)
@@ -67,23 +67,24 @@ def verify(root):
                   'ground_truth_sha256':digest(root/(variant+'_ground_truth.json')),
                   'peak_planted_ankle_speed_m_s':moving,'reversed_left_knee_frames':reversal['left'],
                   'video':clips})
- assert records[0]['reversed_left_knee_frames']==0
- assert records[1]['reversed_left_knee_frames']==16
- assert abs(records[2]['peak_planted_ankle_speed_m_s']['left']-.283333)<.001
+ case_data={x['case']:x for x in records}
+ if 'clean' in case_data: assert case_data['clean']['reversed_left_knee_frames']==0
+ if 'knee_reverse' in case_data: assert case_data['knee_reverse']['reversed_left_knee_frames']==16
+ if 'foot_slide' in case_data: assert abs(case_data['foot_slide']['peak_planted_ankle_speed_m_s']['left']-.283333)<.001
  manifest={'schema':'scp.original-full-body-gait-corpus.v1','result':'QUALIFIED_SOURCE_SYNTHETIC',
            'rights':'Original procedural 3D mesh and motion; CC0-1.0',
            'fps':m.FPS,'resolution':[m.SIZE,m.SIZE],'frames_per_video':m.FRAMES,
-           'total_videos':6,'total_animated_gltf_models':3,'cases':records,
+           'total_videos':len(records)*2,'total_animated_gltf_models':3,'cases':records,
            'limits':['Stylized mannequin, not realistic human anatomy',
              'Both views derive from same deterministic 3D coordinates',
              'Knee reversal and contact skate are source-defined controlled defects',
              'Not real-person imagery, model inference, or biologically valid gait']}
  (root/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
- print(json.dumps({'result':manifest['result'],'models':3,'videos':6,
+ print(json.dumps({'result':manifest['result'],'models':len(records),'videos':2*len(records),
                    'cases':{r['case']:{'sliding':r['peak_planted_ankle_speed_m_s']['left'],
                             'reversed_knee_frames':r['reversed_left_knee_frames']} for r in records}},indent=2))
  return manifest
 
 if __name__=='__main__':
  import sys
- verify(sys.argv[1])
+ verify(sys.argv[1],sys.argv[2] if len(sys.argv)>2 else None)
