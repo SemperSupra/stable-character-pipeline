@@ -2,7 +2,7 @@
 """Fixed-source, public-synthetic Video QA CPU/GPU/TPU execution qualification.
 
 No credential handling, model downloads, network, package installation or persistent state.
-Runs only inside the existing governed Agent Dispatch Kaggle launcher once admitted.
+Runs in a fixed, reviewed direct-Kaggle notebook capsule or governed launcher.
 """
 from __future__ import annotations
 
@@ -108,7 +108,27 @@ def verify(scores, expected_source_sha, actual_source_sha):
     return ['PASS' if score <= 0.03 else 'FAIL' for score in scores]
 
 
+def detect_accelerator():
+    """Select only an observed, usable TPU8 or T4x2; no silent CPU fallback."""
+    try:
+        import jax
+        if jax.default_backend() == 'tpu' and len(jax.local_devices(backend='tpu')) == 8:
+            return 'tpu'
+    except (ImportError, RuntimeError, ValueError):
+        pass
+    try:
+        import torch
+        if (torch.cuda.is_available() and torch.cuda.device_count() == 2
+                and all('T4' in torch.cuda.get_device_name(i) for i in range(2))):
+            return 'gpu'
+    except (ImportError, RuntimeError, ValueError):
+        pass
+    raise RuntimeError('NO_VERIFIED_ACCELERATOR_ON_DIRECT_NOTEBOOK')
+
+
 def run(kind: str):
+    if kind == 'auto':
+        kind = detect_accelerator()
     traces = fixtures()
     data = source_bytes(traces)
     sha = hashlib.sha256(data).hexdigest()
@@ -125,7 +145,9 @@ def run(kind: str):
     verdicts = verify(scores, EXPECTED_FIXTURE_SHA256, sha)
     result = {'schema': RESULT_SCHEMA, 'workload': 'videoqa-motion-v1',
               'requested_backend': kind, 'actual_backend': device['backend'],
-              'status': 'PASS', 'source_sha256': sha, 'device': device,
+              'status': 'PASS', 'source_sha256': sha,
+              'executed_source_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+              'device': device,
               'metric': 'mean_planted_foot_speed_m_s',
               'metric_scores': [round(float(s), 6) for s in scores],
               'verdicts': verdicts, 'expected_verdicts': ['PASS'] * 4 + ['FAIL'] * 4,
@@ -137,7 +159,7 @@ def run(kind: str):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('--backend', choices=('cpu', 'gpu', 'tpu'), required=True)
+    p.add_argument('--backend', choices=('cpu', 'gpu', 'tpu', 'auto'), default='auto')
     p.add_argument('--out', default=None)
     a = p.parse_args()
     try:
