@@ -1,0 +1,62 @@
+name: video-independent-modal-matrix-rdte
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_physics_bakeoff/modal_matrix/**'
+      - '.github/workflows/video-modal-matrix.yml'
+permissions:
+  contents: read
+concurrency:
+  group: modal-matrix-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  cross-modal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install only in disposable runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -V
+          ffmpeg -version | head -n 1
+      - name: Test independent scientific matrix contract
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_physics_bakeoff/modal_matrix -p 'test_*.py' -v
+      - name: Acquire two independent known-source judges as pinned public git trees
+        env:
+          JUDGE_TMP: ${{ runner.temp }}/verified-judges
+        run: |
+          set -euo pipefail
+          for spec in 'geometry bcccffbc016b980974fb46397e6eaa6e6f6d0b45' \
+                      'temporal 8ed8ad31e4438fd2e537dc8903a4b85291e1ab68'; do
+            read -r name pin <<< "$spec"
+            mkdir -p "$JUDGE_TMP/$name"
+            git -C "$JUDGE_TMP/$name" init -q
+            git -C "$JUDGE_TMP/$name" remote add origin https://github.com/SemperSupra/stable-character-pipeline.git
+            git -C "$JUDGE_TMP/$name" fetch -q --depth 1 origin "$pin"
+            git -C "$JUDGE_TMP/$name" checkout -q --detach FETCH_HEAD
+            test "$(git -C "$JUDGE_TMP/$name" rev-parse HEAD)" = "$pin"
+          done
+      - name: Run six actual H264 decoded scenarios and independent 3D geometry judges
+        env:
+          JUDGE_TMP: ${{ runner.temp }}/verified-judges
+          RESULT_TMP: ${{ runner.temp }}/modal-matrix-rdte
+        run: |
+          set -euo pipefail
+          python3 qualification/video_physics_bakeoff/modal_matrix/run_matrix.py \
+            --geometry-root "$JUDGE_TMP/geometry" \
+            --temporal-root "$JUDGE_TMP/temporal" \
+            --out-dir "$RESULT_TMP"
+          python3 -m json.tool "$RESULT_TMP/modal-matrix.json" >/dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cross-modal-original-synthetic-receipt
+          path: ${{ runner.temp }}/modal-matrix-rdte/modal-matrix.json
+          retention-days: 7
+          if-no-files-found: error
