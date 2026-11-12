@@ -1,0 +1,96 @@
+name: video-oci-timestamp-normalization-science
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_physics_bakeoff/Dockerfile.timestamp-experiment'
+      - '.github/workflows/video-oci-timestamp-normalization.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-oci-timestamp-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  two-cold-builds:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build two source-date fixed APK-timestamp normalized runtime images with no cache
+        run: |
+          set -euo pipefail
+          mkdir -p timestamp-receipts
+          for run in a b; do
+            DOCKER_BUILDKIT=1 docker build --pull --no-cache \
+              --build-arg SOURCE_DATE_EPOCH=1704067200 \
+              -f Dockerfile.timestamp-experiment \
+              -t local/video-physics-research-timestamp:"$run" .
+            docker image inspect local/video-physics-research-timestamp:"$run" \
+              >"timestamp-receipts/image-$run.json"
+            docker run --rm --network none --read-only --cap-drop ALL \
+              --security-opt no-new-privileges --pids-limit 128 --memory 512m \
+              --entrypoint sha256sum local/video-physics-research-timestamp:"$run" \
+              /usr/local/bin/bakeoff /lib/apk/db/installed \
+              >"timestamp-receipts/runtime-payload-$run.sha256"
+            docker run --rm --network none --read-only --cap-drop ALL \
+              --security-opt no-new-privileges --pids-limit 128 --memory 512m \
+              --entrypoint ffmpeg local/video-physics-research-timestamp:"$run" \
+              -nostdin -hide_banner -loglevel error -f lavfi -i testsrc2=size=128x128:rate=12 \
+              -frames:v 5 -f null -
+          done
+      - name: Strictly compare two independent runtime images
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path("timestamp-receipts")
+          a=json.loads((root/"image-a.json").read_text())[0]
+          b=json.loads((root/"image-b.json").read_text())[0]
+          if a["Config"]["User"]!=b["Config"]["User"] or a["Config"]["User"]!="65532:65532":
+            raise ValueError("NONROOT_USER_REGRESSION")
+          payloads=[]
+          for name in ("a","b"):
+            lines=(root/f"runtime-payload-{name}.sha256").read_text().splitlines()
+            if len(lines)!=2:
+              raise ValueError("MISSING_RUNTIME_SOURCE_FILE_HASH")
+            payloads.append(lines)
+          if payloads[0]!=payloads[1]:
+            raise ValueError("RUNTIME_BINARY_OR_APK_RECORDS_NOT_REPRODUCIBLE")
+          report={
+            "schema":"scp.video-physics-oci-apk-timestamp-normalization-ab.v1",
+            "source_date_epoch":1704067200,
+            "cold_builds":2,
+            "image_ids":[a["Id"],b["Id"]],
+            "same_image_id":a["Id"]==b["Id"],
+            "same_runtime_rootfs_layers":a["RootFS"]["Layers"]==b["RootFS"]["Layers"],
+            "same_runtime_config":a["Config"]==b["Config"],
+            "same_go_binary_and_apk_database":True,
+            "go_binary_sha256":payloads[0][0].split()[0],
+            "apk_installed_db_sha256":payloads[0][1].split()[0],
+            "variant":"nonroot_digest_pinned_apk_mtime-normalized",
+            "qualification":"RDT_E_IMAGE_REPRODUCIBILITY_ONLY_NOT_PRODUCTION",
+            "holds":[
+              "Two cold builds on one runner do not prove reproducible builds across runners or architectures",
+              "APK repository index and transitive package artifacts are not snapshotted with source checksums",
+              "No signed release, full toolchain SBOM, CVE/license clearance or supported deployments",
+              "Equal merged rootfs and image config must not be substituted for equal serialized image IDs"
+            ],
+          }
+          (root/"experiment.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+          print("APKTIME_REPRO",{"image_ids_equal":report["same_image_id"],
+               "layers_equal":report["same_runtime_rootfs_layers"],
+               "config_equal":report["same_runtime_config"]})
+          PY
+          sha256sum timestamp-receipts/*.json >timestamp-receipts/sha256-witnesses.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-oci-timestamp-normalized-twice-clean-research
+          path: qualification/video_physics_bakeoff/timestamp-receipts/
+          retention-days: 14
+          if-no-files-found: error

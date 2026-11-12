@@ -1,0 +1,18 @@
+# Experimental variant only: normalized APK filesystem timestamps for two cold builds.
+# Do not release / promote until locked APK repository snapshot, full build SBOM,
+# license/CVE scan, signed provenance and multiarch qualification all PASS.
+FROM golang:1.23.12-alpine3.21@sha256:4bb4be21ac98da06bc26437ee870c4973f8039f13e9a1a36971b4517632b0fc6 AS builder
+WORKDIR /src
+ENV GOPROXY=off GOSUMDB=off GOWORK=off GOTOOLCHAIN=local CGO_ENABLED=0
+COPY go.mod ./
+COPY cmd/ ./cmd/
+RUN go build -trimpath -ldflags="-s -w" -o /bin/bakeoff ./cmd/bakeoff
+
+FROM alpine:3.21.6@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709
+ARG SOURCE_DATE_EPOCH=1704067200
+RUN apk add --no-cache 'ffmpeg=6.1.2-r1' && \
+    find /etc /usr /lib /bin /sbin /var -xdev -depth ! -path /etc/hosts ! -path /etc/resolv.conf ! -path /etc/hostname -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} +
+COPY --from=builder /bin/bakeoff /usr/local/bin/bakeoff
+USER 65532:65532
+WORKDIR /work
+ENTRYPOINT ["/usr/local/bin/bakeoff"]
