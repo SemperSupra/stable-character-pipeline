@@ -1,0 +1,147 @@
+{
+  "benchmark_warnings": [],
+  "connected_component_count": 19429,
+  "dataset_sha256": "e093c965d58a44ddd499d19452d9a71d0ccf70863cd2a54d58c60f2de9a42e65",
+  "evaluation": [
+    {
+      "fitting_elapsed_seconds": 1.346,
+      "leakage": {
+        "test_prompt_overlap_count": 0,
+        "test_shape_overlap_count": 0
+      },
+      "mae": {
+        "tfidf_char_ridge": 0.910143,
+        "tfidf_char_ridge_p90_sample_mean_error": 1.233144,
+        "tfidf_word_ridge": 0.907525,
+        "tfidf_word_ridge_p90_sample_mean_error": 1.24303,
+        "train_mean": 1.123357
+      },
+      "protocol": "prompt_holdout",
+      "relative_char_vs_mean": 0.8102,
+      "relative_word_vs_mean": 0.80787,
+      "seed": 20261112,
+      "test": 1000,
+      "train": 6500
+    },
+    {
+      "fitting_elapsed_seconds": 1.372,
+      "leakage": {
+        "test_prompt_overlap_count": 0,
+        "test_shape_overlap_count": 0
+      },
+      "mae": {
+        "tfidf_char_ridge": 0.906363,
+        "tfidf_char_ridge_p90_sample_mean_error": 1.220925,
+        "tfidf_word_ridge": 0.90054,
+        "tfidf_word_ridge_p90_sample_mean_error": 1.215369,
+        "train_mean": 1.109401
+      },
+      "protocol": "prompt_holdout",
+      "relative_char_vs_mean": 0.81698,
+      "relative_word_vs_mean": 0.81174,
+      "seed": 20261113,
+      "test": 1000,
+      "train": 6500
+    },
+    {
+      "fitting_elapsed_seconds": 1.382,
+      "leakage": {
+        "test_prompt_overlap_count": 63,
+        "test_shape_overlap_count": 0
+      },
+      "mae": {
+        "tfidf_char_ridge": 0.918617,
+        "tfidf_char_ridge_p90_sample_mean_error": 1.249634,
+        "tfidf_word_ridge": 0.916363,
+        "tfidf_word_ridge_p90_sample_mean_error": 1.245772,
+        "train_mean": 1.136086
+      },
+      "protocol": "shape_holdout",
+      "relative_char_vs_mean": 0.80858,
+      "relative_word_vs_mean": 0.8066,
+      "seed": 20261112,
+      "test": 1000,
+      "train": 6500
+    },
+    {
+      "fitting_elapsed_seconds": 1.371,
+      "leakage": {
+        "test_prompt_overlap_count": 67,
+        "test_shape_overlap_count": 0
+      },
+      "mae": {
+        "tfidf_char_ridge": 0.917865,
+        "tfidf_char_ridge_p90_sample_mean_error": 1.231748,
+        "tfidf_word_ridge": 0.913304,
+        "tfidf_word_ridge_p90_sample_mean_error": 1.222694,
+        "train_mean": 1.118608
+      },
+      "protocol": "shape_holdout",
+      "relative_char_vs_mean": 0.82054,
+      "relative_word_vs_mean": 0.81647,
+      "seed": 20261113,
+      "test": 1000,
+      "train": 6500
+    },
+    {
+      "fitting_elapsed_seconds": 1.398,
+      "leakage": {
+        "test_prompt_overlap_count": 0,
+        "test_shape_overlap_count": 0
+      },
+      "mae": {
+        "tfidf_char_ridge": 0.911905,
+        "tfidf_char_ridge_p90_sample_mean_error": 1.244594,
+        "tfidf_word_ridge": 0.909572,
+        "tfidf_word_ridge_p90_sample_mean_error": 1.246855,
+        "train_mean": 1.123334
+      },
+      "protocol": "component_holdout",
+      "relative_char_vs_mean": 0.81178,
+      "relative_word_vs_mean": 0.80971,
+      "seed": 20261112,
+      "test": 1000,
+      "train": 6500
+    },
+    {
+      "fitting_elapsed_seconds": 1.374,
+      "leakage": {
+        "test_prompt_overlap_count": 0,
+        "test_shape_overlap_count": 0
+      },
+      "mae": {
+        "tfidf_char_ridge": 0.91988,
+        "tfidf_char_ridge_p90_sample_mean_error": 1.247197,
+        "tfidf_word_ridge": 0.916052,
+        "tfidf_word_ridge_p90_sample_mean_error": 1.24724,
+        "train_mean": 1.120851
+      },
+      "protocol": "component_holdout",
+      "relative_char_vs_mean": 0.8207,
+      "relative_word_vs_mean": 0.81728,
+      "seed": 20261113,
+      "test": 1000,
+      "train": 6500
+    }
+  ],
+  "largest_component_rows": 45,
+  "merge_release_gate": "HOLD",
+  "metric": "mean absolute error in 10 native SMPL-X betas (not mesh metric)",
+  "multiple_prompts_and_shapes_protected_by_components": true,
+  "parse_errors": 0,
+  "prompts_with_conflicting_shape_vectors": 856,
+  "schema": "r015.bodyshapegpt.group_holdout.v1",
+  "scope": "published public text+SMPL-X betas only; no original LoRA inference or 3D body mesh",
+  "shape_vectors_with_multiple_prompts": 0,
+  "source_pin": "758bf5a1b3dbd12984de6f68ad4d3bf8c95ef409",
+  "source_rows": 21000,
+  "status": "PASS_GROUP_AWARE_PROXY_ONLY",
+  "unique_normalized_prompts": 19429,
+  "unique_rounded_1e-5_shape_vectors": 21000,
+  "github_execution": {
+    "run_id": 43277657654,
+    "job_id": 131390270074,
+    "commit": "32b9477b349e030a24be82d9a9f59c3472dedeb3",
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43277657654"
+  }
+}
