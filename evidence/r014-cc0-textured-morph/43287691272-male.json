@@ -1,0 +1,119 @@
+{
+  "schema": "r014.cc0.morph.run_proof.v1",
+  "run": 43287691272,
+  "job": 131425319757,
+  "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43287691272",
+  "actor": "male",
+  "generation": {
+    "actual_rig_pose_max_deformation_blender_units": 0.094296,
+    "actual_rig_pose_return_error_blender_units": 0,
+    "adult_design_only": true,
+    "after_body_bounds_xyz_blender_units": [
+      0.99464,
+      0.43598,
+      1.694551
+    ],
+    "age_macro": 0.65,
+    "age_macro_not_chronological_age": true,
+    "editable_blend": {
+      "bytes": 35999878,
+      "name": "R014_male_CC0_morph_editable_motion.blend",
+      "sha256": "9a8bb9e4df5ccd1529ee6bf5194a847ac41aa41064d34c899a4cd8a550834cf6"
+    },
+    "external_reproductive_anatomy": "NOT_QUALIFIED",
+    "full_accessory_fit": "NOT_QUALIFIED",
+    "gender_macro_value": 1,
+    "limitations": [
+      "CC0 texture/hair assets inherited; not new 3D texture synthesis",
+      "Does not determine actual identity or chronological age",
+      "Missing actual garment/hair fit oracle, collision, anatomical surface closeness",
+      "Not motion retargeting, realistic gait or cinematic appearance qualification"
+    ],
+    "merge_release": "HOLD",
+    "original_material": "R014_male_textured_body.genitals",
+    "original_material_shader_contract": {
+      "active_output_count": 1,
+      "node_types": [
+        "GROUP",
+        "OUTPUT_MATERIAL"
+      ],
+      "surface_linked": true
+    },
+    "packed_source_texture_count": 10,
+    "photoreal_quality": "HOLD_VISUAL_AND_ANATOMICAL_REVIEW",
+    "real_body_vertices": 19158,
+    "real_morph_max_vertex_delta_blender_units": 0.132658,
+    "real_motion_video": {
+      "bytes": 19032,
+      "motion": "actuated real body/rig; not validated gait",
+      "name": "R014_male_CC0_morph_actual_skin_motion.mp4",
+      "probe": {
+        "format": {
+          "duration": "1.333333"
+        },
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "height": 380,
+            "nb_frames": "16",
+            "width": 288
+          }
+        ]
+      },
+      "sha256": "998453b1987a52b0025ec53d8da5070c3c620359727ee61af907785e40b63cd9"
+    },
+    "rendered_stills": [
+      {
+        "name": "male_cc0_morph_front.png",
+        "sha256": "64479e3c6618cac4a63a4b4883a2631009ed9e76afe3dda8981d6ab74dba11d9"
+      },
+      {
+        "name": "male_cc0_morph_back.png",
+        "sha256": "6459e91fd1cc52423c3439c43b9fafdb4054e89d7057a55fd932910f14fed33e"
+      },
+      {
+        "name": "male_cc0_morph_posed.png",
+        "sha256": "dbe481a0383b7d8504fb5ed3af2ee85cadaaf12c4f5c9fa696b7f9fdbba0e0f6"
+      }
+    ],
+    "rig_bones": 163,
+    "same_lod_rig": "native rig retained after applying source macro",
+    "schema": "r014.cc0.textured_body_morph_integrity.v1",
+    "sex_macro_label": "male",
+    "soft_tissue_physics": "NOT_RUN",
+    "source_blend_sha256": "1ca4e9e60e82b6403a0126997a59d47ea6d3835f41551e914f196a18fcd23c1b",
+    "source_body_bounds_xyz_blender_units": [
+      0.99464,
+      0.43598,
+      1.694551
+    ],
+    "source_github_actions_artifact": "r014-mpfb-eye-MAKESKIN-lookdev",
+    "source_github_actions_run": 43207664661,
+    "source_macros": {
+      "gender": 1,
+      "height": 0.3,
+      "muscle": 0.52,
+      "proportions": 0.78,
+      "weight": 0.83
+    },
+    "source_mpbf": "6ff1eb358f6c1959ced77e79e6dd2406d9a71f49",
+    "source_official_pack_sha256": "b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107",
+    "status": "PASS_SOURCE_NATIVE_CC0_MORPH_MOTION_RENDER_STRUCTURAL_ONLY"
+  },
+  "reopen": {
+    "anatomy_completeness": "UNKNOWN",
+    "bones": 163,
+    "native_photoreal_acceptance": "HOLD",
+    "packed_images": 10,
+    "posed_max_delta_blender_units": 0.0942961,
+    "returned_max_delta_blender_units": 0,
+    "schema": "r014.cc0.morph.native.reopen.v1",
+    "sex_macro_label": "male",
+    "source_packed_materials_verified": true,
+    "status": "PASS_FRESH_REOPEN_TEXTURED_MORPH_ACTUATED_MESH_ONLY",
+    "vertices": 19158
+  },
+  "quality_gate": "PASS_NATIVE_TEXTURED_MORPH_REOPEN_AND_16FRAME_H264_STRUCTURAL_ONLY",
+  "photoreal_4k": "HOLD"
+}
