@@ -1,0 +1,49 @@
+name: Libfive Headless Native SDK R1 (public, disposable)
+run-name: libfive C API SDK smoke — ${{ github.ref_name }}
+on:
+  push:
+    branches: [research/geometry-libfive-sdk-r1-20261112]
+    paths:
+      - 'qualification/geometry-donors/r1-libfive/**'
+      - '.github/workflows/geometry-donor-libfive-r1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geometry-libfive-r1-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native-sdk:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: linux-amd64
+          - runner: ubuntu-24.04-arm
+            arch: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Pin source, build headless native libfive, install to disposable SDK prefix, run new C consumer
+        shell: bash
+        run: |
+          set -o pipefail
+          bash qualification/geometry-donors/r1-libfive/run.sh 2>&1 | tee qualification/geometry-donors/r1-libfive/run.log
+      - name: Upload positive or first-failure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: libfive-sdk-r1-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: |
+            qualification/geometry-donors/r1-libfive/results/
+            qualification/geometry-donors/r1-libfive/run.log
+          if-no-files-found: warn
+          retention-days: 7
