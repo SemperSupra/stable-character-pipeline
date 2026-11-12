@@ -6,6 +6,7 @@ import argparse,json,sys
 from pathlib import Path
 import bpy
 from mathutils import Vector
+from bpy_extras.object_utils import world_to_camera_view
 
 p=argparse.ArgumentParser()
 p.add_argument("--blend",type=Path,required=True)
@@ -21,14 +22,32 @@ for sex in ("female","male"):
     assert any(m.type=="MULTIRES" for m in body.modifiers)
     bodies[sex]=body
 
-# Move source meshes and eye components together into a standard two-model
-# survey scene without modifying stored mesh topology or UV mapping.
-for obj in bpy.data.objects:
-    name=obj.name.lower()
-    if "geo-body_female_realistic" in name:shift=-.8
-    elif "geo-body_male_realistic" in name:shift=.8
-    else:continue
-    if obj.parent is None:obj.location.x+=shift
+# Explicitly reject factory-startup cube or any unqualified helper geometry.
+assert all(o.type!="MESH" or o.name.lower().startswith("geo-body_")
+           for o in bpy.data.objects), "Unexpected mesh (factory cube or helper)"
+# The upstream asset-library meshes can be stored at arbitrary world offsets.
+# Align by each body's actual WORLD bounding box rather than blindly moving
+# object origins by a fixed delta.
+bpy.context.view_layer.update()
+bounds={}
+for sex,body in bodies.items():
+    verts=[body.matrix_world@Vector(corner) for corner in body.bound_box]
+    centroid=Vector((sum(v.x for v in verts)/8,
+                     sum(v.y for v in verts)/8,
+                     0.))
+    target=(-.75,.45) if sex=="female" else (.75,-.45)
+    shift=Vector((target[0]-centroid.x,target[1]-centroid.y,
+                  -min(v.z for v in verts)))
+    relatives=[o for o in bpy.data.objects if
+               o.name.lower().startswith("geo-body_"+sex+"_realistic")]
+    for obj in relatives:
+        if obj.parent is None or obj.parent not in relatives:
+            obj.location+=shift
+    bpy.context.view_layer.update()
+    new_verts=[body.matrix_world@Vector(corner) for corner in body.bound_box]
+    bounds[sex]={"min":[min(v[i] for v in new_verts) for i in range(3)],
+                 "max":[max(v[i] for v in new_verts) for i in range(3)],
+                 "members":[o.name for o in relatives]}
 
 scene=bpy.context.scene
 scene.render.engine="CYCLES"
@@ -51,7 +70,7 @@ area_data.energy=600;area_data.size=5
 camera_data=bpy.data.cameras.new("R014SculptSurveyCamera")
 camera=bpy.data.objects.new("R014SculptSurveyCamera",camera_data)
 bpy.context.collection.objects.link(camera)
-scene.camera=camera;camera_data.type="ORTHO";camera_data.ortho_scale=2.5
+scene.camera=camera;camera_data.type="ORTHO";camera_data.ortho_scale=2.8
 views=(
  ("pair_front",(0,-6,1.45),(0,0,.92)),
  ("pair_back",(0,6,1.45),(0,0,.92)),
@@ -60,6 +79,14 @@ views=(
 for name,pos,target in views:
     camera.location=pos
     camera.rotation_euler=(Vector(target)-camera.location).to_track_quat("-Z","Y").to_euler()
+    # Fail closed when a model would be clipped or substantially off-screen.
+    for sex,body in bodies.items():
+        frame=[world_to_camera_view(scene,camera,body.matrix_world@Vector(pt))
+               for pt in body.bound_box]
+        xvals=[p.x for p in frame];yvals=[p.y for p in frame]
+        if min(xvals)<.015 or max(xvals)>.985 or min(yvals)<.015 or max(yvals)>.985:
+            raise ValueError("Body clipped in "+name+": "+sex+" x="+str((min(xvals),max(xvals)))+
+                             " y="+str((min(yvals),max(yvals))))
     scene.render.filepath=str(a.out/("sculpt_"+name+".png"))
     bpy.ops.render.render(write_still=True)
     assert Path(scene.render.filepath).stat().st_size>10000
@@ -72,6 +99,8 @@ result={
  "status":"PASS_NEUTRAL_RENDER_EVIDENCE_CREATED_NOT_ANATOMY_QUALIFIED",
  "source":"Blender Studio Human Base Meshes v1.4.1 CC0 publisher",
  "native_survey_blend":native.name,
+ "measured_world_bounds":bounds,
+ "camera_coverage_test":"PASS_NO_BODY_CROPPING"
  "renders":["sculpt_pair_front.png","sculpt_pair_back.png","sculpt_pair_side.png"],
  "models":[{"sex":sex,"vertices":len(body.data.vertices),
             "faces":len(body.data.polygons),"uv_layers":len(body.data.uv_layers),
