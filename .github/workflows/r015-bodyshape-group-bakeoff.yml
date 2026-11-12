@@ -1,0 +1,51 @@
+name: R015 BodyShapeGPT Group-Aware Generalization Bakeoff
+on:
+  push:
+    branches:
+      - research/r015-prior-art-bakeoff-r1-20261112
+    paths:
+      - '.github/workflows/r015-bodyshape-group-bakeoff.yml'
+      - 'research/r015_prior_art/bodyshapegpt_group_holdout.py'
+      - 'research/r015_prior_art/bakeoff.py'
+permissions:
+  contents: read
+concurrency:
+  group: r015-bodyshape-group-bakeoff
+  cancel-in-progress: true
+jobs:
+  heldout-shape-and-prompt-group-rep:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Set up disposable CPU environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r015-holdout"
+          . "$RUNNER_TEMP/r015-holdout/bin/activate"
+          python -m pip install --no-cache-dir --disable-pip-version-check --no-input numpy==2.1.3 scipy==1.15.2 scikit-learn==1.6.1
+      - name: Fetch exact upstream dataset pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/upstream"
+          git -C "$RUNNER_TEMP/upstream" fetch -q --depth 1 https://github.com/baldoarbol/BodyShapeGPT.git 758bf5a1b3dbd12984de6f68ad4d3bf8c95ef409
+          git -C "$RUNNER_TEMP/upstream" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/upstream" rev-parse HEAD)" = "758bf5a1b3dbd12984de6f68ad4d3bf8c95ef409"
+      - name: Run independent bounded group leakage and model comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$RUNNER_TEMP/r015-holdout/bin/activate"
+          python research/r015_prior_art/bodyshapegpt_group_holdout.py --source "$RUNNER_TEMP/upstream" --out receipts/group_holdout.json
+      - name: Retain only public aggregate metrics, not prompts or weights
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r015-bodyshape-group-holdout
+          path: receipts/group_holdout.json
+          if-no-files-found: warn
+          retention-days: 7
