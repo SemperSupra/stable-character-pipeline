@@ -1,0 +1,116 @@
+name: video-oci-reproducibility-supply-chain-rdte
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-oci-repro.yml'
+      - 'qualification/video_physics_bakeoff/Dockerfile.research'
+permissions:
+  contents: read
+concurrency:
+  group: video-oci-repro-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  twice-clean-image-and-runtime-bom:
+    name: Two clean OCI builds and explicit runtime package bill of materials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Two independent no-cache builds with pinned observed image digests
+        run: |
+          set -euo pipefail
+          mkdir -p supply
+          docker version >supply/docker-version.txt
+          docker build --pull --no-cache -f Dockerfile.research -t local/videoqa-repro:a .
+          docker build --pull --no-cache -f Dockerfile.research -t local/videoqa-repro:b .
+          docker image inspect local/videoqa-repro:a --format '{{.Id}}' >supply/image-a-id.txt
+          docker image inspect local/videoqa-repro:b --format '{{.Id}}' >supply/image-b-id.txt
+          for tag in a b; do
+            docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit 128 --memory 512m --entrypoint cat local/videoqa-repro:"$tag" \
+              /lib/apk/db/installed >"supply/runtime-apk-$tag.txt"
+            docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit 128 --memory 512m --entrypoint sha256sum local/videoqa-repro:"$tag" \
+              /usr/local/bin/bakeoff >"supply/go-binary-$tag.sha256"
+            docker image inspect local/videoqa-repro:"$tag" --format '{{json .Config.User}}' >"supply/user-$tag.json"
+            docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit 128 --memory 512m --entrypoint ffmpeg local/videoqa-repro:"$tag" \
+              -version >"supply/ffmpeg-$tag.txt"
+          done
+      - name: Compare runtime binaries, installed package inventories and image identity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,re
+          from pathlib import Path
+          out=Path("supply")
+          def sha(raw):return hashlib.sha256(raw).hexdigest()
+          def packages(path):
+            contents=path.read_bytes()
+            result={}
+            for record in contents.decode("utf-8").split("\n\n"):
+              if not record.strip():continue
+              fields={}
+              for line in record.splitlines():
+                if len(line)>2 and line[1]==":" and line[0] in ("P","V","A"):
+                  fields[line[0]]=line[2:]
+              if "P" in fields and "V" in fields:
+                if fields["P"] in result:raise ValueError("DUPLICATE_APK_PACKAGE")
+                result[fields["P"]]=fields["V"]
+            if len(result)<15:raise ValueError("RUNTIME_PACKAGE_INVENTORY_INCOMPLETE")
+            return result,sha(contents)
+          pa,da=packages(out/"runtime-apk-a.txt")
+          pb,db=packages(out/"runtime-apk-b.txt")
+          if pa!=pb:raise ValueError("INSTALLED_PACKAGES_DIFFER_BETWEEN_CLEAN_BUILDS")
+          binary_a=(out/"go-binary-a.sha256").read_text().split()[0]
+          binary_b=(out/"go-binary-b.sha256").read_text().split()[0]
+          if not re.fullmatch("[0-9a-f]{64}",binary_a) or binary_a!=binary_b:
+            raise ValueError("GO_BINARY_NOT_REPRODUCIBLE")
+          users=[json.loads((out/f"user-{tag}.json").read_text()) for tag in ("a","b")]
+          if users!=["65532:65532","65532:65532"]:
+            raise ValueError("NONROOT_RUNTIME_USER_CHANGED")
+          image_ids=[(out/f"image-{tag}-id.txt").read_text().strip() for tag in ("a","b")]
+          if any(not re.fullmatch("sha256:[0-9a-f]{64}",x) for x in image_ids):
+            raise ValueError("IMAGE_HASH_NOT_AVAILABLE")
+          same_image=image_ids[0]==image_ids[1]
+          bom={
+            "bomFormat":"CycloneDX", "specVersion":"1.5","version":1,
+            "metadata":{"component":{"type":"application","name":"video-physics-bakeoff-original-research","version":"0.0.0-rdte"}},
+            "components":[{"type":"library","name":name,"version":ver} for name,ver in sorted(pa.items())],
+          }
+          (out/"runtime-cyclonedx-1.5.json").write_text(json.dumps(bom,sort_keys=True,indent=2)+"\n")
+          report={
+            "schema":"scp.video-physics-oci-two-build-repro.v1",
+            "image_ids":image_ids,
+            "image_byte_identical":same_image,
+            "image_determinism":"IDENTICAL" if same_image else "NOT_ESTABLISHED",
+            "go_binary_sha256":binary_a,
+            "go_binary_byte_identical":True,
+            "apk_package_versions_identical":True,
+            "apk_record_sha256":[da,db],
+            "runtime_package_count":len(pa),
+            "runtime_user":"65532:65532",
+            "go_compiler_toolchain_base_digest":"4bb4be21ac98da06bc26437ee870c4973f8039f13e9a1a36971b4517632b0fc6",
+            "runtime_base_digest":"c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709",
+            "apk_repository_snapshot_locked":False,
+            "runtime_bom_is_full_supply_chain_bom":False,
+            "license_and_cve_analysis":"NOT_QUALIFIED",
+            "source":"two independent no-cache ephemeral public GitHub Actions builds",
+            "scientific_status":"SUPPLY_CHAIN_RESEARCH_ONLY_NO_RELEASE",
+          }
+          (out/"reproducibility-receipt.json").write_text(json.dumps(report,sort_keys=True,indent=2)+"\n")
+          print("OCI_REPRO_TWO_BUILDS",{"same_image":same_image,"same_binary":True,"runtime_packages":len(pa)})
+          PY
+          sha256sum supply/*.json >supply/receipts-sha256.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-physics-oci-two-clean-rebuild-bom
+          path: qualification/video_physics_bakeoff/supply/
+          retention-days: 14
+          if-no-files-found: error
