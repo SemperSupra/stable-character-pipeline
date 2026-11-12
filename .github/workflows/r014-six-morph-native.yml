@@ -71,6 +71,14 @@ jobs:
           "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r014-six-morph/extensions"
           "$BLENDER_BIN" --command extension install-file -r r014lab -e "$plugin"
           "$BLENDER_BIN" --command extension list
+      - name: Admit ffprobe for structural video verification inside disposable runner
+        run: |
+          set -euo pipefail
+          if ! command -v ffprobe >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
+          ffprobe -version | head -n 1
       - name: Generate three REAL diverse native meshes, rigs, animations, GLBs and Cycles visual proofs
         env:
           SHARD: ${{ matrix.shard }}
