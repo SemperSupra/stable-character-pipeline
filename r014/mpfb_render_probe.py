@@ -54,8 +54,9 @@ still('pair_back',(0,6,1.7),(0,0,1.05),2.65)
 still('pair_side',(6,0,1.7),(0,0,1.05),2.65)
 still('female_face',(-0.8,-2.7,1.65),(-0.8,0,1.65),0.68)
 still('male_face',(0.8,-2.7,1.65),(0.8,0,1.65),0.68)
-still('female_hands',(-0.8,-2.8,1.05),(-0.8,0,0.85),0.7)
-still('male_hands',(0.8,-2.8,1.05),(0.8,0,0.85),0.7)
+# The hands are laterally offset in the A-pose; avoid the misleading torso crop.
+still('female_hands',(-0.28,-2.1,0.99),(-0.28,0,0.99),0.48)
+still('male_hands',(1.32,-2.1,0.99),(1.32,0,0.99),0.48)
 # A moving-camera test: actor bodies are NOT walking or talking.
 scene.render.resolution_x=480
 scene.render.resolution_y=480
