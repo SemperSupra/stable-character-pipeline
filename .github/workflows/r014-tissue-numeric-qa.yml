@@ -1,0 +1,35 @@
+name: R014 secondary tissue deterministic research QA
+on:
+  push:
+    branches: [research/r014-tissue-dynamics-v1]
+    paths: [r014/**, .github/workflows/r014-tissue-numeric-qa.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deterministic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run numerical boundary and falsification controls
+        run: python3 -m unittest discover -v -s r014/tests
+      - name: Produce descriptive receipt
+        run: |
+          python3 - <<'PY'
+          import json,subprocess
+          from r014.tissue_dynamics import RegionParameters,RegionController
+          p=RegionParameters(1,200,24,.04);c=RegionController(p)
+          c.sample(80.)
+          for _ in range(240):c.sample(0.)
+          obj={'status':'PASS_NUMERIC_ONLY','final_state':c.snapshot(),
+              'sha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+              'limitations':['No actual mesh/tissue material calibration',
+                             'No volumes, collisions, face/hand/sexual anatomy video QA']}
+          open('tissue_numeric_receipt.json','w').write(json.dumps(obj,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-tissue-numeric-only
+          path: tissue_numeric_receipt.json
+          retention-days: 7
