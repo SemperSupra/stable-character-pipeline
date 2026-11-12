@@ -67,13 +67,15 @@ for frame in range(1,25):
     point_at(place,(0,0,1.0),2.7)
     cam.keyframe_insert(data_path='location',frame=frame)
     cam.keyframe_insert(data_path='rotation_euler',frame=frame)
-scene.render.filepath=str(a.output/'turntable_')
-scene.render.image_settings.file_format='PNG'
+scene.render.filepath=str(a.output/'turntable_camera_only.mp4')
+scene.render.image_settings.file_format='FFMPEG'
+scene.render.ffmpeg.format='MPEG4'
+scene.render.ffmpeg.codec='H264'
 bpy.ops.render.render(animation=True)
 report={'status':'PASS_VISUAL_RECEIPTS_GENERATED_NOT_REVIEWED',
         'blender':bpy.app.version_string,
         'static_views':['pair_front','pair_back','pair_side','female_face','male_face','female_hands','male_hands'],
-        'motion':'24 frames camera orbit ONLY, not humanoid motion',
+        'motion':'24 frame native Blender H.264 camera orbit ONLY; not humanoid motion',
         'limits':['Neutral CPU Cycles only','No photoreal skin/hair/eyes',
                   'No actual gait or soft-tissue mechanics','No face close-up realism acceptance']}
 a.receipt.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
