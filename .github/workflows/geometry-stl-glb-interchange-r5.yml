@@ -1,0 +1,81 @@
+name: R5 Native STL to GLB Roundtrip (public disposable)
+run-name: R5 real donor mesh import/export ${{ github.ref_name }}
+
+on:
+  push:
+    branches: [research/geometry-stl-glb-interchange-r5-20261112]
+    paths:
+      - 'qualification/geometry-donors/r5-stl-glb/**'
+      - '.github/workflows/geometry-stl-glb-interchange-r5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: geometry-interchange-r5-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native-interchange:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Obtain exactly qualified prior R2 donor-produced STLs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/geometry-r5/input"
+          gh run download 43189364385 --repo SemperSupra/stable-character-pipeline \
+            --name geometry-mesh-r2-linux-amd64-1 --dir "$RUNNER_TEMP/geometry-r5/input"
+          ls -l "$RUNNER_TEMP/geometry-r5/input"
+          sha256sum "$RUNNER_TEMP/geometry-r5/input"/{sdfx-octree,gsdf-welded}.stl
+          test "$(sha256sum "$RUNNER_TEMP/geometry-r5/input/sdfx-octree.stl" | cut -c1-64)" = "c13eadbac14f1da7645f5f683f3e9b7d019f6ce95c430b51cd043531dae437ca"
+          test "$(sha256sum "$RUNNER_TEMP/geometry-r5/input/gsdf-welded.stl" | cut -c1-64)" = "f53f2ed1c52c1e89cb44cd2292a075053e8de18e0a3cc9c088ec6a05e1aae97a"
+      - name: Acquire official pinned Blender 4.5.16 (verified upstream checksum)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/geometry-r5/blender"
+          cd "$RUNNER_TEMP/geometry-r5/blender"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fsSL --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fsSL --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          echo "BLENDER_BIN=$RUNNER_TEMP/geometry-r5/blender/blender-4.5.16-linux-x64/blender" >> "$GITHUB_ENV"
+      - name: Actual native STL import, GLB export, fresh process reopen
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile qualification/geometry-donors/r5-stl-glb/*.py
+          input="$RUNNER_TEMP/geometry-r5/input"
+          out="$RUNNER_TEMP/geometry-r5/out"
+          mkdir -p "$out"
+          for name in sdfx-octree gsdf-welded; do
+            cp "$input/$name.stl" "$out/$name.stl"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$BLENDER_BIN" --background --factory-startup --python-exit-code 8 --python qualification/geometry-donors/r5-stl-glb/blender_bridge.py -- \
+              export "$out/$name.stl" "$out/$name.glb" "$out/$name-export.json"
+            env LIBGL_ALWAYS_SOFTWARE=1 "$BLENDER_BIN" --background --factory-startup --python-exit-code 8 --python qualification/geometry-donors/r5-stl-glb/blender_bridge.py -- \
+              reimport "$out/$name.stl" "$out/$name.glb" "$out/$name-reimport.json"
+          done
+          python3 qualification/geometry-donors/r5-stl-glb/independent_glb.py "$out"
+          echo INTERCHANGE_R5_INDEPENDENT_PASS
+      - name: Retain public-safe original/derived geometry and receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: geometry-stl-glb-r5-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/geometry-r5/out/*.glb
+            ${{ runner.temp }}/geometry-r5/out/*.json
+          if-no-files-found: warn
+          retention-days: 7
