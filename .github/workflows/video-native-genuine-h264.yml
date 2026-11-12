@@ -1,0 +1,207 @@
+name: video-native-genuine-original-h264-three-os
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-native-genuine-h264.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: video-genuine-original-h264-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-original-h264:
+    name: Native decode actual source-original H264 / ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 26
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, target: linux-amd64, ext: '' }
+          - { runner: windows-2022, target: windows-amd64, ext: '.exe' }
+          - { runner: macos-15, target: macos-arm64, ext: '' }
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    env:
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      GOWORK: 'off'
+      GOTOOLCHAIN: 'local'
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.23.x'
+          cache: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-locomotion
+          path: qualification/video_physics_bakeoff/native-h264/inputs
+      - name: Provision FFmpeg only on disposable public runner if missing
+        env:
+          RUNNER_OS_NAME: ${{ runner.os }}
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            case "$RUNNER_OS_NAME" in
+              Linux) sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg ;;
+              macOS) brew install ffmpeg ;;
+              Windows) choco install ffmpeg -y --no-progress ;;
+              *) echo "UNSUPPORTED_OS"; exit 2 ;;
+            esac
+          fi
+          if ! command -v ffprobe >/dev/null 2>&1 && [ "$RUNNER_OS_NAME" = Windows ]; then
+            find /c/ProgramData/chocolatey -iname 'ffmpeg.exe' -type f -print -quit 2>/dev/null | while read -r binary; do
+              echo "$(dirname "$binary")" >> "$GITHUB_PATH"
+            done
+          fi
+      - name: Fail-closed SHA/rights/codec check on real original 320x320 H264 corpus
+        run: |
+          set -euo pipefail
+          mkdir -p native-h264/out
+          python3 - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          root=Path("native-h264/inputs")
+          batch=root/"locomotion"
+          manifest=json.loads((batch/"manifest.json").read_text())
+          if manifest.get("schema")!="scp.expanded-original-3d-motion-corpus.v1" or manifest.get("batch")!="locomotion" or manifest.get("rights")!="CC0-1.0 for original generated files" or len(manifest.get("cases",[]))!=8:
+            raise ValueError("UNADMITTED_ORIGINAL_RIGHTS_OR_SOURCE_MANIFEST")
+          tests=[]; inventory=[]
+          ids=set()
+          for item in manifest["cases"]:
+            name=item["case"]
+            if name in ids or not name.startswith(("male_","female_")) or any(x not in "abcdefghijklmnopqrstuvwxyz0123456789_" for x in name):
+              raise ValueError("BAD_SOURCE_CASE_ID")
+            ids.add(name)
+            if len(item.get("videos",[]))!=1:raise ValueError("SOURCE_H264_COUNT_NOT_ONE")
+            vals=((item["model"],".glb"),(item["ground_truth"],"_ground_truth.json"),(item["videos"][0],"_side.mp4"))
+            for metadata,suffix in vals:
+              p=batch/(name+suffix)
+              if p.name!=metadata["file"] or hashlib.sha256(p.read_bytes()).hexdigest()!=metadata["sha256"]:
+                raise ValueError("ORIGINAL_GLB_LABEL_OR_H264_SHA_MISMATCH")
+            filename=name+"_side.mp4"
+            probe=json.loads(subprocess.check_output([
+              "ffprobe","-v","error","-select_streams","v:0",
+              "-show_entries","stream=codec_name,width,height,nb_frames",
+              "-of","json",str(batch/filename)],timeout=30))["streams"][0]
+            if (probe.get("codec_name")!="h264" or int(probe.get("width",0))!=320 or
+                int(probe.get("height",0))!=320 or int(probe.get("nb_frames",0))!=40):
+              raise ValueError("ACTUAL_SOURCE_VIDEO_NOT_40F_H264")
+            tests.append({"id":name+"_video","kind":"video",
+                          "path":"locomotion/"+filename,"expected_motion":True})
+            inventory.append({"case":name,"h264_sha256":item["videos"][0]["sha256"],
+                              "ground_truth_sha256":item["ground_truth"]["sha256"],
+                              "glb_sha256":item["model"]["sha256"],"codec":probe["codec_name"],"frames":40})
+          (root/"video-cases.json").write_text(json.dumps({"schema":"scp.video-bakeoff-cases.v1","cases":tests},sort_keys=True,indent=2)+"\n")
+          (Path("native-h264/out")/"original-source-inventory.json").write_text(json.dumps(inventory,sort_keys=True,indent=2)+"\n")
+          print("TRUE_NATIVE_CODEC_H264_8_ORIGINALS_VERIFIED")
+          PY
+      - name: Run genuine source H264 through native offline Go plus installed FFmpeg
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          export GOCACHE="$RUNNER_TEMP/video-genuine-original-h264-go-cache"
+          go version >native-h264/out/go-version.txt
+          ffmpeg -version >native-h264/out/ffmpeg-version.txt
+          ffprobe -version >native-h264/out/ffprobe-version.txt
+          go test ./...
+          go build -trimpath -ldflags="-s -w" -o "native-h264/out/bakeoff${{ matrix.ext }}" ./cmd/bakeoff
+          "./native-h264/out/bakeoff${{ matrix.ext }}" -manifest native-h264/inputs/video-cases.json -out native-h264/out/native-h264-receipt.json
+          python3 - "$TARGET" <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          root=Path("native-h264/out")
+          result=json.loads((root/"native-h264-receipt.json").read_text())
+          inventory=json.loads((root/"original-source-inventory.json").read_text())
+          expected={x["case"]+"_video":x["h264_sha256"] for x in inventory}
+          if result["total"]!=8 or len(result["results"])!=8 or set(x["id"] for x in result["results"])!=set(expected):
+            raise ValueError("TRUE_H264_CASE_SET_REGRESSION")
+          if result["matched"]!=0 or result["discrepancies"]!=0:
+            raise ValueError("NO_INVENTED_GOLD_ORACLE_PERMITTED")
+          for x in result["results"]:
+            if x["kind"]!="video" or x["expected"]!="" or x["matches_oracle"] or x.get("error") or x["source_sha256"]!=expected[x["id"]]:
+              raise ValueError("REAL_SOURCE_H264_SHA_OR_NO_ORACLE_VIOLATION")
+          r={
+            "schema":"scp.real-source-h264-native-three-platform-receipt.v1",
+            "platform":sys.argv[1],"source_run_id":43137642662,
+            "original_cases":8,"source_sha256":expected,
+            "verdicts":{x["id"]:x["verdict"] for x in result["results"]},
+            "findings":{x["id"]:x["findings"] for x in result["results"]},
+            "go_version":(root/"go-version.txt").read_text().strip(),
+            "ffmpeg_version_first_line":(root/"ffmpeg-version.txt").read_text().splitlines()[0],
+            "no_oracle":True,
+            "status":"NATIVE_REAL_H264_DIAGNOSTIC_ONLY_NOT_HUMAN_REALISM",
+            "limits":["Every source clip verified actual H264/AVC, not MPEG4 Part 2",
+                      "No human biomechanics, cinematics, face, skin, identity or force simulation accepted",
+                      "Cross-operating-system source is rights-original 22-case research, no protected person assets",
+                      "FFmpeg decoder/detector versions may differ, do not infer full binary-runtime identity"]}
+          (root/"native-qualification.json").write_text(json.dumps(r,sort_keys=True,indent=2)+"\n")
+          print("ACTUAL_NATIVE_H264_SOURCE_VERDICTS",r["platform"],r["verdicts"])
+          PY
+          rm -f "native-h264/out/bakeoff${{ matrix.ext }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-real-source-h264-${{ matrix.target }}
+          path: qualification/video_physics_bakeoff/native-h264/out/
+          retention-days: 14
+          if-no-files-found: error
+  source-bound-three-os-join:
+    name: Independently compare same H264 source SHA on all native platforms
+    needs: native-original-h264
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: native-real-source-h264-*
+          path: research/input/
+      - name: Compare real source case SHA and preserve OS-specific codec verdict differences
+        run: |
+          set -euo pipefail
+          mkdir -p research/receipts
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          platforms=("linux-amd64","windows-amd64","macos-arm64")
+          inputs={}
+          for platform in platforms:
+            path=Path("research/input")/("native-real-source-h264-"+platform)/"native-qualification.json"
+            r=json.loads(path.read_text())
+            if r["schema"]!="scp.real-source-h264-native-three-platform-receipt.v1" or r["platform"]!=platform or r["original_cases"]!=8 or not r["no_oracle"]:
+              raise ValueError("BAD_NATIVE_H264_RECEIPT")
+            inputs[platform]=r
+          original=inputs[platforms[0]]
+          if any(inputs[p]["source_sha256"]!=original["source_sha256"] for p in platforms):
+            raise ValueError("DIFFERENT_SOURCE_H264_BYTES_NOT_COMPARABLE")
+          verdicts_identical=all(inputs[p]["verdicts"]==original["verdicts"] for p in platforms)
+          out={
+            "schema":"scp.real-native-original-h264-3os-source-join.v1",
+            "source_immutable_h264_case_count":8,"native_os_count":3,
+            "original_h264_sha256":original["source_sha256"],
+            "platform_verdicts_identical":verdicts_identical,
+            "platforms":{p:{"verdicts":inputs[p]["verdicts"],
+                            "ffmpeg_version":inputs[p]["ffmpeg_version_first_line"],
+                            "go_version":inputs[p]["go_version"]} for p in platforms},
+            "scientific_status":"REAL_H264_DECODER_RESEARCH_ONLY_NO_PHYSICS_ACCEPTANCE",
+            "limits":["H264 decode and zero gold oracle != physically correct source animation",
+                      "OS detector differences remain visible; no reclassification or threshold tweak to force a pass",
+                      "Native package installer and signed release/deployment are separate acceptance gates"]}
+          (Path("research/receipts")/"three-os-genuine-h264-join.json").write_text(json.dumps(out,indent=2,sort_keys=True)+"\n")
+          print("TRUE_H264_THREE_OS_SOURCE_JOIN",verdicts_identical,len(original["source_sha256"]))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: source-actual-h264-3os-native-independent-join
+          path: research/receipts/
+          retention-days: 14
+          if-no-files-found: error
