@@ -43,7 +43,8 @@ jobs:
           assert d["case"]=="male_diving_barefoot"
           assert d["original"]["status"]=="FAIL" and d["candidate"]["status"]=="PASS"
           assert d["original"]["defect_count"]==16 and d["candidate"]["defect_count"]==0
-          assert d["contact_labels_unchanged"] and d["source_hip_trajectories_unchanged"]
+          assert d["contact_labels_unchanged"] and d["source_hip_horizontal_trajectories_unchanged"]
+          assert d["source_crouch_hip_height_adjusted"] and d["contact_foot_support_envelope_at_z0"]
           for label,receipt in (("original","original_media"),("candidate","candidate_media")):
             for suffix,key in ((".glb","glb_sha256"),("_side.mp4","h264_sha256")):
               path=root/label/("male_diving_barefoot"+suffix)
