@@ -78,6 +78,19 @@ jobs:
             --python r014/mpfb_verify.py -- \
             --blend "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_native.blend" \
             --receipt "$RUNNER_TEMP/r014-mpfb/result/reopened.json"
+      - name: Render actual MPFB surfaces and camera motion as visual QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_native.blend" \
+            --python r014/mpfb_render_probe.py -- \
+            --output "$RUNNER_TEMP/r014-mpfb/result" \
+            --receipt "$RUNNER_TEMP/r014-mpfb/result/visual_qa.json"
+          ffmpeg -nostdin -hide_banner -loglevel warning -y -framerate 24 \
+            -i "$RUNNER_TEMP/r014-mpfb/result/turntable_%04d.png" -c:v libx264 \
+            -pix_fmt yuv420p "$RUNNER_TEMP/r014-mpfb/result/turntable_camera_only.mp4"
+          test -s "$RUNNER_TEMP/r014-mpfb/result/female_face.png"
+          test -s "$RUNNER_TEMP/r014-mpfb/result/turntable_camera_only.mp4"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
