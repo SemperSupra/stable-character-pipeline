@@ -87,6 +87,24 @@ jobs:
             --out "$RUNNER_TEMP/r014-mpfb/result" \
             --receipt "$RUNNER_TEMP/r014-mpfb/result/pose_parity.json"
           test -s "$RUNNER_TEMP/r014-mpfb/result/pose_parity.json"
+          for actor in female male; do
+            "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_clean_review.blend" \
+              --python r014/mpfb_pose_parity.py -- \
+              --sex "$actor" \
+              --out "$RUNNER_TEMP/r014-mpfb/result" \
+              --receipt "$RUNNER_TEMP/r014-mpfb/result/pose_parity_${actor}.json"
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-mpfb/result"
+          c=json.loads((p/"pose_parity.json").read_text())
+          f=json.loads((p/"pose_parity_female.json").read_text())
+          m=json.loads((p/"pose_parity_male.json").read_text())
+          assert c["actor_isolation_mode"]=="combined"
+          assert f["actor_isolation_mode"]=="female" and m["actor_isolation_mode"]=="male"
+          print("PASS_DIAGNOSTIC_EVIDENCE_CAPTURED; real deformation parity not promoted")
+          PY
       - name: Render actual MPFB surfaces and camera motion as visual QA
         shell: bash
         run: |
