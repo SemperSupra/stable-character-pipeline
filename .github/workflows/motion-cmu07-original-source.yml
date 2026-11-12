@@ -1,0 +1,73 @@
+name: Motion S0/S1 CMU original 07 walking capture metadata rights-aware probe
+on:
+  push:
+    branches: [research/motion-cmu07-source-admission-20261112]
+    paths:
+      - motion_learning/source_admission/cmu07_original_metadata.py
+      - .github/workflows/motion-cmu07-original-source.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: motion-cmu07-original-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  public_source_metadata:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        motion: [07_01, 07_02]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Validate source safely without external media
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q motion_learning/source_admission
+          python3 motion_learning/source_admission/cmu07_original_metadata.py --selftest
+      - name: Download ONLY individually indexed official CMU source ASF and one AMC in isolated runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu07/source" "$RUNNER_TEMP/cmu07/out"
+          # No --insecure, no HTTP, no broad crawling, no third-party mirrors.
+          base=https://mocap.cs.cmu.edu/subjects/07
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 3 \
+            --proto '=https' --proto-redir '=https' --connect-timeout 20 \
+            "$base/07.asf" -o "$RUNNER_TEMP/cmu07/source/07.asf"
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 3 \
+            --proto '=https' --proto-redir '=https' --connect-timeout 20 \
+            "$base/${{ matrix.motion }}.amc" \
+            -o "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc"
+          test -s "$RUNNER_TEMP/cmu07/source/07.asf"
+          test -s "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc"
+      - name: Original capture metadata only; never upload original ASF or AMC
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 motion_learning/source_admission/cmu07_original_metadata.py \
+            --motion ${{ matrix.motion }} \
+            --asf "$RUNNER_TEMP/cmu07/source/07.asf" \
+            --amc "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc" \
+            --out "$RUNNER_TEMP/cmu07/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"cmu07/out/${{ matrix.motion }}.metadata.json"
+          r=json.loads(p.read_text())
+          assert r["status"]=="SOURCE_BYTES_HASHED_CAPTURE_METADATA_ONLY_NO_RETARGET"
+          assert r["motion"]=="${{ matrix.motion }}"
+          assert r["amc"]["original_measured_frames"]>=20
+          assert r["source_files"]["asf"]["bytes"]>100
+          assert r["source_files"]["amc"]["bytes"]>100
+          assert r["rights_venue_status"].endswith("REQUIRES_OWNER_ADMISSION")
+          print("CMU07_CAPTURE_OBSERVATION_ONLY_NO_PUBLIC_RAW_DATA",r["motion"])
+          PY
+          (cd "$RUNNER_TEMP/cmu07/out" && sha256sum *.json > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: cmu-original-${{ matrix.motion }}-metadata-only-research
+          path: ${{ runner.temp }}/cmu07/out/*
+          retention-days: 7
