@@ -1,0 +1,164 @@
+name: video-original-22-8fix-integrated-research
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_eightfix/**'
+      - 'qualification/video_dive_takeoff/dive_ab.py'
+      - '.github/workflows/video-original-22-eight-fix.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: original-22-eight-fix-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-four-family-generation:
+    name: Eight-fix original 3D GLB + H264 / ${{ matrix.batch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        batch: [locomotion, exercise_pose, dance_combat, aquatic]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-${{ matrix.batch }}
+          path: research/original
+      - name: Disposable synthetic rendering dependencies
+        env:
+          PY: ${{ runner.temp }}/integrated-original-py
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m venv "$PY"
+          "$PY/bin/python" -m pip install --no-cache-dir --disable-pip-version-check \
+            numpy==2.3.5 opencv-python-headless==4.13.0.92
+      - name: Generate source-hashed actual candidate GLB/H264 while retaining originals unchanged
+        env:
+          PY: ${{ runner.temp }}/integrated-original-py
+          BATCH: ${{ matrix.batch }}
+        run: |
+          set -euo pipefail
+          "$PY/bin/python" qualification/video_eightfix/eightfix.py \
+            --batch "$BATCH" \
+            --root qualification/video_eightfix/runs \
+            --original-root research/original
+          python3 - "$BATCH" <<'PY'
+          import json,sys
+          from pathlib import Path
+          batch=sys.argv[1]
+          p=Path("qualification/video_eightfix/runs")/batch/"integration-receipt.json"
+          d=json.loads(p.read_text())
+          assert d["schema"]=="scp.original-22-exact-source-8fix-candidate-batch.v1"
+          assert d["case_count"]=={"locomotion":8,"exercise_pose":7,"dance_combat":5,"aquatic":2}[batch]
+          assert all(not x["contact_labels_modified"] for x in d["cases"])
+          assert all(x["original_status"]=="FAIL" and x["candidate_status"]=="PASS"
+            for x in d["cases"] if x["repair_target"])
+          assert all(x["original_joint_labels_sha256"]==x["candidate_joint_labels_sha256"]
+            for x in d["cases"] if not x["repair_target"])
+          print("ORIGINAL_22_CANDIDATE_BATCH_CHECK",batch,len(d["improved_cases"]))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-integrated-eight-fix-${{ matrix.batch }}
+          path: qualification/video_eightfix/runs/
+          retention-days: 7
+          if-no-files-found: error
+
+  independent-full-corpus-regression:
+    name: Independent 22-case eight-fix source math and actual H264 diagnostics
+    needs: independent-four-family-generation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: original-integrated-eight-fix-*
+          merge-multiple: true
+          path: qualification/video_eightfix/runs
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-math-audit-22-cases
+          path: research/original-math
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.23.x'
+          cache: false
+      - name: Independently compare original and candidate source kinematics
+        run: |
+          set -euo pipefail
+          mkdir -p qualification/video_eightfix/runs/report
+          python3 qualification/expanded_motion_corpus/motion_math.py \
+            --root qualification/video_eightfix/runs \
+            --out qualification/video_eightfix/runs/report/integrated-source-math.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          folder=Path("qualification/video_eightfix/runs")
+          original=json.loads(Path("research/original-math/math_audit.json").read_text())
+          candidate=json.loads((folder/"report/integrated-source-math.json").read_text())
+          assert original["case_count"]==candidate["case_count"]==22
+          assert original["counts"]=={"PASS":10,"FAIL":11,"UNKNOWN":1}
+          assert candidate["counts"]=={"PASS":18,"FAIL":3,"UNKNOWN":1},candidate["counts"]
+          before={x["case"]:x for x in original["cases"]}
+          after={x["case"]:x for x in candidate["cases"]}
+          assert set(before)==set(after)
+          changed={name for name in before if before[name]["source_sha256"]!=after[name]["source_sha256"]}
+          expected={"male_stand_barefoot","female_judo_kata_barefoot","female_dance_high_heels","male_dance_boots","female_pinup_stiletto","female_photoshoot_high_heels","male_karate_kata_barefoot","male_diving_barefoot"}
+          assert changed==expected,(changed,expected)
+          assert all(before[name]["status"]=="FAIL" and after[name]["status"]=="PASS" for name in changed)
+          assert all(before[name]["status"]==after[name]["status"] and
+                 before[name]["defect_count"]==after[name]["defect_count"] for name in before if name not in changed)
+          print("ORIGINAL_22_REAL_SOURCE_CANDIDATE",{"original":original["counts"],"candidate":candidate["counts"],"changed":sorted(changed)})
+          PY
+      - name: Read exact candidate H264 bytes independently via Go+FFmpeg diagnostic
+        env:
+          GOWORK: 'off'
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+          ROOT=qualification/video_eightfix/runs
+          python3 qualification/video_physics_bakeoff/scripts/character_manifest.py \
+            --root "$ROOT" --out "$ROOT/video_cases.json"
+          (cd qualification/video_physics_bakeoff && go test ./... && \
+            go run ./cmd/bakeoff -manifest ../video_eightfix/runs/video_cases.json \
+            -out ../video_eightfix/runs/report/decoded-video-diagnostics.json)
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("qualification/video_eightfix/runs/report/decoded-video-diagnostics.json")
+          r=json.loads(p.read_text())
+          assert r["total"]==22 and len(r["results"])==22
+          assert r["matched"]==0 and r["discrepancies"]==0
+          assert all(len(x["source_sha256"])==64 and not x.get("error") and
+                     x["expected"]=="" and not x["matches_oracle"] for x in r["results"])
+          counts={state:sum(x["verdict"]==state for x in r["results"])
+                  for state in ("PASS","FAIL","UNKNOWN")}
+          print("ORIGINAL_22_CANDIDATE_DECODED_VIDEO_OBSERVATIONS",counts,
+                "NO_REALISM_ACCEPTANCE")
+          PY
+          printf 'original_22_case_baseline=UNMODIFIED\nsource_candidate_kinematics=TARGETED_ONLY\nproduct_realism=NOT_QUALIFIED\n' >qualification/video_eightfix/runs/report/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-22-integrated-eight-fix-source-and-video-receipts
+          path: qualification/video_eightfix/runs/report/
+          retention-days: 14
+          if-no-files-found: error
