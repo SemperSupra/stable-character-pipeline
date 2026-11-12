@@ -36,15 +36,18 @@ jobs:
             https://download.blender.org/demo/asset-bundles/human-base-meshes/human-base-meshes-bundle-v1.4.1.zip \
             -o "$RUNNER_TEMP/r014-blenderstudio/human_base_meshes_v1.4.1.zip"
           test "$(stat -c '%s' "$RUNNER_TEMP/r014-blenderstudio/human_base_meshes_v1.4.1.zip")" -eq 50643039
+          sha256sum "$RUNNER_TEMP/r014-blenderstudio/human_base_meshes_v1.4.1.zip"
       - name: Inventory native realistic sculpt meshes, proportions, modifiers
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/r014-blenderstudio/evidence"
-          "$BLENDER_BIN" --background --factory-startup --python r014/blender_studio_asset_probe.py -- \
+          "$BLENDER_BIN" --background --factory-startup --python-exit-code 3 --python r014/blender_studio_asset_probe.py -- \
             --archive "$RUNNER_TEMP/r014-blenderstudio/human_base_meshes_v1.4.1.zip" \
             --out "$RUNNER_TEMP/r014-blenderstudio/evidence" \
             --receipt "$RUNNER_TEMP/r014-blenderstudio/evidence/inventory.json"
+          test -s "$RUNNER_TEMP/r014-blenderstudio/evidence/inventory.json"
+          test -s "$RUNNER_TEMP/r014-blenderstudio/evidence/R014_BlenderStudio_CC0_realistic_sculpt_bases.blend"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
