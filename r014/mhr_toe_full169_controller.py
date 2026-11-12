@@ -19,7 +19,7 @@ ap.add_argument("--source-receipt",type=Path,required=True)
 ap.add_argument("--out",type=Path,required=True)
 a=ap.parse_args(sys.argv[sys.argv.index("--")+1:])
 a.out.mkdir(parents=True,exist_ok=True)
-assert Path(bpy.data.filepath).name=="R014_MHR_neutral_GO_GAIT_RIGGED_HOLD.blend"
+assert Path(bpy.data.filepath).name=="R014_MHR_"+a.variant+"_GO_GAIT_RIGGED_HOLD.blend"
 go=json.loads(a.frames.read_text())
 original=json.loads(a.source_receipt.read_text())
 assert len(go)==169 and original["gait_frames"]==169
@@ -223,6 +223,30 @@ scene.render.engine="CYCLES";scene.cycles.device="CPU";scene.cycles.samples=6
 scene.render.threads_mode="FIXED";scene.render.threads=4
 scene.render.resolution_x=320;scene.render.resolution_y=420
 scene.render.resolution_percentage=100;scene.render.image_settings.file_format="PNG"
+# The canonical saved native source .blend is intentionally self-contained
+# but the original technical camera was authored AFTER saving. Build a
+# separate reproducible observer here, not a falsified image assumption.
+scene.frame_set(28);bpy.context.view_layer.update()
+v,_=evaluated_mesh()
+low=v.min(axis=0);high=v.max(axis=0);mid=(low+high)/2.0
+extent=high-low
+world=bpy.data.worlds.new("R014_ToeFull169_QA")
+world.use_nodes=True
+world.node_tree.nodes["Background"].inputs["Strength"].default_value=.85
+scene.world=world
+ld=bpy.data.lights.new("R014_ToeFull169_Light","AREA")
+light=bpy.data.objects.new("R014_ToeFull169_Light",ld)
+bpy.context.collection.objects.link(light)
+light.location=(float(mid[0]+1.5),float(mid[1]-2.),float(mid[2]+2.0))
+ld.energy=500;ld.size=3
+cd=bpy.data.cameras.new("R014_ToeFull169_Camera")
+camera=bpy.data.objects.new("R014_ToeFull169_Camera",cd)
+bpy.context.collection.objects.link(camera)
+scene.camera=camera
+cd.type="ORTHO"
+cd.ortho_scale=max(float(extent[2])*1.30,float(extent[0])*1.70,1.8)
+camera.location=(float(mid[0]),float(mid[1]-4.),float(mid[2]))
+camera.rotation_euler=(Vector(mid.tolist())-camera.location).to_track_quat("-Z","Y").to_euler()
 framesout=[]
 for f in (28,40):
     scene.frame_set(f)
