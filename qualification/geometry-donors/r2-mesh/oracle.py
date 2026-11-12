@@ -124,7 +124,7 @@ def conservative_vertex_weld(raw_path, output_path, tolerance):
     max_displacement=max(math.dist(p,points[parents[i]]) for i,p in enumerate(points))
     if max_displacement>tolerance:
         raise ValueError("weld_displacement_exceeds_limit")
-    out=bytearray(b"Original synthetic gsdf STL; conservative G4 weld".ljust(80,b"\\0"))
+    out=bytearray(b"Original synthetic gsdf STL; conservative G4 weld".ljust(80,bytes([0])))
     out.extend(struct.pack("<I",count))
     for face in triangles:
         v=[points[parents[i]] for i in face]
