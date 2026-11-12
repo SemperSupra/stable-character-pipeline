@@ -1,0 +1,65 @@
+name: video-original-planted-stance-corrective-ab
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_motion_repair/**'
+      - '.github/workflows/video-planted-stance-ab.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-planted-ab-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-two-case-original-vs-candidate:
+    name: Two real GLB/H264 contact repairs and hostile source audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install rendering dependencies only inside ephemeral public worker
+        env:
+          VENV: ${{ runner.temp }}/repaired-stance-venv
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m venv "$VENV"
+          "$VENV/bin/python" -m pip install --no-cache-dir --disable-pip-version-check \
+            numpy==2.3.5 opencv-python-headless==4.13.0.92
+          "$VENV/bin/python" -m pip freeze > "$RUNNER_TEMP/repaired-stance-env.txt"
+      - name: Independently generate original and candidate full 3D and H264 with unmodified contact labels
+        env:
+          VENV: ${{ runner.temp }}/repaired-stance-venv
+        run: |
+          set -euo pipefail
+          mkdir -p qualification/video_motion_repair/runs
+          "$VENV/bin/python" qualification/video_motion_repair/planted_stance_ab.py \
+            --out qualification/video_motion_repair/runs
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          base=Path("qualification/video_motion_repair/runs")
+          d=json.loads((base/"ab-receipt.json").read_text())
+          assert d["schema"]=="scp.motion-planted-stance-original-ab.v1"
+          assert d["case_count"]==2 and d["candidate_targeted_source_passes"]==2
+          for case in d["cases"]:
+            assert case["baseline"]["status"]=="FAIL" and case["candidate"]["status"]=="PASS"
+            assert case["baseline"]["defect_count"]>0 and case["candidate"]["defect_count"]==0
+            assert case["ground_truth_unchanged_contact_labels"] is True
+            for version,info in (("baseline","baseline_media"),("candidate","candidate_media")):
+              p=base/version/case["case"]
+              for ext,key in ((".glb","glb_sha256"),("_side.mp4","h264_sha256")):
+                f=p/(case["case"]+ext)
+                assert hashlib.sha256(f.read_bytes()).hexdigest()==case[info][key]
+          print("NATIVE_SOURCE_AND_REAL_MP4_REPAIR_PAIRS",d["case_count"])
+          PY
+          cp "$RUNNER_TEMP/repaired-stance-env.txt" qualification/video_motion_repair/runs/environment.txt
+          printf 'original_corpus=UNMODIFIED\nsource_foot_contact_relabel=PROHIBITED\nphysics_realism=NOT_QUALIFIED\n' > qualification/video_motion_repair/runs/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-planted-stance-two-real-mesh-h264-ab
+          path: qualification/video_motion_repair/runs/
+          retention-days: 7
+          if-no-files-found: error
