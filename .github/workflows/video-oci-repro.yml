@@ -1,0 +1,292 @@
+name: video-oci-reproducibility-supply-chain-rdte
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-oci-repro.yml'
+      - 'qualification/video_physics_bakeoff/Dockerfile.research'
+permissions:
+  contents: read
+concurrency:
+  group: video-oci-repro-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  twice-clean-image-and-runtime-bom:
+    name: Two clean OCI builds and explicit runtime package bill of materials
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Two independent no-cache builds with pinned observed image digests
+        run: |
+          set -euo pipefail
+          mkdir -p supply
+          docker version >supply/docker-version.txt
+          docker build --pull --no-cache -f Dockerfile.research -t local/videoqa-repro:a .
+          docker build --pull --no-cache -f Dockerfile.research -t local/videoqa-repro:b .
+          docker image inspect local/videoqa-repro:a --format '{{.Id}}' >supply/image-a-id.txt
+          docker image inspect local/videoqa-repro:b --format '{{.Id}}' >supply/image-b-id.txt
+          for tag in a b; do
+            docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit 128 --memory 512m --entrypoint cat local/videoqa-repro:"$tag" \
+              /lib/apk/db/installed >"supply/runtime-apk-$tag.txt"
+            docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit 128 --memory 512m --entrypoint sha256sum local/videoqa-repro:"$tag" \
+              /usr/local/bin/bakeoff >"supply/go-binary-$tag.sha256"
+            docker image inspect local/videoqa-repro:"$tag" --format '{{json .Config.User}}' >"supply/user-$tag.json"
+            docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit 128 --memory 512m --entrypoint ffmpeg local/videoqa-repro:"$tag" \
+              -version >"supply/ffmpeg-$tag.txt"
+          done
+      - name: Compare runtime binaries, installed package inventories and image identity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,re
+          from pathlib import Path
+          out=Path("supply")
+          def sha(raw):return hashlib.sha256(raw).hexdigest()
+          def packages(path):
+            contents=path.read_bytes()
+            result={}
+            for record in contents.decode("utf-8").split("\n\n"):
+              if not record.strip():continue
+              fields={}
+              for line in record.splitlines():
+                if len(line)>2 and line[1]==":" and line[0] in ("P","V","A"):
+                  fields[line[0]]=line[2:]
+              if "P" in fields and "V" in fields:
+                if fields["P"] in result:raise ValueError("DUPLICATE_APK_PACKAGE")
+                result[fields["P"]]=fields["V"]
+            if len(result)<15:raise ValueError("RUNTIME_PACKAGE_INVENTORY_INCOMPLETE")
+            return result,sha(contents)
+          pa,da=packages(out/"runtime-apk-a.txt")
+          pb,db=packages(out/"runtime-apk-b.txt")
+          if pa!=pb:raise ValueError("INSTALLED_PACKAGES_DIFFER_BETWEEN_CLEAN_BUILDS")
+          binary_a=(out/"go-binary-a.sha256").read_text().split()[0]
+          binary_b=(out/"go-binary-b.sha256").read_text().split()[0]
+          if not re.fullmatch("[0-9a-f]{64}",binary_a) or binary_a!=binary_b:
+            raise ValueError("GO_BINARY_NOT_REPRODUCIBLE")
+          users=[json.loads((out/f"user-{tag}.json").read_text()) for tag in ("a","b")]
+          if users!=["65532:65532","65532:65532"]:
+            raise ValueError("NONROOT_RUNTIME_USER_CHANGED")
+          image_ids=[(out/f"image-{tag}-id.txt").read_text().strip() for tag in ("a","b")]
+          if any(not re.fullmatch("sha256:[0-9a-f]{64}",x) for x in image_ids):
+            raise ValueError("IMAGE_HASH_NOT_AVAILABLE")
+          same_image=image_ids[0]==image_ids[1]
+          bom={
+            "bomFormat":"CycloneDX", "specVersion":"1.5","version":1,
+            "metadata":{"component":{"type":"application","name":"video-physics-bakeoff-original-research","version":"0.0.0-rdte"}},
+            "components":[{"type":"library","name":name,"version":ver} for name,ver in sorted(pa.items())],
+          }
+          (out/"runtime-cyclonedx-1.5.json").write_text(json.dumps(bom,sort_keys=True,indent=2)+"\n")
+          report={
+            "schema":"scp.video-physics-oci-two-build-repro.v1",
+            "image_ids":image_ids,
+            "image_byte_identical":same_image,
+            "image_determinism":"IDENTICAL" if same_image else "NOT_ESTABLISHED",
+            "go_binary_sha256":binary_a,
+            "go_binary_byte_identical":True,
+            "apk_package_versions_identical":True,
+            "apk_record_sha256":[da,db],
+            "runtime_package_count":len(pa),
+            "runtime_user":"65532:65532",
+            "go_compiler_toolchain_base_digest":"4bb4be21ac98da06bc26437ee870c4973f8039f13e9a1a36971b4517632b0fc6",
+            "runtime_base_digest":"c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709",
+            "apk_repository_snapshot_locked":False,
+            "runtime_bom_is_full_supply_chain_bom":False,
+            "license_and_cve_analysis":"NOT_QUALIFIED",
+            "source":"two independent no-cache ephemeral public GitHub Actions builds",
+            "scientific_status":"SUPPLY_CHAIN_RESEARCH_ONLY_NO_RELEASE",
+          }
+          (out/"reproducibility-receipt.json").write_text(json.dumps(report,sort_keys=True,indent=2)+"\n")
+          print("OCI_REPRO_TWO_BUILDS",{"same_image":same_image,"same_binary":True,"runtime_packages":len(pa)})
+          PY
+          sha256sum supply/*.json >supply/receipts-sha256.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-physics-oci-two-clean-rebuild-bom
+          path: qualification/video_physics_bakeoff/supply/
+          retention-days: 14
+          if-no-files-found: error
+
+  source-date-epoch-ab:
+    name: Independent SOURCE_DATE_EPOCH OCI image-layer nondeterminism falsifier
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    env:
+      DOCKER_BUILDKIT: '1'
+      SOURCE_DATE_EPOCH: '1704067200'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Two cold BuildKit image builds with identical SOURCE_DATE_EPOCH
+        run: |
+          set -euo pipefail
+          mkdir -p epoch
+          docker build --pull --no-cache --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" -f Dockerfile.research -t local/videoqa-epoch:first .
+          docker build --pull --no-cache --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" -f Dockerfile.research -t local/videoqa-epoch:second .
+          docker image inspect local/videoqa-epoch:first >epoch/inspect-first.json
+          docker image inspect local/videoqa-epoch:second >epoch/inspect-second.json
+          for tag in first second; do
+            docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit 128 --memory 512m --entrypoint sha256sum local/videoqa-epoch:"$tag" \
+              /usr/local/bin/bakeoff >"epoch/binary-$tag.sha256"
+          done
+      - name: Compare image config vs layers and independently retain diagnostic
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("epoch")
+          a=json.loads((root/"inspect-first.json").read_text())[0]
+          b=json.loads((root/"inspect-second.json").read_text())[0]
+          if a["Config"]["User"]!=b["Config"]["User"] or a["Config"]["User"]!="65532:65532":
+            raise ValueError("NONROOT_RUNTIME_INVARIANT_LOST")
+          binaries=[(root/f"binary-{x}.sha256").read_text().split()[0] for x in ("first","second")]
+          if binaries[0]!=binaries[1]:raise ValueError("SOURCE_DATE_EPOCH_GO_BINARY_DRIFT")
+          layers_match=a["RootFS"]["Layers"]==b["RootFS"]["Layers"]
+          config_match=a["Config"]==b["Config"]
+          same_image=a["Id"]==b["Id"]
+          result={
+            "schema":"scp.video-physics-oci-source-date-epoch-ab.v1",
+            "SOURCE_DATE_EPOCH":1704067200,
+            "image_ids":[a["Id"],b["Id"]],
+            "image_byte_identity":same_image,
+            "image_rootfs_layers_identical":layers_match,
+            "image_config_fields_identical":config_match,
+            "created_fields":[a.get("Created"),b.get("Created")],
+            "go_binary_sha256":binaries[0],
+            "go_binary_identical":True,
+            "diagnostic":"BYTE_IDENTICAL" if same_image else (
+              "CONFIG_METADATA_DRIFT" if layers_match else "ROOTFS_LAYER_DRIFT"),
+            "scientific_status":"RDT_E_IMAGE_REBUILD_ONLY_NOT_RELEASE",
+            "holds":["APK repositories are not immutable snapshot-frozen",
+                     "Build provenance/SBOM/signing/CVE review still required",
+                     "Two local builds do not constitute cross-runner or cross-arch determinism"],
+          }
+          (root/"epoch-result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          print("OCI_SOURCE_DATE_EPOCH_CONTROL",{"identical":same_image,
+            "layers_identical":layers_match,"config_identical":config_match})
+          PY
+          sha256sum epoch/*.json >epoch/evidence-sha256.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-physics-oci-source-date-epoch-ab
+          path: qualification/video_physics_bakeoff/epoch/
+          retention-days: 14
+          if-no-files-found: error
+
+  rootfs-normalized-diff:
+    name: Independent OCI root filesystem content versus timestamp falsifier
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    env:
+      DOCKER_BUILDKIT: '1'
+      SOURCE_DATE_EPOCH: '1704067200'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Rebuild twice without cache and export rootfs only inside disposable runner
+        run: |
+          set -euo pipefail
+          mkdir -p rootfs
+          docker build --pull --no-cache --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" -f Dockerfile.research -t local/videoqa-rootfs:first .
+          docker build --pull --no-cache --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" -f Dockerfile.research -t local/videoqa-rootfs:second .
+          for tag in first second; do
+            cid="$(docker create local/videoqa-rootfs:"$tag")"
+            docker export -o "rootfs/$tag.tar" "$cid"
+            docker rm "$cid"
+            docker image inspect local/videoqa-rootfs:"$tag" --format '{{.Id}}' >"rootfs/image-$tag.txt"
+          done
+      - name: Compare normalized file payloads separately from mutable timestamps
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,tarfile
+          from pathlib import Path
+          root=Path("rootfs")
+          def items(path):
+            result={}
+            with tarfile.open(path,"r|") as archive:
+              for item in archive:
+                # Keep path normalization and disallow duplicate entries.
+                name=item.name.rstrip("/")
+                if not name or name in result:raise ValueError("MISSING_OR_DUPLICATE_ROOTFS_NAME")
+                digest=None
+                if item.isfile():
+                  stream=archive.extractfile(item)
+                  if stream is None:raise ValueError("UNREADABLE_ROOTFS_FILE")
+                  h=hashlib.sha256()
+                  for chunk in iter(lambda:stream.read(1024*1024),b""):
+                    h.update(chunk)
+                  digest=h.hexdigest()
+                result[name]={
+                  "type":item.type.decode("ascii","replace") if isinstance(item.type,bytes) else str(item.type),
+                  "content_sha256":digest,"symlink_target":item.linkname,
+                  "mode":item.mode,"uid":item.uid,"gid":item.gid,"mtime":item.mtime,
+                }
+            if len(result)<100:raise ValueError("ROOTFS_TOO_SMALL_OR_INCOMPLETE")
+            return result
+          a=items(root/"first.tar");b=items(root/"second.tar")
+          missing_a=sorted(set(b)-set(a));missing_b=sorted(set(a)-set(b))
+          content=[]; metadata=[]; timestamp_only=[]
+          for name in sorted(set(a)&set(b)):
+            aa,bb=a[name],b[name]
+            if any(aa[k]!=bb[k] for k in ("type","content_sha256","symlink_target")):
+              content.append(name)
+            elif aa["mode"]!=bb["mode"] or aa["uid"]!=bb["uid"] or aa["gid"]!=bb["gid"]:
+              metadata.append(name)
+            elif aa["mtime"]!=bb["mtime"]:
+              timestamp_only.append(name)
+          result={
+            "schema":"scp.video-physics-oci-normalized-rootfs-rebuild-diff.v1",
+            "input_source_date_epoch":1704067200,
+            "rootfs_entry_counts":[len(a),len(b)],
+            "file_payload_difference_count":len(content),
+            "file_metadata_difference_count":len(metadata),
+            "timestamp_only_difference_count":len(timestamp_only),
+            "only_in_first_count":len(missing_b),"only_in_second_count":len(missing_a),
+            "payload_difference_paths_first_40":content[:40],
+            "metadata_difference_paths_first_40":metadata[:40],
+            "timestamp_difference_paths_first_40":timestamp_only[:40],
+            "only_in_first_paths_first_40":missing_b[:40],
+            "only_in_second_paths_first_40":missing_a[:40],
+            "image_ids":[(root/"image-first.txt").read_text().strip(),
+                         (root/"image-second.txt").read_text().strip()],
+            "normalized_rootfs_content_stable":not(content or metadata or missing_a or missing_b),
+            "science":"REPRODUCIBILITY_DIAGNOSTIC_ONLY_NO_RELEASE",
+            "limitations":["Docker-export is a view of merged rootfs, not layer tar identity",
+                "Identical merged rootfs does not prove bit-for-bit image reproducibility",
+                "Source-date epoch is not an immutable APK repository snapshot or SBOM attestation"],
+          }
+          (root/"normalized-rootfs-diff.json").write_text(json.dumps(result,sort_keys=True,indent=2)+"\n")
+          print("ROOTFS_NORMALIZED_AB",{"content":len(content),"metadata":len(metadata),
+             "timestamp_only":len(timestamp_only),"only_first":len(missing_b),"only_second":len(missing_a)})
+          PY
+          sha256sum rootfs/normalized-rootfs-diff.json >rootfs/receipt-sha256.txt
+          rm -f rootfs/first.tar rootfs/second.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-physics-oci-normalized-rootfs-repro-falsifier
+          path: |
+            qualification/video_physics_bakeoff/rootfs/normalized-rootfs-diff.json
+            qualification/video_physics_bakeoff/rootfs/receipt-sha256.txt
+          retention-days: 14
+          if-no-files-found: error
