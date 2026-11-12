@@ -27,6 +27,8 @@ jobs:
           mkdir -p receipts
           docker image inspect local/video-bakeoff:rdte --format '{{.Id}}' > receipts/image-id.txt
           docker image inspect local/video-bakeoff:rdte --format '{{json .Config.User}}' > receipts/image-user.txt
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint apk local/video-bakeoff:rdte info -vv >receipts/package-inventory.txt
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
             --tmpfs /tmp:rw,noexec,nosuid,size=16m local/video-bakeoff:rdte -help > receipts/usage.txt 2>&1
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
@@ -78,7 +80,7 @@ jobs:
              echo 'ROOT_FILESYSTEM_NOT_FAIL_CLOSED'; exit 1
           fi
           test ! -e receipts/forbidden.json
-          printf 'root_fs=read_only\nnetwork=none\ncapabilities=none\nuid=65532\nhost_installations=none\nbase_images_digest_pinned=NOT_YET\nscientific_realism=NOT_QUALIFIED\n' >receipts/qualification.txt
+          printf 'root_fs=read_only\nnetwork=none\ncapabilities=none\nuid=65532\nhost_installations=none\nbase_images_digest_pinned=YES\nruntime_apk_index_snapshot_pinned=NO\nscientific_realism=NOT_QUALIFIED\n' >receipts/qualification.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: disposable-oci-video-evaluation-receipts
@@ -88,5 +90,6 @@ jobs:
             qualification/video_physics_bakeoff/receipts/image-id.txt
             qualification/video_physics_bakeoff/receipts/image-user.txt
             qualification/video_physics_bakeoff/receipts/ffmpeg-version.txt
+            qualification/video_physics_bakeoff/receipts/package-inventory.txt
           retention-days: 14
           if-no-files-found: error
