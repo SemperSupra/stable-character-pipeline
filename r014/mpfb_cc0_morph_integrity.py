@@ -80,7 +80,18 @@ def main():
     assert len(body.data.vertices)==19158 and len(rig.data.bones)==163
     assert len([m for m in body.modifiers if m.type=="ARMATURE" and m.object==rig])==1
     assert body.active_material is not None and body.active_material.use_nodes
-    assert any(node.type=="BSDF_PRINCIPLED" for node in body.active_material.node_tree.nodes)
+    # Author-pinned MAKESKIN may use a custom node network rather than a
+    # top-level BSDF_PRINCIPLED. Test the actual live material surface output
+    # rather than requiring an irrelevant implementation detail.
+    shader_nodes=list(body.active_material.node_tree.nodes)
+    outputs=[n for n in shader_nodes if n.type=="OUTPUT_MATERIAL" and n.is_active_output]
+    if not outputs:
+        raise RuntimeError("SOURCE_MATERIAL_NO_ACTIVE_OUTPUT")
+    if not any(inp.name=="Surface" and inp.is_linked for out in outputs for inp in out.inputs):
+        raise RuntimeError("SOURCE_MATERIAL_OUTPUT_SURFACE_NOT_CONNECTED")
+    shader_contract={"active_output_count":len(outputs),
+                     "node_types":sorted({n.type for n in shader_nodes}),
+                     "surface_linked":True}
     packed=[img for img in bpy.data.images if img.source=="FILE" and img.packed_file is not None]
     assert len(packed)>=1,"No packed CC0 source textures"
     source_bounds=bounds(body)
@@ -117,6 +128,7 @@ def main():
         "real_morph_max_vertex_delta_blender_units":round(diff,6),
         "packed_source_texture_count":len(packed),
         "original_material":body.active_material.name,
+        "original_material_shader_contract":shader_contract,
         "same_lod_rig":"native rig retained after applying source macro",
         "photoreal_quality":"HOLD_VISUAL_AND_ANATOMICAL_REVIEW",
         "soft_tissue_physics":"NOT_RUN",
