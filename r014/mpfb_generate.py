@@ -30,9 +30,10 @@ def main():
     source_bodies=[]
     report={'schema':'r014.mpfb.native.v1','source_revision':'6ff1eb358f6c1959ced77e79e6dd2406d9a71f49',
             'blender':bpy.app.version_string,'characters':[],'status':'BLOCKED'}
-    for sex,gender,x in (('female',1.0,-0.8),('male',0.0,0.8)):
+    for sex,gender,x in (('female',0.0,-0.8),('male',1.0,0.8)):
         body=HumanService.create_human()
         Props.set_value('gender',gender,entity_reference=body)
+        Props.set_value('age',0.65,entity_reference=body)
         TargetService.reapply_macro_details(body)
         rig=HumanService.add_builtin_rig(body,'default')
         rig.location.x=x
@@ -42,7 +43,7 @@ def main():
         assert len(rig.data.bones)>20,'unexpectedly trivial rig'
         assert len(body.vertex_groups)>20,'insufficient skin groups'
         source_bodies.append(body)
-        report['characters'].append({'sex':sex,'vertices':len(body.data.vertices),
+        report['characters'].append({'sex':sex,'source_gender_macro':gender,'source_age_macro':0.65,'vertices':len(body.data.vertices),
             'faces':len(body.data.polygons),'bones':len(rig.data.bones),
             'skinning_groups':len(body.vertex_groups),
             'shape_keys':len(body.data.shape_keys.key_blocks) if body.data.shape_keys else 0})
