@@ -16,6 +16,20 @@ Original public upstream pins:
 - Semantify `78b001d3dc4ea4efa428e3aff1213cefddf6ebd8`, native C2M architecture source SHA256 `3e48516d467ff0ea2b8fd426f7e5f554441c58424c382278bb23c5f24ea28147`.
 - GitHub Actions `ubuntu-24.04` 4 detected CPUs, Python 3.12.3, disposable `$RUNNER_TEMP` venv. Code/test isolation via pinned git revision, source/class-only AST import, no third-party setup scripts run, no secrets supplied, checkout with non-persistent credentials.
 
+## Follow-up — actual original Semantify checkpoint execution (2026-11-12)
+
+**Run:** https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43264747293
+
+**Immutable receipt:** `43264747293-semantify-actual-pretrained.json` in this directory; source commit `e777d4c9f037ef821f209243ed6a786fc7fa8d71`; original archive SHA256 `91682ac20d450f02c02f97e99ab5858fc12e0f15dbcedbd1e8d2bb4c244a72c2`; SMPL-X neutral checkpoint SHA256 `7bb79747504919656ecacb120b5be70b51b6faac1535d1cfd7f46b1401a3ed7b`.
+
+The original author's published Google Drive archive was downloaded through verified TLS into a bounded disposable runner (23,264,694 bytes; 25 archive entries), validated for safe paths and file-size limits, and **never committed/uploaded**. Static Python pickle opcode inspection showed its Lightning checkpoint stores tensors along with legacy OmegaConf 2.3.0 metadata. The first `torch.load(weights_only=True)` correctly rejected the metadata. After exact archive/checkpoint SHA enforcement and an *explicit narrowly scoped allowlist limited to audited OmegaConf/Python metadata types*, the same **`weights_only=True`** loading mode succeeded. **Unrestricted `weights_only=False` was never used.** This still requires separate third-party model/checkpoint rights review for redistribution or service deployment.
+
+The true pretrained SMPL-X neutral mapper (not a reconstructed toy MLP) has **8 semantic score inputs**, hidden layers `[800,500]`, and **10 shape beta outputs**. Its metadata descriptors are: `fat`, `masculine`, `long torso`, `hourglass`, `tall`, `rectangular`, `small`, `proportioned`. A fixed synthetic score vector of `0.25` per descriptor produced a finite ten-float coefficient vector; a repeated identical input matched exactly (`max_abs_delta=0`), and a +0.05 perturbation to the first descriptor produced a vector L2 delta of `0.01904796`. Observed forward pass **0.000601 s** on that one input; NOT a statistical latency service benchmark or CLIP-encoded natural-language prompt test. Neither a licensed SMPL-X 3D body mesh nor actual CLIP score extraction was invoked. No geometric output/body fidelity, physical age or photorealism has been qualified.
+
+**Updated differential:** Semantify's original published *numeric mapper* now has actual reproducible CPU evidence. BodyShapeGPT's original 8B Llama+LoRA path remains blocked pending base/weights and authorized accelerator. The native end-to-end visual/metric comparison remains **HOLD**, as original techniques differ in input format and neither has rendered measured mesh evidence in this bakeoff. The Semantify numeric CPU result favors exploring compact trained mapper deployment, **not** selecting it on morphology quality.
+
+---
+
 ## Observations
 
 ### A: BodyShapeGPT — actual public data, NOT pretrained LLM
@@ -38,7 +52,7 @@ Model-fit+inference timing: **0.321 s** measured for this small capped task (not
 
 Executed exact upstream `C2M` neural module class from pinned source via isolated AST in modern torch `2.5.1+cpu` (without importing legacy render/Lightning stack). Trained a **6 descriptor -> 10 beta** nonlinear MLP for 175 deterministic Adam steps against an analytic synthetic target. Held-out mean-square error: **0.552177 -> 0.028206**; constant-mean target baseline **0.525216**. Reported train step time **0.106 s** (not environment provisioning, real CLIP extraction or geometry creation). Output shape [112,10], finite. This qualifies native architecture CPU viability *only*. Synthetic data has no claim to reproduce the paper's descriptor distribution or parameter quality.
 
-**Native published mapper status: BLOCKED.** Publisher's `get_mappers.sh` fetches an unpinned Google Drive zip using `wget --no-check-certificate`. Do not run as published. Registration/licensing separately required for SMPL/SMPL-X and other human mesh model weights; legacy `requirements.yml` pins Python 3.8.13, CUDA 11.1, PyTorch 1.9.1, PyTorch3D 0.6.1. Trainable current PyTorch class does not establish compatibility of older renderers/CLIP components, data-loading dependencies, pretrained checkpoint, or geometries. A PyTorch warning about absent NumPy in the minimal torch-only venv was nonfatal; a production dependency closure must explicitly pin/verify NumPy and compatible platform wheels.
+**Initial native published mapper status: BLOCKED at first rep; later numeric-only checkpoint loading passed (details below).** Publisher's `get_mappers.sh` fetches an unpinned Google Drive zip using `wget --no-check-certificate`. Do not run as published. Registration/licensing separately required for SMPL/SMPL-X and other human mesh model weights; legacy `requirements.yml` pins Python 3.8.13, CUDA 11.1, PyTorch 1.9.1, PyTorch3D 0.6.1. Trainable current PyTorch class does not establish compatibility of older renderers/CLIP components, data-loading dependencies, pretrained checkpoint, or geometries. A PyTorch warning about absent NumPy in the minimal torch-only venv was nonfatal; a production dependency closure must explicitly pin/verify NumPy and compatible platform wheels.
 
 ## Differential readiness
 
@@ -48,7 +62,7 @@ Executed exact upstream `C2M` neural module class from pinned source via isolate
 | True prompt-to-params in released implementation | Yes, **when base+LoRA available** | Needs descriptor encoder / scores |
 | Original artifact availability | Public 21k paired dataset; LoRA off-repo; base access gate | Mappers off-repo Google Drive; mesh models separately licensed |
 | Actual free-tier tests this rep | All pairs parsed, held-out regression proxy, original parser negative controls | Exact original C2M network trained/evaluated CPU on synthetic function |
-| Native published checkpoint executed | **No** | **No** |
+| Native published checkpoint executed | **No** | **Yes: after follow-up, safe-loaded actual published 8→10 neutral mapper; numeric-only** |
 | 3D geometry/rig quality | **Not measured** | **Not measured** |
 | Deployment footprint | Heavy 8B LLM + quant GPU; expensive cold start | Small mapper on CPU; CLIP+renderer heavier and separately versioned |
 | Unlocked native mapping to MPFB/MHR | **Not demonstrated** | **Not demonstrated** |
@@ -88,6 +102,6 @@ These methods cannot be ranked on 3D human fidelity from the current outputs. Th
 ## Next bounded gates
 
 1. Independently check distribution endpoints for published weights with TLS verification, **no code/weights execution**, no private tokens.
-2. If accessible, escrow artifact SHA, size, model license, tensor keys and signature/weights-only validation; then native forward test on held-out adult descriptions. If not, document blocking ownership.
+2. COMPLETED PARTIALLY for Semantify: archive/checkpoint SHA, safe-loader static audit and native numeric forward; NEXT obtain verified actual CLIP descriptor scores and licensed SMPL-X geometry, then evaluate meaningful held-out adult descriptions. BodyShapeGPT remains blocked without original base/LoRA rights/access.
 3. On a *common*, independent adult morphology benchmark, compare coefficients, reconstructed mesh dimensions, throughput/VRAM, monotonic concept edits, semantic generalization across languages, reliability/abstention and operator effort.
 4. Only after a qualified comparison, design CPE-to-MPFB/MHR mapping adapter DoE and minimum v0.0.1 build/deploy/O&M acceptance plan. Do not start that native adapter yet.
