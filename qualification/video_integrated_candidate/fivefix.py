@@ -60,6 +60,26 @@ def evaluate(batch,root,original_root):
     actual=set(report["improved_cases"])
     if actual!=expected:
         raise ValueError("CHANGED_CASE_SCOPE_NOT_AS_ADMITTED")
+    # Catch encode/transcode drift and cross-case contamination independently;
+    # unchanged cases must retain exact original encoded video bits, too.
+    for row in report["cases"]:
+        if not row["repair_target"] and row["original_h264_sha256"]!=row["candidate_h264_sha256"]:
+            raise ValueError("NON_TARGET_H264_BIT_CUSTODY_REGRESSION")
+    if batch=="exercise_pose":
+        name=PINUP+"_ground_truth.json"
+        before=json.loads((Path(original_root)/batch/name).read_text())
+        after=json.loads((Path(root)/batch/name).read_text())
+        if len(before["frames"])!=len(after["frames"]) or len(after["frames"])!=40:
+            raise ValueError("PINUP_FRAME_COUNT_CHANGED")
+        for a,b in zip(before["frames"],after["frames"]):
+            if a["contact"]!=b["contact"]:
+                raise ValueError("PINUP_CONTACT_RELABELLING_PROHIBITED")
+            allowed={"left_knee","right_knee"}
+            aj=a["joints"];bj=b["joints"]
+            if set(aj)!=set(bj):
+                raise ValueError("PINUP_JOINT_SCHEMA_CHANGED")
+            if any(aj[k]!=bj[k] for k in aj if k not in allowed):
+                raise ValueError("PINUP_UNRELATED_SOURCE_JOINT_CHANGED")
     report["schema"]="scp.integrated-original-22-5fix-candidate-batch.v1"
     report["science"]="TARGETED_SOURCE_MATH_AND_TRUE_3D_BONE_LENGTH_ONLY"
     report["candidate_required_changed_ids"]=sorted(actual)
