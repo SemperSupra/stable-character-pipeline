@@ -1,0 +1,50 @@
+{
+  "artifact_dependency_gate": {
+    "license_review": "Semantify MIT code; weights and underlying SMPL/SMPL-X model assets have independent rights and registration.",
+    "mapper_download_script_sha256": "18ec344c8fc7ce6ec453233ae39a3b1d62d964486783a2e6b0e3bb82567800c3",
+    "pretrained_mapper_tested": false,
+    "script_requires_unverified_external_google_drive_archive": true,
+    "smplx_native_assets_requires_separate_registration": true,
+    "status": "BLOCKED_NATIVE_GEOMETRY_AND_PRETRAINED_CHECKPOINT",
+    "upstream_script_disables_TLS_verification": true
+  },
+  "cpu_count": 4,
+  "job_status": "COMPLETED_WITH_BOUNDARIES",
+  "lane": "semantify",
+  "merge_release_gate": "HOLD",
+  "native_mapper": {
+    "code_path": "semantify/train/mapper_module.py::C2M (AST isolated exact class)",
+    "input_descriptor_dimensions": 6,
+    "native_clIP_descriptor_evaluation": false,
+    "native_geometry_render_executed": false,
+    "native_semantify_pretrained_mapper_executed": false,
+    "note": "Uses original C2M PyTorch class and SGD over a deterministic analytic toy relationship, not the published trained weights/CLIP renders. Establishes CPU trainability only.",
+    "output_shape_dimensions": 10,
+    "output_tensor_shape": [
+      112,
+      10
+    ],
+    "source_sha256": "3e48516d467ff0ea2b8fd426f7e5f554441c58424c382278bb23c5f24ea28147",
+    "status": "PASS_NATIVE_ARCHITECTURE_SYNTHETIC_TRAINING_ONLY",
+    "synthetic_val_mean_mse": 0.525216,
+    "synthetic_val_mse_after": 0.028206,
+    "synthetic_val_mse_before": 0.552177,
+    "torch_version": "2.5.1+cpu",
+    "training_iterations": 175,
+    "training_seconds": 0.106
+  },
+  "native_mesh_qualification": "NOT_PERFORMED",
+  "python": "3.12.3",
+  "schema": "r015.prior_art.bakeoff.v1",
+  "scope": "public research / synthetic adult morphology / no private assets",
+  "source": "/home/runner/work/_temp/upstream",
+  "start_epoch": 1794501908,
+  "upstream_commit": "78b001d3dc4ea4efa428e3aff1213cefddf6ebd8",
+  "github_execution": {
+    "run_id": 43261962857,
+    "job_id": 131335366095,
+    "workflow_head": "e3952299732b17baebf69ac28b6a0f3a32360dec",
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43261962857",
+    "evidence_extract": "exact JSON reconstructed from GitHub job log"
+  }
+}
