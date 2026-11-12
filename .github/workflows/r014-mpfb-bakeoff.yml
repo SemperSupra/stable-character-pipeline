@@ -105,6 +105,11 @@ jobs:
           assert f["actor_isolation_mode"]=="female" and m["actor_isolation_mode"]=="male"
           print("PASS_DIAGNOSTIC_EVIDENCE_CAPTURED; real deformation parity not promoted")
           PY
+          python3 r014/pose_parity_gate.py \
+            --combined "$RUNNER_TEMP/r014-mpfb/result/pose_parity.json" \
+            --female "$RUNNER_TEMP/r014-mpfb/result/pose_parity_female.json" \
+            --male "$RUNNER_TEMP/r014-mpfb/result/pose_parity_male.json" \
+            --out "$RUNNER_TEMP/r014-mpfb/result/actor_export_policy.json"
       - name: Render actual MPFB surfaces and camera motion as visual QA
         shell: bash
         run: |
