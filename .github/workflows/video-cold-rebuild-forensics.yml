@@ -1,0 +1,66 @@
+name: video-original-cold-rebuild-drift-forensics
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_cold_rebuild_forensics/**'
+      - '.github/workflows/video-cold-rebuild-forensics.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: original-drift-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-cold-rebuild:
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: [exercise_pose, dance_combat]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-${{ matrix.batch }}
+          path: research/original
+      - name: Disposable source-original renderer prerequisites
+        env:
+          PY: ${{ runner.temp }}/video-cold-source-forensic
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m venv "$PY"
+          "$PY/bin/python" -m pip install --no-cache-dir --disable-pip-version-check numpy==2.3.5 opencv-python-headless==4.13.0.92
+      - name: Rebuild original source and produce nonpromotable file/pose/label drift evidence
+        env:
+          PY: ${{ runner.temp }}/video-cold-source-forensic
+          BATCH: ${{ matrix.batch }}
+        run: |
+          set -euo pipefail
+          "$PY/bin/python" qualification/video_cold_rebuild_forensics/rebuild_audit.py \
+            --batch "$BATCH" --original research/original --out research/current
+          python3 - "$BATCH" <<'PY'
+          import json,sys
+          from pathlib import Path
+          batch=sys.argv[1]
+          report=json.loads((Path("research/current")/batch/"cold-build-forensics.json").read_text())
+          expected={"exercise_pose":7,"dance_combat":5}[batch]
+          assert report["schema"]=="scp.original-cold-build-drift-forensic.v1"
+          assert report["case_count"]==expected and len(report["cases"])==expected
+          assert all(x["contact_labels_identical"] for x in report["cases"])
+          assert all(not x["substantive_joint_drift_over_1e6"] for x in report["cases"]), "SOURCE_COORDINATE_MOTION_REGRESSION"
+          print("CONTROLLED_ORIGINAL_COLD_REBUILD",batch,report["counts"])
+          PY
+          printf 'original_baseline_sha_preserved=TRUE\nrebuild_is_admissible_source=FALSE\n' >research/current/"$BATCH"/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-source-cold-rebuild-falsifier-${{ matrix.batch }}
+          path: research/current/${{ matrix.batch }}/cold-build-forensics.json
+          retention-days: 14
+          if-no-files-found: error
