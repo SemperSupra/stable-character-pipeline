@@ -108,7 +108,20 @@ def run(repo_path, path):
             obj=torch.load(io.BytesIO(bytes_ckpt),map_location="cpu",weights_only=True)
         except Exception as e:
             record["status"]="BLOCKED_SAFE_DESERIALIZATION"
-            record["safe_load_error"]=type(e).__name__+": "+str(e)[:350]
+            record["safe_load_error"]=type(e).__name__+": "+str(e)[-1700:]
+            # Static Python pickle opcode inspection does not unpickle or execute.
+            # Record the exact globals that block PyTorch's restricted weights loader.
+            try:
+                import pickletools
+                with zipfile.ZipFile(io.BytesIO(bytes_ckpt)) as kzip:
+                    kname=next(n for n in kzip.namelist() if n.endswith("/data.pkl") or n=="data.pkl")
+                    pbytes=kzip.read(kname)
+                ops=list(pickletools.genops(pbytes))
+                record["pickle_GLOBAL_symbols"]=sorted({str(arg) for op,arg,pos in ops if op.name=="GLOBAL"})[:100]
+                record["pickle_STACK_GLOBAL_count"]=sum(1 for op,arg,pos in ops if op.name=="STACK_GLOBAL")
+                record["pickle_opcode_count"]=len(ops)
+            except Exception as pe:
+                record["static_pickle_diagnostics_error"]=type(pe).__name__+": "+str(pe)[:250]
             return record
         state=obj.get("state_dict",obj) if isinstance(obj,dict) else {}
         if not isinstance(state,dict) or len(state)>200:
