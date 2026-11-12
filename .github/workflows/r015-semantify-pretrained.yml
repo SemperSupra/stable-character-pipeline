@@ -24,6 +24,7 @@ jobs:
           . "$RUNNER_TEMP/r015-native-venv/bin/activate"
           python -m pip install --no-input --disable-pip-version-check --no-cache-dir torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
           python -m pip install --no-input --disable-pip-version-check --no-cache-dir numpy==1.26.4
+          python -m pip install --no-input --disable-pip-version-check --no-cache-dir omegaconf==2.3.0
       - name: Fetch immutable Semantify source revision, no setup.py
         run: |
           set -euo pipefail
