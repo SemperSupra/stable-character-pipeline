@@ -40,7 +40,7 @@ jobs:
           receipt={"schema":"scp.visualqa.actor-aor-offline-preflight.v1",
                    "platform":platform.system(),
                    "scope":"MALICIOUS_CONTROLS_IN_EPHEMERAL_LOCAL_GIT_ONLY",
-                   "test_reps":10,"all_tests_completed_successfully":True,
+                   "test_reps":12,"all_tests_completed_successfully":True,
                    "remote_network_used":False,
                    "real_user_git_modified":False,
                    "actor_motion_changed":False,
@@ -140,7 +140,7 @@ jobs:
           contract=json.loads((d/"contract.json").read_text())
           for x in (linux,mac):
               assert x["all_tests_completed_successfully"] is True
-              assert x["test_reps"]==10
+              assert x["test_reps"]==12
               assert x["remote_network_used"] is False
               assert x["real_user_git_modified"] is False
               assert x["actor_motion_changed"] is False
@@ -149,7 +149,7 @@ jobs:
           assert contract["work_packets"]==5
           assert contract["no_auto_remote_mutations"] is True
           result={"schema":"scp.visualqa.actor-aor-independent-joined.v1",
-                  "linux_offline_tests":10,"macos_offline_tests":10,
+                  "linux_offline_tests":12,"macos_offline_tests":12,
                   "separate_contract_falsifier":"PASS",
                   "actor_local_state_verified":False,
                   "actor_branch_pushed":False,
