@@ -1,0 +1,68 @@
+name: video-physics-portable-native-research
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_physics_bakeoff/**'
+      - '.github/workflows/video-physics-portable.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-physics-portable-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-portability:
+    name: Source-only Go CLI ${{ matrix.target }} native smoke
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, target: linux-amd64, ext: '' }
+          - { runner: windows-2022, target: windows-amd64, ext: '.exe' }
+          - { runner: macos-15, target: macos-arm64, ext: '' }
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    env:
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      GOWORK: 'off'
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.23.x'
+          cache: false
+      - name: Offline native unit tests, build, execution, and binary hash
+        run: |
+          set -euo pipefail
+          go version
+          go test ./...
+          mkdir -p dist
+          go build -trimpath -ldflags="-s -w" -o "dist/bakeoff${{ matrix.ext }}" ./cmd/bakeoff
+          cat >fixtures/native-smoke.json <<'JSON'
+          {"schema":"scp.video-bakeoff-cases.v1","cases":[
+            {"id":"native-clean","kind":"motion","path":"clean.json","expect":"PASS"},
+            {"id":"native-skate","kind":"motion","path":"skate.json","expect":"FAIL"},
+            {"id":"native-uncertain","kind":"motion","path":"unknown.json","expect":"UNKNOWN"},
+            {"id":"native-unlabelled","kind":"motion","path":"clean.json"}
+          ]}
+          JSON
+          "./dist/bakeoff${{ matrix.ext }}" -manifest fixtures/native-smoke.json -out dist/smoke-receipt.json
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "dist/bakeoff${{ matrix.ext }}" >dist/binary-sha256.txt
+          else
+            shasum -a 256 "dist/bakeoff${{ matrix.ext }}" >dist/binary-sha256.txt
+          fi
+          printf 'platform=%s\nvideo_ffmpeg_runtime=NOT_QUALIFIED_BY_THIS_JOB\nno_oracle=DIAGNOSTIC_ONLY\n' "${{ matrix.target }}" >dist/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-video-bakeoff-native-${{ matrix.target }}
+          path: qualification/video_physics_bakeoff/dist/
+          retention-days: 7
+          if-no-files-found: error
