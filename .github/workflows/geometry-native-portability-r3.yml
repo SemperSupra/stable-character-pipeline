@@ -1,0 +1,58 @@
+name: R3 Native SDF Portability (public disposable)
+run-name: R3 portable clean consumer ${{ github.ref_name }}
+
+on:
+  push:
+    branches: [research/geometry-sdfx-native-ports-r3-20261112]
+    paths:
+      - 'qualification/geometry-donors/r3-ports/**'
+      - '.github/workflows/geometry-native-portability-r3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geometry-native-r3-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - runner: windows-2025
+            target: windows-amd64
+          - runner: windows-11-arm
+            target: windows-arm64
+          - runner: macos-26
+            target: macos-arm64
+          - runner: macos-26-intel
+            target: macos-amd64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.25.0'
+          cache: false
+      - name: Run native Go CPU SDF from exact source against independent oracle
+        shell: pwsh
+        run: |
+          ./qualification/geometry-donors/r3-ports/run.ps1 *>&1 | Tee-Object -FilePath qualification/geometry-donors/r3-ports/run.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain native execution receipt and failure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: geometry-portability-r3-${{ matrix.target }}-${{ github.run_attempt }}
+          path: |
+            qualification/geometry-donors/r3-ports/results/
+            qualification/geometry-donors/r3-ports/run.log
+          if-no-files-found: warn
+          retention-days: 7
