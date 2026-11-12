@@ -18,7 +18,7 @@ p=argparse.ArgumentParser()
 p.add_argument("--assets",type=Path,required=True)
 p.add_argument("--output",type=Path,required=True)
 p.add_argument("--receipt",type=Path,required=True)
-p.add_argument("--eye-material",choices=["PROCEDURAL_EYES","MAKESKIN"],default="PROCEDURAL_EYES")
+p.add_argument("--eye-material",choices=["PROCEDURAL_EYES","MAKESKIN"],default="MAKESKIN")
 a=p.parse_args(sys.argv[sys.argv.index("--")+1:])
 assert a.assets.is_dir(),"Asset directory not present"
 a.output.mkdir(parents=True,exist_ok=True)

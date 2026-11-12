@@ -1,0 +1,44 @@
+name: R014 eye-shader evidence replay without 281MB source reacquisition
+on:
+  push:
+    branches: [research/r014-eye-audit-replay-v1]
+    paths: [r014/**, .github/workflows/r014-eye-shader-replay.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run fail-closed log parser negative controls
+        run: python3 r014/mpfb_shader_audit.py --self-test
+      - name: Retrieve original GHA research artifacts only, no publisher source transfer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for mode in MAKESKIN PROCEDURAL_EYES; do
+            mkdir -p "$RUNNER_TEMP/r014-eye/$mode"
+            gh run download 43207664661 --repo "$GITHUB_REPOSITORY" \
+              --name "r014-mpfb-eye-${mode}-lookdev" \
+              --dir "$RUNNER_TEMP/r014-eye/$mode"
+            test -s "$RUNNER_TEMP/r014-eye/$mode/eye_shader.log"
+            test -s "$RUNNER_TEMP/r014-eye/$mode/generation.json"
+          done
+      - name: Enforce actual mode-specific node compatibility decisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m r014.replay_eye_shader_bakeoff \
+            --artifact-dir "$RUNNER_TEMP/r014-eye" \
+            --out "$RUNNER_TEMP/r014-eye/eye_shader_decision.json"
+          test -s "$RUNNER_TEMP/r014-eye/eye_shader_decision.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-eye-audit-mode-decision-only
+          path: ${{ runner.temp }}/r014-eye/eye_shader_decision.json
+          retention-days: 7
