@@ -10,6 +10,7 @@ import importlib
 import json
 import math
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -253,11 +254,26 @@ def main():
     # Keep the actual MPEG4 file, not a guessed destination path.
     movie_prefix="R014_morph_shard"+str(arg.shard)+"_actual_rig_motion"
     candidates=sorted(arg.out.glob(movie_prefix+"*.mp4"))
-    assert len(candidates)==1 and candidates[0].stat().st_size>5000, (
-        "no unique actual H264 generated", [p.name for p in candidates])
+    assert len(candidates)==1 and candidates[0].stat().st_size>512, (
+        "no unique nonempty H264 produced",[(p.name,p.stat().st_size) for p in candidates])
     movie=candidates[0]
+    # H.264 neutral test footage is highly compressible, so an arbitrary 5KB
+    # floor produces false failures. Decode/codec metadata is authoritative.
+    probe=subprocess.run(
+        ["ffprobe","-v","error","-select_streams","v:0",
+         "-show_entries","stream=codec_name,width,height,nb_frames",
+         "-show_entries","format=duration","-of","json",str(movie)],
+        capture_output=True,text=True,timeout=25,check=True)
+    stream_data=json.loads(probe.stdout)
+    video=stream_data["streams"][0]
+    assert video["codec_name"]=="h264",video
+    assert (int(video["width"]),int(video["height"]))==(256,340),video
+    assert int(video.get("nb_frames",0))==16,video
+    duration=float(stream_data["format"]["duration"])
+    assert 1.0<duration<1.6,duration
     report["rig_motion_video"]={"filename":movie.name,"sha256":sha(movie),
         "bytes":movie.stat().st_size,"rendered_frames":16,
+        "ffprobe":stream_data,
         "motion_kind":"actual skinned upper arm and leg joints; no locomotion"}
     report["status"]="PASS_NATIVE_MORPH_RIG_ANIMATION_EXPORT_AND_STILLS_ONLY"
     arg.receipt.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
