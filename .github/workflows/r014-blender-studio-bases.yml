@@ -48,6 +48,18 @@ jobs:
             --receipt "$RUNNER_TEMP/r014-blenderstudio/evidence/inventory.json"
           test -s "$RUNNER_TEMP/r014-blenderstudio/evidence/inventory.json"
           test -s "$RUNNER_TEMP/r014-blenderstudio/evidence/R014_BlenderStudio_CC0_realistic_sculpt_bases.blend"
+      - name: Independently reopen publisher sculpt objects and render neutral survey
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-blenderstudio/evidence/R014_BlenderStudio_CC0_realistic_sculpt_bases.blend" \
+            --python-exit-code 3 --python r014/blender_studio_render_qa.py -- \
+            --blend "$RUNNER_TEMP/r014-blenderstudio/evidence/R014_BlenderStudio_CC0_realistic_sculpt_bases.blend" \
+            --out "$RUNNER_TEMP/r014-blenderstudio/evidence" \
+            --receipt "$RUNNER_TEMP/r014-blenderstudio/evidence/survey.json"
+          test -s "$RUNNER_TEMP/r014-blenderstudio/evidence/survey.json"
+          test -s "$RUNNER_TEMP/r014-blenderstudio/evidence/sculpt_pair_front.png"
+          test -s "$RUNNER_TEMP/r014-blenderstudio/evidence/R014_BlenderStudio_realistic_bases_neutral_survey.blend"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
