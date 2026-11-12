@@ -24,55 +24,55 @@ const (
 )
 
 type Source struct {
-	ID string \`json:"id"\`
-	Dataset string \`json:"dataset"\`
-	Take string \`json:"take"\`
-	Kind string \`json:"kind"\`
-	PublisherURL string \`json:"publisher_url"\`
-	TermsURL string \`json:"terms_url"\`
-	OriginalSHA256 string \`json:"original_sha256"\`
-	SkeletonSHA256 string \`json:"skeleton_sha256"\`
-	OwnerAdmissionRef string \`json:"owner_admission_ref"\`
-	LicenseClassification string \`json:"license_classification"\`
-	Venue string \`json:"venue"\`
-	SourceFPS float64 \`json:"source_fps"\`
-	SourceFPSObserved bool \`json:"source_fps_observed"\`
-	SourceUnit string \`json:"source_unit"\`
-	SourceUnitObserved bool \`json:"source_unit_observed"\`
-	RawCaptureVerified bool \`json:"raw_capture_verified"\`
-	ObservedJointChannels []string \`json:"observed_joint_channels"\`
-	ObservedContact bool \`json:"observed_ground_contact"\`
-	EstimatedContact bool \`json:"estimated_ground_contact"\`
-	Provenance string \`json:"provenance"\`
-	ParentSchema string \`json:"parent_schema"\`
-	Notes string \`json:"notes"\`
+	ID string `json:"id"`
+	Dataset string `json:"dataset"`
+	Take string `json:"take"`
+	Kind string `json:"kind"`
+	PublisherURL string `json:"publisher_url"`
+	TermsURL string `json:"terms_url"`
+	OriginalSHA256 string `json:"original_sha256"`
+	SkeletonSHA256 string `json:"skeleton_sha256"`
+	OwnerAdmissionRef string `json:"owner_admission_ref"`
+	LicenseClassification string `json:"license_classification"`
+	Venue string `json:"venue"`
+	SourceFPS float64 `json:"source_fps"`
+	SourceFPSObserved bool `json:"source_fps_observed"`
+	SourceUnit string `json:"source_unit"`
+	SourceUnitObserved bool `json:"source_unit_observed"`
+	RawCaptureVerified bool `json:"raw_capture_verified"`
+	ObservedJointChannels []string `json:"observed_joint_channels"`
+	ObservedContact bool `json:"observed_ground_contact"`
+	EstimatedContact bool `json:"estimated_ground_contact"`
+	Provenance string `json:"provenance"`
+	ParentSchema string `json:"parent_schema"`
+	Notes string `json:"notes"`
 }
 
 type Packet struct {
-	Schema string \`json:"schema"\`
-	UpstreamAuthorities []string \`json:"upstream_authorities"\`
-	R014Target string \`json:"r014_target"\`
-	Sources []Source \`json:"sources"\`
+	Schema string `json:"schema"`
+	UpstreamAuthorities []string `json:"upstream_authorities"`
+	R014Target string `json:"r014_target"`
+	Sources []Source `json:"sources"`
 }
 
 type Disposition struct {
-	ID string \`json:"id"\`
-	Status string \`json:"status"\`
-	AllowedRoles []string \`json:"allowed_roles"\`
-	RefusedRoles []string \`json:"refused_roles"\`
-	BlockingReasons []string \`json:"blocking_reasons"\`
-	RequiresPrivateCompute bool \`json:"requires_private_compute"\`
+	ID string `json:"id"`
+	Status string `json:"status"`
+	AllowedRoles []string `json:"allowed_roles"`
+	RefusedRoles []string `json:"refused_roles"`
+	BlockingReasons []string `json:"blocking_reasons"`
+	RequiresPrivateCompute bool `json:"requires_private_compute"`
 }
 
 type Receipt struct {
-	Schema string \`json:"schema"\`
-	Status string \`json:"status"\`
-	ManifestSHA256 string \`json:"manifest_sha256"\`
-	R014Model string \`json:"r014_model"\`
-	R014ReleaseStatus string \`json:"r014_release_status"\`
-	UpstreamReferences []string \`json:"upstream_references"\`
-	SourceDispositions []Disposition \`json:"source_dispositions"\`
-	Limitations []string \`json:"limitations"\`
+	Schema string `json:"schema"`
+	Status string `json:"status"`
+	ManifestSHA256 string `json:"manifest_sha256"`
+	R014Model string `json:"r014_model"`
+	R014ReleaseStatus string `json:"r014_release_status"`
+	UpstreamReferences []string `json:"upstream_references"`
+	SourceDispositions []Disposition `json:"source_dispositions"`
+	Limitations []string `json:"limitations"`
 }
 
 var requiredOwners = []string{
