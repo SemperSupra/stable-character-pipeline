@@ -34,17 +34,16 @@ with zipfile.ZipFile(args.archive) as z:
         with bpy.data.libraries.load(str(path),link=False) as (src,dst):
             all_object_names=list(src.objects)
             selections=[n for n in all_object_names if
-                        "realistic" in n.lower() and
-                        (("male" in n.lower() and "female" not in n.lower()) or
-                         ("female" in n.lower()))]
+                        n.lower().startswith("geo-body_male_realistic") or
+                        n.lower().startswith("geo-body_female_realistic")]
             assert any("female" in n.lower() for n in selections),("female realistic base missing",selections)
             assert any("male" in n.lower() and "female" not in n.lower() for n in selections),("male realistic base missing",selections)
             dst.objects=selections
         objects=[o for o in dst.objects if o is not None]
         for obj in objects:
             bpy.context.collection.objects.link(obj)
-        bodies=[o for o in objects if o.type=="MESH"]
-        assert len(bodies)>=2,"realistic assets not renderable"
+        bodies=[o for o in objects if o.type=="MESH" and ".eye." not in o.name.lower()]
+        assert len(bodies)==2,("must identify exactly male/female main sculpt meshes", [o.name for o in bodies])
         inv=[]
         for obj in bodies:
             morph=obj.data.shape_keys
@@ -75,6 +74,8 @@ with zipfile.ZipFile(args.archive) as z:
             "blend_entries":blend_paths,
             "all_library_object_names":all_object_names,
             "selected_realistic_bases":inv,
+            "selected_all_objects":[o.name for o in objects],
+            "selected_eyes":[o.name for o in objects if ".eye." in o.name.lower()],
             "native_research_blend":target.name,
             "promotion_state":"HOLD_UNTIL_PINNED_SHA_REPETITION_AND_VISUAL_ANATOMY_REVIEW",
             "limits":["Sculpt bases only; no demonstrated full rig, motion or cloth/tissue physics",
