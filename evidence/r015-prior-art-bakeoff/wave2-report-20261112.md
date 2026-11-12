@@ -39,6 +39,19 @@ Directional sanity checks on the **stylized controls only**: the tall/narrow sil
 - **O&M:** immutable SHA-pinned weight download policy, bounded source/asset sizes, safe weights-only deserialization, no `--no-check-certificate`, refcounted cache inside disposable worker only, CPU/GPU admission and max wall clock, units and clamp checks, descriptor order/version monitoring, background/presentation drift; monitor full image scorer latency separately from tiny neural mapper forward latency. Capture cold-start and network bytes before deployment sizing; no use of public runners for private media.
 - **Next gate:** quantitative background/camera/garment/texture robustness, actual licensed SMPL-X mesh measurement on common adult description/semantic fixtures, and full native Llama/LoRA comparator if accessible legally. Only after this existing-technique bakeoff may the independently owned MPFB/MHR adaptation be admitted.
 
+## Original CLIP background sensitivity — completed
+
+[Actual original CLIP/mapper background probe 43278754584](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43278754584) successfully scored six procedural adult silhouettes, three original neutral-background figures plus three **same-geometry**, warm-blue-background variants. Retained precise aggregate JSON `43278754584-clip-background-robustness.json`; no image/weight blobs redistributed.
+
+- Tall/narrow vs short/broad on the original background changed the inferred ten-beta vector by **L2=1.755232**.
+- **Same silhouette** with only the background changed caused ten-beta L2 deltas **[0.540358, 0.242561, 0.397386]**; mean background-vs-selected-shape-contrast ratio **0.22415** (22.4%).
+- Raw CLIP eight-descriptor score L2 difference between base tall vs broad was 3.585924; same-silhouette background deltas **[0.951266, 0.665216, 1.323348]**, average ratio **0.273275**.
+- Interpretation is restricted to *stylized programmatic controls and one selected shape contrast*. There is no real human-domain calibration, no assertion that 0.224 is an error rate or that the mapper fails production. It **does** refute an assumption that background alone never shifts the output: image normalization and input-domain drift need independent confidence/abstention controls.
+
+## Follow-up execution gate
+
+[Warm native CLIP serial-vs-batched O&M run 43279459776](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43279459776) checks image-text logit equivalence and measured CPU speed/memory on the *same six* controls. This run is independent of published pretrained BodyShapeGPT weights and native SMPL-X licensing. See canonical job receipt for outcome; do not infer from queued status.
+
 ## Repository and DLE hygiene
 
 PR [#440](https://github.com/SemperSupra/stable-character-pipeline/pull/440) is **DRAFT**. Artifacts are bounded public JSON text receipts committed in a dedicated research evidence folder. Public workflow jobs have `permissions: contents: read`, action SHA pins, disposable `$RUNNER_TEMP` installs and nonpersistent checkout credentials. Original model archives, CLIP weights, third-party restricted geometry and private CPE concepts are **not in Git**. All models/physical quality acceptance gates remain held.
