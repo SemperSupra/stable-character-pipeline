@@ -1,0 +1,99 @@
+name: R014 Real Evaluated-Mesh Morphology Coverage Oracle
+on:
+  push:
+    branches: [research/r014-six-morph-evaluated-geometry-audit-20261112]
+    paths:
+      - r014/six_morph_evaluated_geometry.py
+      - .github/workflows/r014-six-morph-geometry-oracle.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-six-real-morph-geometry-oracle
+  cancel-in-progress: true
+jobs:
+  original-source-mesh-shards:
+    name: Actual native Blender evaluated geometry shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1]
+    steps:
+      - name: Research-only checkout with no persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Compile before fetching binaries
+        run: python3 -m compileall -q r014/six_morph_evaluated_geometry.py
+      - name: Retrieve exact original public native source without any private data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-evaluated/source" "$RUNNER_TEMP/r014-evaluated/out"
+          gh run download 43286258004 --repo "$GITHUB_REPOSITORY" \
+            --name "r014-real-six-morph-shard-$SHARD" \
+            --dir "$RUNNER_TEMP/r014-evaluated/source"
+          python3 - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          shard=int(os.environ["SHARD"])
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-evaluated/source"
+          row=json.loads((root/f"generation_{shard}.json").read_text())
+          assert row["status"]=="PASS_NATIVE_MORPH_RIG_ANIMATION_EXPORT_AND_STILLS_ONLY"
+          assert row["shard"]==shard
+          assert row["mpfb_source_revision"]=="6ff1eb358f6c1959ced77e79e6dd2406d9a71f49"
+          assert len(row["characters"])==3
+          file=root/row["native_blend"]["filename"]
+          assert file.stat().st_size==row["native_blend"]["bytes"]
+          digest=hashlib.sha256(file.read_bytes()).hexdigest()
+          assert digest==row["native_blend"]["sha256"],"SOURCE_SAVED_BLENDER_HASH_DRIFT"
+          print("PASS_PINNED_REAL_NATIVE_SOURCE",shard,digest)
+          PY
+      - name: Fetch verified official original Blender into disposable runner only
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-evaluated"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          digest="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#digest}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$digest" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-evaluated" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Independently reopen actual mesh and falsify non-distinct morphology
+        env:
+          SHARD: ${{ matrix.shard }}
+          BLENDER_USER_CONFIG: /tmp/r014-evaluated-config
+          BLENDER_USER_SCRIPTS: /tmp/r014-evaluated-scripts
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-evaluated/source/R014_ThreeAdultMorphs_Shard$SHARD.blend" \
+             --python-exit-code 4 --python r014/six_morph_evaluated_geometry.py -- \
+             --blend "$RUNNER_TEMP/r014-evaluated/source/R014_ThreeAdultMorphs_Shard$SHARD.blend" \
+             --generation "$RUNNER_TEMP/r014-evaluated/source/generation_$SHARD.json" \
+             --out "$RUNNER_TEMP/r014-evaluated/out/evaluated_morphology_$SHARD.json"
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-evaluated/out"/f"evaluated_morphology_{os.environ['SHARD']}.json"
+          j=json.loads(p.read_text())
+          assert j["status"]=="PASS_ACTUAL_EVALUATED_MORPHOLOGY_DISTINCT_STRUCTURAL_ONLY"
+          assert len(j["pairwise"])==3 and len(j["actors"])==3
+          print("PASS_DISTINCT_NATIVE_EVALUATED_MESHES",j["shard"])
+          PY
+      - name: Upload only aggregate numeric mesh evidence, not binary source
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-evaluated-mesh-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/r014-evaluated/out/*.json
+          if-no-files-found: warn
+          retention-days: 7
