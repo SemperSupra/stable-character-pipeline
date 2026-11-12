@@ -153,7 +153,7 @@ ld=bpy.data.lights.new("R014FaceKey","AREA")
 lamp=bpy.data.objects.new("R014FaceKey",ld)
 bpy.context.collection.objects.link(lamp)
 lamp.location=(1,-1.5,zmax+.35);ld.energy=350;ld.size=2
-camera_data=bpy.data.cameras.new("R014FaceCloseup","PERSP")
+camera_data=bpy.data.cameras.new("R014FaceCloseup")
 camera=bpy.data.objects.new("R014FaceCloseup",camera_data)
 bpy.context.collection.objects.link(camera)
 scene.camera=camera
