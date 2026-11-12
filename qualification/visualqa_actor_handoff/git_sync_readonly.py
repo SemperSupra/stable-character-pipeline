@@ -19,6 +19,7 @@ REPO = "SemperSupra/stable-character-pipeline"
 BASE_REF = "refs/remotes/origin/qualification/visualqa-nine-fix-original-corpus-r1-20261112"
 BASE_SHA = "d470ab9566d479bf3ca3b53cf63be5ea75217b57"
 AOR_PREFIX = "workcell/visualqa-male-jump-slippers"
+ACTOR_REF = "refs/remotes/origin/workcell/visualqa-male-jump-slippers-r1-20261112"
 APPROVED_SOURCE = "qualification/expanded_motion_corpus/build_motion_batches.py"
 APPROVED_PREFIX = ("qualification/visualqa_slipper/", ".github/workflows/visualqa-slipper-")
 
@@ -68,6 +69,21 @@ def snapshot(cwd:Path,expected_sha:str=BASE_SHA,allow_local_test_origin:bool=Fal
         if relation in ("AHEAD_OF_BASE","AT_BASE"):
             _,lines=git(cwd,"diff","--name-only",base,head)
             changed=[p for p in lines.splitlines() if p]
+    # Check the actor's dedicated remote-tracking ref separately. This does
+    # not establish that the ref is current: the caller MUST explicitly fetch.
+    ar_rc,ar_sha=git(cwd,"rev-parse","--verify",ACTOR_REF+"^{commit}",ok=False)
+    if ar_rc or not re.fullmatch("[0-9a-f]{40}",ar_sha):
+        ar_sha=None
+    if ar_sha is None:
+        actor_remote_relation="NO_REMOTE_ACTOR_BRANCH_OBSERVED"
+    elif head==ar_sha:
+        actor_remote_relation="AT_REMOTE_ACTOR_HEAD"
+    elif git(cwd,"merge-base","--is-ancestor",ar_sha,head,ok=False)[0]==0:
+        actor_remote_relation="LOCAL_AHEAD_OF_PUBLISHED_ACTOR"
+    elif git(cwd,"merge-base","--is-ancestor",head,ar_sha,ok=False)[0]==0:
+        actor_remote_relation="REMOTE_ACTOR_AHEAD"
+    else:
+        actor_remote_relation="DIVERGED_ACTOR_BRANCHES"
     # Local untracked/unstaged source stays preserved, never parsed as a file
     # name decision; only counts and state are published to prevent secrets.
     reasons=[]
@@ -80,6 +96,10 @@ def snapshot(cwd:Path,expected_sha:str=BASE_SHA,allow_local_test_origin:bool=Fal
     if relation=="DIVERGED_FROM_BASE":reasons.append("DIVERGED_HISTORY_NO_AUTOMATIC_REBASE")
     if relation=="BEHIND_BASE" and branch.startswith(AOR_PREFIX):
         reasons.append("OWNED_BRANCH_BEHIND_BASE_RECONCILE_FIRST")
+    if ar_sha and not branch.startswith(AOR_PREFIX):
+        reasons.append("PUBLISHED_ACTOR_BRANCH_EXISTS_NO_DUPLICATE_BRANCH")
+    if branch.startswith(AOR_PREFIX) and actor_remote_relation in ("REMOTE_ACTOR_AHEAD","DIVERGED_ACTOR_BRANCHES"):
+        reasons.append("ACTOR_REMOTE_HISTORY_MUST_BE_RECONCILED_WITHOUT_FORCE")
     offscope=[p for p in changed if not owned_path(p)]
     if offscope:reasons.append("OFF_AOR_COMMIT_PATHS_REQUIRE_REVIEW")
     if branch.startswith(AOR_PREFIX):
@@ -99,6 +119,9 @@ def snapshot(cwd:Path,expected_sha:str=BASE_SHA,allow_local_test_origin:bool=Fal
       "origin_kind":origin_type,"working_tree_clean":not bool(dirty),
       "uncommitted_entry_count":len([x for x in dirty.splitlines() if x]),
       "baseline_head_relation":relation,
+      "actor_remote_tracking_ref":ACTOR_REF,
+      "actor_remote_tracking_sha":ar_sha,
+      "local_to_actor_remote_relation":actor_remote_relation,
       "owned_committed_changed_paths":changed,
       "off_aor_committed_paths":offscope,
       "blocking_conditions":reasons,
