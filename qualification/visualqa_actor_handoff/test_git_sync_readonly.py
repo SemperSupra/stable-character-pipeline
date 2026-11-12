@@ -140,5 +140,31 @@ class GitActorAORTests(unittest.TestCase):
         self.assertIn("DIVERGED_HISTORY_NO_AUTOMATIC_REBASE",got["blocking_conditions"])
         self.assertTrue((p/"local.txt").exists())
 
+    def test_existing_published_actor_branch_blocks_duplicate_new_branch(self):
+        git(self.local,"push","origin",
+            "HEAD:refs/heads/workcell/visualqa-male-jump-slippers-r1-20261112")
+        git(self.local,"fetch","origin","--no-tags")
+        got=snapshot(self.local,expected_sha=self.base,allow_local_test_origin=True)
+        self.assertEqual(got["actor_remote_tracking_sha"],self.base)
+        self.assertEqual(got["local_to_actor_remote_relation"],"AT_REMOTE_ACTOR_HEAD")
+        self.assertIn("PUBLISHED_ACTOR_BRANCH_EXISTS_NO_DUPLICATE_BRANCH",got["blocking_conditions"])
+        self.assertTrue(got["next_non_destructive_action"].startswith("READ_ONLY"))
+
+    def test_local_actor_ahead_of_published_branch_is_preserved(self):
+        git(self.local,"switch","-c","workcell/visualqa-male-jump-slippers-r1-20261112")
+        git(self.local,"push","origin",
+            "HEAD:refs/heads/workcell/visualqa-male-jump-slippers-r1-20261112")
+        git(self.local,"fetch","origin","--no-tags")
+        d=self.local/"qualification"/"visualqa_slipper"
+        d.mkdir(parents=True)
+        (d/"progress.txt").write_text("locally new not yet published")
+        git(self.local,"add","qualification/visualqa_slipper/progress.txt")
+        git(self.local,"commit","-m","actor: unpublished progress")
+        got=snapshot(self.local,expected_sha=self.base,allow_local_test_origin=True)
+        self.assertEqual(got["local_to_actor_remote_relation"],"LOCAL_AHEAD_OF_PUBLISHED_ACTOR")
+        self.assertEqual(got["blocking_conditions"],[])
+        self.assertEqual(got["next_non_destructive_action"],"CONTINUE_OWNED_BRANCH_BOUNDED_PACKET")
+        self.assertTrue((d/"progress.txt").exists())
+
 if __name__=="__main__":
     unittest.main()
