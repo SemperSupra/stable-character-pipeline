@@ -5,7 +5,7 @@ A clean log is a *syntax/runtime* signal, not evidence of accurate eye optics.
 import argparse,json,re,sys,unittest
 from pathlib import Path
 
-NODE_PATTERN=re.compile(r"\[ERROR\]\s+services\.nodeservice\s*:")
+NODE_PATTERN=re.compile(r"\[ERROR\]\s+services\.nodeservice\b[^:\n]*:")
 def audit(log,mode):
     errors=[line.strip() for line in log.splitlines() if NODE_PATTERN.search(line)]
     severe=[line.strip() for line in log.splitlines() if
