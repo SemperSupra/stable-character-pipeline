@@ -36,3 +36,30 @@ jobs:
           path: synthetic-oci-evidence/
           if-no-files-found: warn
           retention-days: 3
+
+  synthetic-oci-fresh-worker-rebuild:
+    name: Fresh public runner rebuild and evidence reimport
+    needs: synthetic-disposable-oci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Restore producer's uploaded synthetic receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: r009-public-synthetic-disposable-oci
+          path: synthetic-oci-evidence/
+      - name: Rebuild OCI from a fresh worker and verify evidence
+        env:
+          R009_PHASE: consumer
+        run: bash qualification/r009/public_disposable_oci_smoke.sh
+      - name: Upload consumer verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r009-public-synthetic-oci-fresh-worker
+          path: synthetic-oci-evidence/consumer-receipt.json
+          if-no-files-found: warn
+          retention-days: 3
