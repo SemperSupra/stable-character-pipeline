@@ -35,11 +35,12 @@ receipt={"status":"BLOCKED","blender":bpy.app.version_string,
          "source_license":"MPFB makehuman_system_assets_cc0, official catalog, per-asset recheck required",
          "characters":[]}
 for sex,gender,x,skin,hair in (
-    ("female",1.0,-.85,"young_caucasian_female","long01"),
-    ("male",0.0,.85,"young_caucasian_male","short01")
+    ("female",0.0,-.85,"young_caucasian_female","long01"),
+    ("male",1.0,.85,"young_caucasian_male","short01")
 ):
     body=Human.create_human()
     Props.set_value("gender",gender,entity_reference=body)
+    Props.set_value("age",0.65,entity_reference=body)
     Target.reapply_macro_details(body)
     rig=Human.add_builtin_rig(body,"default")
     rig.location.x=x
@@ -69,7 +70,8 @@ for sex,gender,x,skin,hair in (
     assert body.active_material is not None,sex+" skin material missing"
     assert len(added)==6
     receipt["characters"].append({
-      "sex":sex,"body_vertices":len(body.data.vertices),
+      "sex":sex,"source_gender_macro":gender,"source_age_macro":0.65,
+      "body_vertices":len(body.data.vertices),
       "bones":len(rig.data.bones),"skin_material":body.active_material.name,
       "part_assets":added
     })
