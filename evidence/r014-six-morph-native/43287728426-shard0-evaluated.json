@@ -1,0 +1,425 @@
+{
+  "characters": [
+    {
+      "active_shape_key_count": 30,
+      "active_shape_key_weights": [
+        {
+          "name_sha": "56dcad6d2ba69962",
+          "weight": 0.230664
+        },
+        {
+          "name_sha": "4c10cdf7e50f6f5e",
+          "weight": 0.230664
+        },
+        {
+          "name_sha": "298182433b1b83a9",
+          "weight": 0.230664
+        },
+        {
+          "name_sha": "d6e99a2c9ab0cea8",
+          "weight": 0.299945
+        },
+        {
+          "name_sha": "e26d75e15fae7efc",
+          "weight": 0.096102
+        },
+        {
+          "name_sha": "cf614f3eda6f5a13",
+          "weight": 0.096102
+        },
+        {
+          "name_sha": "863e37733062f5a0",
+          "weight": 0.096102
+        },
+        {
+          "name_sha": "764ef57d6ec2531b",
+          "weight": 0.080604
+        },
+        {
+          "name_sha": "00217159eda7d752",
+          "weight": 0.124966
+        },
+        {
+          "name_sha": "f6e3b1928e15816b",
+          "weight": 0.193467
+        },
+        {
+          "name_sha": "144b54081152bac8",
+          "weight": 0.033582
+        },
+        {
+          "name_sha": "72420fb0530c4e7c",
+          "weight": 0.052065
+        },
+        {
+          "name_sha": "c5cfd435f8269fb4",
+          "weight": 0.080604
+        },
+        {
+          "name_sha": "6b28677c382ca4ec",
+          "weight": 0.124966
+        },
+        {
+          "name_sha": "a2065633ffaa6b1a",
+          "weight": 0.03869
+        },
+        {
+          "name_sha": "212767b12ed6c02f",
+          "weight": 0.059984
+        },
+        {
+          "name_sha": "491c6f7e5c816624",
+          "weight": 0.092864
+        },
+        {
+          "name_sha": "29d4480016396d66",
+          "weight": 0.143974
+        },
+        {
+          "name_sha": "c321a77d389ec5e9",
+          "weight": 0.016119
+        },
+        {
+          "name_sha": "eca8ac4109f558d2",
+          "weight": 0.024991
+        },
+        {
+          "name_sha": "bbb709a739aada04",
+          "weight": 0.03869
+        },
+        {
+          "name_sha": "af379ef8ed88f494",
+          "weight": 0.059984
+        },
+        {
+          "name_sha": "bcd7a029cf455d78",
+          "weight": 0.034765
+        },
+        {
+          "name_sha": "ff8d7403f509aa22",
+          "weight": 0.053898
+        },
+        {
+          "name_sha": "bb2e08ce7668a263",
+          "weight": 0.083442
+        },
+        {
+          "name_sha": "c99f91d52fe944aa",
+          "weight": 0.129366
+        },
+        {
+          "name_sha": "844d6a6e6953d9bd",
+          "weight": 0.014484
+        },
+        {
+          "name_sha": "a7404f3c39efd4e7",
+          "weight": 0.022456
+        },
+        {
+          "name_sha": "2359757d78b8434c",
+          "weight": 0.034765
+        },
+        {
+          "name_sha": "186970c320656b26",
+          "weight": 0.053898
+        }
+      ],
+      "evaluated_extent_xyz_blender_units": [
+        0.8860285,
+        0.3591643,
+        1.4103231
+      ],
+      "evaluated_rest_pose_sha256": "53c204433fa6afeb62373f5adff5aaf8c08e8dbb1ed10e2dcd47ddc6c81aa795",
+      "name": "feminine_short_light",
+      "raw_basis_extent_xyz_blender_units": [
+        0.9925402,
+        0.4230101,
+        1.6658903
+      ],
+      "raw_basis_sha256": "c8f9b8878ad197d5ad0f91bc49d078cf2345cb94f8cad82151563d4ea3a28e15",
+      "source_macros": {
+        "gender": 0,
+        "height": 0.25,
+        "muscle": 0.35,
+        "name": "feminine_short_light",
+        "proportions": 0.28,
+        "weight": 0.3
+      },
+      "vertices": 13380
+    },
+    {
+      "active_shape_key_count": 29,
+      "active_shape_key_weights": [
+        {
+          "name_sha": "56dcad6d2ba69962",
+          "weight": 0.230664
+        },
+        {
+          "name_sha": "4c10cdf7e50f6f5e",
+          "weight": 0.230664
+        },
+        {
+          "name_sha": "298182433b1b83a9",
+          "weight": 0.230664
+        },
+        {
+          "name_sha": "d6e99a2c9ab0cea8",
+          "weight": 0.241065
+        },
+        {
+          "name_sha": "e26d75e15fae7efc",
+          "weight": 0.096102
+        },
+        {
+          "name_sha": "cf614f3eda6f5a13",
+          "weight": 0.096102
+        },
+        {
+          "name_sha": "863e37733062f5a0",
+          "weight": 0.096102
+        },
+        {
+          "name_sha": "edb8b6c2705840e9",
+          "weight": 0.074176
+        },
+        {
+          "name_sha": "95910012c1208a4d",
+          "weight": 0.293447
+        },
+        {
+          "name_sha": "637f5c89720603a2",
+          "weight": 0.090294
+        },
+        {
+          "name_sha": "6b28677c382ca4ec",
+          "weight": 0.100435
+        },
+        {
+          "name_sha": "1e0c8b6b9681c461",
+          "weight": 0.030904
+        },
+        {
+          "name_sha": "92870bf993df28ba",
+          "weight": 0.122259
+        },
+        {
+          "name_sha": "e3a3c37017815a83",
+          "weight": 0.037619
+        },
+        {
+          "name_sha": "cd068ec3488c3750",
+          "weight": 0.130175
+        },
+        {
+          "name_sha": "5205898641d4fcf5",
+          "weight": 0.040055
+        },
+        {
+          "name_sha": "684f54ea96b43aa8",
+          "weight": 0.158461
+        },
+        {
+          "name_sha": "3b740f253abb7524",
+          "weight": 0.048759
+        },
+        {
+          "name_sha": "b253c0ba001a5495",
+          "weight": 0.054235
+        },
+        {
+          "name_sha": "6ca6bd4cd1b09dda",
+          "weight": 0.016688
+        },
+        {
+          "name_sha": "b36fd47a31d0a4a8",
+          "weight": 0.06602
+        },
+        {
+          "name_sha": "2de232a60a4df9b6",
+          "weight": 0.020314
+        },
+        {
+          "name_sha": "ce5930566213947e",
+          "weight": 0.070897
+        },
+        {
+          "name_sha": "199f939eaa899a85",
+          "weight": 0.021815
+        },
+        {
+          "name_sha": "495093e7da2f30c2",
+          "weight": 0.086303
+        },
+        {
+          "name_sha": "5dd04a69d2caa395",
+          "weight": 0.026556
+        },
+        {
+          "name_sha": "9d060ea0b78b6ebd",
+          "weight": 0.029538
+        },
+        {
+          "name_sha": "16b96aed1da1f5cd",
+          "weight": 0.035956
+        },
+        {
+          "name_sha": "bee250c087788a70",
+          "weight": 0.011064
+        }
+      ],
+      "evaluated_extent_xyz_blender_units": [
+        1.2050108,
+        0.4982449,
+        1.9762708
+      ],
+      "evaluated_rest_pose_sha256": "74109cf29316aef24cefc0e72bc20c6b0dd795b61da6eaa67b29c91b00e0317f",
+      "name": "feminine_tall_strong",
+      "raw_basis_extent_xyz_blender_units": [
+        0.9925402,
+        0.4230101,
+        1.6658903
+      ],
+      "raw_basis_sha256": "c8f9b8878ad197d5ad0f91bc49d078cf2345cb94f8cad82151563d4ea3a28e15",
+      "source_macros": {
+        "gender": 0,
+        "height": 0.78,
+        "muscle": 0.78,
+        "name": "feminine_tall_strong",
+        "proportions": 0.65,
+        "weight": 0.62
+      },
+      "vertices": 13380
+    },
+    {
+      "active_shape_key_count": 22,
+      "active_shape_key_weights": [
+        {
+          "name_sha": "56dcad6d2ba69962",
+          "weight": 0.230664
+        },
+        {
+          "name_sha": "4c10cdf7e50f6f5e",
+          "weight": 0.230664
+        },
+        {
+          "name_sha": "298182433b1b83a9",
+          "weight": 0.230664
+        },
+        {
+          "name_sha": "d6e99a2c9ab0cea8",
+          "weight": 0.158279
+        },
+        {
+          "name_sha": "e26d75e15fae7efc",
+          "weight": 0.096102
+        },
+        {
+          "name_sha": "cf614f3eda6f5a13",
+          "weight": 0.096102
+        },
+        {
+          "name_sha": "863e37733062f5a0",
+          "weight": 0.096102
+        },
+        {
+          "name_sha": "00217159eda7d752",
+          "weight": 0.102091
+        },
+        {
+          "name_sha": "d88d96434228e999",
+          "weight": 0.17198
+        },
+        {
+          "name_sha": "edb8b6c2705840e9",
+          "weight": 0.266632
+        },
+        {
+          "name_sha": "72420fb0530c4e7c",
+          "weight": 0.042534
+        },
+        {
+          "name_sha": "e089528d2af5c607",
+          "weight": 0.071652
+        },
+        {
+          "name_sha": "6b28677c382ca4ec",
+          "weight": 0.065944
+        },
+        {
+          "name_sha": "1e0c8b6b9681c461",
+          "weight": 0.111087
+        },
+        {
+          "name_sha": "ff8d7403f509aa22",
+          "weight": 0.054037
+        },
+        {
+          "name_sha": "5e1451cb01fce9da",
+          "weight": 0.091029
+        },
+        {
+          "name_sha": "c99f91d52fe944aa",
+          "weight": 0.083777
+        },
+        {
+          "name_sha": "022a04890aed1bc6",
+          "weight": 0.141128
+        },
+        {
+          "name_sha": "a7404f3c39efd4e7",
+          "weight": 0.022513
+        },
+        {
+          "name_sha": "4d1fd55964de19df",
+          "weight": 0.037925
+        },
+        {
+          "name_sha": "186970c320656b26",
+          "weight": 0.034904
+        },
+        {
+          "name_sha": "58017d041a72ef5a",
+          "weight": 0.058798
+        }
+      ],
+      "evaluated_extent_xyz_blender_units": [
+        0.9665893,
+        0.4180741,
+        1.5837748
+      ],
+      "evaluated_rest_pose_sha256": "c95d8e8775ea09ef91fed895ea3b55570e37eaa8d10c004d822bece63c175785",
+      "name": "feminine_medium_full",
+      "raw_basis_extent_xyz_blender_units": [
+        0.9925402,
+        0.4230101,
+        1.6658903
+      ],
+      "raw_basis_sha256": "c8f9b8878ad197d5ad0f91bc49d078cf2345cb94f8cad82151563d4ea3a28e15",
+      "source_macros": {
+        "gender": 0,
+        "height": 0.52,
+        "muscle": 0.3,
+        "name": "feminine_medium_full",
+        "proportions": 0.23,
+        "weight": 0.82
+      },
+      "vertices": 13380
+    }
+  ],
+  "distinct_evaluated_mesh_hashes": 3,
+  "distinct_raw_basis_hashes": 1,
+  "expected_distinct_evaluated_hashes": 3,
+  "qualification_scope": "evaluated full-source Blender geometry after source morph shape keys; local mesh coords; no metric body measurement and no photoreal qualification",
+  "schema": "r014.six_morph.native_evaluated_geometry.v1",
+  "shard": 0,
+  "source": "R014_ThreeAdultMorphs_Shard0.blend",
+  "source_mpbf": "makehumancommunity/mpfb2@6ff1eb358f6c1959ced77e79e6dd2406d9a71f49",
+  "status": "PASS_THREE_INDEPENDENT_ACTUAL_EVALUATED_MORPHOLOGIES",
+  "github_execution": {
+    "run": 43287728426,
+    "job": 131425446339,
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43287728426",
+    "source_run": 43286258004,
+    "evidence_origin": "GitHub native job log readback"
+  }
+}
