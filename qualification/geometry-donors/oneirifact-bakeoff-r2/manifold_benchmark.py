@@ -1,5 +1,5 @@
 """Direct public donor bakeoff: pinned upstream Manifold vs synthetic Oneirifact GLB; no private source."""
-import json, math, pathlib, time, importlib.metadata
+import json, math, pathlib, time, importlib.metadata, os
 import manifold3d as m
 ROOT=pathlib.Path(__file__).parent
 manifest=json.loads((ROOT/'manifest.json').read_text())['fixtures']
@@ -26,10 +26,14 @@ def main():
   volume=solid.volume();verts=solid.num_vert();triangles=solid.num_tri();genus=solid.genus()
   assert not solid.is_empty(),name
   error=abs(volume-source[name]['volume'])/volume*100
-  assert error<12,(name,error,volume,source[name])
+  assert error<2,(name,error,volume,source[name])
+  # Manifold.genus() uses 1-chi/2 for the whole compound.  For C disconnected
+  # closed orientable surfaces, sum(genus_i) = genus() + C - 1.
+  genus_sum=genus+expected['components']-1
+  assert genus_sum==expected['genus_sum'], (name,genus,genus_sum)
   if name=='drilled-box':
    analytic=expected['analytic_volume_m3'];assert abs(volume-analytic)/analytic<0.002,(volume,analytic)
-  out[name]={'donor':'manifold3d','version':version,'volume_m3':volume,'oneirifact_volume_m3':source[name]['volume'],'relative_volume_error_pct':error,'vertices':verts,'triangles':triangles,'genus':genus,'seconds':elapsed}
+  out[name]={'donor':'manifold3d','version':version,'volume_m3':volume,'oneirifact_volume_m3':source[name]['volume'],'relative_volume_error_pct':error,'vertices':verts,'triangles':triangles,'genus_manifold_convention':genus,'genus_sum_normalized':genus_sum,'wheel_sha256':os.environ.get('MANIFOLD_WHEEL_SHA256','unrecorded'),'seconds':elapsed}
  (ROOT/'manifold-report.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
  print('ONEIRIFACT_MANIFOLD_R2_COMPARISON_PASS',json.dumps(out,sort_keys=True))
 if __name__=='__main__':main()
