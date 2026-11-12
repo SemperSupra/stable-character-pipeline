@@ -208,6 +208,9 @@ cd.ortho_scale=max(float(extent[2])*1.22,float(extent[0])/aspect*1.22,2.1)
 cam.location=(float(mid[0]),float(mid[1])-max(float(extent[1])*3,4.0),float(mid[2]))
 cam.rotation_euler=(Vector(mid.tolist())-cam.location).to_track_quat("-Z","Y").to_euler()
 lamp.location=(float(mid[0])+1.2,float(mid[1])-2.0,float(mid[2])+1.8)
+# update evaluated camera matrix before projecting, otherwise world_to_camera_view
+# may use the old identity transform and report the visible body behind camera.
+bpy.context.view_layer.update()
 camera_qa={}
 for caption,arr in (("neutral",rest),("posed",posed)):
     # Every vertex must be in front of the camera and inside the viewport.
