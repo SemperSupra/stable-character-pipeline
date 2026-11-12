@@ -1,0 +1,137 @@
+name: video-original-3d-ik-feasibility-rdte
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_ik_science/**'
+      - '.github/workflows/video-original-3d-ik.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: original-3d-ik-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-four-batches:
+    name: True three-dimensional knee IK / ${{ matrix.batch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        batch: [locomotion, exercise_pose, dance_combat, aquatic]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43154918976
+          github-token: ${{ github.token }}
+          name: original-integrated-four-fix-${{ matrix.batch }}
+          path: research/source
+      - name: Execute independent off-plane and unreachable falsifier controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_ik_science -p 'test_audit_3d_feasibility.py' -v
+      - name: Audit actual source-label knee IK on 40 frames x 2 legs per case
+        env:
+          BATCH: ${{ matrix.batch }}
+        run: |
+          set -euo pipefail
+          mkdir -p research/results
+          python3 qualification/video_ik_science/audit_3d_feasibility.py \
+            --root research/source --batch "$BATCH" --out "research/results/$BATCH.json"
+          python3 - "$BATCH" <<'PY'
+          import json,sys
+          from pathlib import Path
+          batch=sys.argv[1]
+          doc=json.loads((Path("research/results")/(batch+".json")).read_text())
+          assert doc["schema"]=="scp.original-3d-two-link-ik-feasibility.v1"
+          assert doc["case_count"]=={"locomotion":8,"exercise_pose":7,"dance_combat":5,"aquatic":2}[batch]
+          assert doc["joint_observations"]==doc["case_count"]*80
+          assert sum(doc["counts"].values())==doc["joint_observations"]
+          assert all(len(x["source_labels_sha256"])==64 for x in doc["cases"])
+          assert all(x["observation_count"]==80 for x in doc["cases"])
+          assert all(r["status"]!="FEASIBLE" or r["candidate_knee_bone_error_m"]<=1e-7 for x in doc["cases"] for r in x["observations"])
+          print("SHA_BOUND_3D_IK_SOURCE_OBSERVATIONS",batch,doc["counts"])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-real-3d-ik-${{ matrix.batch }}
+          path: research/results/
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-math-corpus-join:
+    name: Cross-family 1760 source joint feasibility and false-green audit
+    needs: independent-four-batches
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: original-real-3d-ik-*
+          merge-multiple: true
+          path: research/input
+      - name: Keep all 22 case labels and scientifically undecidable pairs separate
+        run: |
+          set -euo pipefail
+          mkdir -p research/report
+          python3 - <<'PY'
+          import hashlib,json
+          from collections import Counter
+          from pathlib import Path
+          batches=("locomotion","exercise_pose","dance_combat","aquatic")
+          cases=set()
+          counts=Counter()
+          hashes={}
+          rows=[]
+          for batch in batches:
+              raw=(Path("research/input")/(batch+".json")).read_bytes()
+              hashes[batch]=hashlib.sha256(raw).hexdigest()
+              doc=json.loads(raw)
+              if doc["batch"]!=batch or doc["schema"]!="scp.original-3d-two-link-ik-feasibility.v1":
+                  raise ValueError("UNADMITTED_OR_MIXED_INPUT")
+              for case in doc["cases"]:
+                  if case["case"] in cases:raise ValueError("DUPLICATE_CASE")
+                  cases.add(case["case"])
+                  rows.append({"case":case["case"],"batch":batch,
+                               "source_sha256":case["source_labels_sha256"],
+                               "observed":case["observation_count"],
+                               "counts":case["counts"],
+                               "max_source_bone_error_m":case["max_original_bone_error_m"],
+                               "max_lateral_separation_m":case["max_off_plane_endpoint_m"]})
+                  counts.update(case["counts"])
+          if len(cases)!=22 or sum(counts.values())!=1760:
+              raise ValueError("INCOMPLETE_SOURCE_GEOMETRY_AUDIT")
+          result={"schema":"scp.original-full-corpus-3d-ik-research.v1",
+                 "source_integrated_candidate_run":43154918976,
+                 "case_count":22,"joint_observations":1760,
+                 "counts":dict(counts),"source_report_sha256":hashes,
+                 "cases":sorted(rows,key=lambda x:x["case"]),
+                 "status":"RESEARCH_ONLY_3D_GEOMETRIC_REACHABILITY",
+                 "limits":["Reachable bone geometry does not certify human knee pole or legal joint range",
+                           "The source 3D labels may have invalid planted-foot motion and contact",
+                           "No physics, material skin, motion realism, human biomechanics, or identity approval"]}
+          root=Path("research/report")
+          (root/"full-22-3d-ik-feasibility.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          lines=["# Original 22-case full-3D IK feasibility audit","",
+                 "**Source-only research. The suggested knee branches are not physics or human-anatomy approvals.**","",
+                 "Total 3D hip/ankle pairs: 1760","",
+                 "| Case | Original max limb error (m) | Max lateral separation (m) | Unreachable | Reachable with originally bad bone |",
+                 "|---|---:|---:|---:|---:|"]
+          for r in result["cases"]:
+              lines.append(f'| {r["case"]} | {r["max_source_bone_error_m"]} | {r["max_lateral_separation_m"]} | {r["counts"].get("UNREACHABLE",0)} | {r["counts"].get("FEASIBLE_ORIGINAL_BAD_BONE",0)} |')
+          lines.extend(["",f"Status counts: {dict(counts)}","",
+             "No product/identity/gait physics promotion. Original and corrected source assets remain untouched."])
+          (root/"human-agent-ik-feasibility.md").write_text("\n".join(lines)+"\n")
+          print("ORIGINAL_22_TRUE_3D_IK_FEASIBILITY",dict(counts))
+          PY
+          sha256sum research/report/* >research/report/provenance-sha256.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-full-1760-three-dimensional-ik-feasibility
+          path: research/report/
+          retention-days: 14
+          if-no-files-found: error
