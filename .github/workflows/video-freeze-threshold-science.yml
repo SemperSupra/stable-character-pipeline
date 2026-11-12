@@ -1,0 +1,68 @@
+name: video-original-ffmpeg-freeze-threshold-adjudication
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_freeze_forensics/threshold_scan.py'
+      - 'qualification/video_freeze_forensics/test_threshold_scan.py'
+      - '.github/workflows/video-freeze-threshold-science.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: video-freeze-threshold-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-case-threshold:
+    name: Actual 40f H264 original/candidate threshold / ${{ matrix.case }}
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [male_karate_kata_barefoot, female_photoshoot_high_heels]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43159853012
+          github-token: ${{ github.token }}
+          name: original-pose-stance-${{ matrix.case }}-ab
+          path: research/actual-ab
+      - name: Run pure stdlib hostile temporal clock controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_freeze_forensics -p 'test_threshold_scan.py' -v
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+      - name: Scan genuine H264 across 3 freeze noise thresholds and compare 3D source movement
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          set -euo pipefail
+          mkdir -p research/receipts
+          python3 qualification/video_freeze_forensics/threshold_scan.py \
+            --case "$CASE" --root research/actual-ab \
+            --out "research/receipts/$CASE.json"
+          python3 - "$CASE" <<'PY'
+          import json,sys
+          from pathlib import Path
+          name=sys.argv[1]
+          doc=json.loads((Path("research/receipts")/(name+".json")).read_text())
+          assert doc["schema"]=="scp.original-h264-freezedetect-vs-source-3d-kinematics.v1"
+          assert doc["case"]==name
+          for side in ("original","candidate"):
+              assert len(doc[side]["actual_ffmpeg_probes"])==3
+              assert len(doc[side]["h264_sha256"])==64
+              assert all(p["minimum_hold_s"]==.35 and p["freeze_event_count"]==len(p["windows"]) for p in doc[side]["actual_ffmpeg_probes"])
+          print("ACTUAL_H264_SOURCE_FREEZE_THRESHOLD_FALSIFIER",name)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-freeze-threshold-${{ matrix.case }}
+          path: research/receipts/
+          retention-days: 14
+          if-no-files-found: error
