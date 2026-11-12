@@ -1,0 +1,63 @@
+name: video-original-full3d-ik-pinup-ab
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_pinup_3d_fix/**'
+      - '.github/workflows/video-pinup-full3d-ab.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-pinup-3d-ab-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-pinup-3d-solver-real-media:
+    name: Real 40f GLB/H264 before-after full-3D knee geometry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Dispose isolated rendering/FFmpeg prerequisites with public VM
+        env:
+          PY: ${{ runner.temp }}/video-pinup-3d-venv
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m venv "$PY"
+          "$PY/bin/python" -m pip install --no-cache-dir --disable-pip-version-check \
+            numpy==2.3.5 opencv-python-headless==4.13.0.92
+      - name: Independent pure-math 3D knee falsification controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_ik_science -p 'test_audit_3d_feasibility.py' -v
+      - name: Generate source-targeted original and corrected 3D GLB and actual H264
+        env:
+          PY: ${{ runner.temp }}/video-pinup-3d-venv
+        run: |
+          set -euo pipefail
+          "$PY/bin/python" qualification/video_pinup_3d_fix/pinup_ab.py \
+            --out qualification/video_pinup_3d_fix/runs
+          python3 - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path("qualification/video_pinup_3d_fix/runs")
+          result=json.loads((root/"full3d-pinup-ab.json").read_text())
+          assert result["schema"]=="scp.pinup-original-full-3d-ik-corrective-ab.v1"
+          assert result["original"]["status"]=="FAIL" and result["candidate"]["status"]=="PASS"
+          assert result["original"]["defect_count"]==40 and result["candidate"]["defect_count"]==0
+          assert result["unchanged_original_hips_ankles_and_contact_labels"]
+          for version,media in (("before","before_media"),("after","after_media")):
+            for suffix,hashkey in ((".glb","source_glb_sha256"),("_side.mp4","actual_h264_sha256")):
+              path=root/version/("female_pinup_stiletto"+suffix)
+              assert hashlib.sha256(path.read_bytes()).hexdigest()==result[media][hashkey]
+          print("PINUP_REAL_GLTF_AND_H264_KNEE_REPAIR",result["original"]["defect_count"],result["candidate"]["defect_count"])
+          PY
+          printf 'source_case=female_pinup_stiletto\nmode=source_original_research_only\nsource_22_baseline=UNMODIFIED\nproduct_anatomical_joint_validity=NOT_QUALIFIED\n' >qualification/video_pinup_3d_fix/runs/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-full3d-pinup-real-glb-h264-ab
+          path: qualification/video_pinup_3d_fix/runs/
+          retention-days: 7
+          if-no-files-found: error
