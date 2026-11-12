@@ -1,0 +1,109 @@
+{
+  "schema": "r014.anatomical-coverage.v1",
+  "scope": "synthetic adult body only; anatomy and video quality gate; no identity inference",
+  "age_class": "adult",
+  "independently_configurable": [
+    "body_shape",
+    "external_reproductive_anatomy",
+    "internal_anatomy",
+    "skin_appearance",
+    "tissue_dynamics",
+    "rig_pose",
+    "styling"
+  ],
+  "common_external": [
+    "face",
+    "eyes",
+    "ears",
+    "oral_cavity",
+    "hands",
+    "feet",
+    "nipples",
+    "areolae",
+    "navel",
+    "perineum",
+    "anus",
+    "pubic_skin",
+    "pubic_hair_region"
+  ],
+  "external_reproductive_variants": {
+    "female": [
+      "mons_pubis",
+      "labia_majora",
+      "labia_minora",
+      "clitoral_hood",
+      "clitoral_glans",
+      "urethral_meatus",
+      "vestibule",
+      "vaginal_introitus"
+    ],
+    "male": [
+      "penile_shaft",
+      "glans_penis",
+      "urethral_meatus",
+      "scrotal_skin",
+      "scrotal_midline",
+      "perineum"
+    ]
+  },
+  "selectable_variation": [
+    "male_foreskin_present_or_absent",
+    "male_scrotal_contour",
+    "female_labial_variation",
+    "female_clitoral_hood_variation",
+    "normal_anatomical_asymmetry",
+    "pubic_hair_presence_or_absence"
+  ],
+  "optional_internal_layers": {
+    "female": [
+      "vaginal_canal",
+      "pelvic_floor",
+      "cervix",
+      "uterus",
+      "urethra"
+    ],
+    "male": [
+      "testes",
+      "epididymides",
+      "urethra",
+      "penile_erectile_tissue",
+      "pelvic_floor"
+    ]
+  },
+  "required_model_evidence": [
+    "anatomy_manifest",
+    "source_rights_manifest",
+    "neutral_surface_views",
+    "region_closeups",
+    "edge_continuity",
+    "rig_attachment",
+    "material_regions",
+    "lod_correspondence",
+    "deformation_probe",
+    "non_interpenetration_probe"
+  ],
+  "gates": {
+    "visual_anatomy": "Independent anatomically informed human review; no polygon-count substitution",
+    "regional_coverage": "Every required feature has independently labeled, inspectable nonzero geometry or an explicitly reviewed topology representation",
+    "rig": "No detached surfaces, crumpling or intersection in neutral and articulated adult pose tests",
+    "tissue": "Localized volume/contact behavior and damping measured separately; no SSS-as-physics claim",
+    "rights": "Per-file source, license and provenance for all core/third-party meshes",
+    "privacy": "No inferred genital anatomy from identifiable-person face/body photographs"
+  },
+  "fixture_candidates": [
+    {
+      "id": "mpfb_baseline",
+      "foundation": "MPFB 2.0.18",
+      "age_class": "adult",
+      "status": "UNVERIFIED",
+      "reason": "Core model built; genital and complete anatomical region geometry not independently inspected"
+    },
+    {
+      "id": "mhr_lod1",
+      "foundation": "MHR v1.0.1",
+      "age_class": "adult",
+      "status": "UNVERIFIED",
+      "reason": "LOD1 imported; no verified reproductive-region coverage or physical tissue simulation"
+    }
+  ]
+}
