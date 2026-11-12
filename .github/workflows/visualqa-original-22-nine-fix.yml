@@ -1,0 +1,259 @@
+name: visualqa-original-22-nine-fix-source-h264-regression
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_ninefix/**'
+      - '.github/workflows/visualqa-original-22-nine-fix.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: original-nine-fix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  independent-exact-source-composition:
+    name: SHA-copy original 21 plus genuine new jumping-jacks GLB/H264
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43174097569
+          github-token: ${{ github.token }}
+          pattern: original-integrated-eight-fix-*
+          merge-multiple: true
+          path: research/eightfix
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43215413758
+          github-token: ${{ github.token }}
+          name: rights-original-jacks-true-ground-flight-ab
+          path: research/jacks
+      - name: No-rerender SHA preserving original 22-case composition
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 qualification/visualqa_ninefix/ninefix.py \
+            --eight-root research/eightfix \
+            --jacks-root research/jacks \
+            --out qualification/visualqa_ninefix/runs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-nine-fix-22-model-source-h264
+          path: qualification/visualqa_ninefix/runs/
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-22-source-geometry:
+    name: Independent original 22-case source math and negative-control regression
+    needs: independent-exact-source-composition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: original-nine-fix-22-model-source-h264
+          path: research/candidate
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-math-audit-22-cases
+          path: research/original-audit
+      - name: Independent source-math original → nine-fix fail-closed
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          python3 qualification/expanded_motion_corpus/motion_math.py \
+            --root research/candidate \
+            --out receipts/ninefix-source-math.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          raw=json.loads(Path("research/original-audit/math_audit.json").read_text())
+          cur=json.loads(Path("receipts/ninefix-source-math.json").read_text())
+          assert raw["counts"]=={"PASS":10,"FAIL":11,"UNKNOWN":1}
+          assert cur["case_count"]==22
+          assert cur["counts"]=={"PASS":19,"FAIL":2,"UNKNOWN":1}
+          names={r["case"]:r for r in cur["cases"]}
+          assert {n for n,r in names.items() if r["status"]=="FAIL"}=={"male_jump_slippers","female_cartwheel_barefoot"}
+          assert names["female_swimming_barefoot"]["status"]=="UNKNOWN"
+          assert names["female_jumping_jacks_sandals"]["status"]=="PASS"
+          assert names["female_jumping_jacks_sandals"]["defect_count"]==0
+          print("INDEPENDENT_ORIGINAL_TO_NINE_SOURCE",raw["counts"],cur["counts"])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ninefix-independently-audited-source-math
+          path: receipts/ninefix-source-math.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independently-decode-all-22-h264:
+    name: Independent 22 original rights-only H264 Go+FFmpeg diagnostic
+    needs: independent-exact-source-composition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: original-nine-fix-22-model-source-h264
+          path: research/candidate
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.23.x'
+          cache: false
+      - name: Isolated FFmpeg tool install on this disposable VM
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: Actual candidate Go+FFmpeg no-oracle video diagnostics
+        env:
+          GOWORK: 'off'
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          python3 qualification/video_physics_bakeoff/scripts/character_manifest.py \
+            --root research/candidate \
+            --out research/candidate/video_cases.json
+          (cd qualification/video_physics_bakeoff && go test ./... && \
+            go run ./cmd/bakeoff -manifest ../../research/candidate/video_cases.json \
+            -out ../../receipts/ninefix-decoded-video.json)
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("receipts/ninefix-decoded-video.json").read_text())
+          assert d["total"]==len(d["results"])==22
+          assert d["matched"]==d["discrepancies"]==0
+          assert all(not x["expected"] and not x["matches_oracle"] and not x.get("error") for x in d["results"])
+          counts={k:sum(x["verdict"]==k for x in d["results"]) for k in ("PASS","FAIL","UNKNOWN")}
+          print("NINEFIX_NO_ORACLE_ACTUAL_H264",counts,"NO_REALISM_ACCEPTANCE")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ninefix-actual-decoded-22-h264
+          path: receipts/ninefix-decoded-video.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-21-case-source-custody:
+    name: Independent immutable 21-case source/GLB/H264 SHA equivalence
+    needs: independent-exact-source-composition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: original-nine-fix-22-model-source-h264
+          path: research/nine
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43174097569
+          github-token: ${{ github.token }}
+          pattern: original-integrated-eight-fix-*
+          merge-multiple: true
+          path: research/eight
+      - name: Recompute actual hashes, require exactly one change
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          python3 - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+          kinds={"locomotion":8,"exercise_pose":7,"dance_combat":5,"aquatic":2}
+          same=[]
+          delta=[]
+          for family,count in kinds.items():
+              a,b=Path("research/eight")/family,Path("research/nine")/family
+              old,new=json.loads((a/"manifest.json").read_text()),json.loads((b/"manifest.json").read_text())
+              assert len(old["cases"])==len(new["cases"])==count
+              assert [c["case"] for c in old["cases"]]==[c["case"] for c in new["cases"]]
+              for x,y in zip(old["cases"],new["cases"]):
+                  cid=x["case"]
+                  changed=False
+                  for u,v in ((x["model"],y["model"]),(x["ground_truth"],y["ground_truth"]),(x["videos"][0],y["videos"][0])):
+                      assert u["file"]==v["file"]
+                      p=a/u["file"];q=b/v["file"]
+                      assert digest(p)==u["sha256"] and digest(q)==v["sha256"]
+                      changed|=u["sha256"]!=v["sha256"]
+                  if changed:delta.append(cid)
+                  else:same.append(cid)
+          assert len(same)==21 and delta==["female_jumping_jacks_sandals"]
+          assert "male_jump_slippers" in same and "female_cartwheel_barefoot" in same
+          receipt={"schema":"scp.visualqa.ninefix-independent-sha-custody.v1",
+                   "unchanged_case_count":21,"only_changed_cases":delta,
+                   "mac_actor_case_unchanged":True,
+                   "original_negative_controls_retained":True}
+          Path("receipts/source-custody.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
+          print("INDEPENDENT_21_EXACT_SHA_CUSTODY",receipt)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ninefix-independent-21-case-sha
+          path: receipts/source-custody.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-full-22-witness-join:
+    name: Independent final original 22-case source/H264/21-case SHA tri-state join
+    needs: [independent-22-source-geometry,independently-decode-all-22-h264,independent-21-case-source-custody]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: ninefix-*
+          merge-multiple: true
+          path: receipts
+      - name: Independent final source/video and provenance gate
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path("receipts/ninefix-source-math.json").read_text())
+          b=json.loads(Path("receipts/ninefix-decoded-video.json").read_text())
+          c=json.loads(Path("receipts/source-custody.json").read_text())
+          assert a["case_count"]==b["total"]==22
+          assert a["counts"]=={"PASS":19,"FAIL":2,"UNKNOWN":1}
+          assert c["unchanged_case_count"]==21 and c["only_changed_cases"]==["female_jumping_jacks_sandals"]
+          source={x["case"]:x for x in a["cases"]}
+          video={x["id"].removesuffix("_video"):x for x in b["results"]}
+          assert set(source)==set(video) and len(source)==22
+          gates={"TARGETED_SOURCE_VIDEO_PASS_ONLY":0,"BLOCK_OR_CONTINUE_CORRECTION":0,"ABSTAIN":0}
+          for name in sorted(source):
+              s=source[name]["status"];v=video[name]["verdict"]
+              if "FAIL" in (s,v): gates["BLOCK_OR_CONTINUE_CORRECTION"]+=1
+              elif "UNKNOWN" in (s,v):gates["ABSTAIN"]+=1
+              else:gates["TARGETED_SOURCE_VIDEO_PASS_ONLY"]+=1
+          report={"schema":"scp.visualqa.ninefix-independent-22-joined.v1",
+                  "source_counts":a["counts"],
+                  "video_counts":{x:sum(z["verdict"]==x for z in b["results"]) for x in ("PASS","FAIL","UNKNOWN")},
+                  "targeted_gates":gates,"unchanged_SHA_cases":21,
+                  "global_human_motion_realism":"NOT_QUALIFIED",
+                  "release":"HOLD","original_source_negative_controls":"UNCHANGED"}
+          Path("receipts/22-final-join.json").write_text(json.dumps(report,sort_keys=True,indent=2)+"\n")
+          print("NINEFIX_INDEPENDENT_FULL_CORPUS_H264_AND_SOURCE",report)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ninefix-original-22-final-evidence-join
+          path: receipts/22-final-join.json
+          retention-days: 14
+          if-no-files-found: error
