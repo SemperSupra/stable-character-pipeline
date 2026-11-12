@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Original Synthetic Geometry WASM CPU Test</title></head>
+<body><main><h1>Original synthetic CPU CSG qualification</h1><p id="status" role="status" aria-live="polite">Running</p></main>
+<script src="/wasm_exec.js"></script>
+<script>
+(async function() {
+  try {
+    const go = new Go();
+    const response = await fetch("/consumer.wasm");
+    if (!response.ok) throw Error("WASM HTTP fetch failed");
+    const binary = await response.arrayBuffer();
+    const { instance } = await WebAssembly.instantiate(binary, go.importObject);
+    await go.run(instance);
+    document.getElementById("status").textContent = "Completed";
+    window.__geometryDone = true;
+  } catch(e) {
+    window.__geometryError = String(e);
+    document.getElementById("status").textContent = "Failed";
+    console.error("WASM_BROWSER_RUNTIME_FAIL",String(e));
+  }
+})();
+</script>
+</body></html>
