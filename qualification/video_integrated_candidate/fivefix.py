@@ -75,7 +75,7 @@ def composed_build_batch(batch,out_root):
         "Original zero-target batches are byte copies, not misleading cross-runner numerical regeneration",
         "Cold floating-point source rebuilds require their own portability qualification; not accepted as deterministic",
     ]
-    (out_root/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\\n")
+    (out_root/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
     gen.make_contact_sheet(out_root,gen.BATCHES[batch])
     return manifest
 
