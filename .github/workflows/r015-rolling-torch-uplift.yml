@@ -1,4 +1,4 @@
-name: R015 Rolling PyTorch Uplift — Actual Pretrained Mapper Parity
+name: R015 Rolling PyTorch Uplift — SafeTensors Converted Original Mapper Parity
 on:
   push:
     branches:
@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/r015-rolling-torch-uplift.yml'
       - 'research/r015_prior_art/semantify_pretrained.py'
+      - 'research/r015_prior_art/safetensors_framework_parity.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,64 +14,72 @@ concurrency:
   group: r015-rolling-torch-uplift
   cancel-in-progress: true
 jobs:
-  source-pinned-mapper-matrix:
-    name: Actual Semantify mapper — Torch ${{ matrix.torch }}
+  safe-conversion-and-modern-native-parity:
+    name: Original 2.5 restricted load → SafeTensors → PyTorch ${{ matrix.target_torch }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.5.1','2.14.0','2.15.0']
+        target_torch: ['2.14.0','2.15.0']
     steps:
-      - name: Checkout public research branch without persistent token
+      - name: Checkout isolated public research source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - name: Install ephemeral CPU-only framework version
+      - name: Create ephemeral exact legacy importer and modern target environments
         env:
-          TORCH_VERSION: ${{ matrix.torch }}
+          TARGET_TORCH: ${{ matrix.target_torch }}
         run: |
           set -euo pipefail
-          python3 -m venv "$RUNNER_TEMP/r015-torch"
-          . "$RUNNER_TEMP/r015-torch/bin/activate"
-          python -m pip install --no-cache-dir --no-input --disable-pip-version-check "torch==$TORCH_VERSION" --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install --no-cache-dir --no-input --disable-pip-version-check "omegaconf==2.3.0" "numpy==1.26.4"
+          python3 -m venv "$RUNNER_TEMP/r015-compat"
+          . "$RUNNER_TEMP/r015-compat/bin/activate"
+          python -m pip install --disable-pip-version-check --no-input --no-cache-dir torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --disable-pip-version-check --no-input --no-cache-dir omegaconf==2.3.0 safetensors==0.4.5 numpy==1.26.4
+          deactivate
+          python3 -m venv "$RUNNER_TEMP/r015-modern"
+          . "$RUNNER_TEMP/r015-modern/bin/activate"
+          python -m pip install --disable-pip-version-check --no-input --no-cache-dir "torch==$TARGET_TORCH" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --disable-pip-version-check --no-input --no-cache-dir safetensors==0.4.5
           python - <<'PY'
-          import torch,platform
-          print("PYTHON", platform.python_version(), "TORCH", torch.__version__, "CUDA",torch.version.cuda)
+          import torch,safetensors,sys
+          print("TARGET_TORCH",torch.__version__,"CUDA",torch.version.cuda,"PYTHON",sys.version.split()[0])
           assert not torch.cuda.is_available()
           PY
-      - name: Fetch pinned original Semantify source
+      - name: Fetch original exact Semantify source without setup/build scripts
         run: |
           set -euo pipefail
-          git init -q "$RUNNER_TEMP/semantify-original"
-          git -C "$RUNNER_TEMP/semantify-original" fetch -q --depth 1 https://github.com/Omergral/Semantify.git 78b001d3dc4ea4efa428e3aff1213cefddf6ebd8
-          git -C "$RUNNER_TEMP/semantify-original" checkout -q --detach FETCH_HEAD
-          test "$(git -C "$RUNNER_TEMP/semantify-original" rev-parse HEAD)" = 78b001d3dc4ea4efa428e3aff1213cefddf6ebd8
-      - name: Safe-load exact published checkpoint and compare native CLIP input/output replay
+          git init -q "$RUNNER_TEMP/original"
+          git -C "$RUNNER_TEMP/original" fetch -q --depth 1 https://github.com/Omergral/Semantify.git 78b001d3dc4ea4efa428e3aff1213cefddf6ebd8
+          git -C "$RUNNER_TEMP/original" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/original" rev-parse HEAD)" = 78b001d3dc4ea4efa428e3aff1213cefddf6ebd8
+      - name: Export ONLY tensor payload through pinned restricted PyTorch 2.5.1 legacy importer
         env:
-          TORCH_VERSION: ${{ matrix.torch }}
-          R015_SCORE_REPLAY_RECEIPT: evidence/r015-prior-art-bakeoff/43278119546-realclip-original-pretrained-mapper.json
+          R015_SAFE_TENSOR_EXPORT: ${{ runner.temp }}/original-mapper-tensors.safetensors
         run: |
           set -euo pipefail
-          . "$RUNNER_TEMP/r015-torch/bin/activate"
-          python research/r015_prior_art/semantify_pretrained.py "$RUNNER_TEMP/semantify-original" "receipts/torch-$TORCH_VERSION.json"
-          python - "$TORCH_VERSION" <<'PY'
-          import json,sys
-          from pathlib import Path
-          p=Path("receipts")/("torch-"+sys.argv[1]+".json")
-          obj=json.loads(p.read_text())
-          parity=obj.get("modern_score_replay",{}).get("status","MISSING")
-          if obj.get("status")=="PASS_ACTUAL_PUBLISHED_MAPPER_NUMERIC_FORWARD_ONLY" and parity=="PASS_MODERN_FRAMEWORK_SCORE_REPLAY":
-              print("QUALIFIED_FRAMEWORK_NUMERIC_PARITY",sys.argv[1])
-          else:
-              raise SystemExit("FAIL_CLOSED_PARITY "+repr((obj.get("status"),parity)))
+          . "$RUNNER_TEMP/r015-compat/bin/activate"
+          python research/r015_prior_art/semantify_pretrained.py "$RUNNER_TEMP/original" "receipts/conversion.json"
+          test -s "$R015_SAFE_TENSOR_EXPORT"
+          python - <<'PY'
+          import json
+          r=json.load(open("receipts/conversion.json"))
+          assert r["status"]=="PASS_ACTUAL_PUBLISHED_MAPPER_NUMERIC_FORWARD_ONLY"
+          assert r["safe_tensor_export"]["asset_redistributed"] is False
+          print("EXACT_HASH_SAFE_CONVERSION",r["safe_tensor_export"]["sha256"])
           PY
-      - name: Retain public JSON receipt, never publish model archives
+      - name: Load model under current framework from SafeTensors and compare original raw-CLIP fixtures
+        env:
+          TARGET_TORCH: ${{ matrix.target_torch }}
+        run: |
+          set -euo pipefail
+          . "$RUNNER_TEMP/r015-modern/bin/activate"
+          python research/r015_prior_art/safetensors_framework_parity.py --source "$RUNNER_TEMP/original" --weights "$RUNNER_TEMP/original-mapper-tensors.safetensors" --conversion-receipt receipts/conversion.json --reference evidence/r015-prior-art-bakeoff/43278119546-realclip-original-pretrained-mapper.json --out "receipts/parity-$TARGET_TORCH.json"
+      - name: Retain receipts, never trained weights or restricted model archive
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: r015-torch-${{ matrix.torch }}
+          name: r015-modern-torch-${{ matrix.target_torch }}
           path: receipts/*.json
           if-no-files-found: warn
           retention-days: 7
