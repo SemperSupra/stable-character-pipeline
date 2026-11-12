@@ -1,0 +1,107 @@
+name: video-cotracker3-actual-original-characters
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-cotracker3-actual-characters.yml'
+      - 'qualification/video_physics_bakeoff/learned_tracking/**'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: video-cotracker3-original-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actual-pretrained-source-projected-joints:
+    name: Real pretrained CoTracker3 on 4 original H264 character motions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Download original source-bound locomotion H264/GLB/labels from exact qualified public run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-locomotion
+          path: qualification/expanded_motion_corpus/runs
+      - name: Download original source-bound martial H264/GLB/labels from same qualified public run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-dance_combat
+          path: qualification/expanded_motion_corpus/runs
+      - name: Source-exact Python stdlib projection and frame controls
+        run: |
+          set -euo pipefail
+          (cd qualification/video_physics_bakeoff/learned_tracking && python3 -m unittest test_original_character_cotracker.py -v)
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+      - name: Acquire exact CC BY-NC 4.0 upstream and SHA-pinned weights into disposable worker
+        env:
+          SRC: ${{ runner.temp }}/co-tracker-external
+          WEIGHTS: ${{ runner.temp }}/cotracker-weights.pth
+        run: |
+          set -euo pipefail
+          git init -q "$SRC"
+          git -C "$SRC" remote add origin https://github.com/facebookresearch/co-tracker.git
+          git -C "$SRC" fetch -q --depth 1 origin 82e02e8029753ad4ef13cf06be7f4fc5facdda4d
+          git -C "$SRC" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$SRC" rev-parse HEAD)" = 82e02e8029753ad4ef13cf06be7f4fc5facdda4d
+          test -f "$SRC/LICENSE.md"
+          curl -fsSL --retry 2 --connect-timeout 20 --max-time 600 \
+            https://huggingface.co/facebook/cotracker3/resolve/acc21f9dba34834006a50432bde26b86aa68d794/scaled_offline.pth \
+            -o "$WEIGHTS"
+          echo "2670d4562ed69326dda775a26e54883925cd11b6fc9b24cb7aa9f8078bce7834  $WEIGHTS" | sha256sum --check --status
+          test "$(stat -c %s "$WEIGHTS")" = 101890938
+      - name: Isolated CPU-only science venv on disposable public VM
+        env:
+          PYENV: ${{ runner.temp }}/original-character-cotracker-env
+          PIP_NO_CACHE_DIR: '1'
+        run: |
+          set -euo pipefail
+          python3 -m venv "$PYENV"
+          "$PYENV/bin/python" -m pip install --no-cache-dir --disable-pip-version-check numpy==1.26.4
+          "$PYENV/bin/python" -m pip install --no-cache-dir --disable-pip-version-check torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          mkdir -p research-results
+          "$PYENV/bin/python" -m pip freeze >research-results/environment.txt
+      - name: Execute genuine pretrained pixel tracking against source-calibrated original character motion
+        env:
+          PYENV: ${{ runner.temp }}/original-character-cotracker-env
+          SRC: ${{ runner.temp }}/co-tracker-external
+          WEIGHTS: ${{ runner.temp }}/cotracker-weights.pth
+          OMP_NUM_THREADS: '2'
+          MKL_NUM_THREADS: '2'
+          CUDA_VISIBLE_DEVICES: ''
+          HF_HUB_OFFLINE: '1'
+          TRANSFORMERS_OFFLINE: '1'
+        run: |
+          set -euo pipefail
+          timeout 780s "$PYENV/bin/python" qualification/video_physics_bakeoff/learned_tracking/original_character_cotracker.py \
+            --source "$SRC" --checkpoint "$WEIGHTS" \
+            --root qualification/expanded_motion_corpus/runs \
+            --out research-results/actual-4-character-cotracker.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('research-results/actual-4-character-cotracker.json').read_text())
+          assert r['pretrained_inference']=='REAL_CHECKPOINT_EXECUTED'
+          assert r['case_count']==4 and len(r['observations'])==4
+          assert all(len(x['per_sample_visible_residual_px'])==12 and len(x['original_h264_sha256'])==64 for x in r['observations'])
+          assert r['qualification']=='RDT_E_OBSERVATIONS_NOT_ACCEPTANCE'
+          print('ACTUAL_PRETRAINED_CHARACTER_CASES',[(x['case'],x['visible_frames'],x['mean_observed_residual_px']) for x in r['observations']])
+          PY
+          sha256sum research-results/actual-4-character-cotracker.json >research-results/receipt-sha256.txt
+          printf 'source_artifact_run=43137642662\nsource_model_git_sha=82e02e8029753ad4ef13cf06be7f4fc5facdda4d\ncheckpoint_sha256=2670d4562ed69326dda775a26e54883925cd11b6fc9b24cb7aa9f8078bce7834\nlicense=CC_BY_NC_4.0_research_only\nrealism_grade=NOT_QUALIFIED\n' >research-results/qualification.txt
+      - name: Retain only original synthetic research science receipts (no weights)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: genuine-cotracker3-original-4-character-h264-research
+          path: research-results/
+          retention-days: 14
+          if-no-files-found: warn
