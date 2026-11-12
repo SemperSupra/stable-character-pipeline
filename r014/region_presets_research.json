@@ -1,0 +1,56 @@
+{
+  "schema": "r014.tissue.generic.v1",
+  "status": "ILLUSTRATIVE_UNCALIBRATED_ONLY",
+  "sampling_hz": 240,
+  "regions": {
+    "chest": {
+      "mass": 0.8,
+      "stiffness": 240,
+      "damping": 25,
+      "max_displacement": 0.04
+    },
+    "abdomen": {
+      "mass": 1.3,
+      "stiffness": 180,
+      "damping": 22,
+      "max_displacement": 0.045
+    },
+    "upper_arm": {
+      "mass": 0.6,
+      "stiffness": 250,
+      "damping": 32,
+      "max_displacement": 0.025
+    },
+    "cheek": {
+      "mass": 0.2,
+      "stiffness": 150,
+      "damping": 12,
+      "max_displacement": 0.007
+    },
+    "glute": {
+      "mass": 1,
+      "stiffness": 200,
+      "damping": 22,
+      "max_displacement": 0.035
+    },
+    "thigh": {
+      "mass": 1.2,
+      "stiffness": 230,
+      "damping": 25,
+      "max_displacement": 0.03
+    },
+    "perineal_surface": {
+      "mass": 0.25,
+      "stiffness": 300,
+      "damping": 32,
+      "max_displacement": 0.008
+    }
+  },
+  "limits": [
+    "Numeric illustrative parameters, NOT measured material properties",
+    "No regional mesh attachment",
+    "No topology/contact/breast or genital physical model",
+    "No medical accuracy inference",
+    "Not approved for photorealistic video"
+  ]
+}
