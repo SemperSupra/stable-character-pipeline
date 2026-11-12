@@ -1,0 +1,90 @@
+name: R014 world-space contact+IK kinematic proof (Go research)
+on:
+  push:
+    branches: [research/r014-gait-contact-controller-v1]
+    paths: [r014/gaitprobe/**, .github/workflows/r014-gait-contact-controller.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-gait-contact-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  deterministic_locomotion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Qualify disposable Go stdlib toolchain without persistent installs
+        shell: bash
+        working-directory: r014/gaitprobe
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          go version
+          test "$(go list -m)" = "example.com/r014/gait"
+          gofmt -l *.go | tee "$RUNNER_TEMP/gofmt-failures"
+          test ! -s "$RUNNER_TEMP/gofmt-failures"
+          go test ./... -count=1 -v
+      - name: Derive start/walk/turn/stop world-space foot trajectories
+        shell: bash
+        working-directory: r014/gaitprobe
+        env:
+          GOTOOLCHAIN: local
+          GOCACHE: ${{ runner.temp }}/r014-gocache
+        run: |
+          set -euo pipefail
+          go run . --out "$RUNNER_TEMP/r014-gait"
+          test -s "$RUNNER_TEMP/r014-gait/gait_receipt.json"
+          test -s "$RUNNER_TEMP/r014-gait/gait_frames.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-gait"
+          r=json.loads((p/"gait_receipt.json").read_text())
+          assert r["status"]=="PASS_TRAJECTORY_AND_CONTACT_PROOF_ONLY"
+          assert r["total_frames"]==169 and r["fps"]==24
+          assert r["step_events"]>=10
+          assert r["max_planted_foot_slip_m"]<1e-9
+          assert r["max_ik_residual_m"]<1e-6
+          assert r["max_unreachable_leg_excess_m"]<1e-9
+          assert r["turn_radians"]==1.0471975511965979 if "turn_radians" in r else abs(r["total_heading_change_radians"]-1.0471975511965979)<1e-8
+          assert len(r["limitations"])>=3
+          print("PASS_CONTACT_MATH_ONLY; HUMAN_RIG_AND_VIDEO_HOLD")
+          PY
+      - name: Encode and validate wireframe diagnostic animation (not a human)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          cd "$RUNNER_TEMP/r014-gait"
+          ffmpeg -hide_banner -loglevel error -y -framerate 24 \
+            -i frames/gait_%04d.png -c:v libx264 -pix_fmt yuv420p -crf 19 \
+            R014_WIREFRAME_IK_NOT_A_HUMAN_7s.mp4
+          ffprobe -v error -select_streams v:0 \
+            -show_entries stream=codec_name,width,height,nb_frames \
+            -show_entries format=duration -of json \
+            R014_WIREFRAME_IK_NOT_A_HUMAN_7s.mp4 > playback_probe.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path("playback_probe.json").read_text())
+          s=p["streams"][0]
+          assert s["codec_name"]=="h264"
+          assert (s["width"],s["height"])==(720,404)
+          assert int(s["nb_frames"])==169
+          assert 7<=float(p["format"]["duration"])<7.1
+          PY
+          sha256sum *.json *.mp4 > sha256sum.txt
+          cp frames/gait_0000.png initial_frame.png
+          cp frames/gait_0084.png mid_walk_frame.png
+          cp frames/gait_0130.png turning_frame.png
+          rm -rf frames
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-gait-contact-math-and-technical-video
+          path: ${{ runner.temp }}/r014-gait/*
+          retention-days: 7
