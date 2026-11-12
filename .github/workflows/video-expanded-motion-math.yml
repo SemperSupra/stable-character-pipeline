@@ -1,0 +1,116 @@
+name: video-expanded-3d-motion-math-research
+on:
+  pull_request:
+    paths:
+      - 'qualification/expanded_motion_corpus/**'
+      - '.github/workflows/video-expanded-motion-math.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-expanded-motion-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-motion-matrix:
+    name: Original 3D GLB/H264 / ${{ matrix.batch }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        batch: [locomotion, exercise_pose, dance_combat, aquatic]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Disposable rendering dependencies only
+        env:
+          VENV: ${{ runner.temp }}/expanded-motion-venv
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m venv "$VENV"
+          "$VENV/bin/python" -m pip install --no-cache-dir --disable-pip-version-check \
+            numpy==2.3.5 opencv-python-headless==4.13.0.92
+      - name: Build actual animated GLBs and 40-frame H264 MP4s
+        env:
+          CASE: ${{ matrix.batch }}
+          VENV: ${{ runner.temp }}/expanded-motion-venv
+        run: |
+          set -euo pipefail
+          "$VENV/bin/python" qualification/expanded_motion_corpus/build_motion_batches.py \
+            --batch "$CASE" --out "qualification/expanded_motion_corpus/runs/$CASE"
+      - name: Independent source video/data integrity check
+        env:
+          CASE: ${{ matrix.batch }}
+        run: |
+          set -euo pipefail
+          python3 - "$CASE" <<'PY'
+          import json, pathlib, subprocess, sys, struct
+          case=sys.argv[1]
+          root=pathlib.Path("qualification/expanded_motion_corpus/runs")/case
+          items=json.loads((root/"manifest.json").read_text())["cases"]
+          expected={"locomotion":8,"exercise_pose":7,"dance_combat":5,"aquatic":2}[case]
+          assert len(items)==expected
+          for item in items:
+              name=item["case"]
+              raw=(root/(name+".glb")).read_bytes()
+              magic,ver,total=struct.unpack_from("<III",raw)
+              assert magic==0x46546c67 and ver==2 and total==len(raw)
+              n,tag=struct.unpack_from("<II",raw,12)
+              gltf=json.loads(raw[20:20+n])
+              assert len(gltf["animations"][0]["channels"])>=54
+              labels=json.loads((root/(name+"_ground_truth.json")).read_text())
+              assert len(labels["frames"])==40
+              path=root/(name+"_side.mp4")
+              probe=json.loads(subprocess.check_output(["ffprobe","-v","error","-select_streams","v:0",
+                          "-show_entries","stream=codec_name,pix_fmt,nb_frames,width,height",
+                          "-of","json",str(path)]))["streams"][0]
+              assert probe["codec_name"]=="h264" and probe["pix_fmt"]=="yuv420p"
+              assert int(probe["nb_frames"])==40
+              assert int(probe["width"])==320 and int(probe["height"])==320
+          print("SOURCE_VIDEO_GLTF_CASES_VERIFIED",len(items))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: motion-corpus-${{ matrix.batch }}
+          path: qualification/expanded_motion_corpus/runs/
+          retention-days: 7
+          if-no-files-found: error
+
+  independent-math-adjudication:
+    name: Source-only false-green audit (22 cases)
+    needs: original-motion-matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: motion-corpus-*
+          path: qualification/expanded_motion_corpus/runs/
+          merge-multiple: true
+      - name: Run 14 adversarial math/contact tests on regenerated original 3D labels
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/expanded_motion_corpus \
+            -p 'test_motion_math.py' -v
+          python3 qualification/expanded_motion_corpus/motion_math.py \
+            --root qualification/expanded_motion_corpus/runs \
+            --out qualification/expanded_motion_corpus/runs/math_audit.json
+          python3 - <<'PY'
+          import json
+          m=json.load(open("qualification/expanded_motion_corpus/runs/math_audit.json"))
+          assert m["case_count"]==22
+          assert m["counts"]=={"PASS":10,"FAIL":11,"UNKNOWN":1}
+          print("ACTUAL_FALSE_GREENS_RETAINED",m["counts"])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: motion-math-audit-22-cases
+          path: qualification/expanded_motion_corpus/runs/math_audit.json
+          retention-days: 14
+          if-no-files-found: error
