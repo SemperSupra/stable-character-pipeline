@@ -103,7 +103,7 @@ func evaluate(root string,c Case)Result{
  default:e=errors.New("unsupported case kind")
  }
  if e!=nil{r.Error=e.Error();r.Verdict="UNKNOWN"}
- r.MatchesOracle=r.Verdict==r.Expected
+ r.MatchesOracle=r.Expected!=""&&r.Verdict==r.Expected
  return r
 }
 func run(manifest,output string)error{
@@ -114,9 +114,9 @@ func run(manifest,output string)error{
  seen:=map[string]bool{}
  for _,c:=range m.Cases{
   if seen[c.ID]{return fmt.Errorf("duplicate id %q",c.ID)};seen[c.ID]=true
-  if c.Expect!="PASS"&&c.Expect!="FAIL"&&c.Expect!="UNKNOWN"{return fmt.Errorf("invalid oracle for %s",c.ID)}
+  if c.Expect!=""&&c.Expect!="PASS"&&c.Expect!="FAIL"&&c.Expect!="UNKNOWN"{return fmt.Errorf("invalid oracle for %s",c.ID)}
   r:=evaluate(filepath.Dir(manifest),c);receipt.Results=append(receipt.Results,r)
-  if r.MatchesOracle{receipt.Matched++}else{receipt.Discrepancies++}
+  if c.Expect!="" { if r.MatchesOracle{receipt.Matched++}else{receipt.Discrepancies++} }
  }
  data,_:=json.MarshalIndent(receipt,"","  ");data=append(data,'\n')
  if output==""{fmt.Print(string(data))}else{if e=os.WriteFile(output,data,0600);e!=nil{return e}}

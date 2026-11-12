@@ -114,3 +114,54 @@ jobs:
           path: qualification/expanded_motion_corpus/runs/math_audit.json
           retention-days: 14
           if-no-files-found: error
+
+  source-bound-video-diagnostics:
+    name: 22 unlabelled H264 character clip diagnostics (independent of source math)
+    needs: original-motion-matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: motion-corpus-*
+          path: qualification/expanded_motion_corpus/runs/
+          merge-multiple: true
+      - name: Disposable FFmpeg installation and offline adapters
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m unittest discover -s qualification/video_physics_bakeoff/scripts -p 'test_character_manifest.py' -v
+          (cd qualification/video_physics_bakeoff && GOWORK=off GOPROXY=off GOSUMDB=off go test ./...)
+      - name: Evaluate real regenerated MP4 bytes without assumed gold-label verdicts
+        env:
+          GOWORK: 'off'
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          ROOT=qualification/expanded_motion_corpus/runs
+          python3 qualification/video_physics_bakeoff/scripts/character_manifest.py --root "$ROOT" --out "$ROOT/video_eval_cases.json"
+          (cd qualification/video_physics_bakeoff && go run ./cmd/bakeoff -manifest ../expanded_motion_corpus/runs/video_eval_cases.json -out ../expanded_motion_corpus/runs/video_quality_receipts.json)
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("qualification/expanded_motion_corpus/runs")
+          m=json.loads((root/"video_quality_receipts.json").read_text())
+          assert m["total"]==22 and len(m["results"])==22, "missing or extra cases"
+          assert m["matched"]==0 and m["discrepancies"]==0, "invented oracle"
+          assert all(not r["expected"] and not r["matches_oracle"] and len(r["source_sha256"])==64 and not r.get("error") for r in m["results"])
+          counts={k:sum(x["verdict"]==k for x in m["results"]) for k in ("PASS","FAIL","UNKNOWN")}
+          print("ACTUAL_ORIGINAL_H264_DIAGNOSTICS",counts,"SCIENTIFIC_PRODUCT_ACCEPTANCE=NOT_QUALIFIED")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-character-video-bakeoff-22-diagnostic-receipts
+          path: |
+            qualification/expanded_motion_corpus/runs/video_eval_cases.json
+            qualification/expanded_motion_corpus/runs/video_quality_receipts.json
+          retention-days: 14
+          if-no-files-found: error
