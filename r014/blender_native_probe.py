@@ -40,6 +40,7 @@ def create(path):
     obj.shape_key_add(name='Basis',from_mix=False)
     morph=obj.shape_key_add(name='test_corrective',from_mix=False)
     for i in range(4*N,5*N):morph.data[i].co.x+=0.03
+    obj.parent=rig
     obj.modifiers.new('Skinning','ARMATURE').object=rig
     rig.pose.bones['distal'].rotation_mode='XYZ'
     bpy.context.view_layer.update()
