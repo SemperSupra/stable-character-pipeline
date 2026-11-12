@@ -10,6 +10,7 @@ from pathlib import Path
 import argparse
 import json
 import sys
+import shutil
 
 HERE=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(HERE/"video_integrated_candidate"))
@@ -21,6 +22,7 @@ gen=integration.gen
 PINUP=pinup.CASE
 TARGETS=integration.TARGETS | frozenset((PINUP,))
 OLD_BUILD_CASE=gen.build_case
+OLD_BUILD_BATCH=gen.build_batch
 OLD_KNEE=gen.knee_ik
 
 def scoped_build_case(case,out):
@@ -36,20 +38,67 @@ def scoped_build_case(case,out):
     finally:
         gen.knee_ik=OLD_KNEE
 
+def composed_build_batch(batch,out_root):
+    """Fail closed: reuse rights-original, immutable files for all non-target cases.
+
+    Cold regeneration of original non-target GLBs failed exact SHA custody on
+    some runners (observed 43158641051 and 43158641108); do not silently
+    replace known source media with numerically drifting re-renders. Only
+    admitted repaired cases are regenerated on the current disposable runner.
+    """
+    batch_original=ORIGINAL_ROOT/batch
+    manifest=json.loads((batch_original/"manifest.json").read_text())
+    prior={item["case"]:item for item in manifest["cases"]}
+    expected=set(gen.BATCHES[batch])
+    if len(prior)!=len(expected) or set(prior)!=expected:
+        raise ValueError("SOURCE_MANIFEST_CASES_CHANGED")
+    out_root=Path(out_root)
+    out_root.mkdir(parents=True,exist_ok=True)
+    generated=[]
+    for case in gen.BATCHES[batch]:
+        item=prior[case]
+        if case in TARGETS:
+            generated.append(gen.build_case(case,out_root))
+        else:
+            for block in (item["model"],item["ground_truth"],*item["videos"]):
+                filename=block["file"]
+                if filename not in (case+".glb",case+"_ground_truth.json",case+"_side.mp4"):
+                    raise ValueError("UNTRUSTED_SOURCE_FILE_NAME")
+                source=batch_original/filename
+                if integration.digest(source)!=block["sha256"]:
+                    raise ValueError("IMMUTABLE_ORIGINAL_FILE_HASH_MISMATCH")
+                shutil.copyfile(source,out_root/filename)
+            generated.append(item)
+    manifest["cases"]=generated
+    manifest["notes"]=list(manifest.get("notes",[]))+[
+        "Five-target original kinematic corrections; all unaffected GLB/H264 and label bytes reused unchanged from separately SHA-verified original baseline",
+        "Original zero-target batches are byte copies, not misleading cross-runner numerical regeneration",
+        "Cold floating-point source rebuilds require their own portability qualification; not accepted as deterministic",
+    ]
+    (out_root/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\\n")
+    gen.make_contact_sheet(out_root,gen.BATCHES[batch])
+    return manifest
+
+ORIGINAL_ROOT=None
+
 def evaluate(batch,root,original_root):
     if batch not in integration.COUNTS:
         raise ValueError("INVALID_BATCH")
-    if gen.build_case is not OLD_BUILD_CASE:
+    global ORIGINAL_ROOT
+    if gen.build_case is not OLD_BUILD_CASE or gen.build_batch is not OLD_BUILD_BATCH:
         raise ValueError("GENERATOR_ALREADY_PATCHED")
+    ORIGINAL_ROOT=Path(original_root)
     try:
         # The existing strict integration performs original manifest/rights SHA
         # custody checks, verifies every target's original FAIL and candidate
         # PASS, and proves unchanged source/GLB SHA on every non-target case.
         integration.TARGETS=TARGETS
         gen.build_case=scoped_build_case
+        gen.build_batch=composed_build_batch
         report=integration.check_batch(batch,root,original_root)
     finally:
         gen.build_case=OLD_BUILD_CASE
+        gen.build_batch=OLD_BUILD_BATCH
         gen.knee_ik=OLD_KNEE
         integration.TARGETS=TARGETS-frozenset((PINUP,))
     if report["schema"]!="scp.integrated-original-22-4fix-candidate-batch.v1":
