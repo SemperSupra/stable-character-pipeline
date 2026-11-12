@@ -1,0 +1,144 @@
+name: visualqa-22-case-source-video-fail-closed-join
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_dual_gate/**'
+      - '.github/workflows/visualqa-dual-evidence-gate.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: visualqa-dual-evidence-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  primary-strict-adjudicator:
+    name: 22-case source+H264 strict schema and hostile controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43174097569
+          github-token: ${{ github.token }}
+          name: original-22-integrated-eight-fix-source-and-video-receipts
+          path: research/source-video
+      - name: Adversarial gates and original immutable evidence join
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/visualqa_dual_gate -p 'test_dual_gate.py' -v
+          python3 qualification/visualqa_dual_gate/dual_gate.py \
+            --source research/source-video/integrated-source-math.json \
+            --video research/source-video/decoded-video-diagnostics.json \
+            --out receipts/targeted.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: visualqa-primary-targeted-gates
+          path: receipts/targeted.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-source-video-cross-check:
+    name: Source/video witness matching on separate disposable VM
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43174097569
+          github-token: ${{ github.token }}
+          name: original-22-integrated-eight-fix-source-and-video-receipts
+          path: research/source-video
+      - name: Independent stdlib decision table and SHA witness
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          python3 - <<'PY'
+          import json,re,hashlib
+          from pathlib import Path
+          src=Path("research/source-video/integrated-source-math.json").read_bytes()
+          vid=Path("research/source-video/decoded-video-diagnostics.json").read_bytes()
+          a,b=json.loads(src),json.loads(vid)
+          assert a["case_count"]==b["total"]==22
+          assert len(a["cases"])==len(b["results"])==22
+          assert a["counts"]=={"PASS":18,"FAIL":3,"UNKNOWN":1}
+          assert b["matched"]==b["discrepancies"]==0
+          s={x["case"]:x for x in a["cases"]}
+          v={x["id"].removesuffix("_video"):x for x in b["results"]}
+          assert len(s)==len(v)==22 and set(s)==set(v)
+          rows={}
+          for name in sorted(s):
+              x,y=s[name],v[name]
+              assert y["id"]==name+"_video"
+              assert x["status"] in ("PASS","FAIL","UNKNOWN")
+              assert y["verdict"] in ("PASS","FAIL","UNKNOWN")
+              assert x["frames_checked"]==40 and y["kind"]=="video"
+              assert y["expected"]=="" and not y["matches_oracle"] and not y.get("error")
+              assert all(re.fullmatch(r"[0-9a-f]{64}",z) for z in (x["source_sha256"],y["source_sha256"]))
+              pair=(x["status"],y["verdict"])
+              gate=("BLOCK_CORRECTIVE_RESEARCH" if "FAIL" in pair else
+                    "ABSTAIN_HUMAN_OR_INDEPENDENT_REVIEW" if "UNKNOWN" in pair else
+                    "TARGETED_SOURCE_AND_VIDEO_PASS_ONLY")
+              rows[name]={"targeted_gate":gate,
+                          "source_labels_sha256":x["source_sha256"],
+                          "decoded_h264_sha256":y["source_sha256"],
+                          "human_motion_realism_accepted":False}
+          assert {k:sum(x["verdict"]==k for x in b["results"]) for k in ("PASS","FAIL","UNKNOWN")}=={"PASS":14,"FAIL":6,"UNKNOWN":2}
+          out={"schema":"scp.visualqa.independent-gate-cross-check.v1",
+               "source_receipt_sha256":hashlib.sha256(src).hexdigest(),
+               "video_receipt_sha256":hashlib.sha256(vid).hexdigest(),
+               "cases":rows,"global_realism_verdict":"NOT_QUALIFIED"}
+          Path("receipts/independent.json").write_text(json.dumps(out,indent=2,sort_keys=True)+"\n")
+          print("SECOND_INDEPENDENT_GATING",len(rows),"NOT_FULL_REALISM")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: visualqa-independent-gate-crosscheck
+          path: receipts/independent.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-cross-witness-reconciliation:
+    name: Independent fail-closed 22-case two-witness join
+    needs: [primary-strict-adjudicator, independent-source-video-cross-check]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: visualqa-*-gate*
+          merge-multiple: true
+          path: receipts
+      - name: Independently confirm both method joins
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path("receipts/targeted.json").read_text())
+          b=json.loads(Path("receipts/independent.json").read_text())
+          assert a["case_count"]==len(a["cases"])==len(b["cases"])==22
+          assert a["global_realism_verdict"]==b["global_realism_verdict"]=="NOT_QUALIFIED"
+          for x in a["cases"]:
+              y=b["cases"][x["case"]]
+              for key in ("targeted_gate","source_labels_sha256","decoded_h264_sha256","human_motion_realism_accepted"):
+                  assert x[key]==y[key],(x["case"],key)
+          counts=a["gate_counts"]
+          assert sum(counts.values())==22
+          assert counts["BLOCK_CORRECTIVE_RESEARCH"]>=6
+          out={"schema":"scp.visualqa.dual-gate-joined.v1","case_count":22,
+               "targeted_counts":counts,"global_realism_verdict":"NOT_QUALIFIED",
+               "source":"Eight-fix rights-original run 43174097569; no label/perceptual oracle invention"}
+          Path("receipts/independent-joined.json").write_text(json.dumps(out,indent=2,sort_keys=True)+"\n")
+          print("RECONCILED_22_SOURCE_H264_TARGETED_GATES",counts)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: visualqa-22-case-adjudication-join
+          path: receipts/independent-joined.json
+          retention-days: 14
+          if-no-files-found: error
