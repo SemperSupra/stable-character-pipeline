@@ -2,7 +2,7 @@ name: R014 actual MHR reach-preserving smooth pelvis world contact DoE
 on:
   push:
     branches: [research/r014-mhr-gait-pelvis-smooth-20261112]
-    paths: ['r014/mhr_gait_pelvis_smooth_probe.py','r014/pelvis_lipschitz_envelope.py','.github/workflows/r014-mhr-gait-pelvis-smooth.yml']
+    paths: ['r014/mhr_gait_pelvis_smooth_probe.py','r014/pelvis_lipschitz_envelope.py','r014/MHR_GAIT_PELVIS_SMOOTH_README.md','.github/workflows/r014-mhr-gait-pelvis-smooth.yml']
   workflow_dispatch:
 permissions:
   contents: read
