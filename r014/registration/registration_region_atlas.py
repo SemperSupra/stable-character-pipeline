@@ -36,6 +36,17 @@ rig=rigs[0]
 assert len(rig.data.bones)==163
 assert len(source.data.vertices)==13380 and len(target.data.vertices)==10582
 
+bpy.context.view_layer.update()
+print('R014_NATIVE_REOPEN_TRANSFORMS',json.dumps({
+    'sex':args.sex,
+    'source_parent':source.parent.name if source.parent else None,
+    'target_parent':target.parent.name if target.parent else None,
+    'source_matrix':[[round(x,6) for x in row] for row in source.matrix_world],
+    'target_matrix':[[round(x,6) for x in row] for row in target.matrix_world],
+    'rig_matrix':[[round(x,6) for x in row] for row in rig.matrix_world],
+    'source_modifiers':[m.type for m in source.modifiers],
+    'target_modifiers':[m.type for m in target.modifiers],
+},sort_keys=True),flush=True)
 src=np.array([list(source.matrix_world@v.co) for v in source.data.vertices],dtype=np.float64)
 tgt=np.array([list(target.matrix_world@v.co) for v in target.data.vertices],dtype=np.float64)
 source.data.calc_loop_triangles()
@@ -49,6 +60,12 @@ for i,p in enumerate(tgt):
     distances[i]=d
 basep95=float(old['correspondence']['p95_m'])
 newp95=float(np.percentile(distances,95))
+print('R014_REOPEN_DISTANCES',json.dumps({
+ 'sex':args.sex,'baseline_p95':basep95,'reopened_p95':newp95,
+ 'source_min':src.min(axis=0).tolist(),'source_max':src.max(axis=0).tolist(),
+ 'target_min':tgt.min(axis=0).tolist(),'target_max':tgt.max(axis=0).tolist(),
+ 'source_centroid':src.mean(axis=0).tolist(),'target_centroid':tgt.mean(axis=0).tolist()
+},sort_keys=True),flush=True)
 assert abs(newp95-basep95)<.005,('loaded wrong geometric source',basep95,newp95)
 
 # Bone-local rest landmarks in matching Blender scene world coordinates.
