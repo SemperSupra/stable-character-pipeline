@@ -1,0 +1,62 @@
+name: video-original-two-static-stance-poses-ab
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_pose_contact_ab/**'
+      - '.github/workflows/video-two-static-poses-ab.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-pose-static-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-pose-anchoring-ab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [female_photoshoot_high_heels, male_karate_kata_barefoot]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install rendering dependencies in disposable public VM only
+        env:
+          PY: ${{ runner.temp }}/pose-candidate
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m venv "$PY"
+          "$PY/bin/python" -m pip install --no-cache-dir --disable-pip-version-check numpy==2.3.5 opencv-python-headless==4.13.0.92
+      - name: Render before/after authentic 40f animated meshes and H264, independently reject source-label relabels
+        env:
+          PY: ${{ runner.temp }}/pose-candidate
+          CASE: ${{ matrix.case }}
+        run: |
+          set -euo pipefail
+          "$PY/bin/python" qualification/video_pose_contact_ab/static_pose_ab.py \
+            --case "$CASE" --out qualification/video_pose_contact_ab/runs
+          python3 - "$CASE" <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          case=sys.argv[1]
+          root=Path("qualification/video_pose_contact_ab/runs")/case
+          d=json.loads((root/"pose-contact-ab.json").read_text())
+          assert d["schema"]=="scp.original-two-anchored-poses-source-ab.v1"
+          assert d["original"]["status"]=="FAIL" and d["candidate"]["status"]=="PASS"
+          assert d["original"]["defect_count"]>0 and d["candidate"]["defect_count"]==0
+          assert d["source_contact_flags_unchanged"]
+          for tag,info in (("before","before_media"),("after","after_media")):
+              for suffix,key in ((".glb","animated_glb_sha256"),("_side.mp4","h264_sha256")):
+                  assert hashlib.sha256((root/tag/(case+suffix)).read_bytes()).hexdigest()==d[info][key]
+          print("ACTUAL_GLTF_H264_SOURCE_STANCE_TWOCASE",case,d["original"]["defect_count"],d["candidate"]["defect_count"])
+          PY
+          printf 'source_baseline_unmodified=true\nno_gait_physics_or_human_realism_approval=true\n' >qualification/video_pose_contact_ab/runs/"$CASE"/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-pose-stance-${{ matrix.case }}-ab
+          path: qualification/video_pose_contact_ab/runs/${{ matrix.case }}/
+          retention-days: 7
+          if-no-files-found: error
