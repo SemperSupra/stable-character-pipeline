@@ -1,0 +1,65 @@
+name: R009 public synthetic disposable OCI qualification
+
+on:
+  push:
+    branches:
+      - rdte/r009-public-playwright-venue-smoke-20261111
+  pull_request:
+    paths:
+      - qualification/r009/public_disposable_oci_smoke.sh
+      - .github/workflows/r009-public-disposable-oci.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r009-public-disposable-oci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-disposable-oci:
+    name: Synthetic OCI cold start / teardown
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build, cold-start twice, verify read-only and dispose
+        run: bash qualification/r009/public_disposable_oci_smoke.sh
+      - name: Upload synthetic-only receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r009-public-synthetic-disposable-oci
+          path: synthetic-oci-evidence/
+          if-no-files-found: warn
+          retention-days: 3
+
+  synthetic-oci-fresh-worker-rebuild:
+    name: Fresh public runner rebuild and evidence reimport
+    needs: synthetic-disposable-oci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Restore producer's uploaded synthetic receipt
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: r009-public-synthetic-disposable-oci
+          path: synthetic-oci-evidence/
+      - name: Rebuild OCI from a fresh worker and verify evidence
+        env:
+          R009_PHASE: consumer
+        run: bash qualification/r009/public_disposable_oci_smoke.sh
+      - name: Upload consumer verification
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r009-public-synthetic-oci-fresh-worker
+          path: synthetic-oci-evidence/consumer-receipt.json
+          if-no-files-found: warn
+          retention-days: 3
