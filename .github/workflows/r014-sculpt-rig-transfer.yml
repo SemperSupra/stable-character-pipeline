@@ -1,0 +1,87 @@
+name: R014 Blender Studio sculpt → MPFB rig transfer source-artifact bakeoff
+on:
+  push:
+    branches: [research/r014-sculpt-rig-transfer-v1]
+    paths: [r014/**, .github/workflows/r014-sculpt-rig-transfer.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-sculpt-rig-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-adult-bodies:
+    strategy:
+      fail-fast: false
+      matrix:
+        sex: [female, male]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Python fail-fast compile before native assets
+        run: python3 -m compileall -q r014
+      - name: Pull only pinned previously qualified public-source model artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-transfer/mpfb" "$RUNNER_TEMP/r014-transfer/sculpt"
+          gh run download 43202169814 --repo "$GITHUB_REPOSITORY" \
+            --name r014-mpfb-adult-baselines \
+            --dir "$RUNNER_TEMP/r014-transfer/mpfb"
+          gh run download 43212080935 --repo "$GITHUB_REPOSITORY" \
+            --name r014-blenderstudio-cc0-realistic-base-research \
+            --dir "$RUNNER_TEMP/r014-transfer/sculpt"
+          test -s "$RUNNER_TEMP/r014-transfer/mpfb/R014_MPFB_female_male_clean_review.blend"
+          test -s "$RUNNER_TEMP/r014-transfer/mpfb/generation.json"
+          test -s "$RUNNER_TEMP/r014-transfer/sculpt/R014_BlenderStudio_CC0_realistic_sculpt_bases.blend"
+          test -s "$RUNNER_TEMP/r014-transfer/sculpt/inventory.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'r014-transfer'
+          m=json.loads((p/'mpfb/generation.json').read_text())
+          assert {(x['sex'],x['source_gender_macro']) for x in m['characters']}=={('female',0.0),('male',1.0)}
+          s=json.loads((p/'sculpt/inventory.json').read_text())
+          assert s['sha256_verified']=='811f43accbb31a88266d932f8f5563b2d13586fca0ba2693aad1f5fe582b3515'
+          PY
+      - name: Pin portable Blender 4.5.16 in disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-transfer"
+          url=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 3 "$url/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 3 "$url/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          sha="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#sha}" -eq 64
+          printf '%s  %s\n' "$sha" blender-4.5.16-linux-x64.tar.xz | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-transfer" -maxdepth 2 -type f -name blender | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Quantify real mesh to source-rig correspondence and animate transfer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-transfer/output"
+          "$BLENDER_BIN" --background --factory-startup --python-exit-code 3 \
+            --python r014/sculpt_rig_transfer_probe.py -- \
+            --mpfb "$RUNNER_TEMP/r014-transfer/mpfb/R014_MPFB_female_male_clean_review.blend" \
+            --studio "$RUNNER_TEMP/r014-transfer/sculpt/R014_BlenderStudio_CC0_realistic_sculpt_bases.blend" \
+            --generation "$RUNNER_TEMP/r014-transfer/mpfb/generation.json" \
+            --sex "${{ matrix.sex }}" \
+            --out "$RUNNER_TEMP/r014-transfer/output" 
+          test -s "$RUNNER_TEMP/r014-transfer/output/rig_transfer_receipt.json"
+          test -s "$RUNNER_TEMP/r014-transfer/output/R014_${{ matrix.sex }}_sculpt_weight_transfer_research.blend"
+          test -s "$RUNNER_TEMP/r014-transfer/output/neutral.png"
+          test -s "$RUNNER_TEMP/r014-transfer/output/rigged_pose.png"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-sculpt-rig-transfer-${{ matrix.sex }}-research
+          path: ${{ runner.temp }}/r014-transfer/output/*
+          retention-days: 7
