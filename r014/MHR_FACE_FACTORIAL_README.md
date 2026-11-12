@@ -1,0 +1,11 @@
+# R014 native MHR facial expression isolation — research HOLD
+
+Prior corrected [native face run 43283569870](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43283569870) independently produced actual MHR skin morph motion but revealed **76 base, 608 subdiv L1, 2,376 subdiv L2 inverted triangles**. A green CI result only proved evidence capture.
+
+This independent research cell rebuilds the official SHA-pinned MHR v1.0.1 native rig and executes two bounded public-only adult synthetic experiments. Lane `single` tests five verified existing morph-key names at four amplitudes; lane `combination` tests coupled eyelid, jaw, and mouth controls at lower and original amplitudes. Every measurement comes from actual evaluated 18,439-vertex Blender mesh. A stable polygon-index triangulation prevents false quad diagonal topology alarm. It emits vertex IDs, rest-centroids, deformation magnitudes, inversion and collapse counts, as well as actual 768x768 close-up renders and native editable scene.
+
+The semantic labels are **provisional, not independently clinically validated FACS or realistic facial muscle motion**. A zero-inversion case would be useful but not guarantee anatomical expression quality, speech/lip seal, eye/cornea realism or cinematography. Source morphology/age/gender and reproductive anatomy are not inferred from pixels. Protect all actor-specific and identity media.
+
+Execution uses public disposable GitHub Actions/Blender only, with upstream SHA and short-lived artifacts. Copy accepted receipts to private Drive under [R014 RigLab](https://drive.google.com/drive/folders/19bzvrQ35DwIxdpftrDCjxezNLa2UQl-v). [Private R014 #138](https://github.com/SemperSupra/stable-character-pipeline-private/issues/138) remains the product DLE; dependent MHR source is [draft #405](https://github.com/SemperSupra/stable-character-pipeline/pull/405). All branches draft, unmerged, and R014/R009 product/video release HOLD. Do not confuse experimental shape-key motion with a production-grade rig or full facial anatomy.
+
+Next gates: diagnose implicated faces with semantic landmark review, test adjusted expression intensity and local corrective shapes, independent eye/lip/cheek/teeth contacts, native-to-GLB parity, and 1080p moving close-up review.
