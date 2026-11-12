@@ -8,6 +8,9 @@ on:
       - 'research/r015_prior_art/semantify_pretrained.py'
 permissions:
   contents: read
+concurrency:
+  group: r015-semantify-pretrained
+  cancel-in-progress: true
 jobs:
   original-pretrained-mapper-safe-load:
     runs-on: ubuntu-24.04
