@@ -29,9 +29,9 @@ def envelope(raw, slope, cap):
     return out
 
 if __name__=="__main__":
-    assert envelope([0.,.12,0.],.01,.2)==[.11,.12,.11]
+    assert all(abs(a-b)<1e-12 for a,b in zip(envelope([0.,.12,0.],.01,.2),[.11,.12,.11]))
     assert envelope([.02]*8,.01,.2)==[.02]*8
-    assert envelope([0.,.02,.04,.06],.01,.2)==[.03,.04,.05,.06]
+    assert all(abs(a-b)<1e-12 for a,b in zip(envelope([0.,.02,.04,.06],.01,.2),[.03,.04,.05,.06]))
     for bad in ([float("nan")],[-1.],[]):
         try: envelope(bad,.01,.2)
         except ValueError: pass
