@@ -1,0 +1,148 @@
+name: R014 Source CC0 Human Appearance Morphological Integrity and Rig Motion
+on:
+  push:
+    branches: [research/r014-cc0-textured-body-morph-integrity-20261112]
+    paths:
+      - r014/mpfb_cc0_morph_integrity.py
+      - r014/cc0_morph_fresh_reopen.py
+      - .github/workflows/r014-cc0-morph-integrity.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-source-cc0-textured-morph-integrity
+  cancel-in-progress: true
+jobs:
+  actual-textured-adult-morphology:
+    name: Actual CC0 skin/hair/eyes and native MPFB morph ${{ matrix.sex }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 34
+    strategy:
+      fail-fast: false
+      matrix:
+        sex: [female, male]
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-cc0-morph/blender-config
+      BLENDER_USER_SCRIPTS: /tmp/r014-cc0-morph/blender-scripts
+    steps:
+      - name: Checkout separate research source without persistent credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Fail fast on Python source
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/mpfb_cc0_morph_integrity.py r014/cc0_morph_fresh_reopen.py
+      - name: Acquire exact public original CC0 lookdev scene from previous source-qualified run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-cc0-morph/source" "$RUNNER_TEMP/r014-cc0-morph/out"
+          gh run download 43207664661 --repo "$GITHUB_REPOSITORY" \
+            --name r014-mpfb-eye-MAKESKIN-lookdev \
+            --dir "$RUNNER_TEMP/r014-cc0-morph/source"
+          test -s "$RUNNER_TEMP/r014-cc0-morph/source/R014_MPFB_CC0_surface_study.blend"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          src=Path(os.environ["RUNNER_TEMP"])/"r014-cc0-morph/source"
+          doc=json.loads((src/"generation.json").read_text())
+          assert doc["eye_material_mode"]=="MAKESKIN"
+          assert doc["asset_archive_sha256"]=="b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107"
+          assert {(r["sex"],r["source_gender_macro"]) for r in doc["characters"]}=={("female",0.),("male",1.)}
+          print("PASS_SOURCE_CC0_PACKED_BLEND_ACQUIRED",doc["blender"])
+          PY
+      - name: Retrieve official Blender 4.5.16 in disposable environment
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-cc0-morph"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          expected="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#expected}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$expected" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-cc0-morph" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Acquire exact original MPFB generator implementation
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: makehumancommunity/mpfb2
+          ref: 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          path: _vendor/mpfb2
+          persist-credentials: false
+      - name: Build pinned extension and verify source rights
+        run: |
+          set -euo pipefail
+          test "$(git -C _vendor/mpfb2 rev-parse HEAD)" = 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          grep -F CC0 _vendor/mpfb2/LICENSE.md
+          grep -F GPLv3 _vendor/mpfb2/LICENSE.md
+          mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$RUNNER_TEMP/r014-cc0-morph/extensions"
+          "$BLENDER_BIN" --command extension build --source-dir _vendor/mpfb2/src/mpfb --output-dir "$RUNNER_TEMP/r014-cc0-morph"
+          ext="$(find "$RUNNER_TEMP/r014-cc0-morph" -maxdepth 1 -name 'mpfb-*.zip' | head -1)"
+          test -f "$ext"
+          "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r014-cc0-morph/extensions"
+          "$BLENDER_BIN" --command extension install-file -r r014lab -e "$ext"
+          "$BLENDER_BIN" --command extension list
+      - name: Install video codec verifier in disposable runner
+        run: |
+          set -euo pipefail
+          if ! command -v ffprobe >/dev/null; then sudo apt-get update -qq; sudo apt-get install -y -qq ffmpeg; fi
+          ffprobe -version | head -n 1
+      - name: Actually change morph source targets on packed CC0 adult and render real rig motion
+        env:
+          MORPH_SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-cc0-morph/source/R014_MPFB_CC0_surface_study.blend" \
+            --python-exit-code 3 --python r014/mpfb_cc0_morph_integrity.py -- \
+            --sex "$MORPH_SEX" \
+            --source "$RUNNER_TEMP/r014-cc0-morph/source/R014_MPFB_CC0_surface_study.blend" \
+            --generation "$RUNNER_TEMP/r014-cc0-morph/source/generation.json" \
+            --out "$RUNNER_TEMP/r014-cc0-morph/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          doc=json.loads((Path(os.environ["RUNNER_TEMP"])/"r014-cc0-morph/out/morph_receipt.json").read_text())
+          assert doc["status"]=="PASS_SOURCE_NATIVE_CC0_MORPH_MOTION_RENDER_STRUCTURAL_ONLY"
+          assert doc["real_morph_max_vertex_delta_blender_units"]>0.0001
+          assert doc["real_motion_video"]["probe"]["streams"][0]["codec_name"]=="h264"
+          print("PASS_SOURCE_REAL_TEXTURED_MORPH_AND_MOTION",doc["sex_macro_label"])
+          PY
+      - name: Fresh-process independent Blender reopen and skinned motion check
+        env:
+          MORPH_SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-cc0-morph/out/R014_$MORPH_SEX"_CC0_morph_editable_motion.blend \
+            --python-exit-code 3 --python r014/cc0_morph_fresh_reopen.py -- \
+            --source "$RUNNER_TEMP/r014-cc0-morph/out/R014_$MORPH_SEX"_CC0_morph_editable_motion.blend \
+            --receipt "$RUNNER_TEMP/r014-cc0-morph/out/morph_receipt.json" \
+            --sex "$MORPH_SEX" \
+            --out "$RUNNER_TEMP/r014-cc0-morph/out/fresh_reopen.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-cc0-morph/out/fresh_reopen.json"
+          assert json.loads(p.read_text())["status"]=="PASS_FRESH_REOPEN_TEXTURED_MORPH_ACTUATED_MESH_ONLY"
+          PY
+      - name: Inventory immutable public research outputs
+        if: always()
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/r014-cc0-morph/out"
+          if [ -d "$dir" ]; then
+            (cd "$dir" && find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 -r sha256sum > source_artifact_digests.txt)
+          fi
+      - name: Short retention official CC0 native Blender/source renders and research H264
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-cc0-real-morph-motion-${{ matrix.sex }}
+          path: ${{ runner.temp }}/r014-cc0-morph/out/*
+          if-no-files-found: warn
+          retention-days: 7
