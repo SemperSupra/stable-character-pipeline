@@ -31,16 +31,20 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/r014-cage/input" "$RUNNER_TEMP/r014-cage/output"
-          gh run download 43218606862 --repo "$GITHUB_REPOSITORY"             --name "r014-sculpt-rig-transfer-${{ matrix.sex }}-research"             --dir "$RUNNER_TEMP/r014-cage/input"
+          gh run download 43248830711 --repo "$GITHUB_REPOSITORY" --name "r014-sculpt-world-integrity-${{ matrix.sex }}-research" --dir "$RUNNER_TEMP/r014-cage/input"
           test -s "$RUNNER_TEMP/r014-cage/input/R014_${{ matrix.sex }}_sculpt_weight_transfer_research.blend"
           test -s "$RUNNER_TEMP/r014-cage/input/rig_transfer_receipt.json"
+          test -s "$RUNNER_TEMP/r014-cage/input/fresh_reopened_geometry.json"
           python3 - <<'PY'
           import json,os
           from pathlib import Path
           q=json.loads((Path(os.environ['RUNNER_TEMP'])/'r014-cage/input/rig_transfer_receipt.json').read_text())
           assert q['sex_source_macro']=={'female':0.0,'male':1.0}['${{ matrix.sex }}']
           assert q['source_mesh_vertices']==13380 and q['target_mesh_vertices']==10582
-          assert q['correspondence']['p95_m']>.10  # prior failure, never positive control
+          assert q['correspondence']['p95_m']>.10  # anatomical mismatch still fails
+          fresh=json.loads((Path(os.environ['RUNNER_TEMP'])/'r014-cage/input/fresh_reopened_geometry.json').read_text())
+          assert fresh['status']=='PASS_SAVED_NATIVE_SOURCE_GEOMETRY_PARITY_ONLY'
+          assert fresh['target_matrix_world_translation_norm']<1e-5
           print('REHYDRATED_PREVIOUS_REJECTED_RIG_TRANSFER')
           PY
       - name: Pin Blender 4.5.16 on the DISPOSABLE runner
@@ -62,7 +66,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          "$BLENDER_BIN" --background             "$RUNNER_TEMP/r014-cage/input/R014_${{ matrix.sex }}_sculpt_weight_transfer_research.blend"             --python-exit-code 3 --python r014/surface_cage/surface_cage_probe.py --             --sex "${{ matrix.sex }}"             --source "$RUNNER_TEMP/r014-cage/input/R014_${{ matrix.sex }}_sculpt_weight_transfer_research.blend"             --baseline "$RUNNER_TEMP/r014-cage/input/rig_transfer_receipt.json"             --out "$RUNNER_TEMP/r014-cage/output"
+          "$BLENDER_BIN" --background             "$RUNNER_TEMP/r014-cage/input/R014_${{ matrix.sex }}_sculpt_weight_transfer_research.blend"             --python-exit-code 3 --python r014/surface_cage/surface_cage_probe.py --             --sex "${{ matrix.sex }}"             --source "$RUNNER_TEMP/r014-cage/input/R014_${{ matrix.sex }}_sculpt_weight_transfer_research.blend"             --baseline "$RUNNER_TEMP/r014-cage/input/rig_transfer_receipt.json" --fresh-reopen "$RUNNER_TEMP/r014-cage/input/fresh_reopened_geometry.json" --out "$RUNNER_TEMP/r014-cage/output"
           python3 - <<'PY'
           import json,os
           from pathlib import Path
@@ -73,6 +77,8 @@ jobs:
           assert q['source_mpbf_mesh_vertices']==13380 and q['target_studio_base_vertices']==10582
           assert q['source_bone_count']==163
           assert q['prebind_source_distance_p95_m']>.05
+          assert q['source_reopen_gate']=='PASS_SAVED_NATIVE_SOURCE_GEOMETRY_PARITY_ONLY'
+          assert max(abs(x) for x in q['experimental_transform_repair_m'])==0
           assert 'posed_geometry' in q and 'authored_multires_test' in q
           # BIND FAILURE IS RESEARCH EVIDENCE, NOT A GREEN REALISM CLAIM.
           print('PASS_REAL_MESH_CAGE_EXPERIMENT_RECEIPT_ONLY')
