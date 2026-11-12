@@ -1,0 +1,897 @@
+{
+  "actors": [
+    {
+      "case": "masculine_short_broad",
+      "mesh": {
+        "clean": {
+          "evaluated_local_bounds_xyz": [
+            1.0711052,
+            0.4334645,
+            1.5877823
+          ],
+          "evaluated_mesh_hash_sha256_rounded_8_places": "f9717089779a5cb7155706c667f28808b403535bc359faf7750dc06f5528edc8",
+          "evaluated_vertex_count": 13380,
+          "nonzero_shape_key_weights": [
+            {
+              "name": "$md-$as-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$ca-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$af-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-$av$wg",
+              "weight": 0.26121205
+            },
+            {
+              "name": "$md-$as-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$ca-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$af-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-max$wg",
+              "weight": 0.23219946
+            },
+            {
+              "name": "$md-universal-$ma-$yn-max$mu-$av$wg",
+              "weight": 0.1088291
+            },
+            {
+              "name": "$md-universal-$ma-$yn-max$mu-max$wg",
+              "weight": 0.09674155
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-$av$wg",
+              "weight": 0.1088291
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-max$wg",
+              "weight": 0.09674155
+            },
+            {
+              "name": "$md-universal-$ma-old-max$mu-$av$wg",
+              "weight": 0.04534161
+            },
+            {
+              "name": "$md-universal-$ma-old-max$mu-max$wg",
+              "weight": 0.04030555
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-min$hg",
+              "weight": 0.09926058
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-max$wg-min$hg",
+              "weight": 0.0882358
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-$av$wg-min$hg",
+              "weight": 0.04135506
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-max$wg-min$hg",
+              "weight": 0.03676179
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-min$hg",
+              "weight": 0.04135506
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-max$wg-min$hg",
+              "weight": 0.03676179
+            },
+            {
+              "name": "$md-$ma-old-max$mu-$av$wg-min$hg",
+              "weight": 0.01722981
+            },
+            {
+              "name": "$md-$ma-old-max$mu-max$wg-min$hg",
+              "weight": 0.01531611
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-$id$pr",
+              "weight": 0.14340542
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-max$wg-$id$pr",
+              "weight": 0.12747751
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-$av$wg-$id$pr",
+              "weight": 0.05974718
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-max$wg-$id$pr",
+              "weight": 0.05311111
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-$id$pr",
+              "weight": 0.05974718
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-max$wg-$id$pr",
+              "weight": 0.05311111
+            },
+            {
+              "name": "$md-$ma-old-max$mu-$av$wg-$id$pr",
+              "weight": 0.02489254
+            },
+            {
+              "name": "$md-$ma-old-max$mu-max$wg-$id$pr",
+              "weight": 0.02212775
+            }
+          ],
+          "raw_and_evaluated_topology_matches": true,
+          "raw_local_bounds_xyz": [
+            0.9925402,
+            0.4230101,
+            1.6658903
+          ],
+          "raw_to_evaluated_rms": 0.072442914,
+          "raw_vertex_count": 13380
+        },
+        "source": {
+          "evaluated_local_bounds_xyz": [
+            1.0711052,
+            0.4334645,
+            1.5877823
+          ],
+          "evaluated_mesh_hash_sha256_rounded_8_places": "12d92775e0d8f453c535687792037e09fa9d976ba6281c4c075f97054683ba73",
+          "evaluated_vertex_count": 13380,
+          "nonzero_shape_key_weights": [
+            {
+              "name": "$md-$as-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$ca-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$af-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-$av$wg",
+              "weight": 0.26121205
+            },
+            {
+              "name": "$md-$as-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$ca-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$af-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-max$wg",
+              "weight": 0.23219946
+            },
+            {
+              "name": "$md-universal-$ma-$yn-max$mu-$av$wg",
+              "weight": 0.1088291
+            },
+            {
+              "name": "$md-universal-$ma-$yn-max$mu-max$wg",
+              "weight": 0.09674155
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-$av$wg",
+              "weight": 0.1088291
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-max$wg",
+              "weight": 0.09674155
+            },
+            {
+              "name": "$md-universal-$ma-old-max$mu-$av$wg",
+              "weight": 0.04534161
+            },
+            {
+              "name": "$md-universal-$ma-old-max$mu-max$wg",
+              "weight": 0.04030555
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-min$hg",
+              "weight": 0.09926058
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-max$wg-min$hg",
+              "weight": 0.0882358
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-$av$wg-min$hg",
+              "weight": 0.04135506
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-max$wg-min$hg",
+              "weight": 0.03676179
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-min$hg",
+              "weight": 0.04135506
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-max$wg-min$hg",
+              "weight": 0.03676179
+            },
+            {
+              "name": "$md-$ma-old-max$mu-$av$wg-min$hg",
+              "weight": 0.01722981
+            },
+            {
+              "name": "$md-$ma-old-max$mu-max$wg-min$hg",
+              "weight": 0.01531611
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-$id$pr",
+              "weight": 0.14340542
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-max$wg-$id$pr",
+              "weight": 0.12747751
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-$av$wg-$id$pr",
+              "weight": 0.05974718
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-max$wg-$id$pr",
+              "weight": 0.05311111
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-$id$pr",
+              "weight": 0.05974718
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-max$wg-$id$pr",
+              "weight": 0.05311111
+            },
+            {
+              "name": "$md-$ma-old-max$mu-$av$wg-$id$pr",
+              "weight": 0.02489254
+            },
+            {
+              "name": "$md-$ma-old-max$mu-max$wg-$id$pr",
+              "weight": 0.02212775
+            }
+          ],
+          "raw_and_evaluated_topology_matches": false,
+          "raw_local_bounds_xyz": [
+            0.9946402,
+            0.4359801,
+            1.6945505
+          ],
+          "raw_to_evaluated_rms": null,
+          "raw_vertex_count": 19158
+        }
+      },
+      "source_macros": {
+        "gender": 1,
+        "height": 0.3,
+        "muscle": 0.65,
+        "name": "masculine_short_broad",
+        "proportions": 0.78,
+        "weight": 0.74
+      }
+    },
+    {
+      "case": "masculine_tall_slim",
+      "mesh": {
+        "clean": {
+          "evaluated_local_bounds_xyz": [
+            1.3896525,
+            0.5686873,
+            2.1640025
+          ],
+          "evaluated_mesh_hash_sha256_rounded_8_places": "1cf29aa53dcdb796d8228ed917f7720e1d07b272bd04cc9289655a2a34430b9d",
+          "evaluated_vertex_count": 13380,
+          "nonzero_shape_key_weights": [
+            {
+              "name": "$md-$as-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$ca-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$af-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-$av$wg",
+              "weight": 0.28592557
+            },
+            {
+              "name": "$md-$as-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$ca-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$af-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-universal-$ma-$yn-min$mu-min$wg",
+              "weight": 0.08035492
+            },
+            {
+              "name": "$md-universal-$ma-$yn-min$mu-$av$wg",
+              "weight": 0.09781563
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-min$wg",
+              "weight": 0.23488604
+            },
+            {
+              "name": "$md-universal-$ma-old-min$mu-min$wg",
+              "weight": 0.03347837
+            },
+            {
+              "name": "$md-universal-$ma-old-min$mu-$av$wg",
+              "weight": 0.04075305
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-min$wg",
+              "weight": 0.09786087
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-$av$wg",
+              "weight": 0.11912553
+            },
+            {
+              "name": "$md-$ma-$yn-min$mu-min$wg-max$hg",
+              "weight": 0.04982005
+            },
+            {
+              "name": "$md-$ma-$yn-min$mu-$av$wg-max$hg",
+              "weight": 0.0606457
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-min$wg-max$hg",
+              "weight": 0.14562935
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-max$hg",
+              "weight": 0.17727385
+            },
+            {
+              "name": "$md-$ma-old-min$mu-min$wg-max$hg",
+              "weight": 0.02075659
+            },
+            {
+              "name": "$md-$ma-old-min$mu-$av$wg-max$hg",
+              "weight": 0.02526689
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-min$wg-max$hg",
+              "weight": 0.06067374
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-max$hg",
+              "weight": 0.07385783
+            },
+            {
+              "name": "$md-$ma-$yn-min$mu-min$wg-$id$pr",
+              "weight": 0.0315152
+            },
+            {
+              "name": "$md-$ma-$yn-min$mu-$av$wg-$id$pr",
+              "weight": 0.03836329
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-min$wg-$id$pr",
+              "weight": 0.09212231
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-$id$pr",
+              "weight": 0.11214001
+            },
+            {
+              "name": "$md-$ma-old-min$mu-min$wg-$id$pr",
+              "weight": 0.01313022
+            },
+            {
+              "name": "$md-$ma-old-min$mu-$av$wg-$id$pr",
+              "weight": 0.01598335
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-min$wg-$id$pr",
+              "weight": 0.03838103
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-$id$pr",
+              "weight": 0.04672103
+            }
+          ],
+          "raw_and_evaluated_topology_matches": true,
+          "raw_local_bounds_xyz": [
+            0.9925402,
+            0.4230101,
+            1.6658903
+          ],
+          "raw_to_evaluated_rms": 0.369502344,
+          "raw_vertex_count": 13380
+        },
+        "source": {
+          "evaluated_local_bounds_xyz": [
+            1.3896525,
+            0.5686873,
+            2.1640025
+          ],
+          "evaluated_mesh_hash_sha256_rounded_8_places": "292add63cde10b938aaa33b281e5451004c7b7c384cc5a4efb00557ee121d038",
+          "evaluated_vertex_count": 13380,
+          "nonzero_shape_key_weights": [
+            {
+              "name": "$md-$as-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$ca-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$af-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-$av$wg",
+              "weight": 0.28592557
+            },
+            {
+              "name": "$md-$as-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$ca-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$af-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-universal-$ma-$yn-min$mu-min$wg",
+              "weight": 0.08035492
+            },
+            {
+              "name": "$md-universal-$ma-$yn-min$mu-$av$wg",
+              "weight": 0.09781563
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-min$wg",
+              "weight": 0.23488604
+            },
+            {
+              "name": "$md-universal-$ma-old-min$mu-min$wg",
+              "weight": 0.03347837
+            },
+            {
+              "name": "$md-universal-$ma-old-min$mu-$av$wg",
+              "weight": 0.04075305
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-min$wg",
+              "weight": 0.09786087
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-$av$wg",
+              "weight": 0.11912553
+            },
+            {
+              "name": "$md-$ma-$yn-min$mu-min$wg-max$hg",
+              "weight": 0.04982005
+            },
+            {
+              "name": "$md-$ma-$yn-min$mu-$av$wg-max$hg",
+              "weight": 0.0606457
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-min$wg-max$hg",
+              "weight": 0.14562935
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-max$hg",
+              "weight": 0.17727385
+            },
+            {
+              "name": "$md-$ma-old-min$mu-min$wg-max$hg",
+              "weight": 0.02075659
+            },
+            {
+              "name": "$md-$ma-old-min$mu-$av$wg-max$hg",
+              "weight": 0.02526689
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-min$wg-max$hg",
+              "weight": 0.06067374
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-max$hg",
+              "weight": 0.07385783
+            },
+            {
+              "name": "$md-$ma-$yn-min$mu-min$wg-$id$pr",
+              "weight": 0.0315152
+            },
+            {
+              "name": "$md-$ma-$yn-min$mu-$av$wg-$id$pr",
+              "weight": 0.03836329
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-min$wg-$id$pr",
+              "weight": 0.09212231
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-$id$pr",
+              "weight": 0.11214001
+            },
+            {
+              "name": "$md-$ma-old-min$mu-min$wg-$id$pr",
+              "weight": 0.01313022
+            },
+            {
+              "name": "$md-$ma-old-min$mu-$av$wg-$id$pr",
+              "weight": 0.01598335
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-min$wg-$id$pr",
+              "weight": 0.03838103
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-$id$pr",
+              "weight": 0.04672103
+            }
+          ],
+          "raw_and_evaluated_topology_matches": false,
+          "raw_local_bounds_xyz": [
+            0.9946402,
+            0.4359801,
+            1.6945505
+          ],
+          "raw_to_evaluated_rms": null,
+          "raw_vertex_count": 19158
+        }
+      },
+      "source_macros": {
+        "gender": 1,
+        "height": 0.82,
+        "muscle": 0.37,
+        "name": "masculine_tall_slim",
+        "proportions": 0.7,
+        "weight": 0.27
+      }
+    },
+    {
+      "case": "masculine_medium_strong",
+      "mesh": {
+        "clean": {
+          "evaluated_local_bounds_xyz": [
+            1.1229314,
+            0.4636547,
+            1.7298531
+          ],
+          "evaluated_mesh_hash_sha256_rounded_8_places": "b02f7845fdf30cc69b9c4bca6640975f5007c33c113fc6e7efd7e233bf1acf0b",
+          "evaluated_vertex_count": 13380,
+          "nonzero_shape_key_weights": [
+            {
+              "name": "$md-$as-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$ca-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$af-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-$av$wg",
+              "weight": 0.16902028
+            },
+            {
+              "name": "$md-$as-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$ca-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$af-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-max$wg",
+              "weight": 0.06395047
+            },
+            {
+              "name": "$md-universal-$ma-$yn-max$mu-$av$wg",
+              "weight": 0.33809128
+            },
+            {
+              "name": "$md-universal-$ma-$yn-max$mu-max$wg",
+              "weight": 0.12792014
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-$av$wg",
+              "weight": 0.07041913
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-max$wg",
+              "weight": 0.02664377
+            },
+            {
+              "name": "$md-universal-$ma-old-max$mu-$av$wg",
+              "weight": 0.1408594
+            },
+            {
+              "name": "$md-universal-$ma-old-max$mu-max$wg",
+              "weight": 0.05329553
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-$av$wg-max$hg",
+              "weight": 0.01352365
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-$id$pr",
+              "weight": 0.04308327
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-max$wg-$id$pr",
+              "weight": 0.01630098
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-$av$wg-$id$pr",
+              "weight": 0.08617947
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-max$wg-$id$pr",
+              "weight": 0.03260684
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-$id$pr",
+              "weight": 0.01794984
+            },
+            {
+              "name": "$md-$ma-old-max$mu-$av$wg-$id$pr",
+              "weight": 0.03590506
+            },
+            {
+              "name": "$md-$ma-old-max$mu-max$wg-$id$pr",
+              "weight": 0.01358503
+            }
+          ],
+          "raw_and_evaluated_topology_matches": true,
+          "raw_local_bounds_xyz": [
+            0.9925402,
+            0.4230101,
+            1.6658903
+          ],
+          "raw_to_evaluated_rms": 0.06271493,
+          "raw_vertex_count": 13380
+        },
+        "source": {
+          "evaluated_local_bounds_xyz": [
+            1.1229314,
+            0.4636547,
+            1.7298531
+          ],
+          "evaluated_mesh_hash_sha256_rounded_8_places": "e2b01aab01a37f61244e5ba613b06ed8a1c47bf0a0d840fbd59ccce1e9d5c7e4",
+          "evaluated_vertex_count": 13380,
+          "nonzero_shape_key_weights": [
+            {
+              "name": "$md-$as-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$ca-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-$af-$ma-$yn",
+              "weight": 0.23066413
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-$av$wg",
+              "weight": 0.16902028
+            },
+            {
+              "name": "$md-$as-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$ca-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-$af-$ma-old",
+              "weight": 0.09610189
+            },
+            {
+              "name": "$md-universal-$ma-$yn-$av$mu-max$wg",
+              "weight": 0.06395047
+            },
+            {
+              "name": "$md-universal-$ma-$yn-max$mu-$av$wg",
+              "weight": 0.33809128
+            },
+            {
+              "name": "$md-universal-$ma-$yn-max$mu-max$wg",
+              "weight": 0.12792014
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-$av$wg",
+              "weight": 0.07041913
+            },
+            {
+              "name": "$md-universal-$ma-old-$av$mu-max$wg",
+              "weight": 0.02664377
+            },
+            {
+              "name": "$md-universal-$ma-old-max$mu-$av$wg",
+              "weight": 0.1408594
+            },
+            {
+              "name": "$md-universal-$ma-old-max$mu-max$wg",
+              "weight": 0.05329553
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-$av$wg-max$hg",
+              "weight": 0.01352365
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-$av$wg-$id$pr",
+              "weight": 0.04308327
+            },
+            {
+              "name": "$md-$ma-$yn-$av$mu-max$wg-$id$pr",
+              "weight": 0.01630098
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-$av$wg-$id$pr",
+              "weight": 0.08617947
+            },
+            {
+              "name": "$md-$ma-$yn-max$mu-max$wg-$id$pr",
+              "weight": 0.03260684
+            },
+            {
+              "name": "$md-$ma-old-$av$mu-$av$wg-$id$pr",
+              "weight": 0.01794984
+            },
+            {
+              "name": "$md-$ma-old-max$mu-$av$wg-$id$pr",
+              "weight": 0.03590506
+            },
+            {
+              "name": "$md-$ma-old-max$mu-max$wg-$id$pr",
+              "weight": 0.01358503
+            }
+          ],
+          "raw_and_evaluated_topology_matches": false,
+          "raw_local_bounds_xyz": [
+            0.9946402,
+            0.4359801,
+            1.6945505
+          ],
+          "raw_to_evaluated_rms": null,
+          "raw_vertex_count": 19158
+        }
+      },
+      "source_macros": {
+        "gender": 1,
+        "height": 0.53,
+        "muscle": 0.84,
+        "name": "masculine_medium_strong",
+        "proportions": 0.63,
+        "weight": 0.64
+      }
+    }
+  ],
+  "all_clean_pairs_distinct": true,
+  "all_source_pairs_distinct": true,
+  "basis": "local *evaluated dependency graph* vertices at rest-pose frame 1, not raw mesh vertex coordinates; exact vertex correspondence within one topology",
+  "geometry_units": "unscaled Blender model units, NOT anatomical centimeters",
+  "limits": [
+    "Only six manually authored normalized macro presets, not entire human morphology distribution",
+    "Local evaluated mesh differences are not metric body-calibration evidence",
+    "Hair/skin/material fit and anatomical completeness require separate qualification",
+    "Does not generate from untrusted natural language or promote CPE concepts",
+    "No real-person attributes or identity measured",
+    "No photorealism or realistic contact/gait claim"
+  ],
+  "merge_release": "HOLD",
+  "pairwise": [
+    {
+      "a": "masculine_short_broad",
+      "actual_evaluated_surface_difference": {
+        "clean": {
+          "changed_vertex_count_gt_1e_minus_6": 13380,
+          "max_euclidean_local_blender_units": 0.5747455,
+          "rms_euclidean_local_blender_units": 0.423440376,
+          "source_vertex_count": 13380
+        },
+        "source": {
+          "changed_vertex_count_gt_1e_minus_6": 13380,
+          "max_euclidean_local_blender_units": 0.5747455,
+          "rms_euclidean_local_blender_units": 0.423440376,
+          "source_vertex_count": 13380
+        }
+      },
+      "b": "masculine_tall_slim"
+    },
+    {
+      "a": "masculine_short_broad",
+      "actual_evaluated_surface_difference": {
+        "clean": {
+          "changed_vertex_count_gt_1e_minus_6": 13380,
+          "max_euclidean_local_blender_units": 0.142193147,
+          "rms_euclidean_local_blender_units": 0.105745684,
+          "source_vertex_count": 13380
+        },
+        "source": {
+          "changed_vertex_count_gt_1e_minus_6": 13380,
+          "max_euclidean_local_blender_units": 0.142193147,
+          "rms_euclidean_local_blender_units": 0.105745683,
+          "source_vertex_count": 13380
+        }
+      },
+      "b": "masculine_medium_strong"
+    },
+    {
+      "a": "masculine_tall_slim",
+      "actual_evaluated_surface_difference": {
+        "clean": {
+          "changed_vertex_count_gt_1e_minus_6": 13380,
+          "max_euclidean_local_blender_units": 0.432558663,
+          "rms_euclidean_local_blender_units": 0.318124997,
+          "source_vertex_count": 13380
+        },
+        "source": {
+          "changed_vertex_count_gt_1e_minus_6": 13380,
+          "max_euclidean_local_blender_units": 0.432558663,
+          "rms_euclidean_local_blender_units": 0.318124997,
+          "source_vertex_count": 13380
+        }
+      },
+      "b": "masculine_medium_strong"
+    }
+  ],
+  "pinned_mpfb": "6ff1eb358f6c1959ced77e79e6dd2406d9a71f49",
+  "schema": "r014.mpfb.true_evaluated_morphology_doe.v1",
+  "shard": 1,
+  "source_actor_count": 3,
+  "source_blend": "R014_ThreeAdultMorphs_Shard1.blend",
+  "source_generation_status": "PASS_NATIVE_MORPH_RIG_ANIMATION_EXPORT_AND_STILLS_ONLY",
+  "status": "PASS_ACTUAL_EVALUATED_MORPHOLOGY_DISTINCT_STRUCTURAL_ONLY",
+  "github_execution": {
+    "workflow_run": 43288520592,
+    "job_id": 131428245642,
+    "source_artifact_run": 43286258004,
+    "source_blender_pin": "4.5.16",
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43288520592",
+    "licensing": "source MPFB and characters generated from public reusable assets only"
+  }
+}
