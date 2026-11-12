@@ -1,0 +1,66 @@
+name: video-original-a-b-freeze-causality
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_freeze_forensics/**'
+      - '.github/workflows/video-a-b-freeze-forensics.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: video-freeze-forensic-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-mesh-h264-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [male_karate_kata_barefoot, female_photoshoot_high_heels]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43159853012
+          github-token: ${{ github.token }}
+          name: original-pose-stance-${{ matrix.case }}-ab
+          path: research/input
+      - name: Native stdlib synthetic adversarial controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_freeze_forensics -p 'test_source_video_frames.py' -v
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+      - name: Compare actual original and candidate 40f H264 decoded pixels with independent source pose motion
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          set -euo pipefail
+          mkdir -p research/out
+          python3 qualification/video_freeze_forensics/source_video_frames.py \
+            --case "$CASE" --root research/input --out "research/out/$CASE.json"
+          python3 - "$CASE" <<'PY'
+          import json,sys
+          from pathlib import Path
+          case=sys.argv[1]
+          r=json.loads((Path("research/out")/(case+".json")).read_text())
+          assert r["schema"]=="scp.original-ab-h264-frame-motion-custody.v1"
+          assert r["case"]==case
+          for x in ("original","candidate"):
+            assert r[x]["total_transitions"]==39
+            assert sum(r[x]["counts"].values())==39
+            assert len(r[x]["h264_sha256"])==64 and len(r[x]["source_labels_sha256"])==64
+          print("REAL_SOURCE_H264_FREEZE_CAUSALITY_QUALIFIED",case)
+          PY
+          printf 'source=original_rights_only_h264_from_43159853012\nlearned_motion_or_physics_not_qualified=true\n' >research/out/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: real-40frame-source-vs-video-freeze-${{ matrix.case }}
+          path: research/out/
+          retention-days: 14
+          if-no-files-found: error
