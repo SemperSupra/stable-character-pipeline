@@ -1,0 +1,113 @@
+name: visualqa-8fix-22-case-temporal-3d-witness
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_temporal/**'
+      - '.github/workflows/visualqa-original-8fix-temporal.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: visualqa-temporal-3d-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independently-audit-four-original-rights-families:
+    name: 3D source frame velocity/accel/jerk / ${{ matrix.family }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        family: [locomotion, exercise_pose, dance_combat, aquatic]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43174097569
+          github-token: ${{ github.token }}
+          name: original-integrated-eight-fix-${{ matrix.family }}
+          path: research/candidate
+      - name: Read exact original-rights candidate JSON without regenerating 3D/media
+        env:
+          FAMILY: ${{ matrix.family }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/visualqa_temporal -p 'test_temporal_profile.py' -v
+          python3 qualification/visualqa_temporal/temporal_profile.py \
+            --root research/candidate --family "$FAMILY" \
+            --out "receipts/$FAMILY.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-8fix-temporal-${{ matrix.family }}
+          path: receipts/${{ matrix.family }}.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-22-case-kinematic-join:
+    name: Independent 22-case 3D temporal evidence and human summary
+    needs: independently-audit-four-original-rights-families
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: original-8fix-temporal-*
+          merge-multiple: true
+          path: receipts
+      - name: Validate the four independent receipt families and rank source jerk
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,math,re
+          from pathlib import Path
+          names={"locomotion":8,"exercise_pose":7,"dance_combat":5,"aquatic":2}
+          cases=[]
+          for family,n in names.items():
+              d=json.loads((Path("receipts")/(family+".json")).read_text())
+              assert d["schema"]=="scp.visualqa.original-8fix-source-temporal-witness.v1"
+              assert d["family"]==family and d["case_count"]==len(d["cases"])==n
+              assert re.fullmatch(r"[a-f0-9]{64}",d["manifest_sha256"])
+              assert d["research_disposition"]=="HOLD_UNCALIBRATED_TEMPORAL_OBSERVATION"
+              for c in d["cases"]:
+                  assert c["status"]=="NUMERICAL_WITNESS_ONLY"
+                  assert c["fps"]==20 and c["frames"]==40 and c["joint_count"]>0
+                  for field in ("source_joint_labels_sha256","source_glb_sha256","source_h264_sha256"):
+                      assert re.fullmatch(r"[a-f0-9]{64}",c[field])
+                  for unit in ("speed_m_s","accel_m_s2","jerk_m_s3"):
+                      obj=c["world_3d_extrema"][unit]
+                      assert math.isfinite(obj["peak"]) and obj["peak"]>=0
+                      assert 1<=obj["at_frame"]<=39
+                  cases.append(c)
+          assert len(cases)==len({c["case"] for c in cases})==22
+          ordered=sorted(cases,key=lambda x:(-x["world_3d_extrema"]["jerk_m_s3"]["peak"],x["case"]))
+          summary={"schema":"scp.visualqa.original-8fix-source-temporal-joined.v1",
+                   "case_count":22,"rights":"CC0-1.0 for original generated files",
+                   "root_source_run_id":43174097569,"cases":ordered,
+                   "unit":"m/s^3 for jerk; m/s^2 acceleration; m/s speed",
+                   "human_motion_realism":"NOT_QUALIFIED",
+                   "holds":["Numerical source differences are not calibrated thresholds",
+                            "No image-derived biomechanical observations; no force/contact model",
+                            "No original source, contact label, GLB or H264 altered"]}
+          Path("receipts/joined.json").write_text(json.dumps(summary,sort_keys=True,indent=2)+"\n")
+          header=["# 22-case original-rights source temporal research witness","",
+                  "No case is granted human-motion realism acceptance by this numeric ranking.","",
+                  "| Case | Peak source jerk (m/s^3) | Joint | Frame |",
+                  "|---|---:|---|---:|"]
+          for c in ordered:
+              p=c["world_3d_extrema"]["jerk_m_s3"]
+              header.append("| "+c["case"]+" | "+str(p["peak"])+" | "+p["joint"]+" | "+str(p["at_frame"])+" |")
+          Path("receipts/human-review.md").write_text("\n".join(header)+"\n")
+          print("INDEPENDENT_22_CASE_3D_TEMPORAL_SHA_JOIN",[(c["case"],c["world_3d_extrema"]["jerk_m_s3"]["peak"]) for c in ordered[:5]])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-eight-fix-22-case-temporal-human-agent-join
+          path: |
+            receipts/joined.json
+            receipts/human-review.md
+          retention-days: 14
+          if-no-files-found: error
