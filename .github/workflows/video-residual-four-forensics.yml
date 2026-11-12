@@ -1,0 +1,141 @@
+name: video-original-sevenfix-four-residual-forensics
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_residual_triage/**'
+      - '.github/workflows/video-residual-four-forensics.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: video-residual-four-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-residual-source:
+    name: Source/GLB/H264 four-failure forensic / ${{ matrix.case }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - case: male_jump_slippers
+            batch: locomotion
+          - case: female_jumping_jacks_sandals
+            batch: exercise_pose
+          - case: female_cartwheel_barefoot
+            batch: exercise_pose
+          - case: male_diving_barefoot
+            batch: aquatic
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43160358584
+          github-token: ${{ github.token }}
+          name: original-integrated-seven-fix-${{ matrix.batch }}
+          path: research/actual-original-sevenfix
+      - name: Run pure stdlib hostile source and registry controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_residual_triage -p test_forensic.py -v
+      - name: Independently audit source model/video custody and actual 3D joint trajectory windows
+        env:
+          CASE: ${{ matrix.case }}
+          BATCH: ${{ matrix.batch }}
+        run: |
+          set -euo pipefail
+          mkdir -p research/results
+          python3 qualification/video_residual_triage/forensic.py \
+            --case "$CASE" --root research/actual-original-sevenfix \
+            --out "research/results/$CASE.json"
+          python3 - "$CASE" "$BATCH" <<'PY'
+          import json,sys
+          from pathlib import Path
+          case,batch=sys.argv[1:3]
+          doc=json.loads((Path("research/results")/(case+".json")).read_text())
+          assert doc["schema"]=="scp.original-seven-fix-residual-source-triage.v1"
+          assert doc["case"]==case and doc["batch"]==batch
+          assert doc["original_oracle_status"]=="FAIL" and doc["original_oracle_defect_count"]>0
+          assert len(doc["frames"])==40 and len(doc["source_sha256"])==64
+          assert len(doc["source_model_sha256"])==64 and len(doc["source_video_sha256"])==64
+          assert sum(doc["counts"].get(x,0) for x in ("LIMB_LENGTH_INVARIANT_VIOLATION","LABELED_STANCE_FOOT_SLIDE"))==doc["original_oracle_defect_count"]
+          print("PER_CASE_SOURCE_TRIAGE_NOT_REALISM",case,doc["counts"])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-residual-case-${{ matrix.case }}
+          path: research/results/
+          retention-days: 14
+          if-no-files-found: error
+  independent-human-agent-baton:
+    name: Four case exact-source science join and no-false-green triage
+    needs: independent-residual-source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: original-residual-case-*
+          merge-multiple: true
+          path: science/input
+      - name: Preserve all original FAILs and issue source-bound next-actor targeting
+        run: |
+          set -euo pipefail
+          mkdir -p science/output
+          python3 - <<'PY'
+          import hashlib,json
+          from collections import Counter
+          from pathlib import Path
+          names=(
+            "male_jump_slippers",
+            "female_jumping_jacks_sandals",
+            "female_cartwheel_barefoot",
+            "male_diving_barefoot")
+          root=Path("science/input")
+          source=[]
+          records=[]
+          counts=Counter()
+          lines=["# Remaining four original source-motion failures","",
+            "**Original seven-fix source authority only; diagnostics never repair motion or qualify human physics.**","",
+            "| Original case | Source findings | True 3D unreachable observations | Source stance-speed failures |",
+            "|---|---:|---:|---:|"]
+          for name in names:
+            p=root/(name+".json")
+            raw=p.read_bytes()
+            d=json.loads(raw)
+            if d["schema"]!="scp.original-seven-fix-residual-source-triage.v1" or d["case"]!=name:
+              raise ValueError("WRONG_SOURCE_OR_CASE")
+            if d["original_oracle_status"]!="FAIL" or len(d["frames"])!=40:
+              raise ValueError("UNQUALIFIED_SOURCE_REPLACES_NEGATIVE_CONTROL")
+            if name in source:raise ValueError("DUPLICATE_CASE")
+            source.append(name)
+            counts.update(d["counts"])
+            records.append({"case":name,"original_failure_count":d["original_oracle_defect_count"],
+                            "counts":d["counts"],"sha256_of_detail":hashlib.sha256(raw).hexdigest(),
+                            "original_source_sha256":d["source_sha256"],
+                            "source_issue_windows":d["consecutive_defect_frame_windows"]})
+            lines.append(f'| {name} | {d["original_oracle_defect_count"]} | {d["counts"].get("IK_UNREACHABLE",0)} | {d["counts"].get("LABELED_STANCE_FOOT_SLIDE",0)} |')
+          result={"schema":"scp.original-seven-fix-four-residual-science-join.v1",
+                  "source_corpus_run":43160358584,"case_count":4,"source_frames":160,
+                  "all_source_verdicts":"FAIL_UNMODIFIED","counts":dict(counts),
+                  "cases":records,"status":"DIAGNOSTIC_ONLY_NO_RELEASE",
+                  "holds":["Motion geometry must be corrected in isolated candidate cases without source relabel",
+                  "Original 22-case negative controls are never overwritten",
+                  "No human gait, floor force, contact patch, joint pole, heel physics or naturalness accepted"]}
+          (Path("science/output")/"full-four-residual-source-baton.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          lines.extend(["",f"Defect counts: {dict(counts)}","",
+            "Mac actor remains owner of male_jump_slippers geometry repair; do not automatically generate a competing source correction.",
+            "All other four-failure diagnostics can inform subsequent bounded workcells, not override the owner.",])
+          (Path("science/output")/"human-agent-source-baton.md").write_text("\n".join(lines)+"\n")
+          print("FOUR_ORIGINAL_RESIDUAL_FAILS_PRESERVED",dict(counts))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-four-residual-source-science-join
+          path: science/output/
+          retention-days: 14
+          if-no-files-found: error
