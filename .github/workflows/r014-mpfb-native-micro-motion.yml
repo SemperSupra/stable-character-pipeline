@@ -1,0 +1,99 @@
+name: R014 real skinned finger / jaw / eye closeup motion proof
+on:
+  push:
+    branches: [research/r014-finger-jaw-micro-motion-v1]
+    paths: [r014/**, .github/workflows/r014-mpfb-native-micro-motion.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-micro-motion-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  model_micro_movement:
+    strategy:
+      fail-fast: false
+      matrix:
+        sex: [female, male]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Fail early on source syntax
+        run: python3 -m compileall -q r014
+      - name: Reuse verified public native 163-bone adult character scene
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-micro/source" "$RUNNER_TEMP/r014-micro/out"
+          gh run download 43229574927 --repo "$GITHUB_REPOSITORY" \
+            --name "r014-mpfb-textured-motion-${{ matrix.sex }}-research" \
+            --dir "$RUNNER_TEMP/r014-micro/source"
+          test -s "$RUNNER_TEMP/r014-micro/source/R014_MPFB_${{ matrix.sex }}_textured_motion_research.blend"
+          test -s "$RUNNER_TEMP/r014-micro/source/motion_receipt.json"
+      - name: Pin original Blender binary in disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-micro"
+          base="https://download.blender.org/release/Blender4.5"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-micro" -maxdepth 2 -type f -name blender | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Author two local face/hand motions and verify actual skinned geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background \
+            "$RUNNER_TEMP/r014-micro/source/R014_MPFB_${{ matrix.sex }}_textured_motion_research.blend" \
+            --python-exit-code 3 --python r014/finger_jaw_micro_motion.py -- \
+            --sex "${{ matrix.sex }}" \
+            --motion-source "$RUNNER_TEMP/r014-micro/source/R014_MPFB_${{ matrix.sex }}_textured_motion_research.blend" \
+            --source-receipt "$RUNNER_TEMP/r014-micro/source/motion_receipt.json" \
+            --out "$RUNNER_TEMP/r014-micro/out"
+          test -s "$RUNNER_TEMP/r014-micro/out/micro_motion_receipt.json"
+          test -s "$RUNNER_TEMP/r014-micro/out/R014_${{ matrix.sex }}_hand_native_micro_motion_1p5s.mp4"
+          test -s "$RUNNER_TEMP/r014-micro/out/R014_${{ matrix.sex }}_jaw_gaze_native_micro_motion_1p5s.mp4"
+      - name: Decode both movie streams and collect 3 real frames per clip
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          cd "$RUNNER_TEMP/r014-micro/out"
+          for mode in hand jaw_gaze; do
+            movie="R014_${{ matrix.sex }}_${mode}_native_micro_motion_1p5s.mp4"
+            ffprobe -v error -select_streams v:0 \
+              -show_entries stream=codec_name,width,height,nb_frames \
+              -show_entries format=duration -of json "$movie" > "probe_${mode}.json"
+            python3 - "$mode" <<'PY'
+          import sys,json
+          from pathlib import Path
+          m=sys.argv[1]
+          x=json.loads(Path(f'probe_{m}.json').read_text())
+          s=x['streams'][0]
+          assert s['codec_name']=='h264'
+          assert (s['width'],s['height'])==(512,512)
+          assert int(s['nb_frames'])==36
+          assert abs(float(x['format']['duration'])-1.5)<.1
+          PY
+            for t in 0.1 0.6 1.1; do
+              ffmpeg -v error -y -ss "$t" -i "$movie" -frames:v 1 "frame_${mode}_${t}.png"
+            done
+          done
+          sha256sum *.mp4 *.blend *.json *.png > sha256sum.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mpfb-${{ matrix.sex }}-finger-jaw-micro-research
+          path: ${{ runner.temp }}/r014-micro/out/*
+          retention-days: 7
