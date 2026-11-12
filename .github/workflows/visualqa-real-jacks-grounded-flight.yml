@@ -1,0 +1,244 @@
+name: visualqa-real-jacks-grounded-flight-ab
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_jacks_flight/**'
+      - '.github/workflows/visualqa-real-jacks-grounded-flight.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: visualqa-real-jacks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actual-original-vs-candidate-media:
+    name: Real source-3D GLB and H264 candidate with original negative control
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-exercise_pose
+          path: research/original
+      - name: Disposable original rights rendering tools
+        env:
+          PY: ${{ runner.temp }}/visualqa-jacks-venv
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m venv "$PY"
+          "$PY/bin/python" -m pip install --no-cache-dir --disable-pip-version-check numpy==2.3.5 opencv-python-headless==4.13.0.92
+      - name: Independent preflight and actual model/video A/B
+        env:
+          PY: ${{ runner.temp }}/visualqa-jacks-venv
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          "$PY/bin/python" -m unittest discover -s qualification/visualqa_jacks_flight -p 'test_jacks_flight_ab.py' -v
+          "$PY/bin/python" qualification/visualqa_jacks_flight/jacks_flight_ab.py \
+            --original-root research/original \
+            --out qualification/visualqa_jacks_flight/runs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rights-original-jacks-true-ground-flight-ab
+          path: qualification/visualqa_jacks_flight/runs/
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-3d-contact-audit:
+    name: Independently reproduce candidate 3D stance and bone invariants
+    needs: actual-original-vs-candidate-media
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: rights-original-jacks-true-ground-flight-ab
+          path: evidence
+      - name: Source-independent 3D kinematic and contact transition falsifier
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          python3 - <<'PY'
+          import json,math,hashlib
+          from pathlib import Path
+          d=Path("evidence/exercise_pose")
+          src=d/"female_jumping_jacks_sandals_ground_truth.json"
+          m=json.loads((d/"manifest.json").read_text())
+          report=json.loads((d/"jacks-ab-receipt.json").read_text())
+          gt=json.loads(src.read_text())
+          assert m["rights"]=="CC0-1.0 for original generated files"
+          assert gt["case"]=="female_jumping_jacks_sandals" and gt["fps"]==20
+          assert len(gt["frames"])==40
+          files=m["cases"][0]
+          for obj in (files["model"],files["ground_truth"],files["videos"][0]):
+              p=d/obj["file"]
+              assert hashlib.sha256(p.read_bytes()).hexdigest()==obj["sha256"]
+          assert report["original_audit"]["status"]=="FAIL"
+          assert report["original_audit"]["defect_count"]==78
+          assert report["candidate_audit"]["status"]=="PASS"
+          assert report["candidate_audit"]["defect_count"]==0
+          assert report["original_case_sha"]["h264"]!=report["candidate_case_sha"]["h264"]
+          assert report["original_case_sha"]["glb"]!=report["candidate_case_sha"]["glb"]
+          assert report["original_case_sha"]["labels"]!=report["candidate_case_sha"]["labels"]
+          support=0.078
+          counts={"ground_frames":0,"air_frames":0,"stance_intervals":0,"moved_air_frames":0}
+          prev=None
+          for i,f in enumerate(gt["frames"]):
+              assert f["frame"]==i and abs(f["time_s"]-i/20)<1e-6
+              assert set(f["contact"])=={"left","right"}
+              contacts=[f["contact"][q] for q in ("left","right")]
+              assert all(type(x) is bool for x in contacts)
+              assert contacts[0]==contacts[1]
+              if contacts[0]:counts["ground_frames"]+=1
+              else:counts["air_frames"]+=1
+              for side in ("left","right"):
+                  h=f["joints"][side+"_hip"]; k=f["joints"][side+"_knee"]; a=f["joints"][side+"_ankle"]
+                  assert len(h)==len(k)==len(a)==3
+                  assert all(math.isfinite(z) for v in (h,k,a) for z in v)
+                  assert abs(math.dist(h,k)-.52)<.01
+                  assert abs(math.dist(k,a)-.51)<.01
+                  if contacts[0]:
+                      assert abs(a[2]-support)<1e-7
+                      if prev and prev["contact"][side]:
+                          counts["stance_intervals"]+=1
+                          assert math.dist(a,prev["joints"][side+"_ankle"])<1e-7
+                  else:
+                      assert a[2]>=support-1e-7
+                      if a[2]>support+.05:counts["moved_air_frames"]+=1
+              prev=f
+          assert counts["ground_frames"]>=9 and counts["air_frames"]>=20
+          assert counts["stance_intervals"]>=8 and counts["moved_air_frames"]>=12
+          out={"schema":"scp.visualqa.jacks-independent-geometry.v1",
+               "case":"female_jumping_jacks_sandals",
+               "source_labels_sha256":hashlib.sha256(src.read_bytes()).hexdigest(),
+               "counts":counts,"result":"TARGETED_KINEMATIC_ONLY",
+               "human_realism":"NOT_QUALIFIED"}
+          Path("receipts/independent-geometry.json").write_text(json.dumps(out,sort_keys=True,indent=2)+"\n")
+          print("INDEPENDENT_ORIGINAL_JACKS_CONTACT_MOTION",out)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jacks-independent-3d-contact
+          path: receipts/independent-geometry.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independently-decode-real-h264:
+    name: Independently decode candidate H264 and verify animated 3D GLB
+    needs: actual-original-vs-candidate-media
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: rights-original-jacks-true-ground-flight-ab
+          path: evidence
+      - name: Decode tools in fresh disposable runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: Source/codec/actual decoded frame diversity witness
+        run: |
+          set -euo pipefail
+          command -v ffmpeg
+          command -v ffprobe
+          mkdir -p receipts
+          ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,nb_frames,width,height,avg_frame_rate,pix_fmt \
+            -of json evidence/exercise_pose/female_jumping_jacks_sandals_side.mp4 > receipts/ffprobe.json
+          ffmpeg -nostdin -hide_banner -loglevel error -i evidence/exercise_pose/female_jumping_jacks_sandals_side.mp4 \
+            -f framemd5 - > receipts/framemd5.txt
+          python3 - <<'PY'
+          import json,struct,hashlib
+          from pathlib import Path
+          d=Path("evidence/exercise_pose")
+          m=json.loads((d/"manifest.json").read_text())
+          itm=m["cases"][0]
+          raw=(d/itm["model"]["file"]).read_bytes()
+          magic,version,total=struct.unpack_from("<III",raw)
+          assert magic==0x46546c67 and version==2 and total==len(raw)
+          n,tag=struct.unpack_from("<II",raw,12)
+          assert tag==0x4e4f534a
+          scene=json.loads(raw[20:20+n])
+          assert len(scene["animations"])==1
+          assert len(scene["animations"][0]["channels"])>=54
+          probe=json.loads(Path("receipts/ffprobe.json").read_text())["streams"][0]
+          assert probe["codec_name"]=="h264" and probe["avg_frame_rate"]=="20/1"
+          assert int(probe["nb_frames"])==40 and int(probe["width"])==int(probe["height"])==320
+          frames=[ln for ln in Path("receipts/framemd5.txt").read_text().splitlines() if ln and not ln.startswith("#")]
+          assert len(frames)==40
+          hashes=[ln.split(",")[-1].strip() for ln in frames]
+          assert len(set(hashes))>=12, "NO_ACTUAL_DECODED_PIXEL_MOTION"
+          rawmp4=(d/itm["videos"][0]["file"]).read_bytes()
+          assert hashlib.sha256(rawmp4).hexdigest()==itm["videos"][0]["sha256"]
+          receipt={"schema":"scp.visualqa.jacks-independent-decoded-video.v1",
+                   "source_h264_sha256":itm["videos"][0]["sha256"],
+                   "source_glb_sha256":itm["model"]["sha256"],
+                   "codec":"h264","frame_count":40,
+                   "unique_decoded_frame_md5":len(set(hashes)),
+                   "animation_channels":len(scene["animations"][0]["channels"]),
+                   "result":"REAL_ANIMATED_MEDIA_NOT_REALISM"}
+          Path("receipts/independent-video.json").write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n")
+          print("INDEPENDENT_H264_TRUE_MEDIA_JACKS",receipt)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jacks-independent-real-h264
+          path: receipts/independent-video.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-a-b-reconciliation:
+    name: Independently reconcile source and H264 evidence without human-realism promotion
+    needs: [independent-3d-contact-audit,independently-decode-real-h264]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: jacks-independent-*
+          merge-multiple: true
+          path: receipts
+      - name: Fail-closed join and user/agent baton
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path("receipts/independent-geometry.json").read_text())
+          b=json.loads(Path("receipts/independent-video.json").read_text())
+          assert a["source_labels_sha256"] and b["source_h264_sha256"] and b["source_glb_sha256"]
+          assert a["case"]=="female_jumping_jacks_sandals"
+          assert a["result"]=="TARGETED_KINEMATIC_ONLY"
+          assert b["result"]=="REAL_ANIMATED_MEDIA_NOT_REALISM"
+          assert b["frame_count"]==40 and b["codec"]=="h264"
+          assert a["human_realism"]=="NOT_QUALIFIED"
+          output={"schema":"scp.visualqa.jacks-ab-joined.v1",
+                  "research_status":"SOURCE_GEOMETRY_CONTACT_CANDIDATE_REQUIRES_INDEPENDENT_PHYSICS",
+                  "source_sha256":a["source_labels_sha256"],
+                  "glb_sha256":b["source_glb_sha256"],
+                  "h264_sha256":b["source_h264_sha256"],
+                  "negative_control":"ORIGINAL_78_DEFECT_FAIL_PRESERVED",
+                  "geometry_counts":a["counts"],
+                  "decoded_video_frames":b["frame_count"],
+                  "human_motion_realism":"NOT_QUALIFIED",
+                  "next":"Independent realistic landing-force/center-of-mass and decoded-image temporal review"}
+          Path("receipts/joined.json").write_text(json.dumps(output,sort_keys=True,indent=2)+"\n")
+          print("JACKS_INDEPENDENT_REAL_MEDIA_AB",output)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jacks-full-independent-ab-join
+          path: receipts/joined.json
+          retention-days: 14
+          if-no-files-found: error
