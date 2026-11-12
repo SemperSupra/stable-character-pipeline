@@ -36,6 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p receipts/fixtures/videos
+          chmod 777 receipts/fixtures/videos
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
             --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint ffmpeg \
             -v "$PWD/receipts/fixtures/videos:/output:rw" \
