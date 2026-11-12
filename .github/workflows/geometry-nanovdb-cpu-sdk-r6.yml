@@ -1,0 +1,46 @@
+name: R6 NanoVDB CPU SDK clean consumer (public disposable)
+run-name: R6 NanoVDB native read test ${{ github.ref_name }}
+on:
+  push:
+    branches: [research/geometry-nanovdb-sdk-r6-20261112]
+    paths:
+      - 'qualification/geometry-donors/r6-nanovdb/**'
+      - '.github/workflows/geometry-nanovdb-cpu-sdk-r6.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nanovdb-r6-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: linux-amd64
+          - runner: ubuntu-24.04-arm
+            arch: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Pin upstream and create relocated CPU-only NanoVDB SDK
+        shell: bash
+        run: |
+          set -o pipefail
+          bash qualification/geometry-donors/r6-nanovdb/run.sh 2>&1 | tee qualification/geometry-donors/r6-nanovdb/run.log
+      - name: Preserve SDK and independent read oracle evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: geometry-nanovdb-r6-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: |
+            qualification/geometry-donors/r6-nanovdb/results/
+            qualification/geometry-donors/r6-nanovdb/run.log
+          if-no-files-found: warn
+          retention-days: 7
