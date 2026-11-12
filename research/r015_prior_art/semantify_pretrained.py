@@ -56,9 +56,16 @@ def original_clip_numeric_fixture(mapper, labels, scratch):
         {"id":1,"kind":"short-broad-analytic","top":38,"bottom":197,"shoulder":45,"waist":31,"hip":37,"head_r":14},
         {"id":2,"kind":"medium-analytic-control","top":23,"bottom":208,"shoulder":35,"waist":23,"hip":28,"head_r":12}
     ]
+    if os.environ.get("R015_CLIP_ROBUSTNESS")=="1":
+        for source_cfg in list(shapes):
+            variant=dict(source_cfg)
+            variant["id"]=source_cfg["id"]+3
+            variant["kind"]=source_cfg["kind"]+"-warm-background-control"
+            variant["background"]=(207,226,238)
+            shapes.append(variant)
     hashes={}
     for cfg in shapes:
-        canvas=Image.new("RGB",(224,224),(244,244,244))
+        canvas=Image.new("RGB",(224,224),cfg.get("background",(244,244,244)))
         draw=ImageDraw.Draw(canvas)
         cx=112
         top=cfg["top"];bottom=cfg["bottom"];sr=cfg["shoulder"];wa=cfg["waist"];hip=cfg["hip"];head=cfg["head_r"]
@@ -111,7 +118,7 @@ def original_clip_numeric_fixture(mapper, labels, scratch):
         raise RuntimeError("NONFINITE_CLIP_OR_MAPPER")
     beta=mapped.tolist()
     norms=[round(float(torch.linalg.vector_norm(mapped[i]).item()),5) for i in range(len(shapes))]
-    return {
+    result={
         "status":"PASS_ORIGINAL_CLIP_TO_ORIGINAL_MAPPER_NUMERIC_CHAIN_ONLY",
         "source_clip_commit":clip_sha,
         "source_clip_weights_sha256":digest(cache),
@@ -130,6 +137,29 @@ def original_clip_numeric_fixture(mapper, labels, scratch):
         "model_assets_redistributed":False,
         "generated_images_redistributed":False,
     }
+    if len(shapes)==6:
+        def distance(a,b):
+            return float(torch.linalg.vector_norm(mapped[a]-mapped[b]).item())
+        def score_distance(a,b):
+            return float(torch.linalg.vector_norm(x[a]-x[b]).item())
+        geometry_control=distance(0,1)
+        same_geometry_background=[distance(i,i+3) for i in range(3)]
+        sem_control=score_distance(0,1)
+        sem_background=[score_distance(i,i+3) for i in range(3)]
+        result["background_robustness_probe"]={
+            "status":"MEASURED_NO_QUALITY_ASSERTION",
+            "baseline_geometry_controls":"Three original stylized silhouettes; variants are byte-identical geometry but changed background",
+            "background_rgb_baseline":[244,244,244],
+            "background_rgb_variant":[207,226,238],
+            "mapped_beta_l2_between_tall_and_broad":round(geometry_control,6),
+            "mapped_beta_l2_for_same_shape_background_changed":[round(v,6) for v in same_geometry_background],
+            "mean_background_to_shape_beta_l2_ratio":round(sum(same_geometry_background)/len(same_geometry_background)/geometry_control,6) if geometry_control>0 else None,
+            "raw_clip_score_l2_between_tall_and_broad":round(sem_control,6),
+            "raw_clip_score_l2_for_background_changed":[round(v,6) for v in sem_background],
+            "mean_background_to_shape_clip_l2_ratio":round(sum(sem_background)/len(sem_background)/sem_control,6) if sem_control>0 else None,
+            "not_geometry_qualified":True
+        }
+    return result
 
 def run(repo_path, path):
     record={
