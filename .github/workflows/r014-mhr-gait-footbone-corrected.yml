@@ -1,8 +1,8 @@
 name: R014 corrected real-MHR footbone 3-link IK full 169-frame contact study
 on:
   push:
-    branches: [research/r014-mhr-foot-ik-footbone-correction-20261112]
-    paths: ['r014/mhr_gait_footbone_corrected_probe.py','.github/workflows/r014-mhr-foot-ik-footbone-corrected.yml']
+    branches: [research/r014-mhr-gait-footbone-correction-20261112]
+    paths: ['r014/mhr_gait_footbone_corrected_probe.py','.github/workflows/r014-mhr-gait-footbone-corrected.yml']
   workflow_dispatch:
 permissions:
   contents: read
