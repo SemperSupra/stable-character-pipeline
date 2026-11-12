@@ -78,6 +78,15 @@ jobs:
             --python r014/mpfb_verify.py -- \
             --blend "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_native.blend" \
             --receipt "$RUNNER_TEMP/r014-mpfb/result/reopened.json"
+      - name: Measure matched native-to-GLB animated skinning parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_clean_review.blend" \
+            --python r014/mpfb_pose_parity.py -- \
+            --out "$RUNNER_TEMP/r014-mpfb/result" \
+            --receipt "$RUNNER_TEMP/r014-mpfb/result/pose_parity.json"
+          test -s "$RUNNER_TEMP/r014-mpfb/result/pose_parity.json"
       - name: Render actual MPFB surfaces and camera motion as visual QA
         shell: bash
         run: |
