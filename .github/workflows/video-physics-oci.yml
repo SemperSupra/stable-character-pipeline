@@ -30,7 +30,7 @@ jobs:
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
             --tmpfs /tmp:rw,noexec,nosuid,size=16m local/video-bakeoff:rdte -help > receipts/usage.txt 2>&1
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
-            --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint ffmpeg local/video-bakeoff:rdte -version | head -n 1 >receipts/ffmpeg-version.txt
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint ffmpeg local/video-bakeoff:rdte -version >receipts/ffmpeg-version.txt
       - name: Reproduce synthetic codec+motion controls inside restricted OCI runtime
         working-directory: qualification/video_physics_bakeoff
         run: |
