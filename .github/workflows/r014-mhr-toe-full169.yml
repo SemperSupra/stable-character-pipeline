@@ -1,0 +1,107 @@
+name: R014 full 169f native MHR toe contact controller head versus tip
+on:
+  push:
+    branches: [research/r014-mhr-toe-full-sequence-contact-20261112]
+    paths: ['r014/mhr_toe_full169_controller.py','.github/workflows/r014-mhr-toe-full169.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-mhr-toe-full169-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native_toe_contact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [neutral, shape20]
+        target: [ball-head, ball-tip]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Preflight source-only syntax, no downloads yet
+        run: python3 -m compileall -q r014
+      - name: Rehydrate immutable original exact source Go contact and smoothed Blender
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/toe169/go" "$RUNNER_TEMP/toe169/source" "$RUNNER_TEMP/toe169/out"
+          gh run download 43246188313 --repo "$GITHUB_REPOSITORY" \
+            --name r014-gait-contact-math-and-technical-video \
+            --dir "$RUNNER_TEMP/toe169/go"
+          echo "44d8ebb4bee9a01f522a92ff4377c4cc66c9b19df835bb4b6a1e2a847179fd56  $RUNNER_TEMP/toe169/go/gait_frames.json" | sha256sum -c -
+          gh run download 43319201041 --repo "$GITHUB_REPOSITORY" \
+            --name 'r014-mhr-pelvis-smooth-${{ matrix.variant }}-HOLD' \
+            --dir "$RUNNER_TEMP/toe169/source"
+          (cd "$RUNNER_TEMP/toe169/source" && sha256sum -c sha256sum.txt)
+          test -s "$RUNNER_TEMP/toe169/source/R014_MHR_neutral_GO_GAIT_RIGGED_HOLD.blend"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=Path(os.environ['RUNNER_TEMP'])/'toe169'
+          g=json.loads((d/'go/gait_frames.json').read_text())
+          r=json.loads((d/'source/mhr_gait_retarget_receipt.json').read_text())
+          assert len(g)==169 and r['gait_frames']==169
+          assert r['source_mesh_vertices']==18439 and r['source_rig_bones']==126
+          assert r['variant']=='${{ matrix.variant }}'
+          assert r['pelvis_slope_control_verified'] is True
+          assert r['status']=='HOLD_NATIVE_GAIT_ANATOMY_AND_CINEMATIC_VIDEO'
+          assert max(x['ankle_target_residual_max_m'] for x in r['contact'].values())<.001
+          print('R014_NATIVE_ORIGINAL_SOURCE_GO_AND_SMOOTHED_RIG_REHYDRATED')
+          PY
+      - name: Pin official Blender 4.5.16 and check released checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/toe169"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          sha="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#sha}" -eq 64
+          printf '%s  %s\n' "$sha" blender-4.5.16-linux-x64.tar.xz | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/toe169" -maxdepth 2 -type f -name blender | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Execute true native MHR toe actuator with full-contact time-series qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/toe169/source/R014_MHR_neutral_GO_GAIT_RIGGED_HOLD.blend" \
+            --python-exit-code 3 --python r014/mhr_toe_full169_controller.py -- \
+            --variant '${{ matrix.variant }}' \
+            --target '${{ matrix.target }}' \
+            --frames "$RUNNER_TEMP/toe169/go/gait_frames.json" \
+            --source-receipt "$RUNNER_TEMP/toe169/source/mhr_gait_retarget_receipt.json" \
+            --out "$RUNNER_TEMP/toe169/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=Path(os.environ['RUNNER_TEMP'])/'toe169/out'
+          r=json.loads((d/'r014_mhr_toe_full169.json').read_text())
+          assert r['variant']=='${{ matrix.variant }}'
+          assert r['toe_target_strategy']=='${{ matrix.target }}'
+          assert r['source_run']==43319201041
+          assert r['frame_count']==169 and r['source_mesh_vertices']==18439
+          assert r['release_status']=='R014_AND_R009_PRODUCTION_HOLD'
+          assert len(r['technical_pngs'])==2
+          assert (d/r['native_blend']).stat().st_size>100000
+          assert all((d/x).stat().st_size>5000 for x in r['technical_pngs'])
+          assert len(r['full_sequence_results'])==2
+          assert all(x['contact_pairs']==108 for x in r['full_sequence_results'].values())
+          assert r['status'] in ['PASS_TECHNICAL_TOE_CONTACT_ONLY_NOT_CINEMATIC',
+                                  'HOLD_REAL_GAIT_TOE_CONTACT_OR_GEOMETRY']
+          print('R014_RESEARCH_ONLY_FULL169_TOE_EVIDENCE',r['status'],r['full_sequence_results'])
+          PY
+          (cd "$RUNNER_TEMP/toe169/out" && sha256sum *.blend *.json *.png > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mhr-toe-full169-${{ matrix.variant }}-${{ matrix.target }}-HOLD
+          path: ${{ runner.temp }}/toe169/out/*
+          retention-days: 7
