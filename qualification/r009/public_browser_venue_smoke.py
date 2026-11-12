@@ -96,7 +96,7 @@ def main():
             exported=Path(download.path()).read_bytes()
             review=json.loads(exported)
             assert review["accepted"] is False and len(review["strokes"])==1
-            page.set_content(PAGE,wait_until="load")  # cold DOM restart, no authoritative state retained
+            # New isolated page/context: document.write on the existing page is not\n            # a cold JS realm and can collide with top-level lexical declarations.\n            page.close()\n            page=browser.new_page(viewport=viewport)\n            page.emulate_media(color_scheme="light")\n            page.on("request",lambda req:requests.append(req.url))\n            page.on("pageerror",lambda err:errors.append(str(err)))\n            page.set_content(PAGE,wait_until="load")
             page.locator("#import").set_input_files({"name":"synthetic-review.json","mimeType":"application/json","buffer":exported})
             page.wait_for_function("document.querySelector('#import-status').textContent === 'Imported 1 synthetic strokes'")
             bad=dict(review,source_sha256="b"*64)
