@@ -37,7 +37,12 @@ cp "$consumer_dir/main.go" "$dst/main.go"
   go mod tidy
   GOOS=js GOARCH=wasm CGO_ENABLED=0 go build -trimpath -o "$work/consumer.wasm" .
 )
-go version -m "$work/consumer.wasm" > "$here/results/wasm-build-info.txt"
+# Go's native executable build-info reader does not accept js/wasm binaries.
+# Test the actual WebAssembly magic header rather than misclassify it as a build failure.
+file "$work/consumer.wasm" | tee "$here/results/wasm-file-type.txt"
+magic="$(od -An -tx1 -N4 "$work/consumer.wasm" | tr -d '[:space:]')"
+test "$magic" = "0061736d" || { echo NOT_A_WASM_MODULE >&2; exit 2; }
+printf 'target=js/wasm go=1.25.0 magic=%s\n' "$magic" > "$here/results/wasm-build-info.txt"
 GOROOT="$(go env GOROOT)"
 node_runner="$GOROOT/lib/wasm/wasm_exec_node.js"
 if [ ! -f "$node_runner" ]; then echo WASM_NODE_RUNNER_NOT_FOUND >&2; exit 2; fi
