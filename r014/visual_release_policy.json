@@ -1,0 +1,94 @@
+{
+  "schema_version": "r014.visual.release.v1",
+  "source_authority": "SemperSupra/stable-character-pipeline-private#138",
+  "release_state": "HOLD",
+  "prototype_public_run": 43229574927,
+  "subject_semantics": "Verify source-controlled adult female body preset 0.0 and male 1.0; never infer sex/gender/identity from images or hair",
+  "evidence_requirements": {
+    "source": [
+      "model_family",
+      "asset_revision",
+      "asset_sha256",
+      "license_provenance",
+      "source_gender_macro",
+      "rigged_evaluated_mesh_id",
+      "effective_render_vertices",
+      "render_lod_evidence",
+      "uv_material_provenance"
+    ],
+    "anatomy": [
+      "region_coverage_receipt",
+      "external_reproductive_anatomy_review",
+      "complete_hand_foot_facial_review"
+    ],
+    "deformation": [
+      "head_neck_shoulder_hip_hand_foot_extreme_pose",
+      "foldover_test",
+      "volume_contact_evidence",
+      "native_export_parity"
+    ],
+    "motion": [
+      "root_translation",
+      "ground_contact_events",
+      "foot_slip_measurement",
+      "start_stop_turn",
+      "finger_independent_articulation",
+      "thumb_opposition",
+      "jaw_gaze",
+      "lip_brow_cheek_controls",
+      "viseme_coverage",
+      "temporal_consistency"
+    ],
+    "surface": [
+      "skin_sss_microdetail",
+      "hair_groom",
+      "eye_cornea_iris",
+      "lips_teeth_tongue",
+      "material_licensing_and_uv_seams"
+    ],
+    "qa": [
+      "h264_or_approved_codec",
+      "frame_consistency",
+      "foreground_and_crop_metrics",
+      "independent_visual_anatomy_review",
+      "independent_motion_review",
+      "model_source_comparison",
+      "failclosed_receipts"
+    ]
+  },
+  "tiers": {
+    "structural_proof": {
+      "min_width": 320,
+      "min_height": 320,
+      "scope": "Research evidence only, never promotion"
+    },
+    "intermediate_visual": {
+      "min_width": 1920,
+      "min_height": 1080,
+      "scope": "Full-body and localized face/hand review; HOLD pending all gates"
+    },
+    "cinematic_candidate": {
+      "min_width": 3840,
+      "min_height": 2160,
+      "scope": "Qualified source+motion+appearance and independent reviewers required"
+    }
+  },
+  "non_negotiable_checks": [
+    "female=0 and male=1 shape source macros independently verified",
+    "latest high-detail source must be directly in rendering graph, not merely in a separate repository",
+    "no generic nearest-triangle rig transfer without regional fit and joint contact gates",
+    "face performance includes actual lips brows cheeks and eyelids beyond jaw/eyes/tongue",
+    "all five digits including thumb have independent tested movement and contact",
+    "walk includes pelvis/root travel and foot locking/contact, start/stop/turn",
+    "external reproductive anatomy provenance and anatomical correctness independently reviewed",
+    "all images and videos archived as direct Google Drive playable files with source hashes",
+    "human-in-command release approval after automated and independent visual review"
+  ],
+  "baseline_blockers": [
+    "R014 MPFB 448x576 moving clip source 19158 body verts; not Blender Studio 677442 L3",
+    "MPFB face bone rig jaw+eyes+tongue only; no dedicated lip/brow/cheek FACS",
+    "current body videos key eight arms/legs, zero finger/face channels",
+    "base Blender Studio highest multires source unrigged, failed source skin transfer",
+    "no genuine foot-ground motion, external genital review, realistic skin/hair, 4K"
+  ]
+}

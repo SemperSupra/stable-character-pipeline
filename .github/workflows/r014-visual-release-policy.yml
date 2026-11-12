@@ -1,0 +1,37 @@
+name: R014 fail-closed visual human release-policy negative controls
+on:
+  push:
+    branches: [research/r014-visual-acceptance-policy-v1]
+    paths: [r014/**, .github/workflows/r014-visual-release-policy.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Validate immutable schema, 6 failure-control classes, and hold baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014
+          python3 r014/validate_visual_release_policy.py --self-test
+          mkdir -p "$RUNNER_TEMP/r014-policy"
+          python3 r014/validate_visual_release_policy.py \
+            --policy r014/visual_release_policy.json \
+            --out "$RUNNER_TEMP/r014-policy/hold_receipt.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-policy/hold_receipt.json"
+          v=json.loads(p.read_text())
+          assert v["state"]=="HOLD" and v["rejected_gate_count"]>20
+          print("PASS_RESEARCH_RELEASE_IS_FAIL_CLOSED")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-visual-release-policy-hold-receipt
+          path: ${{ runner.temp }}/r014-policy/*
+          retention-days: 7
