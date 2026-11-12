@@ -2,7 +2,7 @@ name: R014 official MPFB system skin/eye/hair asset provenance
 on:
   push:
     branches: [research/r014-mpfb-system-assets-v1]
-    paths: [r014/**, .github/workflows/r014-mpfb-system-asset-source.yml]
+    paths: [r014/mpfb_asset_pack_inspect.py, .github/workflows/r014-mpfb-system-asset-source.yml]
   workflow_dispatch:
 permissions:
   contents: read
