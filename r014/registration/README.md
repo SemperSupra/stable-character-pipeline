@@ -1,0 +1,7 @@
+# R014 anatomy-region registration failure atlas (research HOLD)
+
+Exact source: prior public [GHA run 43218606862](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43218606862) two-actor MPFB source-rig -> Blender Studio CC0 first transfer. Both attempts visibly tore hips/shoulders and fail independent registration acceptance. The script reopens those actual native .blend experiments; outputs measured per-vertex nearest-source surface error, approximated nearest rest-bone region, transferred skin-weight side mismatches, ranked regions and front/back color-atlas renders. Green research CI is **failure attribution, not rig qualification**.
+
+The region proxy is nearest source bone segment; it is **not** a landmark detector or medically vetted anatomy. Color-code from <25mm greenish to >200mm dark red in a **technical error visualization only**. Do not use these altered scene materials as photoreal skin. The original high-resolution Multires sculpt source remains otherwise unchanged, without accepted rig, identity, full sex/reproductive anatomy, foot or face action.
+
+Outputs have a 7-day cloud CI staging life. Move final receipts/heatmap/Blender assets to [durable Drive](https://drive.google.com/drive/folders/17xZeuuNtopECijWSjxhLj1-gTODpvA8a) and reconcile DLE private [R014 #138](https://github.com/SemperSupra/stable-character-pipeline-private/issues/138). No main merges without owner-governed promotion.\n
