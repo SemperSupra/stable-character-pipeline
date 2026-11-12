@@ -3,12 +3,34 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 work="$(mktemp -d "${RUNNER_TEMP:-/tmp}/geometry-donors.XXXXXXXX")"
-trap 'rm -rf "$work"' EXIT
+cleanup() {
+    # The Go module cache deliberately stores read-only immutable sources.
+    # Restore write permission only within this experiment-owned disposable directory.
+    chmod -R u+w "$work" >/dev/null 2>&1 || true
+    if rm -rf "$work" >/dev/null 2>&1; then
+        echo "TEMP_WORK_CLEANUP_PASS"
+    else
+        echo "TEMP_WORK_CLEANUP_INCOMPLETE" >&2
+    fi
+}
+trap cleanup EXIT
 mkdir -p "$here/results"
-export GOTOOLCHAIN=auto
+export GOTOOLCHAIN=go1.25.0
 export GOPATH="$work/go"
 export GOMODCACHE="$work/go-modcache"
 export GOCACHE="$work/go-cache"
+
+# First RED: gsdf's CPU evaluator imports its GL/GLFW backend in the current source;
+# install only the needed development headers on this disposable public Ubuntu VM.
+if ! pkg-config --exists gl || [ ! -f /usr/include/X11/Xlib.h ]; then
+    echo "FURNISH_EPHEMERAL_OPENGL_BUILD_HEADERS"
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+      libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev \
+      libxinerama-dev libxi-dev libxxf86vm-dev
+fi
+dpkg-query -W -f='\${binary:Package}=\${Version}\\n' libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev \
+  > "$here/results/ephemeral-gl-dev-versions.txt" 2>/dev/null || true
 
 echo "PUBLIC_SDF_BAKEOFF_R0"
 echo "host_os=$(uname -s) host_arch=$(uname -m)"
