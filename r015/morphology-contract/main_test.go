@@ -28,7 +28,11 @@ func TestOmittedAdult(t *testing.T){c:=load(t);c.Items[0].AdultState="";check(t,
 func TestBadIndex(t *testing.T){c:=load(t);c.Items[0].Fullness=1.02;check(t,c,true)}
 func TestUnexpectedNativeMHRMapping(t *testing.T){c:=load(t);c.Items[0].NativeMHR=[]byte(`{"shape0":0.8}`);check(t,c,true)}
 func TestUnexpectedNativeMPFBMapping(t *testing.T){c:=load(t);c.Items[0].NativeMPFB=[]byte(`{"height":0.4}`);check(t,c,true)}
-func TestMissingMapField(t *testing.T){c:=load(t);c.Items[0].NativeMHR=nil;check(t,c,true)}
+func TestMissingMapField(t *testing.T){
+    b,err:=os.ReadFile("fixtures.json");if err!=nil {t.Fatal(err)}
+    b=bytes.Replace(b,[]byte(`"native_mhr_map": null,`),[]byte(""),1)
+    if _,err=Validate(b);err==nil {t.Fatal("missing native-map field accepted")}
+}
 func TestUnexpectedPolicyField(t *testing.T){
     b,err:=os.ReadFile("fixtures.json");if err!=nil {t.Fatal(err)}
     b=bytes.Replace(b,[]byte(`"schema": 1,`),[]byte(`"schema": 1, "allow": true,`),1)
