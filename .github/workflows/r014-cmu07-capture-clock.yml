@@ -1,0 +1,55 @@
+name: R014 CMU07_01 source clock bridge (metadata-only, no motion acquisition)
+on:
+  push:
+    branches: [research/r014-cmu07-source-timing-bridge-20261112]
+    paths:
+      - r014/cmu07_source_clock_lookup.py
+      - .github/workflows/r014-cmu07-capture-clock.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-cmu07-clock-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source_neutral_exact_fraction_clock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - fps: 24
+            frames: 169
+          - fps: 30
+            frames: 181
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Exact source clock and denied-fake-contact tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/cmu07_source_clock_lookup.py
+          python3 r014/cmu07_source_clock_lookup.py --fps '${{ matrix.fps }}' \
+            --frames '${{ matrix.frames }}' \
+            --cadence 1/2 \
+            --out "$RUNNER_TEMP/r014-clock/clock.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-clock/clock.json"
+          a=json.loads(p.read_text())
+          assert a["capture_artifact_opened"] is False
+          assert a["source_capture_artifact_sha256"] is None
+          assert a["output_frames"]==${{ matrix.frames }}
+          assert a["output_rate_hz"]==${{ matrix.fps }}
+          assert all(x["contact_state"]=="UNKNOWN" for x in a["lookup"])
+          assert all(not x["source_motion_admitted"] for x in a["lookup"])
+          print("R014_SOURCE_ONLY_CMU_TIMING_GATES_PASS",len(a["lookup"]))
+          PY
+          (cd "$RUNNER_TEMP/r014-clock" && sha256sum clock.json > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-cmu07-metadata-only-clock-${{ matrix.fps }}fps-HOLD
+          path: ${{ runner.temp }}/r014-clock/*
+          retention-days: 7
