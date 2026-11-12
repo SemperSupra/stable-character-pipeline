@@ -1,0 +1,98 @@
+name: video-physics-oci-disposable-research
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-physics-oci.yml'
+      - 'qualification/video_physics_bakeoff/**'
+permissions:
+  contents: read
+concurrency:
+  group: video-oci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  local-oci-qualification:
+    name: Ephemeral OCI build, read-only nonroot runtime, actual decoded MP4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build Go source inside multi-stage container (no host dev installs)
+        working-directory: qualification/video_physics_bakeoff
+        run: |
+          set -euo pipefail
+          docker version
+          docker build --pull --no-cache -f Dockerfile.research -t local/video-bakeoff:rdte .
+          mkdir -p receipts
+          docker image inspect local/video-bakeoff:rdte --format '{{.Id}}' > receipts/image-id.txt
+          docker image inspect local/video-bakeoff:rdte --format '{{json .Config.User}}' > receipts/image-user.txt
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint apk local/video-bakeoff:rdte info -vv >receipts/package-inventory.txt
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m local/video-bakeoff:rdte -help > receipts/usage.txt 2>&1
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint ffmpeg local/video-bakeoff:rdte -version >receipts/ffmpeg-version.txt
+      - name: Reproduce synthetic codec+motion controls inside restricted OCI runtime
+        working-directory: qualification/video_physics_bakeoff
+        run: |
+          set -euo pipefail
+          mkdir -p receipts/fixtures/videos
+          # Keep host-owned temp dir writable by isolated container gid only, not world-writable.
+          sudo chgrp 65532 receipts/fixtures/videos
+          chmod 775 receipts/fixtures/videos
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint ffmpeg \
+            -v "$PWD/receipts/fixtures/videos:/output:rw" \
+            local/video-bakeoff:rdte -nostdin -hide_banner -loglevel error -y \
+              -f lavfi -i 'testsrc2=size=128x128:rate=10:duration=2' -c:v mpeg4 -pix_fmt yuv420p /output/clean.mp4
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint ffmpeg \
+            -v "$PWD/receipts/fixtures/videos:/output:rw" \
+            local/video-bakeoff:rdte -nostdin -hide_banner -loglevel error -y \
+              -f lavfi -i 'color=c=black:size=128x128:rate=10:duration=2' -c:v mpeg4 -pix_fmt yuv420p /output/black.mp4
+          cat >receipts/fixtures/cases.json <<'JSON'
+          {"schema":"scp.video-bakeoff-cases.v1","cases":[
+            {"id":"oci-clean","kind":"video","path":"videos/clean.mp4","expected_motion":true,"expect":"PASS"},
+            {"id":"oci-black","kind":"video","path":"videos/black.mp4","expected_motion":true,"expect":"FAIL"},
+            {"id":"oci-unlabelled","kind":"video","path":"videos/clean.mp4","expected_motion":true}
+          ]}
+          JSON
+          # Native files created by UID 65532 are readable; do not chmod files from the host.
+          sudo chgrp 65532 receipts
+          chmod 775 receipts
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            -v "$PWD/receipts/fixtures:/data:ro" -v "$PWD/receipts:/out:rw" \
+            local/video-bakeoff:rdte -manifest /data/cases.json -out /out/oci-video-receipt.json
+          # Read back isolated UID 65532's mode-0600 receipt on this disposable VM only.
+          sudo chown "$(id -u):$(id -g)" receipts/oci-video-receipt.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("receipts/oci-video-receipt.json").read_text())
+          assert r["total"]==3 and r["matched"]==2 and r["discrepancies"]==0
+          assert [x["verdict"] for x in r["results"]]==["PASS","FAIL","PASS"]
+          assert r["results"][-1]["expected"]=="" and not r["results"][-1]["matches_oracle"]
+          assert all(len(x["source_sha256"])==64 and not x.get("error") for x in r["results"])
+          print("RESTRICTED_OCI_VIDEO_DIAGNOSTICS", [x["verdict"] for x in r["results"]])
+          PY
+          if docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+             --tmpfs /tmp:rw,noexec,nosuid,size=16m -v "$PWD/receipts/fixtures:/data:ro" \
+             local/video-bakeoff:rdte -manifest /data/cases.json -out /work/forbidden.json; then
+             echo 'ROOT_FILESYSTEM_NOT_FAIL_CLOSED'; exit 1
+          fi
+          test ! -e receipts/forbidden.json
+          printf 'root_fs=read_only\nnetwork=none\ncapabilities=none\nuid=65532\nhost_installations=none\nbase_images_digest_pinned=YES\nruntime_apk_index_snapshot_pinned=NO\nscientific_realism=NOT_QUALIFIED\n' >receipts/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: disposable-oci-video-evaluation-receipts
+          path: |
+            qualification/video_physics_bakeoff/receipts/oci-video-receipt.json
+            qualification/video_physics_bakeoff/receipts/qualification.txt
+            qualification/video_physics_bakeoff/receipts/image-id.txt
+            qualification/video_physics_bakeoff/receipts/image-user.txt
+            qualification/video_physics_bakeoff/receipts/ffmpeg-version.txt
+            qualification/video_physics_bakeoff/receipts/package-inventory.txt
+          retention-days: 14
+          if-no-files-found: error
