@@ -5,7 +5,7 @@ on:
       - research/r015-prior-art-bakeoff-r1-20261112
     paths:
       - '.github/workflows/r015-prior-art-bakeoff.yml'
-      - 'research/r015_prior_art/**'
+      - 'research/r015_prior_art/bakeoff.py'
   workflow_dispatch:
 permissions:
   contents: read
