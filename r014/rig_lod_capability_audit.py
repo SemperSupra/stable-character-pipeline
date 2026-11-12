@@ -90,7 +90,7 @@ assert not sculpt_source["has_armature"] and sculpt_source["shape_key_count"]==0
 old_viewport=multi.levels
 old_show=multi.show_viewport
 multi.show_viewport=True
-for level in range(0,min(2,multi.total_levels)+1):
+for level in range(0,min(3,multi.total_levels)+1):
     multi.levels=level
     bpy.context.view_layer.update()
     dg=bpy.context.evaluated_depsgraph_get()
