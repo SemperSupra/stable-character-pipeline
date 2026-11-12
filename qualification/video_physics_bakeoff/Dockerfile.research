@@ -1,15 +1,16 @@
 # RDT&E only: source-only Go build and isolated FFmpeg runtime.
-# Exact tags are experiment inputs; base-image digests and package repository
-# snapshots remain production-promotion gates until independently locked.
-FROM golang:1.23.12-alpine3.21 AS builder
+# Source observed 2026-11-12 OCI build receipts pin both base image digests.
+# An immutable APK index snapshot, dependency transitive hashes, SBOM, signing,
+# security scan, and broader platform acceptance remain release-promotion gates.
+FROM golang:1.23.12-alpine3.21@sha256:4bb4be21ac98da06bc26437ee870c4973f8039f13e9a1a36971b4517632b0fc6 AS builder
 WORKDIR /src
 ENV GOPROXY=off GOSUMDB=off GOWORK=off GOTOOLCHAIN=local CGO_ENABLED=0
 COPY go.mod ./
 COPY cmd/ ./cmd/
 RUN go build -trimpath -ldflags="-s -w" -o /bin/bakeoff ./cmd/bakeoff
 
-FROM alpine:3.21.6
-RUN apk add --no-cache ffmpeg
+FROM alpine:3.21.6@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709
+RUN apk add --no-cache 'ffmpeg=6.1.2-r1'
 COPY --from=builder /bin/bakeoff /usr/local/bin/bakeoff
 USER 65532:65532
 WORKDIR /work
