@@ -35,9 +35,9 @@ jobs:
           gh run download 43189364385 --repo SemperSupra/stable-character-pipeline \
             --name geometry-mesh-r2-linux-amd64-1 --dir "$RUNNER_TEMP/geometry-r5/input"
           ls -l "$RUNNER_TEMP/geometry-r5/input"
-          sha256sum "$RUNNER_TEMP/geometry-r5/input"/{sdfx-octree,gsdf-welded}.stl
-          test "$(sha256sum "$RUNNER_TEMP/geometry-r5/input/sdfx-octree.stl" | cut -c1-64)" = "c13eadbac14f1da7645f5f683f3e9b7d019f6ce95c430b51cd043531dae437ca"
-          test "$(sha256sum "$RUNNER_TEMP/geometry-r5/input/gsdf-welded.stl" | cut -c1-64)" = "f53f2ed1c52c1e89cb44cd2292a075053e8de18e0a3cc9c088ec6a05e1aae97a"
+          sha256sum "$RUNNER_TEMP/geometry-r5/input/results"/{sdfx-octree,gsdf-welded}.stl
+          test "$(sha256sum "$RUNNER_TEMP/geometry-r5/input/results/sdfx-octree.stl" | cut -c1-64)" = "c13eadbac14f1da7645f5f683f3e9b7d019f6ce95c430b51cd043531dae437ca"
+          test "$(sha256sum "$RUNNER_TEMP/geometry-r5/input/results/gsdf-welded.stl" | cut -c1-64)" = "f53f2ed1c52c1e89cb44cd2292a075053e8de18e0a3cc9c088ec6a05e1aae97a"
       - name: Acquire official pinned Blender 4.5.16 (verified upstream checksum)
         shell: bash
         run: |
@@ -57,7 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile qualification/geometry-donors/r5-stl-glb/*.py
-          input="$RUNNER_TEMP/geometry-r5/input"
+          input="$RUNNER_TEMP/geometry-r5/input/results"
           out="$RUNNER_TEMP/geometry-r5/out"
           mkdir -p "$out"
           for name in sdfx-octree gsdf-welded; do
