@@ -1,0 +1,85 @@
+name: R014 Native Nested CC0 PBR Shader Group Inspection
+on:
+  push:
+    branches: [research/r014-real-cc0-material-coverage-audit-20261112]
+    paths:
+      - r014/cc0_nested_shader_audit.py
+      - .github/workflows/r014-cc0-nested-shaders.yml
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-cc0-nested-pbr-group-census
+  cancel-in-progress: true
+jobs:
+  native_shader_graph:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sex: female
+            source_run: 43288582735
+          - sex: male
+            source_run: 43287691272
+    runs-on: ubuntu-24.04
+    timeout-minutes: 19
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check script before any model acquisition
+        run: python3 -m compileall -q r014/cc0_nested_shader_audit.py
+      - name: Acquire real source CC0 scene and previously verified body material census
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ matrix.source_run }}
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-pbr/source" "$RUNNER_TEMP/r014-pbr/out"
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "r014-cc0-real-morph-motion-$SEX" --dir "$RUNNER_TEMP/r014-pbr/source"
+          test -s "$RUNNER_TEMP/r014-pbr/source/R014_${SEX}_CC0_morph_editable_motion.blend"
+          cp "evidence/r014-cc0-material-audit/43289453499-${SEX}-material-summary.json" "$RUNNER_TEMP/r014-pbr/source/verified-material-summary.json"
+      - name: Pull SHA256-validated official Blender 4.5.16 into ephemeral filesystem
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-pbr"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 6 --retry-all-errors --retry-delay 4 "$base/blender-4.5.16.sha256" -o official.sha256
+          curl -fL --retry 6 --retry-all-errors --retry-delay 4 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz official.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$hash" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-pbr" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Audit output-linked nested group material nodes for real morphed body
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-pbr/source/R014_${SEX}_CC0_morph_editable_motion.blend" \
+            --python-exit-code 3 --python r014/cc0_nested_shader_audit.py -- \
+            --sex "$SEX" \
+            --blend "$RUNNER_TEMP/r014-pbr/source/R014_${SEX}_CC0_morph_editable_motion.blend" \
+            --expected "$RUNNER_TEMP/r014-pbr/source/verified-material-summary.json" \
+            --out "$RUNNER_TEMP/r014-pbr/out/nested_pbr_$SEX.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-pbr/out"/("nested_pbr_"+os.environ["SEX"]+".json")
+          j=json.loads(p.read_text())
+          assert j["status"]=="PASS_NATIVE_GROUPED_SHADER_STRUCTURE_DIAGNOSTIC_ONLY"
+          assert j["visual_realism"]=="HOLD"
+          print("PASS_NESTED_PBR_SOURCE_AUDIT_WITH_REALISM_HOLD",j["source_actor"])
+          PY
+      - name: Retain only bounded source shader-graph audit JSON, no CC0 binaries
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-source-nested-pbr-${{ matrix.sex }}
+          path: ${{ runner.temp }}/r014-pbr/out/*.json
+          if-no-files-found: warn
+          retention-days: 7
