@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import sys
+import shutil
 from collections import Counter
 from pathlib import Path
 
@@ -28,6 +29,46 @@ ORIGINAL_FUNCTIONS=(gen.stand_motion,gen.judo_motion,gen.dance_motion)
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
+def compose_with_immutable_untouched_cases(batch, original_dir, candidate_dir, old_manifest):
+    """Generate only four admitted corrections; copy all non-target originals by SHA.
+
+    Previous full re-renders hit intermittent non-target GLB/label SHA drift on
+    some nominally identical free public CPU runners. Never silently accept
+    a numerically different non-target source asset as original custody.
+    """
+    expected=gen.BATCHES[batch]
+    prior={item["case"]:item for item in old_manifest["cases"]}
+    if set(prior)!=set(expected) or len(prior)!=len(expected):
+        raise ValueError("ORIGINAL_ID_SCOPE_CHANGED")
+    candidate_dir.mkdir(parents=True,exist_ok=True)
+    items=[]
+    for name in expected:
+        old=prior[name]
+        if name in TARGETS:
+            items.append(gen.build_case(name,candidate_dir))
+        else:
+            blocks=(old["model"],old["ground_truth"],*old["videos"])
+            for b in blocks:
+                filename=b["file"]
+                if filename not in (name+".glb",name+"_ground_truth.json",name+"_side.mp4"):
+                    raise ValueError("ORIGINAL_FILE_NAME_UNTRUSTED")
+                src=original_dir/filename
+                if digest(src)!=b["sha256"]:
+                    raise ValueError("IMMUTABLE_ORIGINAL_FILE_MISMATCH")
+                shutil.copyfile(src,candidate_dir/filename)
+            items.append(old)
+    result=dict(old_manifest)
+    result["cases"]=items
+    result["notes"]=list(old_manifest.get("notes",[]))+[
+       "Exactly four source-corrected cases were regenerated; remaining 18 are unchanged byte-for-byte SHA-validated original files",
+       "Cold original-source regeneration on different runner images is an independent reproducibility qualification, not assumed",
+       "Source kinematics are research-only, not verified physical human gait or rendering realism",
+    ]
+    (candidate_dir/"manifest.json").write_text(json.dumps(result,indent=2)+"\n")
+    gen.make_contact_sheet(candidate_dir, expected)
+    return result
+
+
 def check_batch(batch,root,original_root):
     if batch not in COUNTS:
         raise ValueError("UNKNOWN_BATCH")
@@ -42,7 +83,7 @@ def check_batch(batch,root,original_root):
     candidate_dir=root/batch
     try:
         gen.stand_motion,gen.judo_motion,gen.dance_motion=patched_stand,patched_judo,candidate_dance
-        new_manifest=gen.build_batch(batch,candidate_dir)
+        new_manifest=compose_with_immutable_untouched_cases(batch,original_dir,candidate_dir,old_manifest)
     finally:
         gen.stand_motion,gen.judo_motion,gen.dance_motion=ORIGINAL_FUNCTIONS
     if len(new_manifest["cases"])!=COUNTS[batch] or new_manifest["rights"]!="CC0-1.0 for original generated files":
@@ -80,7 +121,8 @@ def check_batch(batch,root,original_root):
             if [v["contact"] for v in old_frames]!=[v["contact"] for v in new_frames]:
                 raise ValueError("RELABELLED_CONTACT_PROHIBITED")
         else:
-            if updated or old["model"]["sha256"]!=item["model"]["sha256"]:
+            if (updated or old["model"]["sha256"]!=item["model"]["sha256"] or
+                old["videos"][0]["sha256"]!=item["videos"][0]["sha256"]):
                 raise ValueError("NON_TARGET_GEOMETRY_REGRESSION")
             if original["status"]!=candidate["status"] or original["defect_count"]!=candidate["defect_count"]:
                 raise ValueError("NON_TARGET_AUDIT_REGRESSION")
