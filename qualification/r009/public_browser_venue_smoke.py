@@ -73,7 +73,7 @@ def main():
             assert page.locator("#status").inner_text()=="system"
             assert page.locator("html").get_attribute("data-theme")=="dark"
             page.emulate_media(color_scheme="light")
-            assert page.locator("html").get_attribute("data-theme")=="light"
+            page.wait_for_function("document.documentElement.dataset.theme === 'light'")
             page.get_by_role("button",name="Dark").click()
             page.emulate_media(color_scheme="light")
             assert page.locator("html").get_attribute("data-theme")=="dark"
@@ -98,10 +98,10 @@ def main():
             assert review["accepted"] is False and len(review["strokes"])==1
             page.set_content(PAGE,wait_until="load")  # cold DOM restart, no authoritative state retained
             page.locator("#import").set_input_files({"name":"synthetic-review.json","mimeType":"application/json","buffer":exported})
-            assert page.locator("#import-status").inner_text()=="Imported 1 synthetic strokes"
+            page.wait_for_function("document.querySelector('#import-status').textContent === 'Imported 1 synthetic strokes'")
             bad=dict(review,source_sha256="b"*64)
             page.locator("#import").set_input_files({"name":"bad.json","mimeType":"application/json","buffer":json.dumps(bad).encode()})
-            assert page.locator("#import-status").inner_text().startswith("REJECTED")
+            page.wait_for_function("document.querySelector('#import-status').textContent.startsWith('REJECTED')")
             ax=page.locator("main").aria_snapshot()
             assert "Export synthetic review" in ax and "Import synthetic review" in ax
             (dest/f"public-{label}-ax.txt").write_text(ax,encoding="utf-8")
