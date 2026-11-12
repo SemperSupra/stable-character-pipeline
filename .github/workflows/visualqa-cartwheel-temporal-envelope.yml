@@ -1,0 +1,196 @@
+name: visualqa-cartwheel-temporal-reachability
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_cartwheel_temporal/**'
+      - '.github/workflows/visualqa-cartwheel-temporal-envelope.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: visualqa-cartwheel-temporal-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  exact-pairwise-original-envelope:
+    name: Exact pairwise 40-frame Lipschitz bound and hostile controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43217181196
+          github-token: ${{ github.token }}
+          name: cartwheel-3d-analytical-envelope
+          path: research/source-analytic
+      - name: Original-source interval graph and exact speed certificate
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/visualqa_cartwheel_temporal -p 'test_temporal_envelope.py' -v
+          python3 qualification/visualqa_cartwheel_temporal/temporal_envelope.py \
+            --parent-receipt research/source-analytic/analytical.json \
+            --out receipts/exact.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cartwheel-temporal-exact-pairwise
+          path: receipts/exact.json
+          if-no-files-found: error
+          retention-days: 14
+
+  independent-source-bisection-oracle:
+    name: Independent original GT 3D witness and 60-rep speed-bisection oracle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43174097569
+          github-token: ${{ github.token }}
+          name: original-integrated-eight-fix-exercise_pose
+          path: research/original
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43217181196
+          github-token: ${{ github.token }}
+          name: cartwheel-3d-analytical-envelope
+          path: research/analytic
+      - name: Independently rederive intervals and solve forward-feasibility numerically
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          python3 - <<'PY'
+          import hashlib,json,math
+          from pathlib import Path
+          f=Path("research/original/exercise_pose")
+          m=json.loads((f/"manifest.json").read_text())
+          assert m["rights"]=="CC0-1.0 for original generated files"
+          assert m["schema"]=="scp.expanded-original-3d-motion-corpus.v1"
+          c=[x for x in m["cases"] if x["case"]=="female_cartwheel_barefoot"]
+          assert len(c)==1
+          c=c[0]
+          for meta in (c["ground_truth"],c["model"],c["videos"][0]):
+              assert hashlib.sha256((f/meta["file"]).read_bytes()).hexdigest()==meta["sha256"]
+          raw=(f/c["ground_truth"]["file"]).read_bytes()
+          source_sha=hashlib.sha256(raw).hexdigest()
+          assert source_sha=="d0f69142801e3c66aabcf79e1787e349f5bdb54bc8e966040f7e5e50dc5f5548"
+          frames=json.loads(raw)["frames"]
+          assert len(frames)==40
+          original_unreachable=0
+          limits=[]
+          for i,fr in enumerate(frames):
+              assert i==fr["frame"]
+              low,high=-1.5,1.5
+              for side in ("left","right"):
+                  h,a=fr["joints"][side+"_hip"],fr["joints"][side+"_ankle"]
+                  original_unreachable+=int(math.dist(h,a)>1.03+1e-9 or math.dist(h,a)<.01-1e-9)
+                  across=math.hypot(h[0]-a[0],h[1]-a[1])
+                  upper=1.03-0.0001
+                  assert across<upper
+                  span=math.sqrt(upper*upper-across*across)
+                  low=max(low,a[2]-h[2]-span)
+                  high=min(high,a[2]-h[2]+span)
+              assert low<=high
+              limits.append((low,high))
+          assert original_unreachable==36
+          analytic=json.loads(Path("research/analytic/analytical.json").read_text())
+          assert analytic["source_labels_sha256"]==source_sha
+          assert analytic["frames_with_common_vertical_solution"]==40
+          for i,(lo,hi) in enumerate(limits):
+              old=analytic["frames"][i]["common_pelvis_vertical_shift_interval_m"]
+              assert abs(old[0]-lo)<1e-10 and abs(old[1]-hi)<1e-10
+          def possible(speed):
+              lo,hi=limits[0]
+              for a,b in limits[1:]:
+                  lo=max(a,lo-speed/20.)
+                  hi=min(b,hi+speed/20.)
+                  if lo>hi+1e-10:
+                      return False
+              return True
+          assert possible(120.)
+          lower,upper=0.,120.
+          for _ in range(60):
+              mid=(lower+upper)/2
+              if possible(mid):
+                  upper=mid
+              else:
+                  lower=mid
+          assert upper-lower<1e-7
+          assert possible(upper)
+          out={"schema":"scp.visualqa.cartwheel-temporal-bisection-crosscheck.v1",
+               "original_labels_sha256":source_sha,
+               "original_unreachable_observations":original_unreachable,
+               "frames":40,"fps":20,
+               "constant_root_shift_feasible":max(x[0] for x in limits)<=min(x[1] for x in limits),
+               "minimum_sampled_speed_60rep_bisection_m_s":upper,
+               "bisection_lower_m_s":lower,
+               "source_and_analytic_intervals_exactly_reconciled":True,
+               "original_unchanged":True,"human_motion_realism":"NOT_QUALIFIED"}
+          Path("receipts/independent.json").write_text(json.dumps(out,indent=2,sort_keys=True)+"\n")
+          print("CARTWHEEL_INDEPENDENT_60REP_BISECTION",out)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cartwheel-temporal-independent-60rep
+          path: receipts/independent.json
+          if-no-files-found: error
+          retention-days: 14
+
+  independent-reconcile-actor-baton:
+    name: Independent 3rd-runner exact-vs-numeric motion-bound reconciliation
+    needs: [exact-pairwise-original-envelope,independent-source-bisection-oracle]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: cartwheel-temporal-*
+          merge-multiple: true
+          path: receipts
+      - name: Reconcile bounded hypothesis, never promote physics or motion
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,math
+          from pathlib import Path
+          a=json.loads(Path("receipts/exact.json").read_text())
+          b=json.loads(Path("receipts/independent.json").read_text())
+          assert a["frames_checked"]==b["frames"]==40
+          assert a["original_source_labels_sha256"]==b["original_labels_sha256"]
+          assert a["original_unreachable_observations"]==b["original_unreachable_observations"]==36
+          assert a["one_constant_vertical_shift_feasible"]==b["constant_root_shift_feasible"]
+          exact=a["exact_minimum_sampled_root_shift_speed_m_s"]
+          indep=b["minimum_sampled_speed_60rep_bisection_m_s"]
+          assert math.isclose(exact,indep,rel_tol=1e-7,abs_tol=5e-7),(exact,indep)
+          assert a["witness_max_sampled_speed_m_s"]<=exact+1e-6
+          assert b["human_motion_realism"]=="NOT_QUALIFIED"
+          result={"schema":"scp.visualqa.cartwheel-temporal-joined.v1",
+                  "original_source_labels_sha256":a["original_source_labels_sha256"],
+                  "original_unreachable_observations":36,
+                  "one_constant_vertical_shift_feasible":a["one_constant_vertical_shift_feasible"],
+                  "exact_minimum_sampled_vertical_speed_m_s":exact,
+                  "independent_bisection_speed_m_s":indep,
+                  "research_only":"BOUND_ON_HYPOTHETICAL_HIP_ENDPOINTS_NOT_PHYSICS",
+                  "realistic_motion":"NOT_QUALIFIED","source_unchanged":True}
+          Path("receipts/joined.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          lines=["# Cartwheel temporal feasibility — human / agent read-only baton","",
+             "Source: original rights-only female_cartwheel_barefoot, 40 frames @ 20fps, 36 unreachable original endpoint observations retained.",
+             "One constant vertical root adjustment feasible across whole clip: "+str(result["one_constant_vertical_shift_feasible"]),
+             "Minimum necessary *sample-to-sample* vertical root speed to select one value in each 3D reach interval: "+str(round(exact,8))+" m/s.",
+             "Independent 60-rep binary-search oracle agrees with sharp pairwise 1D Lipschitz result.",
+             "No source/original GT, knee, contact, model, rendered H264, longitudinal acceleration/jerk, shoulder, COM, force, footprint or realistic cartwheel was corrected.",
+             "Next corrective actor must build an articulated continuity and contact-physics model, produce real GLB/H264 and independently test; do not relabel source just to pass targeted geometry."]
+          Path("receipts/actor-baton.md").write_text("\n".join(lines)+"\n")
+          print("CARTWHEEL_RECONCILED_ORIGINAL_TEMPORAL_BOUND",result)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cartwheel-temporal-reconciled-actor-baton
+          path: |
+            receipts/joined.json
+            receipts/actor-baton.md
+          if-no-files-found: error
+          retention-days: 14
