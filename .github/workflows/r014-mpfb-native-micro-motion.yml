@@ -86,7 +86,7 @@ jobs:
           assert int(s['nb_frames'])==36
           assert abs(float(x['format']['duration'])-1.5)<.1
           PY
-            for t in .1 .6 1.1; do
+            for t in 0.1 0.6 1.1; do
               ffmpeg -v error -y -ss "$t" -i "$movie" -frames:v 1 "frame_${mode}_${t}.png"
             done
           done
