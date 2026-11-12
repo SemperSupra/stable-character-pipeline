@@ -49,3 +49,32 @@ LD_LIBRARY_PATH="$work/sdk/lib" "$work/consumer/consumer" \
 ldd "$work/consumer/consumer" > "$here/results/consumer-ldd.txt"
 readelf -d "$work/sdk/lib/libfive.so" > "$here/results/libfive-elf-dynamic.txt"
 echo "LIBFIVE_SDK_R1_ORACLE_PASS"
+
+
+# R1b: package installed native SDK, not donor source. No GHCR or release publication.
+cat > "$work/sdk/lib/pkgconfig/libfive.pc" <<'PCEOF'
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+Name: libfive
+Description: Headless native libfive experimental SDK
+Version: 0.0.0
+Libs: -L${libdir} -lfive
+Cflags: -I${includedir}
+PCEOF
+cat > "$work/sdk/qualification-manifest.json" <<'METADATA'
+{"schema":"research-native-sdk/v1","donor":"libfive","upstream_commit":"918387a9220dbac2f7ab32fb35e274c6794439cf","profile":"headless","packed_opcodes":false,"donor_source_patches":"none","packaging_fix":"relocatable-pkg-config","redistribution":"HOLD_PENDING_LICENSE_REVIEW"}
+METADATA
+package="$here/results/libfive-headless-native-sdk.tar.gz"
+tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -C "$work/sdk" -czf "$package" .
+sha256sum "$package" | tee "$here/results/SDK-SHA256.txt"
+tar -tf "$package" | sort > "$here/results/SDK-CONTENTS.txt"
+mkdir -p "$work/relocated"
+tar -C "$work/relocated" -xzf "$package"
+if grep -F "$work/sdk" "$work/relocated/lib/pkgconfig/libfive.pc"; then echo ABSOLUTE_ORIGIN_PREFIX_LEAK >&2; exit 2; fi
+PKG_CONFIG_PATH="$work/relocated/lib/pkgconfig" pkg-config --cflags --libs libfive | tee "$here/results/relocated-pkg-config-flags.txt"
+read -r -a flags <<< "$(PKG_CONFIG_PATH="$work/relocated/lib/pkgconfig" pkg-config --cflags --libs libfive)"
+cc -std=c11 -Wall -Wextra -Werror -O2 "$work/consumer/consumer.c" "${flags[@]}" -o "$work/consumer/relocated-consumer"
+LD_LIBRARY_PATH="$work/relocated/lib" "$work/consumer/relocated-consumer" | tee "$here/results/relocated-consumer-oracle.txt"
+echo "LIBFIVE_RELOCATABLE_SDK_PACKAGE_PASS"
