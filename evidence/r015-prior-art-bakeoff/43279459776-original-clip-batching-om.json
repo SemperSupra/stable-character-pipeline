@@ -1,0 +1,378 @@
+{
+  "all_output_finite": true,
+  "archive_files": [
+    "models_ckpts/flame/expression/flame_expression.ckpt",
+    "models_ckpts/flame/expression/flame_expression_metadata.json",
+    "models_ckpts/flame/shape/flame_shape.ckpt",
+    "models_ckpts/flame/shape/flame_shape_metadata.json",
+    "models_ckpts/smal/smal_metadata.json",
+    "models_ckpts/smal/smal.ckpt",
+    "models_ckpts/smpl/smpl_female_metadata.json",
+    "models_ckpts/smpl/smpl_male_metadata.json",
+    "models_ckpts/smpl/smpl_neutral_metadata.json",
+    "models_ckpts/smpl/smpl_female.ckpt",
+    "models_ckpts/smpl/smpl_male.ckpt",
+    "models_ckpts/smpl/smpl_neutral.ckpt",
+    "models_ckpts/smplx/smplx_female_metadata.json",
+    "models_ckpts/smplx/smplx_male_metadata.json",
+    "models_ckpts/smplx/smplx_neutral_metadata.json",
+    "models_ckpts/smplx/smplx_male.ckpt",
+    "models_ckpts/smplx/smplx_female.ckpt",
+    "models_ckpts/smplx/smplx_neutral.ckpt"
+  ],
+  "archive_member_count": 25,
+  "archive_sha256": "91682ac20d450f02c02f97e99ab5858fc12e0f15dbcedbd1e8d2bb4c244a72c2",
+  "archive_size_bytes": 23264694,
+  "checkpoint_compressed_bytes": 2564366,
+  "checkpoint_sha256": "7bb79747504919656ecacb120b5be70b51b6faac1535d1cfd7f46b1401a3ed7b",
+  "checkpoint_shape_summary": {
+    "model.fc_layers.0.bias": [
+      800
+    ],
+    "model.fc_layers.0.weight": [
+      800,
+      8
+    ],
+    "model.fc_layers.2.bias": [
+      500
+    ],
+    "model.fc_layers.2.weight": [
+      500,
+      800
+    ],
+    "model.out_layer.bias": [
+      10
+    ],
+    "model.out_layer.weight": [
+      10,
+      500
+    ]
+  },
+  "checkpoint_tensor_count": 6,
+  "checkpoint_uncompressed_bytes": 4966252,
+  "curl_exit_code": 0,
+  "default_weights_only_error": "UnpicklingError: Weights only load failed. This file can still be loaded, to do so you have two options, \u001b[1mdo those steps only if you trust the source of the checkpoint\u001b[0m. \n\t(1) Re-running `torch.load` with `weights_only` set to `False` will likely succeed, but it can result in arbitrary code execution. Do it only if you got the file from a trusted source.\n\t(2) Alternatively, to load with `weights_only=True` please check the recommended steps in the following error message.\n\tWeightsUnpickler error: Unsupported global: GLOBAL omegaconf.listconfig.ListConfig was not an allowed global by default. Please use `torch.serialization.add_safe_globals([ListConfig])` to allowlist this global if you trust this class/function.\n\nCheck the documentation of torch.load to learn more about types accepted by default with weights_only https://pytorch.org/docs/stable/generated/torch.load.html.",
+  "download_seconds": 3.434,
+  "first_descriptor_0p05_sensitivity_l2": 0.01904796,
+  "forward_seconds": 0.000778,
+  "hidden_sizes": [
+    800,
+    500
+  ],
+  "licensed_smplx_3dmm_instantiated": false,
+  "merger_release_approval": false,
+  "metadata_labels": [
+    [
+      "fat"
+    ],
+    [
+      "masculine"
+    ],
+    [
+      "long torso"
+    ],
+    [
+      "hourglass"
+    ],
+    [
+      "tall"
+    ],
+    [
+      "rectangular"
+    ],
+    [
+      "small"
+    ],
+    [
+      "proportioned"
+    ]
+  ],
+  "metadata_top_level_keys": [
+    "num_stats",
+    "lr",
+    "out_features",
+    "hidden_size",
+    "num_hiddens",
+    "labels"
+  ],
+  "model_archive_redistributed": false,
+  "model_archive_source": "upstream project's public Google Drive ID, TLS verified",
+  "model_asset_licensing_confirmed": false,
+  "native_geometry_measured": false,
+  "network_input_size": 8,
+  "network_output_size": 10,
+  "nominal_output_vector": [
+    -0.006477,
+    0.004909,
+    -0.02308,
+    0.026311,
+    -0.05846,
+    0.025098,
+    -0.053485,
+    0.020107,
+    -0.028953,
+    0.04646
+  ],
+  "original_clip_chain": {
+    "background_robustness_probe": {
+      "background_rgb_baseline": [
+        244,
+        244,
+        244
+      ],
+      "background_rgb_variant": [
+        207,
+        226,
+        238
+      ],
+      "baseline_geometry_controls": "Three original stylized silhouettes; variants are byte-identical geometry but changed background",
+      "mapped_beta_l2_between_tall_and_broad": 1.755232,
+      "mapped_beta_l2_for_same_shape_background_changed": [
+        0.540358,
+        0.242561,
+        0.397386
+      ],
+      "mean_background_to_shape_beta_l2_ratio": 0.22415,
+      "mean_background_to_shape_clip_l2_ratio": 0.273275,
+      "not_geometry_qualified": true,
+      "raw_clip_score_l2_between_tall_and_broad": 3.585924,
+      "raw_clip_score_l2_for_background_changed": [
+        0.951266,
+        0.665216,
+        1.323348
+      ],
+      "status": "MEASURED_NO_QUALITY_ASSERTION"
+    },
+    "batch_inference_operating_probe": {
+      "batch_vs_author_source_max_abs_logit_delta": 0.00001526,
+      "batch_vs_native_serial_max_abs_logit_delta": 0.00001526,
+      "batched_warm_median_seconds": 0.65509,
+      "descriptors": 8,
+      "images": 6,
+      "model_asset_rights_included": false,
+      "original_native_batched_round_seconds": [
+        0.656851,
+        0.656719,
+        0.654758,
+        0.650151,
+        0.65509
+      ],
+      "original_native_sequential_round_seconds": [
+        6.758089,
+        6.755845
+      ],
+      "peak_maxrss_kib_linux": 2131340,
+      "scope": "Only CLIP image/text forward latency after load; NOT checkpoint download/startup, Semantify mapper runtime, renderer or service p95",
+      "sequential_warm_median_seconds": 6.756967,
+      "source": "official OpenAI CLIP pin; same image preprocessing and same descriptor order",
+      "status": "PASS_NUMERIC_EQUIVALENCE",
+      "warm_batch_to_serial_speedup_ratio": 10.3146
+    },
+    "cpu_concurrent_model_calls": "Sequential per image and descriptor, matching upstream scoring",
+    "descriptor_order": [
+      "fat",
+      "masculine",
+      "long torso",
+      "hourglass",
+      "tall",
+      "rectangular",
+      "small",
+      "proportioned"
+    ],
+    "disclaimer": "Inputs are public vector-drawn stylized adult silhouettes, NOT native 3DMM renders, CLIP scores are not calibrated to original SMPL-X training image distribution. No real body geometry or photoreal output evaluated.",
+    "generated_images_redistributed": false,
+    "mapped_vector_l2_norms": [
+      2.42425,
+      1.77106,
+      2.20753,
+      2.46636,
+      1.56595,
+      2.17493
+    ],
+    "mapper_output_10_smplx_betas": [
+      [
+        0.911576,
+        -0.332296,
+        -0.795973,
+        -1.668048,
+        -0.369096,
+        -1.096697,
+        0.261206,
+        -0.064232,
+        -0.310358,
+        0.109444
+      ],
+      [
+        0.793194,
+        0.921462,
+        0.026991,
+        -0.888471,
+        -0.049096,
+        -0.797155,
+        0.32442,
+        -0.154972,
+        -0.316113,
+        0.035178
+      ],
+      [
+        0.942639,
+        0.278249,
+        -0.47569,
+        -1.486771,
+        -0.250426,
+        -1.095059,
+        0.288818,
+        -0.13629,
+        -0.307208,
+        0.110484
+      ],
+      [
+        0.758974,
+        -0.789199,
+        -0.986485,
+        -1.611599,
+        -0.427281,
+        -0.996238,
+        0.226431,
+        0.00347,
+        -0.276158,
+        0.105115
+      ],
+      [
+        0.61765,
+        0.828481,
+        -0.017217,
+        -0.791187,
+        -0.076644,
+        -0.717244,
+        0.335918,
+        -0.136887,
+        -0.321434,
+        0.053188
+      ],
+      [
+        0.789188,
+        -0.02854,
+        -0.656491,
+        -1.497084,
+        -0.313357,
+        -1.067784,
+        0.26173,
+        -0.09524,
+        -0.322702,
+        0.119981
+      ]
+    ],
+    "model_assets_redistributed": false,
+    "original_clip_score_and_mapper_wall_seconds": 13.051,
+    "repeat_max_abs_delta": 0,
+    "score_max": 28.99399,
+    "score_min": 23.71033,
+    "scores_raw_image_text_logits": [
+      [
+        25.61259,
+        28.56919,
+        28.73401,
+        24.76136,
+        27.84418,
+        27.52693,
+        25.28215,
+        25.83332
+      ],
+      [
+        27.2868,
+        26.90687,
+        27.55777,
+        23.85398,
+        25.83774,
+        26.64903,
+        24.82014,
+        25.55812
+      ],
+      [
+        26.01981,
+        28.39076,
+        27.65524,
+        24.19349,
+        26.95344,
+        26.90181,
+        24.59925,
+        25.30325
+      ],
+      [
+        25.09496,
+        28.07033,
+        28.99399,
+        25.1027,
+        28.21577,
+        27.6238,
+        25.49057,
+        25.94776
+      ],
+      [
+        27.12119,
+        26.47449,
+        27.47353,
+        24.04058,
+        25.92828,
+        26.92958,
+        25.10609,
+        25.42567
+      ],
+      [
+        25.21589,
+        27.62035,
+        27.31384,
+        23.71033,
+        26.91662,
+        26.73089,
+        24.42645,
+        24.98545
+      ]
+    ],
+    "source_clip_commit": "d05afc436d78f1c48dc0dbf8e5980a9d471f35f6",
+    "source_clip_weights_sha256": "40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af",
+    "source_semantify_score_function_sha256": "31af9abc4ff050ee53a706c5d5a8680a0f06a52ef462e2e5deba6840a93e50cd",
+    "status": "PASS_ORIGINAL_CLIP_TO_ORIGINAL_MAPPER_NUMERIC_CHAIN_ONLY",
+    "synthetic_silhouette_hashes": {
+      "medium-analytic-control": "ef5b5af77072c169a71f6b56a99bd2bed24ed2dd63e2a9d4e91f12211c869a85",
+      "medium-analytic-control-warm-background-control": "d99576e92ae0d7936cda79ee83a4e38a2da28afe0fc590092447e4ccf210b96f",
+      "short-broad-analytic": "e9c5af48e177a30aa6c5916c6cdc4193bb947dc3058bfeb40541e2dac6650c66",
+      "short-broad-analytic-warm-background-control": "476315d1c73a2fc0a27458cedfeae084e1a9b514a7cff7a11aa1a14a1921dde9",
+      "tall-narrow-analytic": "d067c4fbe0e1fd367522ff2b8c120cf6b20de78339880552c378f3db9d0544d6",
+      "tall-narrow-analytic-warm-background-control": "d598f9f4e806e962aa4504572e493f5c482880077c0c83f3724817562b42cf3b"
+    }
+  },
+  "pickle_GLOBAL_symbols": [
+    "__builtin__ dict",
+    "__builtin__ list",
+    "__builtin__ long",
+    "collections OrderedDict",
+    "collections defaultdict",
+    "omegaconf.base ContainerMetadata",
+    "omegaconf.base Metadata",
+    "omegaconf.dictconfig DictConfig",
+    "omegaconf.listconfig ListConfig",
+    "omegaconf.nodes AnyNode",
+    "torch FloatStorage",
+    "torch._utils _rebuild_tensor_v2",
+    "typing Any"
+  ],
+  "pickle_STACK_GLOBAL_count": 0,
+  "pickle_opcode_count": 3213,
+  "repeat_max_abs_delta": 0,
+  "research_only": true,
+  "safe_load_mode": "weights_only_explicit_audited_omegaconf_2_3_0_globals",
+  "schema": "r015.semantify.pretrained.v1",
+  "score_calibration": "NOT_VALIDATED; 0.25 is synthetic numeric probe, not measured CLIP score",
+  "source": "Omergral/Semantify@78b001d3dc4ea4efa428e3aff1213cefddf6ebd8",
+  "status": "PASS_ORIGINAL_CLIP_TO_ORIGINAL_MAPPER_NUMERIC_CHAIN_ONLY",
+  "torch_version": "2.5.1+cpu",
+  "github_execution": {
+    "run_id": 43279459776,
+    "job_id": 131396549819,
+    "commit": "5c1a70c65c4860021f4bbe38c89325ae85afaf35",
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43279459776",
+    "scope": "source-native CLIP CPU serial-vs-batch optimization; no geometry assets"
+  }
+}
