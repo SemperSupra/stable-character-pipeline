@@ -100,7 +100,7 @@ result={
  "source":"Blender Studio Human Base Meshes v1.4.1 CC0 publisher",
  "native_survey_blend":native.name,
  "measured_world_bounds":bounds,
- "camera_coverage_test":"PASS_NO_BODY_CROPPING"
+ "camera_coverage_test":"PASS_NO_BODY_CROPPING",
  "renders":["sculpt_pair_front.png","sculpt_pair_back.png","sculpt_pair_side.png"],
  "models":[{"sex":sex,"vertices":len(body.data.vertices),
             "faces":len(body.data.polygons),"uv_layers":len(body.data.uv_layers),
