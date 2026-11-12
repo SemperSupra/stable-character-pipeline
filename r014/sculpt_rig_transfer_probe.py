@@ -159,6 +159,15 @@ bpy.context.view_layer.update()
 posed=points()
 movement=np.linalg.norm(posed-rest,axis=1)
 assert len(movement)==len(rest)
+print("R014_POSE_DIAGNOSTIC",json.dumps({
+    "sex":a.sex,"max_m":float(movement.max()),"p95_m":float(np.percentile(movement,95)),
+    "all_nonzero":int(np.count_nonzero(movement>1e-6)),
+    "rig_bones":len(rig.data.bones),
+    "target_weight_groups":len(sculpt.vertex_groups),
+    "source_rig_modifiers":[(m.type,m.object.name if m.type=="ARMATURE" and m.object else None) for m in mpfb.modifiers],
+    "target_modifiers":[(m.type,m.object.name if m.type=="ARMATURE" and m.object else None) for m in sculpt.modifiers],
+    "action":rig.animation_data.action.name if rig.animation_data and rig.animation_data.action else None
+},sort_keys=True),flush=True)
 assert movement.max()>.005 and movement.max()<.6,"pose animation outside bounded gate"
 
 # Render simple 2-panel technical silhouettes, no photoreal evidence.
