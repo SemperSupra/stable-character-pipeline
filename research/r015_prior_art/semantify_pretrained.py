@@ -145,7 +145,7 @@ def run(repo_path, path):
                 from omegaconf.listconfig import ListConfig
                 from omegaconf.nodes import AnyNode
                 from typing import Any
-                safe=[defaultdict,ContainerMetadata,Metadata,DictConfig,ListConfig,AnyNode,Any]
+                safe=[defaultdict,ContainerMetadata,Metadata,DictConfig,ListConfig,AnyNode,Any,list,dict,int]
                 with torch.serialization.safe_globals(safe):
                     obj=torch.load(io.BytesIO(bytes_ckpt),map_location="cpu",weights_only=True)
                 record["safe_load_mode"]="weights_only_explicit_audited_omegaconf_2_3_0_globals"
