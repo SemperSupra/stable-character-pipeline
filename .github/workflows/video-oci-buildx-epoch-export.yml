@@ -24,6 +24,10 @@ jobs:
         run: |
           set -euo pipefail
           docker buildx version
+          # Default GHA docker driver cannot export OCI; use isolated container-backed BuildKit.
+          docker buildx create --name videoqa-buildkit-ephemeral --driver docker-container --use
+          trap 'docker buildx rm videoqa-buildkit-ephemeral >/dev/null 2>&1 || true' EXIT
+          docker buildx inspect --bootstrap
           mkdir -p oci-epoch
           for name in first second; do
             docker buildx build --pull --no-cache --provenance=false --sbom=false \
