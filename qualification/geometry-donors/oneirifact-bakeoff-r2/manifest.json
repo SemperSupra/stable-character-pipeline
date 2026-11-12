@@ -1,0 +1,47 @@
+{
+  "fixtures": {
+    "drilled-box": {
+      "analytic_volume_m3": 6.994690350851267,
+      "components": 1,
+      "detail": 24,
+      "genus_sum": 1,
+      "kind": "difference",
+      "len_bytes": 141932,
+      "sha256": "b73291e612a028fd043beea6f81c907f3b8349735542008f3a7619fd4262c991",
+      "source": "synthetic derived GLB, Oneirifact R1 local test output; no private application source"
+    },
+    "sphere-box-intersection": {
+      "components": 1,
+      "detail": 24,
+      "genus_sum": 0,
+      "kind": "intersection",
+      "len_bytes": 115208,
+      "sha256": "6c921903998357e10b758d73327d83ed5f2b79c6c30d0d0b099d440dbd60ff8d",
+      "source": "synthetic derived GLB, Oneirifact R1 local test output; no private application source"
+    },
+    "two-spheres-disconnected": {
+      "components": 2,
+      "detail": 24,
+      "genus_sum": 0,
+      "kind": "union",
+      "len_bytes": 21304,
+      "sha256": "31f766c60d85d6d9122dd0a19b7d787dff2a80af41f4230d4e6e74f61ca5786d",
+      "source": "synthetic derived GLB, Oneirifact R1 local test output; no private application source"
+    },
+    "two-spheres-union": {
+      "components": 1,
+      "detail": 24,
+      "genus_sum": 0,
+      "kind": "union",
+      "len_bytes": 61160,
+      "sha256": "5d69d70193ca8649e5a84e78c33e7c2b0eb290991b58d6aadd82078619581d41",
+      "source": "synthetic derived GLB, Oneirifact R1 local test output; no private application source"
+    }
+  },
+  "restrictions": [
+    "derived synthetic mesh only",
+    "no private Oneirifact code",
+    "not a printability/physical safety certification"
+  ],
+  "schema": "oneirifact-public-qual-r2/v1"
+}
