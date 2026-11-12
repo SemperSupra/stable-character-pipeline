@@ -94,7 +94,10 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/oneirifact-m3d"
           mkdir -p "$RUNNER_TEMP/oneirifact-m3d-wheels"
           "$RUNNER_TEMP/oneirifact-m3d/bin/python" -m pip download --only-binary=:all: --no-deps manifold3d==3.5.4 -d "$RUNNER_TEMP/oneirifact-m3d-wheels"
-          sha256sum "$RUNNER_TEMP/oneirifact-m3d-wheels"/*.whl
+          wheel_sha="$(sha256sum "$RUNNER_TEMP/oneirifact-m3d-wheels"/*.whl | awk '{print $1}')"
+          test "${#wheel_sha}" -eq 64
+          echo "MANIFOLD_WHEEL_SHA256=$wheel_sha" >> "$GITHUB_ENV"
+          echo "R2_PINNED_MANIFOLD_WHEEL_SHA256=$wheel_sha"
           "$RUNNER_TEMP/oneirifact-m3d/bin/python" -m pip install --no-index --no-deps --find-links "$RUNNER_TEMP/oneirifact-m3d-wheels" manifold3d==3.5.4
           echo "PYTHON_MANIFOLD=$RUNNER_TEMP/oneirifact-m3d/bin/python" >> "$GITHUB_ENV"
       - name: Independent mesh and CSG volume/topology comparison
