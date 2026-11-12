@@ -9,6 +9,7 @@ import argparse,json,math,sys
 from pathlib import Path
 import bpy
 from mathutils import Vector
+sys.path.insert(0,str(Path.cwd()))
 from r014.tissue_dynamics import RegionParameters,simulate,to_morph_amplitude
 
 p=argparse.ArgumentParser()
