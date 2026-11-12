@@ -9,7 +9,7 @@ def fake_rgb(with_ring):
         for y in range(59,70):
             for x in range(59,70):
                 i=(64*0 + y*DIM+x)*3
-                data[i:i+3]=bytes((210,207,199))
+                data[i:i+3]=bytes((225,224,220))
     return bytes(data)
 
 class MarkerControls(unittest.TestCase):
