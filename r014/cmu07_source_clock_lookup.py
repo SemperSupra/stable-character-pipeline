@@ -41,8 +41,16 @@ def clock_table(out_rate,frames,cadence,source_sha=None,contact="UNKNOWN"):
     span=SOURCE_LOOP_END-SOURCE_LOOP_START+1
     rows=[]
     seams=[]
+    seam_fractional_crossings=[]
+    previous_phase=None
     for n in range(frames):
         phase=(Fraction(n,out_rate)*cadence)%1
+        # Source clock can wrap EXACTLY on an output frame, which is a
+        # discontinuity even when no fractional source interpolation spans
+        # the last-to-first sample. Count the wrap as independent evidence.
+        if previous_phase is not None and phase<previous_phase:
+            seams.append(n+1)
+        previous_phase=phase
         p=phase*span
         lo=p.numerator//p.denominator
         alpha=p-lo
@@ -51,7 +59,7 @@ def clock_table(out_rate,frames,cadence,source_sha=None,contact="UNKNOWN"):
         assert SOURCE_LOOP_START<=j0<=SOURCE_LOOP_END
         assert SOURCE_LOOP_START<=j1<=SOURCE_LOOP_END
         if j1==SOURCE_LOOP_START and alpha!=0:
-            seams.append(n+1)
+            seam_fractional_crossings.append(n+1)
         rows.append({
           "target_frame_1based":n+1,
           "source_a_frame_1based":j0,
@@ -76,8 +84,9 @@ def clock_table(out_rate,frames,cadence,source_sha=None,contact="UNKNOWN"):
        "source_cadence_hz":str(cadence),
        "output_rate_hz":out_rate,
        "output_frames":frames,
-       "source_loop_seam_interpolation_frames":seams,
-       "source_time_fraction":"exact rational source sampling, no dropped/lost source indices",
+       "source_loop_seam_transition_target_frames":seams,
+       "source_loop_seam_crossfade_interpolation_frames":seam_fractional_crossings,
+       "source_time_fraction":"exact rational SOURCE INDEX LOOKUP; temporal downsampling may omit source samples and actual source poses are NOT observed",
        "limitations":[
           "Real CMU ASF/AMC privately ingested by R009, but NO capture available/processed by this public job",
           "No source joint rotations/positions/contacts; no fake OBSERVED foot phases",
@@ -94,6 +103,8 @@ def selftest():
     assert len(x["lookup"])==169
     assert x["lookup"][0]["source_a_frame_1based"]==SOURCE_LOOP_START
     assert x["lookup"][48]["source_a_frame_1based"]==SOURCE_LOOP_START
+    assert x["source_loop_seam_transition_target_frames"]==[49,97,145]
+    assert x["source_loop_seam_crossfade_interpolation_frames"]==[]
     assert x["lookup"][96]["source_a_frame_1based"]==SOURCE_LOOP_START
     assert x["lookup"][144]["source_a_frame_1based"]==SOURCE_LOOP_START
     assert all(z["contact_state"]=="UNKNOWN" and not z["source_motion_admitted"] for z in x["lookup"])
@@ -105,6 +116,9 @@ def selftest():
     for fps in (24,30,60):
         y=clock_table(fps,169,"1/2")
         assert all(SOURCE_LOOP_START<=r["source_a_frame_1based"]<=SOURCE_LOOP_END for r in y["lookup"])
+        assert y["source_loop_seam_transition_target_frames"]==(
+            [49,97,145] if fps==24 else
+            [61,121] if fps==30 else [121])
     for args in ((0,169,"1/2"),(24,0,"1/2"),(24,169,0),(24,169,"NaN")):
         try:clock_table(*args)
         except ValueError:pass
@@ -134,7 +148,8 @@ def main():
         a.out.write_bytes(data)
         print("R014_CLOCK_LOOKUP",json.dumps({
           "frames":len(x["lookup"]),"sha256":hashlib.sha256(data).hexdigest(),
-          "seams":x["source_loop_seam_interpolation_frames"],
+          "seam_transitions":x["source_loop_seam_transition_target_frames"],
+          "seam_fractional_crossings":x["source_loop_seam_crossfade_interpolation_frames"],
           "status":x["status"]},sort_keys=True))
 
 if __name__=="__main__":main()
