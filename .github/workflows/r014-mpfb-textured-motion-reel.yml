@@ -1,0 +1,113 @@
+name: R014 textured MPFB adult motion reels (research)
+on:
+  push:
+    branches: [research/r014-mpfb-textured-motion-reel-v1]
+    paths: [r014/**, .github/workflows/r014-mpfb-textured-motion-reel.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-textured-motion-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actors:
+    strategy:
+      fail-fast: false
+      matrix:
+        sex: [female, male]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Fail fast on Python source before any large downloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014
+      - name: Reuse only prior public independently checked MAKESKIN assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-motion/source" "$RUNNER_TEMP/r014-motion/out"
+          gh run download 43207664661 --repo "$GITHUB_REPOSITORY" \
+            --name r014-mpfb-eye-MAKESKIN-lookdev \
+            --dir "$RUNNER_TEMP/r014-motion/source"
+          test -s "$RUNNER_TEMP/r014-motion/source/R014_MPFB_CC0_surface_study.blend"
+          test -s "$RUNNER_TEMP/r014-motion/source/generation.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'r014-motion/source'
+          m=json.loads((p/'generation.json').read_text())
+          assert m['eye_material_mode']=='MAKESKIN'
+          assert m['asset_archive_sha256']=='b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107'
+          assert {(v['sex'],v['source_gender_macro']) for v in m['characters']}=={('female',0.0),('male',1.0)}
+          PY
+      - name: Use pinned original Blender 4.5.16 in disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-motion"
+          base="https://download.blender.org/release/Blender4.5"
+          curl -fL --retry 6 --retry-all-errors --retry-delay 4 --connect-timeout 30 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 6 --retry-all-errors --retry-delay 4 --connect-timeout 30 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-motion" -maxdepth 2 -type f -name blender | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Render actual native textured 3-second limb motion
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-motion/source/R014_MPFB_CC0_surface_study.blend" \
+            --python-exit-code 3 --python r014/mpfb_textured_motion_reel.py -- \
+            --sex "${{ matrix.sex }}" \
+            --source "$RUNNER_TEMP/r014-motion/source/R014_MPFB_CC0_surface_study.blend" \
+            --generation "$RUNNER_TEMP/r014-motion/source/generation.json" \
+            --out "$RUNNER_TEMP/r014-motion/out"
+          test -s "$RUNNER_TEMP/r014-motion/out/motion_receipt.json"
+          test -s "$RUNNER_TEMP/r014-motion/out/R014_MPFB_${{ matrix.sex }}_textured_technical_motion_3s.mp4"
+          test -s "$RUNNER_TEMP/r014-motion/out/R014_MPFB_${{ matrix.sex }}_textured_motion_research.blend"
+      - name: Install video probe for disposable public runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -version | head -n 1
+      - name: Verify H.264 playback and create actual movie frame samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-motion/out"
+          video="R014_MPFB_${{ matrix.sex }}_textured_technical_motion_3s.mp4"
+          ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height,nb_frames \
+            -show_entries format=duration -of json "$video" > video_probe.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          probe=json.loads(Path('video_probe.json').read_text())
+          s=probe['streams'][0];d=float(probe['format']['duration'])
+          assert s['codec_name']=='h264'
+          assert (s['width'],s['height'])==(448,576)
+          assert int(s['nb_frames'])==72
+          assert abs(d-3.0)<.05
+          PY
+          for t in 0.2 1.2 2.2; do
+            ffmpeg -hide_banner -v error -y -ss "$t" -i "$video" -frames:v 1 "actual_frame_${t}.png"
+            test -s "actual_frame_${t}.png"
+          done
+          sha256sum "$video" R014_MPFB_*.blend actual_frame_*.png > sha256sum.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mpfb-textured-motion-${{ matrix.sex }}-research
+          path: ${{ runner.temp }}/r014-motion/out/*
+          if-no-files-found: warn
+          retention-days: 7
