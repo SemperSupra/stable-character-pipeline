@@ -5,6 +5,7 @@ import bpy
 from mathutils import Vector,kdtree
 
 p=argparse.ArgumentParser()
+p.add_argument("--sex",choices=["combined","female","male"],default="combined")
 p.add_argument("--out",type=Path,required=True)
 p.add_argument("--receipt",type=Path,required=True)
 a=p.parse_args(sys.argv[sys.argv.index("--")+1:])
@@ -32,7 +33,19 @@ def nearest_stats(reference,actual):
             "p95_m":distances[min(len(distances)-1,int(.95*len(distances)))],
             "max_m":distances[-1]}
 
-sexes=("female","male")
+def bone_pose(sex):
+    _,rig=mesh_and_rig(sex)
+    result={}
+    for name in ("upperarm01.L","upperleg01.L"):
+        pb=rig.pose.bones[name]
+        q=pb.matrix_basis.to_quaternion()
+        result[name]=[float(q.w),float(q.x),float(q.y),float(q.z)]
+    data=rig.animation_data
+    result["active_action"]=data.action.name if data and data.action else None
+    result["nla_tracks"]=len(data.nla_tracks) if data else 0
+    return result
+
+sexes=("female","male") if a.sex=="combined" else (a.sex,)
 scene=bpy.context.scene
 scene.frame_start=1;scene.frame_end=24
 for sex in sexes:
@@ -46,11 +59,13 @@ for sex in sexes:
             b.keyframe_insert(data_path="rotation_euler",frame=frame)
 scene.frame_set(1)
 reference={}
+native_pose={}
 for frame in (1,12):
     scene.frame_set(frame);bpy.context.view_layer.update()
     for sex in sexes:
         body,_=mesh_and_rig(sex)
         reference[(sex,frame)]=points(body)
+        native_pose[(sex,frame)]=bone_pose(sex)
 scene.frame_set(1)
 
 # Export only helper-free rigs and bodies; untouched original art-source is excluded.
@@ -59,7 +74,7 @@ for sex in sexes:
     body,rig=mesh_and_rig(sex)
     body.select_set(True);rig.select_set(True)
 bpy.context.view_layer.objects.active=mesh_and_rig("female")[1]
-export=a.out/"R014_MPFB_animated_pose_parity.glb"
+export=a.out/("R014_MPFB_animated_pose_parity_"+a.sex+".glb")
 bpy.ops.export_scene.gltf(filepath=str(export),export_format="GLB",
                           use_selection=True,export_animations=True,
                           export_morph=True,export_skins=True,export_yup=True)
@@ -79,9 +94,11 @@ bpy.ops.object.delete(use_global=False)
 bpy.ops.import_scene.gltf(filepath=str(export))
 report={"status":"MEASURED_GLTF_ANIMATED_SKIN_PARITY_UNQUALIFIED",
         "blender":bpy.app.version_string,
+        "actor_isolation_mode":a.sex,
         "native_export_target":"GLB animation with Blender glTF maximum four joint influences",
         "animations_in_glb":len(gltf["animations"]),
         "measurements":{},
+        "bone_pose_diagnostics":{},
         "limits":["Nearest neighbor distances mix topology differences and skinning changes",
                   "This is not material/anatomical or rig retarget acceptance",
                   "Tolerance and body-region thresholds require reference calibration",
@@ -91,6 +108,7 @@ for frame in (1,12):
     for sex in sexes:
         body,_=mesh_and_rig(sex)
         actual=points(body);orig=reference[(sex,frame)]
+        report["bone_pose_diagnostics"][sex+"_frame_"+str(frame)]={"native":native_pose[(sex,frame)],"reimported":bone_pose(sex)}
         both=nearest_stats(orig,actual)
         opposite=nearest_stats(actual,orig)
         report["measurements"][sex+"_frame_"+str(frame)] = {
