@@ -1,0 +1,126 @@
+name: R014 Real Six-Morphology Adult Human Native Rig Motion Research
+on:
+  push:
+    branches:
+      - research/r014-mpfb-six-morph-rig-motion-wave-20261112
+    paths:
+      - 'r014/six_morph_*.py'
+      - '.github/workflows/r014-six-morph-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-real-six-morph-source
+  cancel-in-progress: true
+jobs:
+  real-native-actor-shards:
+    name: Actual MPFB mesh, rig, animation, visual receipts shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 36
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
+    env:
+      BLENDER_USER_CONFIG: ${{ runner.temp }}/r014-six-morph/config
+      BLENDER_USER_SCRIPTS: ${{ runner.temp }}/r014-six-morph/scripts
+    steps:
+      - name: Checkout standalone research branch without persistent token
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Checkout exactly pinned official MPFB source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: makehumancommunity/mpfb2
+          ref: 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          path: _vendor/mpfb2
+          persist-credentials: false
+      - name: Verify source rights, morphology control semantics and compile first
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/six_morph_native.py r014/six_morph_verify.py
+          test "$(git -C _vendor/mpfb2 rev-parse HEAD)" = 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          grep -F GPLv3 _vendor/mpfb2/LICENSE.md
+          grep -F CC0 _vendor/mpfb2/LICENSE.md
+          python3 r014/mpfb_gender_contract.py --self-test
+          mkdir -p "$RUNNER_TEMP/r014-six-morph/result"
+          python3 r014/mpfb_gender_contract.py --source _vendor/mpfb2/src/mpfb --receipt "$RUNNER_TEMP/r014-six-morph/result/gender_contract.json"
+      - name: Fetch and checksum official Blender release into disposable filesystem
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-six-morph"
+          cd "$RUNNER_TEMP/r014-six-morph"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          expected="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#expected}" -eq 64
+          echo "$expected  blender-4.5.16-linux-x64.tar.xz" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          blender="$(find "$RUNNER_TEMP/r014-six-morph" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$blender"
+          echo "BLENDER_BIN=$blender" >> "$GITHUB_ENV"
+      - name: Build verified upstream MPFB extension in disposable Blender profile
+        run: |
+          set -euo pipefail
+          mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$RUNNER_TEMP/r014-six-morph/extensions"
+          "$BLENDER_BIN" --command extension build --source-dir _vendor/mpfb2/src/mpfb --output-dir "$RUNNER_TEMP/r014-six-morph"
+          plugin="$(find "$RUNNER_TEMP/r014-six-morph" -maxdepth 1 -name 'mpfb-*.zip' | head -1)"
+          test -f "$plugin"
+          "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r014-six-morph/extensions"
+          "$BLENDER_BIN" --command extension install-file -r r014lab -e "$plugin"
+          "$BLENDER_BIN" --command extension list
+      - name: Generate three REAL diverse native meshes, rigs, animations, GLBs and Cycles visual proofs
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background --python r014/six_morph_native.py -- \
+            --shard "$SHARD" \
+            --out "$RUNNER_TEMP/r014-six-morph/result" \
+            --receipt "$RUNNER_TEMP/r014-six-morph/result/generation_$SHARD.json"
+          python3 - "$RUNNER_TEMP/r014-six-morph/result/generation_$SHARD.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          assert r["status"]=="PASS_NATIVE_MORPH_RIG_ANIMATION_EXPORT_AND_STILLS_ONLY"
+          assert len(r["characters"])==3
+          assert all(x["portable_animated_glb"]["bone_rotation_channels"]>=2 for x in r["characters"])
+          assert r["rig_motion_video"]["rendered_frames"]==16
+          print("PASS_SOURCE_NATIVE_3_CASE_SHARD",r["shard"])
+          PY
+      - name: Independently reopen and actuate every actor in a fresh Blender process
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-six-morph/result/R014_ThreeAdultMorphs_Shard$SHARD.blend" \
+            --python r014/six_morph_verify.py -- \
+            --blend "$RUNNER_TEMP/r014-six-morph/result/R014_ThreeAdultMorphs_Shard$SHARD.blend" \
+            --generation "$RUNNER_TEMP/r014-six-morph/result/generation_$SHARD.json" \
+            --out "$RUNNER_TEMP/r014-six-morph/result/fresh_reopen_$SHARD.json"
+          python3 - "$RUNNER_TEMP/r014-six-morph/result/fresh_reopen_$SHARD.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          assert r["status"]=="PASS_FRESH_REOPEN_REAL_SKINNED_MOTION_STRUCTURAL_ONLY"
+          assert len(r["results"])==3
+          print("PASS_INDEPENDENT_REOPEN",r["shard"])
+          PY
+      - name: Build digest inventory for exact source-native review artifacts
+        if: always()
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          folder="$RUNNER_TEMP/r014-six-morph/result"
+          if test -d "$folder"; then
+            (cd "$folder" && sha256sum *.json *.blend *.glb *.png *.mp4 > "sha256_shard_$SHARD.txt") || true
+          fi
+      - name: Upload actual Blender, rigged GLB, Cycles stills, H264 and JSON receipts, no private data
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-real-six-morph-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/r014-six-morph/result/*
+          if-no-files-found: warn
+          retention-days: 7
