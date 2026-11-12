@@ -1,0 +1,104 @@
+name: visualqa-original-jacks-contact-identifiability
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_jacks_contact/**'
+      - '.github/workflows/visualqa-jacks-contact-cover.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: visualqa-jacks-contact-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-graph-oracles:
+    name: Original H264/GLB/GT hash + ${{ matrix.method }} bound
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        method: [dp, matching]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-exercise_pose
+          path: research/original
+      - name: Original SHA-bound graph falsifier (stdlib only)
+        env:
+          METHOD: ${{ matrix.method }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/visualqa_jacks_contact -p 'test_contact_cover.py' -v
+          python3 qualification/visualqa_jacks_contact/contact_cover.py \
+            --root research/original --method "$METHOD" \
+            --out "qualification/visualqa_jacks_contact/receipts/$METHOD.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-jacks-contact-${{ matrix.method }}
+          path: qualification/visualqa_jacks_contact/receipts/${{ matrix.method }}.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-exact-bound-join:
+    name: Compare independent DP and matching, fail closed on source mismatch
+    needs: independent-graph-oracles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: original-jacks-contact-*
+          merge-multiple: true
+          path: receipts
+      - name: Compare independently observed original case receipts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path("receipts/dp.json").read_text())
+          b=json.loads(Path("receipts/matching.json").read_text())
+          for x in (a,b):
+              assert x["schema"]=="scp.visualqa.jacks-contact-cover.v1"
+              assert x["case"]=="female_jumping_jacks_sandals"
+              assert x["frames"]==40 and x["fps"]==20
+              assert x["disposition"]=="HOLD_NO_CORRECTION_OR_REALISM_ACCEPTANCE"
+              assert x["original_source_verdict"]=="FAIL"
+          assert a["method"]=="dp" and b["method"]=="matching"
+          assert a["original_source_labels_sha256"]==b["original_source_labels_sha256"]
+          assert a["original_manifest_sha256"]==b["original_manifest_sha256"]
+          for side in ("left","right"):
+              x,y=a["records"][side],b["records"][side]
+              assert x["sliding_edge_start_frames"]==y["sliding_edge_start_frames"]
+              assert x["original_contact_true_frames"]==y["original_contact_true_frames"]==40
+              assert x["sliding_contiguous_stance_intervals"]==y["sliding_contiguous_stance_intervals"]==39
+              assert x["minimum_contact_state_changes_if_original_ankle_paths_preserved"] == \
+                     y["minimum_contact_state_changes_if_original_ankle_paths_preserved"]==20
+              cover=set(x["mathematical_witness_frames"])
+              assert len(cover)==20
+              assert all(i in cover or i+1 in cover for i in x["sliding_edge_start_frames"])
+          summary={
+              "schema":"scp.visualqa.jacks-contact-reconciliation.v1",
+              "source_sha256":a["original_source_labels_sha256"],
+              "original_fail_sliding_edges":78,
+              "mathematical_minimum_contact_state_changes":40,
+              "methods":["independent_DP_vertex_cover","independent_greedy_path_matching"],
+              "disposition":"HOLD_MODEL_REDESIGN_REQUIRED_NOT_A_MEDIA_ACCEPTANCE",
+              "warning":"Minimum relabel bound is NOT a biomechanically feasible landing schedule; original GT remains immutable."
+          }
+          Path("receipts/reconciled.json").write_text(json.dumps(summary,indent=2,sort_keys=True)+"\n")
+          print("INDEPENDENT_ORIGINAL_JACKS_LOWER_BOUND",summary)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jacks-source-contact-immutable-join
+          path: receipts/reconciled.json
+          retention-days: 14
+          if-no-files-found: error
