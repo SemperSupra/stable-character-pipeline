@@ -49,7 +49,7 @@ with bpy.data.libraries.load(str(a.studio),link=False) as (src,dst):
     dst.objects=[name]
 sculpt=dst.objects[0]
 bpy.context.collection.objects.link(sculpt)
-assert len(mpfb.data.vertices)>18000 and len(sculpt.data.vertices)==10582
+assert len(mpfb.data.vertices)==13380 and len(sculpt.data.vertices)==10582, ("source is cleaned helper-free MPFB",len(mpfb.data.vertices),len(sculpt.data.vertices))
 sculpt.data=sculpt.data.copy()
 for m in sculpt.modifiers:
     if m.type=="MULTIRES":m.show_viewport=False;m.show_render=False
