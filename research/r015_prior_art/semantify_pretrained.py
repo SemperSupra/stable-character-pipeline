@@ -137,6 +137,53 @@ def original_clip_numeric_fixture(mapper, labels, scratch):
         "model_assets_redistributed":False,
         "generated_images_redistributed":False,
     }
+    if os.environ.get("R015_CLIP_BATCH")=="1":
+        # Exact official CLIP implementation in both paths. First match the
+        # upstream per-label source inference, then call CLIP's native BxN batch.
+        # No model retraining or custom approximation; benchmark the scorer only.
+        import statistics,resource
+        model_clip,preprocess=clip.load("ViT-B/32",device="cpu",jit=False)
+        model_clip.eval()
+        images=torch.stack([preprocess(Image.open(root/(str(cfg["id"])+"_front.png"))) for cfg in shapes])
+        tokens=clip.tokenize([str(v[0]) for v in labels])
+        serial_times=[]
+        serial_logits=None
+        with torch.inference_mode():
+            for _ in range(2):
+                start=time.monotonic()
+                serial_logits=torch.stack([
+                    torch.stack([model_clip(im.unsqueeze(0),tok.unsqueeze(0))[0].flatten()[0] for tok in tokens])
+                    for im in images
+                ])
+                serial_times.append(time.monotonic()-start)
+        batch_times=[]
+        batch_logits=None
+        with torch.inference_mode():
+            for _ in range(5):
+                start=time.monotonic()
+                batch_logits=model_clip(images,tokens)[0]
+                batch_times.append(time.monotonic()-start)
+        diff=float(torch.max(torch.abs(serial_logits-batch_logits)).item())
+        native_diff=float(torch.max(torch.abs(x-batch_logits)).item())
+        if not torch.isfinite(batch_logits).all():
+            result["status"]="FAIL_NONFINITE_BATCHED_CLIP"
+        if diff>0.05 or native_diff>0.05:
+            result["status"]="FAIL_BATCH_SCORE_INEQUIVALENCE"
+        result["batch_inference_operating_probe"]={
+            "status":"PASS_NUMERIC_EQUIVALENCE" if result["status"].startswith("PASS_") else "FAIL_BATCH_SCORE_INEQUIVALENCE",
+            "images":len(shapes),"descriptors":len(labels),
+            "original_native_sequential_round_seconds":[round(v,6) for v in serial_times],
+            "original_native_batched_round_seconds":[round(v,6) for v in batch_times],
+            "sequential_warm_median_seconds":round(statistics.median(serial_times),6),
+            "batched_warm_median_seconds":round(statistics.median(batch_times),6),
+            "warm_batch_to_serial_speedup_ratio":round(statistics.median(serial_times)/statistics.median(batch_times),4) if statistics.median(batch_times)>0 else None,
+            "batch_vs_native_serial_max_abs_logit_delta":round(diff,8),
+            "batch_vs_author_source_max_abs_logit_delta":round(native_diff,8),
+            "peak_maxrss_kib_linux":resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+            "source":"official OpenAI CLIP pin; same image preprocessing and same descriptor order",
+            "scope":"Only CLIP image/text forward latency after load; NOT checkpoint download/startup, Semantify mapper runtime, renderer or service p95",
+            "model_asset_rights_included":False,
+        }
     if len(shapes)==6:
         def distance(a,b):
             return float(torch.linalg.vector_norm(mapped[a]-mapped[b]).item())
