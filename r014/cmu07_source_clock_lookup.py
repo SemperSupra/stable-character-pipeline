@@ -118,7 +118,7 @@ def selftest():
         assert all(SOURCE_LOOP_START<=r["source_a_frame_1based"]<=SOURCE_LOOP_END for r in y["lookup"])
         assert y["source_loop_seam_transition_target_frames"]==(
             [49,97,145] if fps==24 else
-            [61,121] if fps==30 else [121])
+            [61,121,181] if fps==30 else [121])
     for args in ((0,169,"1/2"),(24,0,"1/2"),(24,169,0),(24,169,"NaN")):
         try:clock_table(*args)
         except ValueError:pass
