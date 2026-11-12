@@ -1,0 +1,62 @@
+name: R015 Pretrained Artifact Endpoint Probe
+on:
+  push:
+    branches:
+      - research/r015-prior-art-bakeoff-r1-20261112
+    paths:
+      - '.github/workflows/r015-upstream-asset-probe.yml'
+permissions:
+  contents: read
+jobs:
+  remote-public-artifact-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: bodyshapegpt-lora-onedrive
+            source: https://urjc-my.sharepoint.com/:u:/g/personal/baldomero_rodriguez_urjc_es/EUvZWSzuoEJAtJQB-iWWzdYBuDYj51hwOFmxQ429VeajEg?e=PpQ9QM
+          - name: semantify-mappers-gdrive
+            source: https://drive.google.com/uc?export=download&id=1KZRSvSny-BD7fbXvogkSwN8tEvnzlYOa
+    steps:
+      - name: Retrieve HTTP response headers only using verified TLS
+        shell: bash
+        run: |
+          set -u
+          mkdir -p receipts
+          result="$(curl --silent --show-error --head --location --max-redirs 6 --max-time 25 --proto '=https' --proto-redir '=https' --output /dev/null --write-out '%{http_code}|%{content_type}|%{size_download}' "$SOURCE")"
+          rc="$?"
+          export RESULT="$result" CURL_RC="$rc"
+          python3 - <<'PY'
+          import json,os,pathlib
+          parts=os.environ.get("RESULT","").split("|")
+          code=parts[0] if parts else "000"
+          data={
+            "schema":"r015.remote_public_artifact_probe.v1",
+            "name":os.environ["NAME"],
+            "transport":"TLS verified, HTTP HEAD redirects allowed, no content/weights downloaded",
+            "http_status":code,
+            "content_type":parts[1] if len(parts)>1 else "",
+            "curl_exit_code":int(os.environ["CURL_RC"]),
+            "status":"HEAD_INDICATES_HTTP_OK_ONLY" if code=="200" else "BLOCKED_OR_UNCERTAIN",
+            "content_validated":False,
+            "licensing_validated":False,
+            "native_inference_executed":False,
+            "no_private_credentials":True
+          }
+          path=pathlib.Path("receipts")/(os.environ["NAME"]+".json")
+          path.write_text(json.dumps(data,sort_keys=True,indent=2)+"\n")
+          print(path.read_text())
+          PY
+        env:
+          NAME: ${{ matrix.name }}
+          SOURCE: ${{ matrix.source }}
+      - name: Retain bounded endpoint receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r015-probe-${{ matrix.name }}
+          path: receipts/*.json
+          if-no-files-found: warn
+          retention-days: 7

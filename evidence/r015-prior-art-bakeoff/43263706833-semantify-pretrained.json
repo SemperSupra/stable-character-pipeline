@@ -1,0 +1,82 @@
+{
+  "archive_files": [
+    "models_ckpts/flame/expression/flame_expression.ckpt",
+    "models_ckpts/flame/expression/flame_expression_metadata.json",
+    "models_ckpts/flame/shape/flame_shape.ckpt",
+    "models_ckpts/flame/shape/flame_shape_metadata.json",
+    "models_ckpts/smal/smal_metadata.json",
+    "models_ckpts/smal/smal.ckpt",
+    "models_ckpts/smpl/smpl_female_metadata.json",
+    "models_ckpts/smpl/smpl_male_metadata.json",
+    "models_ckpts/smpl/smpl_neutral_metadata.json",
+    "models_ckpts/smpl/smpl_female.ckpt",
+    "models_ckpts/smpl/smpl_male.ckpt",
+    "models_ckpts/smpl/smpl_neutral.ckpt",
+    "models_ckpts/smplx/smplx_female_metadata.json",
+    "models_ckpts/smplx/smplx_male_metadata.json",
+    "models_ckpts/smplx/smplx_neutral_metadata.json",
+    "models_ckpts/smplx/smplx_male.ckpt",
+    "models_ckpts/smplx/smplx_female.ckpt",
+    "models_ckpts/smplx/smplx_neutral.ckpt"
+  ],
+  "archive_member_count": 25,
+  "archive_sha256": "91682ac20d450f02c02f97e99ab5858fc12e0f15dbcedbd1e8d2bb4c244a72c2",
+  "archive_size_bytes": 23264694,
+  "checkpoint_compressed_bytes": 2564366,
+  "checkpoint_sha256": "7bb79747504919656ecacb120b5be70b51b6faac1535d1cfd7f46b1401a3ed7b",
+  "checkpoint_uncompressed_bytes": 4966252,
+  "curl_exit_code": 0,
+  "download_seconds": 3.751,
+  "licensed_smplx_3dmm_instantiated": false,
+  "merger_release_approval": false,
+  "metadata_labels": [
+    [
+      "fat"
+    ],
+    [
+      "masculine"
+    ],
+    [
+      "long torso"
+    ],
+    [
+      "hourglass"
+    ],
+    [
+      "tall"
+    ],
+    [
+      "rectangular"
+    ],
+    [
+      "small"
+    ],
+    [
+      "proportioned"
+    ]
+  ],
+  "metadata_top_level_keys": [
+    "num_stats",
+    "lr",
+    "out_features",
+    "hidden_size",
+    "num_hiddens",
+    "labels"
+  ],
+  "model_archive_redistributed": false,
+  "model_archive_source": "upstream project's public Google Drive ID, TLS verified",
+  "model_asset_licensing_confirmed": false,
+  "native_geometry_measured": false,
+  "research_only": true,
+  "safe_load_error": "UnpicklingError: Weights only load failed. This file can still be loaded, to do so you have two options, \u001b[1mdo those steps only if you trust the source of the checkpoint\u001b[0m. \n\t(1) Re-running `torch.load` with `weights_only` set to `False` will likely succeed, but it can result in arbitrary code execution. Do it only if you got the file from a trusted source.\n\t(2)",
+  "schema": "r015.semantify.pretrained.v1",
+  "source": "Omergral/Semantify@78b001d3dc4ea4efa428e3aff1213cefddf6ebd8",
+  "status": "BLOCKED_SAFE_DESERIALIZATION",
+  "torch_version": "2.5.1+cpu",
+  "github_execution": {
+    "run_id": 43263706833,
+    "job_id": 131341491710,
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43263706833",
+    "status": "completed_success_with_blocked_semantic_result"
+  }
+}

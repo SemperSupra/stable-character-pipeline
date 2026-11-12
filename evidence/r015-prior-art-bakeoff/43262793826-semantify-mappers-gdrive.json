@@ -1,0 +1,19 @@
+{
+  "content_type": "application/octet-stream",
+  "content_validated": false,
+  "curl_exit_code": 0,
+  "http_status": "200",
+  "licensing_validated": false,
+  "name": "semantify-mappers-gdrive",
+  "native_inference_executed": false,
+  "no_private_credentials": true,
+  "schema": "r015.remote_public_artifact_probe.v1",
+  "status": "HEAD_INDICATES_HTTP_OK_ONLY",
+  "transport": "TLS verified, HTTP HEAD redirects allowed, no content/weights downloaded",
+  "github_execution": {
+    "run_id": 43262793826,
+    "job_id": 131338251136,
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43262793826",
+    "type": "HTTP HEAD probe only"
+  }
+}
