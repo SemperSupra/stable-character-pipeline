@@ -18,6 +18,7 @@ assert args.archive.stat().st_size==50643039,"official v1.4.1 archive byte count
 sha=hashlib.sha256()
 with args.archive.open("rb") as src:
     while chunk:=src.read(1024*1024):sha.update(chunk)
+assert sha.hexdigest()=="811f43accbb31a88266d932f8f5563b2d13586fca0ba2693aad1f5fe582b3515",     "official publisher archive no longer matches pinned SHA256"
 with zipfile.ZipFile(args.archive) as z:
     assert z.testzip() is None,"ZIP CRC error"
     names=z.namelist()
@@ -64,12 +65,12 @@ with zipfile.ZipFile(args.archive) as z:
         target=args.out/"R014_BlenderStudio_CC0_realistic_sculpt_bases.blend"
         bpy.ops.wm.save_as_mainfile(filepath=str(target))
         receipt={
-            "status":"PASS_PUBLISHER_ARCHIVE_INVENTORY_ONLY",
+            "status":"PASS_PINNED_PUBLISHER_ARCHIVE_SCULPT_BASES_ONLY",
             "source":"Blender Studio official Human Base Meshes v1.4.1",
             "publisher_url":"https://download.blender.org/demo/asset-bundles/human-base-meshes/human-base-meshes-bundle-v1.4.1.zip",
             "license_source":"Blender source repository developer asset bundle CC0",
             "claimed_bundle_license":"CC0",
-            "sha256_first_observed":sha.hexdigest(),
+            "sha256_verified":sha.hexdigest(),
             "source_zip_bytes":args.archive.stat().st_size,
             "blend_entries":blend_paths,
             "all_library_object_names":all_object_names,
@@ -77,12 +78,12 @@ with zipfile.ZipFile(args.archive) as z:
             "selected_all_objects":[o.name for o in objects],
             "selected_eyes":[o.name for o in objects if ".eye." in o.name.lower()],
             "native_research_blend":target.name,
-            "promotion_state":"HOLD_UNTIL_PINNED_SHA_REPETITION_AND_VISUAL_ANATOMY_REVIEW",
+            "promotion_state":"HOLD_UNTIL_VISUAL_ANATOMY_AND_RIG_REVIEW",
             "limits":["Sculpt bases only; no demonstrated full rig, motion or cloth/tissue physics",
                       "No verified external genitalia; some Blender male references omit genitals",
                       "No CC BY data silently blended into CC0 base",
                       "No cinematic photoreal skin/hair/eyes/video pass",
-                      "First download digest must be pinned and independently reverified"]
+                      "Digest independently reverified; geometry/appearance remains unqualified"]
         }
         args.receipt.write_text(json.dumps(receipt,sort_keys=True,indent=2)+"\n")
         print("R014_BLENDER_STUDIO_BASES",json.dumps({k:v for k,v in receipt.items()
