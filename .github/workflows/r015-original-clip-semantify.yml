@@ -1,0 +1,58 @@
+name: R015 Original CLIP to Semantify Published Mapper on CPU
+on:
+  push:
+    branches:
+      - research/r015-prior-art-bakeoff-r1-20261112
+    paths:
+      - '.github/workflows/r015-original-clip-semantify.yml'
+      - 'research/r015_prior_art/semantify_pretrained.py'
+permissions:
+  contents: read
+concurrency:
+  group: r015-original-clip-semantic-fidelity
+  cancel-in-progress: true
+jobs:
+  source-native-clip-to-pretrained-mapper:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - name: Public research code checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install version-pinned disposable CPU tools
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r015-realclip"
+          . "$RUNNER_TEMP/r015-realclip/bin/activate"
+          python -m pip install --no-cache-dir --disable-pip-version-check --no-input torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir --disable-pip-version-check --no-input numpy==1.26.4 omegaconf==2.3.0 ftfy==6.3.1 regex==2024.11.6 tqdm==4.67.1 Pillow==11.1.0 packaging==24.2
+      - name: Retrieve pinned official CLIP and Semantify sources (not setup.py)
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/semantify"
+          git -C "$RUNNER_TEMP/semantify" fetch -q --depth 1 https://github.com/Omergral/Semantify.git 78b001d3dc4ea4efa428e3aff1213cefddf6ebd8
+          git -C "$RUNNER_TEMP/semantify" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/semantify" rev-parse HEAD)" = 78b001d3dc4ea4efa428e3aff1213cefddf6ebd8
+          git init -q "$RUNNER_TEMP/clip"
+          git -C "$RUNNER_TEMP/clip" fetch -q --depth 1 https://github.com/openai/CLIP.git d05afc436d78f1c48dc0dbf8e5980a9d471f35f6
+          git -C "$RUNNER_TEMP/clip" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/clip" rev-parse HEAD)" = d05afc436d78f1c48dc0dbf8e5980a9d471f35f6
+      - name: Run ORIGINAL CLIP score generator and true original published Semantify mapper
+        env:
+          R015_CLIP_SOURCE: ${{ runner.temp }}/clip
+          R015_SEMANTIFY_SOURCE: ${{ runner.temp }}/semantify
+        run: |
+          set -euo pipefail
+          export HOME="$RUNNER_TEMP/r015-home"
+          mkdir -p "$HOME"
+          . "$RUNNER_TEMP/r015-realclip/bin/activate"
+          python research/r015_prior_art/semantify_pretrained.py "$RUNNER_TEMP/semantify" receipts/original-clip-to-mapper.json
+      - name: Retain public receipt only (NO OpenAI model weights, SMPL-X, private inputs)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r015-original-clip-to-semantify-receipt
+          path: receipts/original-clip-to-mapper.json
+          if-no-files-found: warn
+          retention-days: 7
