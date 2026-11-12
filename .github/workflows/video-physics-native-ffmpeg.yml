@@ -1,0 +1,101 @@
+name: video-physics-native-ffmpeg-matrix
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-physics-native-ffmpeg.yml'
+      - 'qualification/video_physics_bakeoff/**'
+permissions:
+  contents: read
+concurrency:
+  group: native-ffmpeg-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-decoded-video:
+    name: H264 real decoded controls / ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, target: linux-amd64, ext: '' }
+          - { runner: windows-2022, target: windows-amd64, ext: '.exe' }
+          - { runner: macos-15, target: macos-arm64, ext: '' }
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    env:
+      GOPROXY: 'off'
+      GOSUMDB: 'off'
+      GOWORK: 'off'
+      GOTOOLCHAIN: 'local'
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '1.23.x'
+          cache: false
+      - name: Provision FFmpeg only in disposable public worker
+        env:
+          RUNNER_OS_NAME: ${{ runner.os }}
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            case "$RUNNER_OS_NAME" in
+              Linux) sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg ;;
+              macOS) brew install ffmpeg ;;
+              Windows) choco install ffmpeg -y --no-progress ;;
+              *) echo "UNSUPPORTED_OS"; exit 2 ;;
+            esac
+          fi
+          if ! command -v ffmpeg >/dev/null 2>&1 && [ "$RUNNER_OS_NAME" = Windows ]; then
+            find /c/ProgramData/chocolatey -iname 'ffmpeg.exe' -type f -print -quit 2>/dev/null | while read -r binary; do
+              echo "$(dirname "$binary")" >> "$GITHUB_PATH"
+            done
+          fi
+      - name: Actual native encoded-to-decoded MP4 controls and Go CLI
+        run: |
+          set -euo pipefail
+          mkdir -p out videos
+          export GOCACHE="$RUNNER_TEMP/native-go-cache"
+          go version | tee out/go-version.txt
+          ffmpeg -version | head -n1 | tee out/ffmpeg-version.txt
+          ffprobe -version | head -n1 | tee out/ffprobe-version.txt
+          go test ./...
+          go build -trimpath -ldflags="-s -w" -o "out/bakeoff${{ matrix.ext }}" ./cmd/bakeoff
+          ffmpeg -nostdin -hide_banner -loglevel error -y -f lavfi -i "testsrc2=size=128x128:rate=10:duration=2" -c:v mpeg4 -pix_fmt yuv420p videos/moving.mp4
+          ffmpeg -nostdin -hide_banner -loglevel error -y -f lavfi -i "color=c=red:size=128x128:rate=10:duration=2" -c:v mpeg4 -pix_fmt yuv420p videos/frozen.mp4
+          ffmpeg -nostdin -hide_banner -loglevel error -y -f lavfi -i "color=c=black:size=128x128:rate=10:duration=2" -c:v mpeg4 -pix_fmt yuv420p videos/black.mp4
+          cat >videos/native-cases.json <<'JSON'
+          {"schema":"scp.video-bakeoff-cases.v1","cases":[
+            {"id":"native-moving","kind":"video","path":"moving.mp4","expected_motion":true,"expect":"PASS"},
+            {"id":"native-frozen","kind":"video","path":"frozen.mp4","expected_motion":true,"expect":"FAIL"},
+            {"id":"native-black","kind":"video","path":"black.mp4","expected_motion":true,"expect":"FAIL"},
+            {"id":"native-ambiguous","kind":"video","path":"frozen.mp4","expected_motion":false,"expect":"UNKNOWN"},
+            {"id":"native-unlabelled","kind":"video","path":"moving.mp4","expected_motion":true}
+          ]}
+          JSON
+          "./out/bakeoff${{ matrix.ext }}" -manifest videos/native-cases.json -out out/native-video-receipt.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("out/native-video-receipt.json").read_text())
+          assert d["total"]==5 and d["matched"]==4 and d["discrepancies"]==0
+          assert [x["verdict"] for x in d["results"]]==["PASS","FAIL","FAIL","UNKNOWN","PASS"]
+          assert d["results"][-1]["expected"]=="" and not d["results"][-1]["matches_oracle"]
+          assert all(not x.get("error") and len(x["source_sha256"])==64 for x in d["results"])
+          print("NATIVE_DECODED_VIDEO_VERDICTS", [x["verdict"] for x in d["results"]])
+          PY
+          if command -v sha256sum >/dev/null 2>&1; then sha256sum videos/*.mp4 "out/bakeoff${{ matrix.ext }}" >out/hashes.txt
+          else shasum -a 256 videos/*.mp4 "out/bakeoff${{ matrix.ext }}" >out/hashes.txt; fi
+          printf 'platform=%s\nmode=native_real_ffmpeg_encoded_decoded\ndev_host=disposable_github_actions_vm\nscientific_realism=NOT_QUALIFIED\n' "${{ matrix.target }}" >out/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-ffmpeg-${{ matrix.target }}
+          path: qualification/video_physics_bakeoff/out/
+          retention-days: 7
+          if-no-files-found: error
