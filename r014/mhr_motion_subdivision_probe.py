@@ -133,6 +133,8 @@ native=a.out/("R014_MHR_"+a.mode+"_subdiv_motion_held.blend")
 bpy.ops.wm.save_as_mainfile(filepath=str(native))
 assert native.stat().st_size>100000
 
+subsurf.levels=1
+subsurf.render_levels=1  # Render real evaluated subdivision; not authored detail.
 scene.render.engine="CYCLES"
 scene.cycles.device="CPU"
 scene.cycles.samples=4
@@ -193,6 +195,8 @@ assert video.stat().st_size>1000
 # Export the actual source mesh/rig. Blender modifier is *not* guaranteed
 # portable at the native evaluated subdivision; report base GLB only.
 scene.frame_set(1)
+subsurf.levels=0
+subsurf.render_levels=0  # Portable GLB is explicitly base LOD1, no native subdiv claim.
 bpy.ops.object.select_all(action="DESELECT")
 body.select_set(True)
 rig.select_set(True)
