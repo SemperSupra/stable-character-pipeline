@@ -56,6 +56,23 @@ jobs:
             --python r014/mhr_fbx_native_probe.py -- \
             --phase verify --output "$RUNNER_TEMP/r014-mhr/evidence" \
             --receipt "$RUNNER_TEMP/r014-mhr/evidence/verify.json"
+      - name: Measure native and reimported GLB scale independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mhr/evidence/R014_MHR_neutral_lod1.blend" \
+            --python r014/mhr_portability_check.py -- \
+            --phase native \
+            --glb "$RUNNER_TEMP/r014-mhr/evidence/R014_MHR_neutral_lod1.glb" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/native_bounds.json"
+          "$BLENDER_BIN" --background --factory-startup --python r014/mhr_portability_check.py -- \
+            --phase glb \
+            --glb "$RUNNER_TEMP/r014-mhr/evidence/R014_MHR_neutral_lod1.glb" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/glb_bounds.json"
+          python3 r014/mhr_compare_bounds.py \
+            --native "$RUNNER_TEMP/r014-mhr/evidence/native_bounds.json" \
+            --glb "$RUNNER_TEMP/r014-mhr/evidence/glb_bounds.json" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/scale_gate.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
