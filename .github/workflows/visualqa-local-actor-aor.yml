@@ -1,0 +1,167 @@
+name: visualqa-local-actor-aor-readonly-git-sync
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_actor_handoff/**'
+      - '.github/workflows/visualqa-local-actor-aor.yml'
+permissions:
+  contents: read
+concurrency:
+  group: visualqa-local-aor-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated-git-preflight-controls:
+    name: Offline disposable Git read-only AOR / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Read-only preflight hostile controls (sandbox bare repo, no remote network)
+        shell: bash
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          GIT_CONFIG_NOSYSTEM: '1'
+          GIT_OPTIONAL_LOCKS: '0'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover \
+            -s qualification/visualqa_actor_handoff \
+            -p 'test_git_sync_readonly.py' -v
+          mkdir -p receipts
+          python3 - <<'PY'
+          import json,platform
+          from pathlib import Path
+          receipt={"schema":"scp.visualqa.actor-aor-offline-preflight.v1",
+                   "platform":platform.system(),
+                   "scope":"MALICIOUS_CONTROLS_IN_EPHEMERAL_LOCAL_GIT_ONLY",
+                   "test_reps":12,"all_tests_completed_successfully":True,
+                   "remote_network_used":False,
+                   "real_user_git_modified":False,
+                   "actor_motion_changed":False,
+                   "promotion":"HOLD"}
+          Path("receipts/aor-"+platform.system().lower()+".json").write_text(
+              json.dumps(receipt,indent=2,sort_keys=True)+"\n")
+          print("LOCAL_ACTOR_AOR_OFFLINE_TEST",receipt)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: actor-aor-readonly-${{ matrix.os }}
+          path: receipts/*.json
+          retention-days: 14
+          if-no-files-found: error
+
+  separate-mission-boundary-falsifier:
+    name: Independently verify bounded AOR authority and scientific holds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Fail-closed contract/text and no-implicit-write static checks
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          python3 - <<'PY'
+          import ast,json,re
+          from pathlib import Path
+          root=Path("qualification/visualqa_actor_handoff")
+          document=(root/"LOCAL_QWEN_AOR.md").read_text()
+          script=(root/"git_sync_readonly.py").read_text()
+          expected={
+             "scope":"male_jump_slippers",
+             "pinned_baseline":"d470ab9566d479bf3ca3b53cf63be5ea75217b57",
+             "base":"qualification/visualqa-nine-fix-original-corpus-r1-20261112",
+             "DLE":"#150",
+             "limited_publication":"draft PR",
+             "terminal_evidence":"GLB",
+             "terminal_video":"H.264",
+          }
+          for key,value in expected.items():
+              assert value in document,(key,"missing")
+          for packet in ("WP0","WP1","WP2","WP3","WP4"):
+              assert re.search(r"\*\*"+packet+r" — ",document),("NO_AOR_PACKET",packet)
+          for boundary in ("--force","reset","stash","clean","do not","preserve"):
+              assert boundary.lower() in document.lower(),("MISSING_SAFETY_BOUNDARY",boundary)
+          tree=ast.parse(script)
+          funcs={n.name for n in ast.walk(tree) if isinstance(n,ast.FunctionDef)}
+          assert {"git","expected_origin","owned_path","snapshot","main"}<=funcs
+          for call in ast.walk(tree):
+              if isinstance(call,ast.Call) and isinstance(call.func,ast.Name) and call.func.id=="git":
+                  for arg in call.args:
+                      if isinstance(arg,ast.Constant) and isinstance(arg.value,str):
+                          assert arg.value not in ("fetch","push","checkout","switch","reset","rebase","stash","clean","add","commit"),("UNSAFE_GIT_ACTION_IN_SCRIPT",arg.value)
+          assert "GIT_OPTIONAL_LOCKS" in script
+          assert "remote_push_verified" in script and "published_dle_verified" in script
+          assert "release_authorized" in script
+          assert script.count("subprocess.run(")==1
+          result={"schema":"scp.visualqa.actor-aor-boundary-falsifier.v1",
+                  "mission_scope":"male_jump_slippers",
+                  "work_packets":5,"pinned_baseline":expected["pinned_baseline"],
+                  "no_auto_remote_mutations":True,
+                  "source_oracle_thresholds_touched":False,
+                  "policy_disposition":"READ_ONLY_PROPOSAL_OWNER_DLE_CONTROLS"}
+          Path("receipts/contract.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          print("AOR_MISSION_COMMAND_BOUNDARY_FALSIFIER",result)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: actor-aor-boundary-independent
+          path: receipts/contract.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-cross-platform-join:
+    name: Reconcile exact Windows-free Mac/Linux actor preflight and authority outcomes
+    needs: [isolated-git-preflight-controls,separate-mission-boundary-falsifier]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: actor-aor-*
+          path: receipts
+          merge-multiple: true
+      - name: Independent DLE-ready read-only test result join
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=Path("receipts")
+          linux=json.loads((d/"aor-linux.json").read_text())
+          mac=json.loads((d/"aor-darwin.json").read_text())
+          contract=json.loads((d/"contract.json").read_text())
+          for x in (linux,mac):
+              assert x["all_tests_completed_successfully"] is True
+              assert x["test_reps"]==12
+              assert x["remote_network_used"] is False
+              assert x["real_user_git_modified"] is False
+              assert x["actor_motion_changed"] is False
+              assert x["promotion"]=="HOLD"
+          assert linux["platform"]=="Linux" and mac["platform"]=="Darwin"
+          assert contract["work_packets"]==5
+          assert contract["no_auto_remote_mutations"] is True
+          result={"schema":"scp.visualqa.actor-aor-independent-joined.v1",
+                  "linux_offline_tests":12,"macos_offline_tests":12,
+                  "separate_contract_falsifier":"PASS",
+                  "actor_local_state_verified":False,
+                  "actor_branch_pushed":False,
+                  "read_only_preflight_promotion":"RESEARCH_TOOL_READY",
+                  "actual_motion_status":"NO_CHANGE",
+                  "release":"HOLD"}
+          Path("receipts/joined.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          print("AOR_LOCAL_ACTOR_GIT_SYNC_JOIN",result)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: actor-aor-independent-human-agent-handoff
+          path: receipts/joined.json
+          retention-days: 14
+          if-no-files-found: error
