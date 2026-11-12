@@ -11,7 +11,6 @@ RUN go build -trimpath -ldflags="-s -w" -o /bin/bakeoff ./cmd/bakeoff
 FROM alpine:3.21.6@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709
 ARG SOURCE_DATE_EPOCH=1704067200
 RUN apk add --no-cache 'ffmpeg=6.1.2-r1' && \
-    # Contain normalization to immutable packaged operating-system roots, including APK DB. \
     find /etc /usr /lib /bin /sbin /var -xdev -depth -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} +
 COPY --from=builder /bin/bakeoff /usr/local/bin/bakeoff
 USER 65532:65532
