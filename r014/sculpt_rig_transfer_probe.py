@@ -192,9 +192,33 @@ lamp.location=(float(src_center[0])+1.,-2.5,2.7)
 cd=bpy.data.cameras.new("R014_RigStudy_Camera")
 cam=bpy.data.objects.new("R014_RigStudy_Camera",cd)
 bpy.context.collection.objects.link(cam);scene.camera=cam
-cd.type="ORTHO";cd.ortho_scale=2.45
-cam.location=(float(src_center[0]),-4.0,1.2)
-cam.rotation_euler=(Vector((float(src_center[0]),0,.95))-cam.location).to_track_quat("-Z","Y").to_euler()
+cd.type="ORTHO"
+# Use actual evaluated rest+pose vertex bounding boxes, not source mesh origin.
+# The first attempted render produced mostly empty frames, correctly rejected
+# during independent review despite large valid-looking PNG files.
+from bpy_extras.object_utils import world_to_camera_view
+both=np.vstack((rest,posed))
+low=both.min(axis=0)
+high=both.max(axis=0)
+mid=(low+high)*.5
+extent=high-low
+assert np.all(np.isfinite(extent)) and max(extent)>1.0
+aspect=scene.render.resolution_x/scene.render.resolution_y
+cd.ortho_scale=max(float(extent[2])*1.22,float(extent[0])/aspect*1.22,2.1)
+cam.location=(float(mid[0]),float(mid[1])-max(float(extent[1])*3,4.0),float(mid[2]))
+cam.rotation_euler=(Vector(mid.tolist())-cam.location).to_track_quat("-Z","Y").to_euler()
+lamp.location=(float(mid[0])+1.2,float(mid[1])-2.0,float(mid[2])+1.8)
+camera_qa={}
+for caption,arr in (("neutral",rest),("posed",posed)):
+    # Every vertex must be in front of the camera and inside the viewport.
+    frame=[world_to_camera_view(scene,cam,Vector(q.tolist())) for q in arr]
+    xy=np.array([[p.x,p.y] for p in frame],dtype=np.float64)
+    z=np.array([p.z for p in frame],dtype=np.float64)
+    mins=xy.min(axis=0);maxs=xy.max(axis=0)
+    camera_qa[caption]={"min":mins.tolist(),"max":maxs.tolist(),"depth_min":float(z.min())}
+    assert np.all(mins>0) and np.all(maxs<1) and np.all(z>0),("camera clips sculpt",caption,camera_qa[caption])
+    assert (maxs[0]-mins[0])>.12 and (maxs[1]-mins[1])>.15,("tiny subject",caption,camera_qa[caption])
+print("R014_CAMERA_COVERAGE",json.dumps(camera_qa,sort_keys=True),flush=True)
 scene.render.filepath=str(a.out/"rigged_pose.png")
 bpy.ops.render.render(write_still=True)
 assert Path(scene.render.filepath).stat().st_size>10000
@@ -226,6 +250,7 @@ result={
                    "fraction_over_50mm":float(np.mean(distance>.05)),
                    "fraction_over_100mm":float(np.mean(distance>.10))},
  "rig_influences":{"max":max(influence_count),"unweighted_vertices":unweighted},
+ "camera_coverage":camera_qa,
  "motion":{"max_actual_vertex_delta_m":float(movement.max()),
            "p95_actual_vertex_delta_m":float(np.percentile(movement,95))},
  "native_blend":native.name,
