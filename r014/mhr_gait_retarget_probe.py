@@ -58,9 +58,21 @@ initial_points={}
 for side in ("l","r"):
     initial_points[side]=rig.matrix_world @ rig.pose.bones[side+"_foot"].head
 side_sign=-1 if initial_points["l"].x>initial_points["r"].x else 1
+# Imported FBX BONE TAIL lengths may be short display/helper handles and
+# are NOT necessarily the joint-to-joint anatomical segment lengths.
+# Calibrate with evaluated WORLD positions of proximal hip, knee and ankle.
 mhr_lengths={}
+mhr_landmarks={}
 for side in ("l","r"):
-    mhr_lengths[side]=float(rig.data.bones[side+"_upleg"].length+rig.data.bones[side+"_lowleg"].length)
+    hip=rig.matrix_world@rig.data.bones[side+"_upleg"].head_local
+    knee=rig.matrix_world@rig.data.bones[side+"_lowleg"].head_local
+    ankle=rig.matrix_world@rig.data.bones[side+"_foot"].head_local
+    upper=float((knee-hip).length)
+    lower=float((ankle-knee).length)
+    mhr_lengths[side]=upper+lower
+    mhr_landmarks[side]={"hip":list(hip),"knee":list(knee),"ankle":list(ankle),
+                         "upper_m":upper,"lower_m":lower}
+print("R014_WORLD_JOINT_CALIBRATION",json.dumps(mhr_landmarks,sort_keys=True),flush=True)
 unit_ratio=min(mhr_lengths.values())/1.1
 if not (.3<unit_ratio<1.5):
     raise ValueError("source skeletal scale outside Go trajectory assumptions")
@@ -227,7 +239,7 @@ receipt={
     "mhr_model_release_sha256":"e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94",
     "source_mesh_vertices":len(rest),"source_rig_bones":len(rig.data.bones),
     "gait_frames":len(frames),"gait_root_world_displacement_m_if_units_are_metres":root_distance,
-    "mhr_to_go_leg_scale":scale,"native_leg_lengths":mhr_lengths,
+    "mhr_to_go_leg_scale":scale,"native_joint_chain_lengths":mhr_lengths,"native_joint_world_landmarks":mhr_landmarks,
     "mapping_side_sign":side_sign,
     "contact":contact,"skin_geometry_samples":skin,"native_blend":native.name,
     "rendered_sparse_frames":images,
