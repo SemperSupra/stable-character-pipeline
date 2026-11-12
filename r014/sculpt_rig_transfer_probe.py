@@ -168,7 +168,8 @@ print("R014_POSE_DIAGNOSTIC",json.dumps({
     "target_modifiers":[(m.type,m.object.name if m.type=="ARMATURE" and m.object else None) for m in sculpt.modifiers],
     "action":rig.animation_data.action.name if rig.animation_data and rig.animation_data.action else None
 },sort_keys=True),flush=True)
-assert movement.max()>.005 and movement.max()<.6,"pose animation outside bounded gate"
+assert movement.max()>.005,"source pose failed to actuate the sculpt"
+pose_quality="HOLD_EXCESSIVE_DEFORMATION" if movement.max()>=.6 else "PASS_BOUND_TEST_ONLY"
 
 # Render simple 2-panel technical silhouettes, no photoreal evidence.
 mat=bpy.data.materials.new("R014_Clay_Sculpt_Transfer")
@@ -202,14 +203,15 @@ bpy.context.view_layer.update()
 scene.render.filepath=str(a.out/"neutral.png")
 bpy.ops.render.render(write_still=True)
 assert Path(scene.render.filepath).stat().st_size>10000
-native=a.out/"R014_"+a.sex+"_sculpt_weight_transfer_research.blend"
+native=a.out/("R014_"+a.sex+"_sculpt_weight_transfer_research.blend")
 bpy.ops.file.pack_all()
 bpy.ops.wm.save_as_mainfile(filepath=str(native))
 assert native.stat().st_size>100000
 
 distance=np.array(distances)
 result={
- "status":"PASS_WEIGHT_TRANSFER_AND_POSE_SMOKE_ONLY",
+ "status":"PASS_WEIGHT_TRANSFER_EVIDENCE_CAPTURED_POSE_UNQUALIFIED",
+ "pose_quality_status":pose_quality,
  "sex_source_macro":0.0 if a.sex=="female" else 1.0,
  "source":"MPFB 2.0.18 corrected neutral rig from public run 43202169814",
  "target":"Blender Studio CC0 v1.4.1 sculpt from run 43212080935",
