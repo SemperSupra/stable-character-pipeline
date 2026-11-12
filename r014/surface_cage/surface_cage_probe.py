@@ -149,8 +149,28 @@ def geometry_quality(neutral, moved):
     mag0 = np.linalg.norm(n0, axis=1)
     mag1 = np.linalg.norm(n1, axis=1)
     valid = mag0 > 1e-11
-    bad = int(np.count_nonzero((n0 * n1).sum(axis=1)[valid] <= 0))
-    collapse = int(np.count_nonzero(mag1[valid] < mag0[valid] * 0.10))
+    inverted_mask = valid & ((n0 * n1).sum(axis=1) <= 0)
+    collapsed_mask = valid & (mag1 < mag0 * 0.10)
+    bad = int(np.count_nonzero(inverted_mask))
+    collapse = int(np.count_nonzero(collapsed_mask))
+
+    # Produce actionable original mesh face IDs / world-space locations rather
+    # than only counting inversions. Values are forensic samples, not semantic
+    # anatomical labels (the rig-to-sculpt correspondence is still invalid).
+    ratio = mag1 / np.maximum(mag0, 1e-11)
+    implicated = np.flatnonzero(inverted_mask | collapsed_mask)
+    bad_faces = []
+    for face_id in implicated[:80]:
+        verts = [int(x) for x in triangles[face_id]]
+        bad_faces.append({
+            "face_index": int(face_id),
+            "mesh_vertex_ids": verts,
+            "rest_centroid_world_m": neutral[triangles[face_id]].mean(axis=0).tolist(),
+            "posed_centroid_world_m": moved[triangles[face_id]].mean(axis=0).tolist(),
+            "posed_to_rest_area_ratio": float(ratio[face_id]),
+            "orientation_flipped": bool(inverted_mask[face_id]),
+            "severe_area_collapse": bool(collapsed_mask[face_id]),
+        })
     move = np.linalg.norm(moved - neutral, axis=1)
     return {
         "rest_vertices": len(neutral),
@@ -159,6 +179,9 @@ def geometry_quality(neutral, moved):
         "degenerate_neutral_triangles": int(np.count_nonzero(~valid)),
         "inverted_triangles": bad,
         "area_below_10pct": collapse,
+        "implicated_face_count": int(len(implicated)),
+        "implicated_face_samples": bad_faces,
+        "face_sample_limit": 80,
         "max_vertex_motion_m": float(move.max()),
         "p95_vertex_motion_m": float(np.percentile(move, 95)),
         "moving_vertices_gt_1mm": int(np.count_nonzero(move > .001)),
