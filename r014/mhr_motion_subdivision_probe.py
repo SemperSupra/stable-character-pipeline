@@ -26,7 +26,8 @@ assert bpy.data.filepath and bpy.data.is_saved
 names=[b.name for b in rig.pose.bones]
 candidate=[x for x in names if
     ("upperarm" in x.lower() or "upper_arm" in x.lower() or
-     "shoulder" in x.lower() or "clavicle" in x.lower())]
+     "shoulder" in x.lower() or "clavicle" in x.lower() or
+     ("arm" in x.lower() and not any(t in x.lower() for t in ("fore","lower","hand"))))]
 arm_name=sorted(candidate,key=lambda n: (not (".l" in n.lower() or "left" in n.lower()),len(n)))[0] if candidate else None
 if a.mode=="arm" and not arm_name:
     raise ValueError("MHR rig arm bone unrecognized: "+repr(names[:90]))
@@ -200,7 +201,7 @@ gltf=a.out/("R014_MHR_"+a.mode+"_base_LOD1_motion.glb")
 bpy.ops.export_scene.gltf(filepath=str(gltf),export_format="GLB",
                           use_selection=True,export_morph=True,export_skins=True,
                           export_animations=True,export_yup=True,
-                          export_apply=False)
+                          )
 assert gltf.stat().st_size>100000
 
 receipt={
