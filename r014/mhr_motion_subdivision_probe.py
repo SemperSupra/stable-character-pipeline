@@ -77,8 +77,16 @@ def measured_mesh(level,frame):
     mesh=ev.to_mesh()
     try:
         arr=np.asarray([list(ev.matrix_world@v.co) for v in mesh.vertices],dtype=np.float64)
-        mesh.calc_loop_triangles()
-        faces=np.asarray([list(f.vertices) for f in mesh.loop_triangles],dtype=np.int64)
+        # Keep face topology independent of Blender's geometry-dependent
+        # quad diagonal choices. A morph can rotate a diagonal in a quad even
+        # though its vertex/polygon connectivity stays exactly unchanged.
+        # Index-fan triangulation is deterministic across poses and is used
+        # ONLY for deformation QA (not an exported tessellation assertion).
+        faces=np.asarray([
+            (int(poly.vertices[0]),int(poly.vertices[j]),int(poly.vertices[j+1]))
+            for poly in mesh.polygons
+            for j in range(1,len(poly.vertices)-1)
+        ],dtype=np.int64)
     finally:
         ev.to_mesh_clear()
     if not np.isfinite(arr).all() or not len(faces):
@@ -217,6 +225,9 @@ receipt={
     "rig_bones":len(rig.data.bones),"source_keyblocks":len(body.data.shape_keys.key_blocks),
     "pose_samples":{"neutral":1,"posed":12,"return":24},
     "subdivision_levels":results,
+    "triangle_oracle":"DETERMINISTIC_POLYGON_INDEX_FAN; not Blender adaptive loop triangulation or UV/artistic quality",
+    "topology_assertion":"stable vertex indices and per-polygon ordered vertex membership at each level",
+
     "camera":coverage,
     "native_blend":native.name,"base_rig_glb":gltf.name,"actual_motion_mp4":video.name,
     "constraints":["Subdivision is geometric smoothness NOT authentic sculpt pores or skin microdetails",
