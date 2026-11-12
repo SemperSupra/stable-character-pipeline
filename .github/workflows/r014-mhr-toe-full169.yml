@@ -38,7 +38,7 @@ jobs:
             --name 'r014-mhr-pelvis-smooth-${{ matrix.variant }}-HOLD' \
             --dir "$RUNNER_TEMP/toe169/source"
           (cd "$RUNNER_TEMP/toe169/source" && sha256sum -c sha256sum.txt)
-          test -s "$RUNNER_TEMP/toe169/source/R014_MHR_neutral_GO_GAIT_RIGGED_HOLD.blend"
+          test -s "$RUNNER_TEMP/toe169/source/R014_MHR_${{ matrix.variant }}_GO_GAIT_RIGGED_HOLD.blend"
           python3 - <<'PY'
           import json,os
           from pathlib import Path
@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          "$BLENDER_BIN" --background "$RUNNER_TEMP/toe169/source/R014_MHR_neutral_GO_GAIT_RIGGED_HOLD.blend" \
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/toe169/source/R014_MHR_${{ matrix.variant }}_GO_GAIT_RIGGED_HOLD.blend" \
             --python-exit-code 3 --python r014/mhr_toe_full169_controller.py -- \
             --variant '${{ matrix.variant }}' \
             --target '${{ matrix.target }}' \
