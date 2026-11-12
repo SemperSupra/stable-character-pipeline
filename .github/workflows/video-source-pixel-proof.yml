@@ -1,0 +1,127 @@
+name: video-source-pixel-22-case-proof
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_source_pixels/**'
+      - '.github/workflows/video-source-pixel-proof.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: video-source-pixel-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-original-batches:
+    name: Source-bound H264 fiducial pixels / ${{ matrix.batch }}
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        batch: [locomotion, exercise_pose, dance_combat, aquatic]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-${{ matrix.batch }}
+          path: research/source
+      - name: Execute independent source/projection negative controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_source_pixels -p 'test_observe.py' -v
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+      - name: Decode genuine H264 frames and independently observe marker geometry
+        env:
+          BATCH: ${{ matrix.batch }}
+        run: |
+          set -euo pipefail
+          mkdir -p research/results
+          python3 qualification/video_source_pixels/observe.py \
+            --root research/source --batch "$BATCH" --out "research/results/$BATCH.json"
+          python3 - "$BATCH" <<'PY'
+          import json,sys
+          from pathlib import Path
+          batch=sys.argv[1]
+          d=json.loads((Path("research/results")/(batch+".json")).read_text())
+          assert d["schema"]=="scp.original-3d-decoded-pixel-fiducial-custody.v1"
+          assert d["case_count"]=={"locomotion":8,"exercise_pose":7,"dance_combat":5,"aquatic":2}[batch]
+          assert len(set(d["case_ids"]))==d["case_count"]
+          assert sum(d["counts"].values())==d["case_count"]*8*2
+          assert all(len(x["h264_sha256"])==64 and len(x["animated_glb_sha256"])==64 for x in d["observations"])
+          print("H264_DECODED_AND_SOURCE_SHA_QUALIFIED",batch,d["counts"])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: 3d-source-to-h264-pixels-${{ matrix.batch }}
+          path: research/results/
+          retention-days: 14
+          if-no-files-found: error
+
+  whole-corpus-join:
+    name: 22-case no-false-green source/pixel contingency
+    needs: independent-original-batches
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: 3d-source-to-h264-pixels-*
+          merge-multiple: true
+          path: research/inputs
+      - name: Join exact 22 cases and preserve undecidable pixels
+        run: |
+          set -euo pipefail
+          mkdir -p research/receipts
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          source=Path("research/inputs")
+          batches=("locomotion","exercise_pose","dance_combat","aquatic")
+          records=[]; ids=set(); sample_counts={"DETECTED":0,"UNKNOWN":0,"NOT_DETECTED":0}; hashes={}
+          lines=["# Independently decoded original 3D-to-H264 pixel marker custody","",
+              "**Research-only artificially painted ankle-ring checks, not anatomy/realism acceptance.**","",
+              "| Batch | Cases | Detected | Not detected | Unknown/offframe |","|---|---:|---:|---:|---:|"]
+          for batch in batches:
+            raw=(source/(batch+".json")).read_bytes()
+            hashes[batch]=hashlib.sha256(raw).hexdigest()
+            report=json.loads(raw)
+            if report["batch"]!=batch or report["schema"]!="scp.original-3d-decoded-pixel-fiducial-custody.v1":
+              raise ValueError("UNADMITTED_REPORT_SCHEMA")
+            for row in report["observations"]:
+              if row["case"] in ids: raise ValueError("DUPLICATE_ORIGINAL_CASE")
+              ids.add(row["case"]);records.append(row)
+            c=report["counts"]
+            for k in sample_counts:sample_counts[k]+=c[k]
+            lines.append(f'| {batch} | {report["case_count"]} | {c["detected"]} | {c["not_detected"]} | {c["unknown"]} |')
+          if len(ids)!=22 or len(records)!=22 or sum(sample_counts.values())!=22*8*2:
+            raise ValueError("MISSING_ORIGINAL_CASE_OR_FRAME")
+          if sample_counts["DETECTED"]==0:
+            raise ValueError("NO_ACTUAL_RENDERED_FIDUCIAL_EVIDENCE")
+          outcome={"schema":"scp.original-3d-h264-pixel-receipts-22-join.v1",
+             "case_count":22,"sampled_original_frames_per_case":8,"sampled_two_ankle_observations":352,
+             "counts":sample_counts,"input_report_sha256":hashes,
+             "qualification":"RESEARCH_SOURCE_PIXEL_CUSTODY_ONLY",
+             "limits":["Artificial ankle circle pixels do not establish proper human anatomy",
+                       "Source geometry may be invalid even when marker pixels match",
+                       "UNKNOWN and NOT_DETECTED are preserved, not converted to passes"]}
+          target=Path("research/receipts")
+          (target/"complete-matrix.json").write_text(json.dumps(outcome,sort_keys=True,indent=2)+"\n")
+          lines.extend(["",f'Total detected {sample_counts["DETECTED"]}; not detected {sample_counts["NOT_DETECTED"]}; unknown {sample_counts["UNKNOWN"]}.',
+               "", "No human gait or source physics approval from this result."])
+          (target/"human-agent-readable-matrix.md").write_text("\n".join(lines)+"\n")
+          print("ORIGINAL_22_CASE_SOURCE_TO_H264_PIXELS",sample_counts)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: source-to-pixel-22-case-original-corpus-join
+          path: research/receipts/
+          retention-days: 14
+          if-no-files-found: error
