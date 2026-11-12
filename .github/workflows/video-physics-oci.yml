@@ -38,7 +38,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p receipts/fixtures/videos
-          chmod 777 receipts/fixtures/videos
+          # Keep host-owned temp dir writable by isolated container gid only, not world-writable.
+          sudo chgrp 65532 receipts/fixtures/videos
+          chmod 775 receipts/fixtures/videos
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
             --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint ffmpeg \
             -v "$PWD/receipts/fixtures/videos:/output:rw" \
@@ -57,7 +59,8 @@ jobs:
           ]}
           JSON
           # Native files created by UID 65532 are readable; do not chmod files from the host.
-          chmod 777 receipts
+          sudo chgrp 65532 receipts
+          chmod 775 receipts
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
             --tmpfs /tmp:rw,noexec,nosuid,size=16m \
             -v "$PWD/receipts/fixtures:/data:ro" -v "$PWD/receipts:/out:rw" \
