@@ -1,0 +1,54 @@
+name: R4 Go WASM Geometry Runtime (public disposable)
+run-name: R4 actual JS/WASM CPU geometry ${{ github.ref_name }}
+
+on:
+  push:
+    branches: [research/geometry-sdfx-native-ports-r3-20261112]
+    paths:
+      - 'qualification/geometry-donors/r4-wasm/**'
+      - '.github/workflows/geometry-webassembly-r4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geometry-wasm-r4-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  wasm:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            host: linux-amd64
+          - runner: ubuntu-24.04-arm
+            host: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.25.0'
+          cache: false
+      - name: Build js/wasm and execute real binary through Node, then independent oracle
+        shell: bash
+        run: |
+          set -o pipefail
+          bash qualification/geometry-donors/r4-wasm/run.sh 2>&1 | tee qualification/geometry-donors/r4-wasm/run.log
+      - name: Retain actual WASM runtime evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: geometry-wasm-r4-${{ matrix.host }}-${{ github.run_attempt }}
+          path: |
+            qualification/geometry-donors/r4-wasm/results/
+            qualification/geometry-donors/r4-wasm/run.log
+          if-no-files-found: warn
+          retention-days: 7
