@@ -1,0 +1,69 @@
+name: R014 reuse previously discovered motion sources — safe provenance seam
+on:
+  push:
+    branches: [research/r014-existing-motion-source-seam-20261112]
+    paths:
+      - r014/motion_source_handoff/**
+      - .github/workflows/r014-existing-motion-source-seam.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-motion-reuse-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent_source_guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [eligible-catalog, hostile-source-forgery]
+    env:
+      GOTOOLCHAIN: go1.23.2
+      GOPATH: ${{ runner.temp }}/r014-go-path
+      GOCACHE: ${{ runner.temp }}/r014-go-cache
+      GOFLAGS: -buildvcs=false
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Test source safety in isolated runtime
+        shell: bash
+        working-directory: r014/motion_source_handoff
+        run: |
+          set -euo pipefail
+          go version
+          go vet ./...
+          if [ '${{ matrix.lane }}' = 'eligible-catalog' ]; then
+            go test -race -count=1 -v -run 'TestKnownRealSourcesStayHeld|TestHashAndDeterminism|TestExternalFakeApprovedDoesNotPromote' ./...
+          else
+            go test -race -count=1 -v -run 'Test(No|CMU|Source|ReadPacket|Unrecognized)' ./...
+          fi
+      - name: Evaluate only the existing source catalog with no external motion bytes
+        shell: bash
+        working-directory: r014/motion_source_handoff
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-motion-source/out"
+          go run ./cmd/handoff --packet existing_sources.catalog.v1.json \
+            --out "$RUNNER_TEMP/r014-motion-source/out/motion_reuse_receipt.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"r014-motion-source/out/motion_reuse_receipt.json").read_text())
+          assert r["r014_release_status"]=="HOLD"
+          assert r["status"]=="HOLD_CINEMATIC_AND_ACTUAL_MOTION_SOURCE_ADMISSION"
+          d={x["id"]:x for x in r["source_dispositions"]}
+          assert d["cmu-07-01-catalog"]["status"]=="HOLD_CATALOG_OR_UNVERIFIED_CAPTURE"
+          assert d["go-169-original"]["status"]=="PASS_ORIGINAL_PROCEDURAL_LINEAGE_ONLY"
+          assert all("READY" not in d[k]["status"] for k in ("cmu-07-01-catalog","aist-plusplus-catalog","dancedb-catalog"))
+          assert all(not d[k].get("allowed_roles") for k in ("cmu-07-01-catalog","aist-plusplus-catalog","dancedb-catalog"))
+          print("PASS_QUALIFICATION_GUARD_ONLY; NO_REAL_CAPTURE_ADMISSION_OR_RETARGET")
+          PY
+          sha256sum existing_sources.catalog.v1.json > "$RUNNER_TEMP/r014-motion-source/out/source_catalog.sha256"
+          (cd "$RUNNER_TEMP/r014-motion-source/out" && sha256sum motion_reuse_receipt.json > receipt.sha256)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-existing-sources-${{ matrix.lane }}-source-only-HOLD
+          path: ${{ runner.temp }}/r014-motion-source/out/*
+          retention-days: 7
