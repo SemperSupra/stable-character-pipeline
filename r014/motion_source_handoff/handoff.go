@@ -117,6 +117,9 @@ func evaluateOne(x Source) (Disposition, error) {
 		if x.LicenseClassification!="SELF_AUTHORED" || x.RawCaptureVerified {
 			return d,errors.New("synthetic source misclassified as original capture")
 		}
+		if x.OriginalSHA256!="44d8ebb4bee9a01f522a92ff4377c4cc66c9b19df835bb4b6a1e2a847179fd56" {
+			return d,errors.New("original pinned R014 169-frame Go donor digest mismatch")
+		}
 		d.AllowedRoles=append([]string{},syntheticRoles...)
 		d.Status="PASS_ORIGINAL_PROCEDURAL_LINEAGE_ONLY"
 		d.BlockingReasons=append(d.BlockingReasons,"NOT_MEASURED_HUMAN_MOTION_OR_NATURAL_HEEL_TOE")
