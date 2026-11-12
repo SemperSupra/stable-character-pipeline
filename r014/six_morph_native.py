@@ -249,8 +249,13 @@ def main():
     scene.render.ffmpeg.format="MPEG4";scene.render.ffmpeg.codec="H264"
     scene.render.filepath=str(arg.out/("R014_morph_shard"+str(arg.shard)+"_actual_rig_motion.mp4"))
     bpy.ops.render.render(animation=True)
-    movie=Path(scene.render.filepath)
-    assert movie.is_file() and movie.stat().st_size>5000, "no actual H264 created"
+    # Blender may append its animation frame range to the output filename.
+    # Keep the actual MPEG4 file, not a guessed destination path.
+    movie_prefix="R014_morph_shard"+str(arg.shard)+"_actual_rig_motion"
+    candidates=sorted(arg.out.glob(movie_prefix+"*.mp4"))
+    assert len(candidates)==1 and candidates[0].stat().st_size>5000, (
+        "no unique actual H264 generated", [p.name for p in candidates])
+    movie=candidates[0]
     report["rig_motion_video"]={"filename":movie.name,"sha256":sha(movie),
         "bytes":movie.stat().st_size,"rendered_frames":16,
         "motion_kind":"actual skinned upper arm and leg joints; no locomotion"}
