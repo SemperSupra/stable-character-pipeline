@@ -367,6 +367,24 @@ def run(repo_path, path):
         if input_size>256 or output_size>256:
             record["status"]="REJECT_IMPLAUSIBLE_DIMENSIONS"
             return record
+        if os.environ.get("R015_SAFE_TENSOR_EXPORT"):
+            # Exact-hash gated author checkpoint has already passed the restricted
+            # weights-only loader. Export only tensor values, no metadata classes
+            # or pickle executables. Keep this file inside the disposable runner.
+            from safetensors.torch import save_file
+            export=Path(os.environ["R015_SAFE_TENSOR_EXPORT"])
+            export.parent.mkdir(parents=True,exist_ok=True)
+            clean={k:v.detach().cpu().contiguous() for k,v in model.state_dict().items()}
+            save_file(clean,str(export))
+            record["safe_tensor_export"]={
+                "sha256":digest(export),
+                "bytes":export.stat().st_size,
+                "tensor_keys":sorted(clean.keys()),
+                "format":"safetensors; detached contiguous CPU tensors only",
+                "asset_redistributed":False,
+                "original_checkpoint_sha256":record["checkpoint_sha256"],
+                "conversion_torch_version":torch.__version__
+            }
         # These are numerical probes, not CLIP-calibrated ratings or age-coded generator presets.
         x=torch.full((1,input_size),0.25,dtype=torch.float32)
         start=time.monotonic()
