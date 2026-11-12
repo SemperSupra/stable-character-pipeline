@@ -1,0 +1,63 @@
+{
+  "actual_evaluated_mesh_unique_count": 6,
+  "cinematic_photoreal_status": "HOLD",
+  "evaluated_dimensions_by_character": {
+    "feminine_medium_full": [
+      0.9665893,
+      0.4180741,
+      1.5837748
+    ],
+    "feminine_short_light": [
+      0.8860285,
+      0.3591643,
+      1.4103231
+    ],
+    "feminine_tall_strong": [
+      1.2050108,
+      0.4982449,
+      1.9762708
+    ],
+    "masculine_medium_strong": [
+      1.1229314,
+      0.4636547,
+      1.7298531
+    ],
+    "masculine_short_broad": [
+      1.0711052,
+      0.4334645,
+      1.5877823
+    ],
+    "masculine_tall_slim": [
+      1.3896525,
+      0.5686873,
+      2.1640025
+    ]
+  },
+  "evaluated_mesh_digests": {
+    "feminine_medium_full": "c95d8e8775ea09ef91fed895ea3b55570e37eaa8d10c004d822bece63c175785",
+    "feminine_short_light": "53c204433fa6afeb62373f5adff5aaf8c08e8dbb1ed10e2dcd47ddc6c81aa795",
+    "feminine_tall_strong": "74109cf29316aef24cefc0e72bc20c6b0dd795b61da6eaa67b29c91b00e0317f",
+    "masculine_medium_strong": "dedff31d841cbe50703d4cbedc44865a68f24f26c64947df6adb31bc457103b5",
+    "masculine_short_broad": "24614241306036fbedaa68f3795cbf303ba4f1c5708c5fd88e30029f7336feab",
+    "masculine_tall_slim": "5f30ced1e1561ebf54ade6b50bb958f785a9bb192f350fb23e3bc7e562832ab7"
+  },
+  "licensed_mesh_assets_redistributed": false,
+  "raw_unmorphed_basis_unique_count": 1,
+  "release_authorization": "NONE",
+  "schema": "r014.six_morph.cross_shard_evaluated_native_geometry.v1",
+  "six_morph_sources": [
+    "r014-real-six-morph-shard-0",
+    "r014-real-six-morph-shard-1"
+  ],
+  "size_unit": "Blender local mesh coordinates; not certified cm",
+  "source_blends_redistributed": false,
+  "source_run": 43286258004,
+  "status": "PASS_SIX_DISTINCT_ACTUAL_SHAPE_KEY_EVALUATED_GEOMETRIES",
+  "github_execution": {
+    "run": 43287728426,
+    "job": 131425446339,
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43287728426",
+    "source_run": 43286258004,
+    "evidence_origin": "GitHub native job log readback"
+  }
+}
