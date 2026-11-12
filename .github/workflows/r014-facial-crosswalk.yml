@@ -1,0 +1,53 @@
+name: R014 MHR/MPFB face semantics source-qualification
+on:
+  push:
+    branches: [research/r014-facial-crosswalk-v1]
+    paths: [r014/**, .github/workflows/r014-facial-crosswalk.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  crosswalk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: facebookresearch/MHR
+          ref: 85fc2cbaf77f606e41346cb791d8ad96a75e1a4b
+          path: _mhr
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: makehumancommunity/mpfb2
+          ref: 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          path: _mpfb
+          persist-credentials: false
+      - name: Check source identity and independent negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C _mhr rev-parse HEAD)" = "85fc2cbaf77f606e41346cb791d8ad96a75e1a4b"
+          test "$(git -C _mpfb rev-parse HEAD)" = "6ff1eb358f6c1959ced77e79e6dd2406d9a71f49"
+          python3 -m unittest discover -v -s r014/tests
+      - name: Emit actual semantic coefficient mapping with no commercial media
+        run: |
+          python3 -m r014.face_crosswalk \
+             --mhr _mhr/mhr/face_expression.py \
+             --mpfb _mpfb/src/mpfb/services/faceservice.py \
+             --out face_semantics.json
+          python3 - <<'PY'
+          import json
+          m=json.load(open("face_semantics.json"))
+          assert m['mhr_expression_count']==72
+          assert m['mpfb_arkit_count']==52
+          assert m['controls'][0]['mhr_fbx_morph']=='shape_45'
+          assert m['controls'][-1]['mhr_fbx_morph']=='shape_116'
+          assert all(v['transfer_status']!='QUALIFIED' for v in m['controls'])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-face-semantic-crosswalk
+          path: face_semantics.json
+          retention-days: 7
