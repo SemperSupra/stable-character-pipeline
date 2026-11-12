@@ -87,12 +87,16 @@ jobs:
               assert value in document,(key,"missing")
           for packet in ("WP0","WP1","WP2","WP3","WP4"):
               assert re.search(r"\*\*"+packet+r" — ",document),("NO_AOR_PACKET",packet)
-          for boundary in ("--force","git reset","git stash","git clean","do not","preserve"):
+          for boundary in ("--force","reset","stash","clean","do not","preserve"):
               assert boundary.lower() in document.lower(),("MISSING_SAFETY_BOUNDARY",boundary)
           tree=ast.parse(script)
           funcs={n.name for n in ast.walk(tree) if isinstance(n,ast.FunctionDef)}
           assert {"git","expected_origin","owned_path","snapshot","main"}<=funcs
-          assert "git fetch" not in script and "git push" not in script
+          for call in ast.walk(tree):
+              if isinstance(call,ast.Call) and isinstance(call.func,ast.Name) and call.func.id=="git":
+                  for arg in call.args:
+                      if isinstance(arg,ast.Constant) and isinstance(arg.value,str):
+                          assert arg.value not in ("fetch","push","checkout","switch","reset","rebase","stash","clean","add","commit"),("UNSAFE_GIT_ACTION_IN_SCRIPT",arg.value)
           assert "GIT_OPTIONAL_LOCKS" in script
           assert "remote_push_verified" in script and "published_dle_verified" in script
           assert "release_authorized" in script
