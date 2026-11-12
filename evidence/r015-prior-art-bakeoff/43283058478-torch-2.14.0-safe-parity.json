@@ -1,0 +1,37 @@
+{
+  "all_finite": true,
+  "converted_artifact_bytes": 1651336,
+  "device": "cpu",
+  "eight_descriptor_logit_max": 28.734010696411133,
+  "eight_descriptor_logit_min": 23.853979110717773,
+  "max_abs_beta_error": 0.00000298,
+  "max_replay_abs_error": 0,
+  "mean_abs_beta_error": 7.1e-7,
+  "merge_release": "HOLD",
+  "mode": "modern native source class loaded only from hash verified tensor-only SafeTensors converted by pinned PyTorch2.5.1 restricted deserializer",
+  "native_geometry_tested": false,
+  "native_language_model_tested": false,
+  "original_ckpt_sha256": "7bb79747504919656ecacb120b5be70b51b6faac1535d1cfd7f46b1401a3ed7b",
+  "output_dimension": [
+    3,
+    10
+  ],
+  "published_clip_inputs": 3,
+  "reference_receipt_sha256": "5f2b9439ea08278d7d57f3d17eb89d2f0b469ce7e10c5dc70e676f9e4ac359e1",
+  "safe_tensor_sha256": "82b2c8bf00cbec99a12935a6a89a3aa6b17b63352f83c78ca1e54b49a108f939",
+  "schema": "r015.rolling_framework_uplift.safetensors.v1",
+  "source": "Omergral/Semantify@78b001d3dc4ea4efa428e3aff1213cefddf6ebd8",
+  "source_native_class": "Semantify::C2M 8→800→500→10",
+  "status": "PASS_MODERNIZED_NATIVE_PRETRAINED_TENSOR_PARITY",
+  "third_party_asset_redistributed": false,
+  "tolerance": 0.0003,
+  "torch_cuda_build": null,
+  "torch_version": "2.14.0+cpu",
+  "warm_two_forward_seconds": 0.000459,
+  "github_execution": {
+    "run_id": 43283058478,
+    "job_id": 131409154346,
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43283058478",
+    "scope": "SafeTensors-only runtime torch2.14.0 CPU parity; original unpublished checkpoint not redistributed"
+  }
+}
