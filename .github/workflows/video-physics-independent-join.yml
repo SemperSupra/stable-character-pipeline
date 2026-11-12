@@ -1,0 +1,66 @@
+name: video-source-independent-adjudication
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-physics-independent-join.yml'
+      - 'qualification/video_physics_bakeoff/scripts/join_motion_video_receipts.py'
+      - 'qualification/video_physics_bakeoff/scripts/test_join_motion_video_receipts.py'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: video-evidence-join-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  two-independent-modalities:
+    name: Independent artifact SHA-bound 22-case joint triage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Pull SOURCE MATH result from completed exact public source run (not private data)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-math-audit-22-cases
+          path: research/source
+      - name: Pull independently generated real H264 diagnostic receipts from same exact source run
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: original-character-video-bakeoff-22-diagnostic-receipts
+          path: research/video
+      - name: Run source-hash aware no-oracle joint classification and hostile tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_physics_bakeoff/scripts -p 'test_join_motion_video_receipts.py' -v
+          mkdir -p research/results
+          python3 qualification/video_physics_bakeoff/scripts/join_motion_video_receipts.py \
+            --source research/source/math_audit.json \
+            --video research/video/video_quality_receipts.json \
+            --out research/results/independent-triage.json \
+            --markdown research/results/independent-triage.md
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("research/results/independent-triage.json").read_text())
+          m={(x["source"],x["video"]):x["cases"] for x in d["matrix"]}
+          expected={("PASS","PASS"):7,("FAIL","PASS"):7,("PASS","FAIL"):3,
+                    ("FAIL","FAIL"):2,("FAIL","UNKNOWN"):2,("UNKNOWN","PASS"):1}
+          assert d["case_count"]==22 and m==expected, (d["case_count"], m)
+          assert all(len(x["source_label_sha256"])==64 and len(x["decoded_video_sha256"])==64 for x in d["cases"])
+          print("INDEPENDENT_SOURCE_VIDEO_CONFLICT_MATRIX_VALIDATED",m)
+          PY
+          sha256sum research/source/math_audit.json research/video/video_quality_receipts.json \
+            research/results/independent-triage.json >research/results/input-and-report-sha256.txt
+          printf 'evidence_run_id=43137642662\nsource_math_artifact_id=13907589394\nvideo_diag_artifact_id=13907179665\nrights=original_public_synthetic_only\nrealism_acceptance=NOT_QUALIFIED\n' >research/results/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-physics-independent-22-case-human-and-agent-triage
+          path: research/results/
+          retention-days: 14
+          if-no-files-found: error
