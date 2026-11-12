@@ -1,0 +1,110 @@
+name: video-oci-buildx-epoch-oci-export-repro
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-oci-buildx-epoch-export.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-oci-epoch-export-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  two-oci-layout-exports:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Two independent cold BuildKit OCI exports with timestamp rewrite
+        run: |
+          set -euo pipefail
+          docker buildx version
+          mkdir -p oci-epoch
+          for name in first second; do
+            docker buildx build --pull --no-cache --provenance=false --sbom=false \
+              --build-arg SOURCE_DATE_EPOCH=1704067200 \
+              --file Dockerfile.timestamp-experiment \
+              --output "type=oci,dest=oci-epoch/$name.oci.tar,rewrite-timestamp=true" .
+          done
+      - name: Independently read both OCI manifests, verify referenced blobs and compare content digests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,tarfile
+          from pathlib import Path
+          root=Path("oci-epoch")
+          def sha(data):
+              return hashlib.sha256(data).hexdigest()
+          def inspect(path):
+              with tarfile.open(path,"r") as tar:
+                  index=json.loads(tar.extractfile("index.json").read())
+                  if len(index.get("manifests",[]))!=1:
+                      raise ValueError("OCI_MANIFEST_COUNT_NOT_ONE")
+                  top=index["manifests"][0]
+                  digest=top["digest"]
+                  if not digest.startswith("sha256:"):
+                      raise ValueError("NOT_CONTENT_ADDRESSED_BLOB")
+                  def blob(d):
+                      member=tar.getmember("blobs/sha256/"+d.split(":")[1])
+                      raw=tar.extractfile(member).read()
+                      if sha(raw)!=d.split(":")[1]:
+                          raise ValueError("OCI_BLOB_SHA256_INVALID")
+                      return raw
+                  manifest=json.loads(blob(digest))
+                  if manifest.get("schemaVersion")!=2 or not manifest.get("layers"):
+                      raise ValueError("OCI_IMAGE_MANIFEST_INVALID")
+                  config_blob=blob(manifest["config"]["digest"])
+                  config=json.loads(config_blob)
+                  for layer in manifest["layers"]:
+                      if "sha256:" not in layer["digest"] or layer["size"]<=0:
+                          raise ValueError("INVALID_LAYER_DESCRIPTOR")
+                      blob(layer["digest"])
+                  return {"manifest_sha256":digest.split(":")[1],
+                          "config_sha256":manifest["config"]["digest"].split(":")[1],
+                          "layer_sha256":[x["digest"].split(":")[1] for x in manifest["layers"]],
+                          "diff_ids":config.get("rootfs",{}).get("diff_ids",[]),
+                          "created":config.get("created"),"config_user":config.get("config",{}).get("User"),
+                          "oci_tar_sha256":sha(path.read_bytes())}
+          first=inspect(root/"first.oci.tar")
+          second=inspect(root/"second.oci.tar")
+          if first["config_user"]!="65532:65532" or second["config_user"]!="65532:65532":
+              raise ValueError("ROOTLESS_RUNTIME_REGRESSION")
+          report={
+              "schema":"scp.video-oci-buildx-rewrite-timestamp-a-b.v1",
+              "engine":"buildx BuildKit OCI exporter with rewrite-timestamp",
+              "source_date_epoch":1704067200,
+              "cold_builds":2,
+              "manifest_content_identical":first["manifest_sha256"]==second["manifest_sha256"],
+              "config_content_identical":first["config_sha256"]==second["config_sha256"],
+              "layer_content_identical":first["layer_sha256"]==second["layer_sha256"],
+              "uncompressed_rootfs_diff_ids_identical":first["diff_ids"]==second["diff_ids"],
+              "full_export_tar_identical":first["oci_tar_sha256"]==second["oci_tar_sha256"],
+              "inputs":[first,second],
+              "status":"RDT_E_DIAGNOSTIC_ONLY_NOT_RELEASE",
+              "holds":["APK dependency index not a pinned immutable content snapshot",
+                       "No full build SBOM, dependency vulnerabilities/licenses or signed build provenance",
+                       "Two builds on one public runner do not qualify multi-architecture or cross-runner reproducibility",
+                       "No OCI artifact published to registry or production deployment admission"]
+          }
+          (root/"oci-export-repro.json").write_text(json.dumps(report,sort_keys=True,indent=2)+"\n")
+          print("ACTUAL_BUILDX_EPOCH_EXPORT",{
+              "manifest_equal":report["manifest_content_identical"],
+              "config_equal":report["config_content_identical"],
+              "layers_equal":report["layer_content_identical"],
+              "tar_equal":report["full_export_tar_identical"]})
+          PY
+          sha256sum oci-epoch/oci-export-repro.json >oci-epoch/report-sha256.txt
+          rm -f oci-epoch/first.oci.tar oci-epoch/second.oci.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-oci-buildkit-epoch-export-layer-reproduction
+          path: |
+            qualification/video_physics_bakeoff/oci-epoch/oci-export-repro.json
+            qualification/video_physics_bakeoff/oci-epoch/report-sha256.txt
+          retention-days: 14
+          if-no-files-found: error
