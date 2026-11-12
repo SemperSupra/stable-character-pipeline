@@ -1,0 +1,148 @@
+{
+  "all_output_finite": true,
+  "archive_files": [
+    "models_ckpts/flame/expression/flame_expression.ckpt",
+    "models_ckpts/flame/expression/flame_expression_metadata.json",
+    "models_ckpts/flame/shape/flame_shape.ckpt",
+    "models_ckpts/flame/shape/flame_shape_metadata.json",
+    "models_ckpts/smal/smal_metadata.json",
+    "models_ckpts/smal/smal.ckpt",
+    "models_ckpts/smpl/smpl_female_metadata.json",
+    "models_ckpts/smpl/smpl_male_metadata.json",
+    "models_ckpts/smpl/smpl_neutral_metadata.json",
+    "models_ckpts/smpl/smpl_female.ckpt",
+    "models_ckpts/smpl/smpl_male.ckpt",
+    "models_ckpts/smpl/smpl_neutral.ckpt",
+    "models_ckpts/smplx/smplx_female_metadata.json",
+    "models_ckpts/smplx/smplx_male_metadata.json",
+    "models_ckpts/smplx/smplx_neutral_metadata.json",
+    "models_ckpts/smplx/smplx_male.ckpt",
+    "models_ckpts/smplx/smplx_female.ckpt",
+    "models_ckpts/smplx/smplx_neutral.ckpt"
+  ],
+  "archive_member_count": 25,
+  "archive_sha256": "91682ac20d450f02c02f97e99ab5858fc12e0f15dbcedbd1e8d2bb4c244a72c2",
+  "archive_size_bytes": 23264694,
+  "checkpoint_compressed_bytes": 2564366,
+  "checkpoint_sha256": "7bb79747504919656ecacb120b5be70b51b6faac1535d1cfd7f46b1401a3ed7b",
+  "checkpoint_shape_summary": {
+    "model.fc_layers.0.bias": [
+      800
+    ],
+    "model.fc_layers.0.weight": [
+      800,
+      8
+    ],
+    "model.fc_layers.2.bias": [
+      500
+    ],
+    "model.fc_layers.2.weight": [
+      500,
+      800
+    ],
+    "model.out_layer.bias": [
+      10
+    ],
+    "model.out_layer.weight": [
+      10,
+      500
+    ]
+  },
+  "checkpoint_tensor_count": 6,
+  "checkpoint_uncompressed_bytes": 4966252,
+  "curl_exit_code": 0,
+  "default_weights_only_error": "UnpicklingError: Weights only load failed. This file can still be loaded, to do so you have two options, \u001b[1mdo those steps only if you trust the source of the checkpoint\u001b[0m. \n\t(1) Re-running `torch.load` with `weights_only` set to `False` will likely succeed, but it can result in arbitrary code execution. Do it only if you got the file from a trusted source.\n\t(2) Alternatively, to load with `weights_only=True` please check the recommended steps in the following error message.\n\tWeightsUnpickler error: Unsupported global: GLOBAL omegaconf.listconfig.ListConfig was not an allowed global by default. Please use `torch.serialization.add_safe_globals([ListConfig])` to allowlist this global if you trust this class/function.\n\nCheck the documentation of torch.load to learn more about types accepted by default with weights_only https://pytorch.org/docs/stable/generated/torch.load.html.",
+  "download_seconds": 10.45,
+  "first_descriptor_0p05_sensitivity_l2": 0.01904796,
+  "forward_seconds": 0.000601,
+  "hidden_sizes": [
+    800,
+    500
+  ],
+  "licensed_smplx_3dmm_instantiated": false,
+  "merger_release_approval": false,
+  "metadata_labels": [
+    [
+      "fat"
+    ],
+    [
+      "masculine"
+    ],
+    [
+      "long torso"
+    ],
+    [
+      "hourglass"
+    ],
+    [
+      "tall"
+    ],
+    [
+      "rectangular"
+    ],
+    [
+      "small"
+    ],
+    [
+      "proportioned"
+    ]
+  ],
+  "metadata_top_level_keys": [
+    "num_stats",
+    "lr",
+    "out_features",
+    "hidden_size",
+    "num_hiddens",
+    "labels"
+  ],
+  "model_archive_redistributed": false,
+  "model_archive_source": "upstream project's public Google Drive ID, TLS verified",
+  "model_asset_licensing_confirmed": false,
+  "native_geometry_measured": false,
+  "network_input_size": 8,
+  "network_output_size": 10,
+  "nominal_output_vector": [
+    -0.006477,
+    0.004909,
+    -0.02308,
+    0.026311,
+    -0.05846,
+    0.025098,
+    -0.053485,
+    0.020107,
+    -0.028953,
+    0.04646
+  ],
+  "pickle_GLOBAL_symbols": [
+    "__builtin__ dict",
+    "__builtin__ list",
+    "__builtin__ long",
+    "collections OrderedDict",
+    "collections defaultdict",
+    "omegaconf.base ContainerMetadata",
+    "omegaconf.base Metadata",
+    "omegaconf.dictconfig DictConfig",
+    "omegaconf.listconfig ListConfig",
+    "omegaconf.nodes AnyNode",
+    "torch FloatStorage",
+    "torch._utils _rebuild_tensor_v2",
+    "typing Any"
+  ],
+  "pickle_STACK_GLOBAL_count": 0,
+  "pickle_opcode_count": 3213,
+  "repeat_max_abs_delta": 0,
+  "research_only": true,
+  "safe_load_mode": "weights_only_explicit_audited_omegaconf_2_3_0_globals",
+  "schema": "r015.semantify.pretrained.v1",
+  "score_calibration": "NOT_VALIDATED; 0.25 is synthetic numeric probe, not measured CLIP score",
+  "source": "Omergral/Semantify@78b001d3dc4ea4efa428e3aff1213cefddf6ebd8",
+  "status": "PASS_ACTUAL_PUBLISHED_MAPPER_NUMERIC_FORWARD_ONLY",
+  "torch_version": "2.5.1+cpu",
+  "github_execution": {
+    "run_id": 43264747293,
+    "job_id": 131345214407,
+    "commit": "e777d4c9f037ef821f209243ed6a786fc7fa8d71",
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43264747293",
+    "scope": "actual Semantify mapper inference; no geometry or CLIP"
+  }
+}
