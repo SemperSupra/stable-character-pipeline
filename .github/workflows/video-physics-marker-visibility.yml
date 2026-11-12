@@ -1,0 +1,74 @@
+name: video-actual-marker-visibility-vs-pretrained
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-physics-marker-visibility.yml'
+      - 'qualification/video_physics_bakeoff/scripts/original_marker_visibility.py'
+      - 'qualification/video_physics_bakeoff/scripts/test_original_marker_visibility.py'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: video-marker-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-decoded-pixels:
+    name: 48 original H264 pixel fiducials vs actual pretrained visibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-locomotion
+          path: research/source
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43137642662
+          github-token: ${{ github.token }}
+          name: motion-corpus-dance_combat
+          path: research/source
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43140534969
+          github-token: ${{ github.token }}
+          name: genuine-cotracker3-original-4-character-h264-research
+          path: research/learned
+      - name: Strict independent pixel signature controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/video_physics_bakeoff/scripts -p 'test_original_marker_visibility.py' -v
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          fi
+      - name: Decode actual original H264 and measure fiducial against real learned visible flags
+        run: |
+          set -euo pipefail
+          mkdir -p research/report
+          python3 qualification/video_physics_bakeoff/scripts/original_marker_visibility.py \
+            --root research/source --learned research/learned/actual-4-character-cotracker.json \
+            --out research/report/marker-vs-model.json --markdown research/report/marker-vs-model.md
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('research/report/marker-vs-model.json').read_text())
+          assert d['case_count']==4 and d['samples_per_case']==12
+          assert d['total_pixel_fiducial_observed']==48
+          assert d['total_predicted_visible']==32
+          assert d['total_model_false_invisible_when_fiducial_observed']==16
+          assert d['qualification']=='DIAGNOSTIC_NOT_PHYSICS_OR_HUMAN_REALISM'
+          print("PIXEL_COTRACKER_VISIBILITY_CONFLICT_QUALIFIED",d['total_model_false_invisible_when_fiducial_observed'])
+          PY
+          sha256sum research/learned/actual-4-character-cotracker.json research/report/marker-vs-model.json >research/report/input-and-output-sha256.txt
+          printf 'video_source_run=43137642662\nactual_learned_run=43140534969\nlicense=CC_BY_NC_4.0_research_only\nscience_grade=RESEARCH_ARTIFICIAL_FIDUCIAL_ONLY\n' >research/report/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: independent-original-h264-marker-visibility-research
+          path: research/report/
+          retention-days: 14
+          if-no-files-found: error
