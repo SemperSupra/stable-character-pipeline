@@ -1,0 +1,107 @@
+name: R014 MHR official LOD1 FBX native Blender bridge (research)
+on:
+  push:
+    branches: [research/r014-mhr-native-fbx-v1]
+    paths: [r014/**, .github/workflows/r014-mhr-native-fbx.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-mhr-native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mhr-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download official Blender and SHA256 guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-mhr"
+          cd "$RUNNER_TEMP/r014-mhr"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum -c
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-mhr" -maxdepth 2 -name blender -type f | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Retrieve verified official MHR model archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --connect-timeout 20 \
+            https://github.com/facebookresearch/MHR/releases/download/v1.0.1/assets.zip \
+            -o "$RUNNER_TEMP/r014-mhr/assets.zip"
+      - name: Import MHR LOD1 FBX into Blender, save native scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-mhr/evidence"
+          "$BLENDER_BIN" --background --factory-startup --python r014/mhr_fbx_native_probe.py -- \
+            --phase create --archive "$RUNNER_TEMP/r014-mhr/assets.zip" \
+            --sha256 e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94 \
+            --output "$RUNNER_TEMP/r014-mhr/evidence" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/create.json"
+      - name: Fresh process reopen and portable export
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mhr/evidence/R014_MHR_neutral_lod1.blend" \
+            --python r014/mhr_fbx_native_probe.py -- \
+            --phase verify --output "$RUNNER_TEMP/r014-mhr/evidence" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/verify.json"
+      - name: Measure native and reimported GLB scale independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mhr/evidence/R014_MHR_neutral_lod1.blend" \
+            --python r014/mhr_portability_check.py -- \
+            --phase native \
+            --glb "$RUNNER_TEMP/r014-mhr/evidence/R014_MHR_neutral_lod1.glb" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/native_bounds.json"
+          "$BLENDER_BIN" --background --factory-startup --python r014/mhr_portability_check.py -- \
+            --phase glb \
+            --glb "$RUNNER_TEMP/r014-mhr/evidence/R014_MHR_neutral_lod1.glb" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/glb_bounds.json"
+          python3 r014/mhr_compare_bounds.py \
+            --native "$RUNNER_TEMP/r014-mhr/evidence/native_bounds.json" \
+            --glb "$RUNNER_TEMP/r014-mhr/evidence/glb_bounds.json" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/scale_gate.json"
+      - name: Animate documented MHR facial morphs and render real character motion
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mhr/evidence/R014_MHR_neutral_lod1.blend" \
+            --python r014/mhr_face_motion.py -- \
+            --output "$RUNNER_TEMP/r014-mhr/evidence" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/face_motion.json"
+          python3 - <<'PY'
+          import os,struct,json
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'r014-mhr/evidence/R014_MHR_face_motion.glb'
+          with p.open('rb') as f:
+              f.read(12)
+              size,kind=struct.unpack('<I4s',f.read(8))
+              assert kind==b'JSON'
+              g=json.loads(f.read(size))
+          paths=[c.get('target',{}).get('path') for a in g.get('animations',[]) for c in a.get('channels',[])]
+          assert 'weights' in paths,('no exported facial morph weight animation',paths)
+          assert (p.parent/'R014_MHR_face_morph_technical.mp4').stat().st_size>1000
+          print('PASS_PORTABLE_FACE_WEIGHTS_ONLY',len(paths))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mhr-native-lod1-review
+          path: |
+            ${{ runner.temp }}/r014-mhr/evidence/*.json
+            ${{ runner.temp }}/r014-mhr/evidence/*.blend
+            ${{ runner.temp }}/r014-mhr/evidence/*.glb
+            ${{ runner.temp }}/r014-mhr/evidence/*.mp4
+          retention-days: 7
