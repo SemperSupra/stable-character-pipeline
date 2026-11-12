@@ -1,0 +1,55 @@
+name: Procedural Geometry Donor Bakeoff R0 (public, disposable)
+run-name: SDF donor clean consumers — ${{ github.ref_name }}
+
+on:
+  push:
+    branches: [research/geometry-donor-bakeoff-r0-20261112]
+    paths:
+      - 'qualification/geometry-donors/r0/**'
+      - '.github/workflows/geometry-donor-bakeoff-r0.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geometry-donor-r0-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sdf-cpu:
+    name: R0 SDF exact-source independent oracle — ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: linux-amd64
+          - runner: ubuntu-24.04-arm
+            arch: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout public-safe reviewed source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate original oracle syntax
+        run: python3 -m py_compile qualification/geometry-donors/r0/oracle.py
+      - name: Run pinned donor clean-consumer A/B
+        shell: bash
+        run: |
+          set -o pipefail
+          bash qualification/geometry-donors/r0/run.sh 2>&1 | tee qualification/geometry-donors/r0/run.log
+      - name: Upload source, oracle, and failure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: geometry-r0-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: |
+            qualification/geometry-donors/r0/fixture.json
+            qualification/geometry-donors/r0/results/
+            qualification/geometry-donors/r0/run.log
+          if-no-files-found: warn
+          retention-days: 7

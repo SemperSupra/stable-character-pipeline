@@ -1,0 +1,22 @@
+{
+  "schema":"public-procedural-sdf-fixture/v1",
+  "units":"unitless",
+  "shape":{"operation":"union","a":{"sphere_radius":1.0},"b":{"box_dimensions":[2.8,0.5,0.5],"corner_rounding":0.0}},
+  "signed_distance":"negative_inside",
+  "points":[
+  {"id":"p00","xyz":[0,0,0]},
+  {"id":"p01","xyz":[1,0,0]},
+  {"id":"p02","xyz":[1.5,0,0]},
+  {"id":"p03","xyz":[0.6,0.8,0]},
+  {"id":"p04","xyz":[0.3,-0.4,0.5]},
+  {"id":"p05","xyz":[1.3,0,0]},
+  {"id":"p06","xyz":[1.6,0,0]},
+  {"id":"p07","xyz":[0,0.6,0]},
+  {"id":"p08","xyz":[1.3,0.2,0]},
+  {"id":"p09","xyz":[0.4,0.25,0.5]},
+  {"id":"p10","xyz":[1.8,1.1,0]},
+  {"id":"p11","xyz":[0,0,2]}
+  ],
+  "tolerances":{"sdfx":1e-11,"gsdf":0.00025},
+  "expected_negative_input":"sphere_radius_zero_rejected"
+}
