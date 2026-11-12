@@ -1,0 +1,145 @@
+name: R014 MPFB public source-pinned native human foundation
+on:
+  push:
+    branches: [research/r014-mpfb-foundation-v1]
+    paths:
+      - r014/**
+      - .github/workflows/r014-mpfb-bakeoff.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-mpfb-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mpfb-native:
+    name: Generate and independently reopen generic adult models
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-mpfb/blender-config
+      BLENDER_USER_SCRIPTS: /tmp/r014-mpfb/blender-scripts
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: makehumancommunity/mpfb2
+          ref: 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          path: _vendor/mpfb2
+          persist-credentials: false
+      - name: Verify upstream rights and exact revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C _vendor/mpfb2 rev-parse HEAD)" = "6ff1eb358f6c1959ced77e79e6dd2406d9a71f49"
+          grep -F 'GPLv3' _vendor/mpfb2/LICENSE.md
+          grep -F 'CC0' _vendor/mpfb2/LICENSE.md
+          test -f _vendor/mpfb2/src/mpfb/blender_manifest.toml
+      - name: Download and checksum official Blender 4.5.16 in disposable runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-mpfb"
+          cd "$RUNNER_TEMP/r014-mpfb"
+          base='https://download.blender.org/release/Blender4.5'
+          curl -fL --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-mpfb" -maxdepth 2 -type f -name blender | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Build/install exact MPFB extension into disposable Blender home
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$RUNNER_TEMP/r014-mpfb/extensions"
+          "$BLENDER_BIN" --command extension build --source-dir _vendor/mpfb2/src/mpfb --output-dir "$RUNNER_TEMP/r014-mpfb"
+          extension="$(find "$RUNNER_TEMP/r014-mpfb" -maxdepth 1 -name 'mpfb-*.zip' | head -1)"
+          test -f "$extension"
+          "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r014-mpfb/extensions"
+          "$BLENDER_BIN" --command extension install-file -r r014lab -e "$extension"
+          "$BLENDER_BIN" --command extension list
+      - name: Verify upstream gender macro, adult-leaning presets and negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-mpfb/result"
+          python3 r014/mpfb_gender_contract.py --self-test
+          python3 r014/mpfb_gender_contract.py \
+            --source _vendor/mpfb2/src/mpfb \
+            --receipt "$RUNNER_TEMP/r014-mpfb/result/gender_source.json"
+      - name: Generate two anatomically grounded parametric candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-mpfb/result"
+          "$BLENDER_BIN" --background --python r014/mpfb_generate.py -- \
+            --output "$RUNNER_TEMP/r014-mpfb/result" \
+            --receipt "$RUNNER_TEMP/r014-mpfb/result/generation.json"
+      - name: Verify generated actor macro values against actual pinned source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 r014/mpfb_gender_contract.py \
+            --source _vendor/mpfb2/src/mpfb \
+            --report "$RUNNER_TEMP/r014-mpfb/result/generation.json" \
+            --receipt "$RUNNER_TEMP/r014-mpfb/result/gender_verified.json"
+      - name: Independent native saved/reopened joint deformation test
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_native.blend" \
+            --python r014/mpfb_verify.py -- \
+            --blend "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_native.blend" \
+            --receipt "$RUNNER_TEMP/r014-mpfb/result/reopened.json"
+      - name: Measure matched native-to-GLB animated skinning parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_clean_review.blend" \
+            --python r014/mpfb_pose_parity.py -- \
+            --out "$RUNNER_TEMP/r014-mpfb/result" \
+            --receipt "$RUNNER_TEMP/r014-mpfb/result/pose_parity.json"
+          test -s "$RUNNER_TEMP/r014-mpfb/result/pose_parity.json"
+          for actor in female male; do
+            "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_clean_review.blend" \
+              --python r014/mpfb_pose_parity.py -- \
+              --sex "$actor" \
+              --out "$RUNNER_TEMP/r014-mpfb/result" \
+              --receipt "$RUNNER_TEMP/r014-mpfb/result/pose_parity_${actor}.json"
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-mpfb/result"
+          c=json.loads((p/"pose_parity.json").read_text())
+          f=json.loads((p/"pose_parity_female.json").read_text())
+          m=json.loads((p/"pose_parity_male.json").read_text())
+          assert c["actor_isolation_mode"]=="combined"
+          assert f["actor_isolation_mode"]=="female" and m["actor_isolation_mode"]=="male"
+          print("PASS_DIAGNOSTIC_EVIDENCE_CAPTURED; real deformation parity not promoted")
+          PY
+          python3 r014/pose_parity_gate.py \
+            --combined "$RUNNER_TEMP/r014-mpfb/result/pose_parity.json" \
+            --female "$RUNNER_TEMP/r014-mpfb/result/pose_parity_female.json" \
+            --male "$RUNNER_TEMP/r014-mpfb/result/pose_parity_male.json" \
+            --out "$RUNNER_TEMP/r014-mpfb/result/actor_export_policy.json"
+      - name: Render actual MPFB surfaces and camera motion as visual QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mpfb/result/R014_MPFB_female_male_clean_review.blend" \
+            --python r014/mpfb_render_probe.py -- \
+            --output "$RUNNER_TEMP/r014-mpfb/result" \
+            --receipt "$RUNNER_TEMP/r014-mpfb/result/visual_qa.json"
+          test -s "$RUNNER_TEMP/r014-mpfb/result/female_face.png"
+          test -s "$RUNNER_TEMP/r014-mpfb/result/turntable_camera_only.mp4"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mpfb-adult-baselines
+          path: ${{ runner.temp }}/r014-mpfb/result/*
+          retention-days: 7
