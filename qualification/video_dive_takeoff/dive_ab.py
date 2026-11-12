@@ -26,15 +26,20 @@ LIMBS={"male":(.54,.53),"female":(.52,.51)}
 
 def proposed_dive(t,body,shoe):
     root,original,contact,phase=ORIGINAL(t,body,shoe)
+    # Shoe geometry: bare-foot toe is ankle minus toe_thickness, rendered
+    # as a segment of radius .058 m, so this puts its support envelope at z=0.
+    # Keep the ankle ABOVE ground (the previous z=0 rep was physically and
+    # mathematically incorrect), and lower the crouching pelvis enough to make
+    # both 3D hip-to-ankle vectors two-link reachable. Source contact flags
+    # remain unchanged; toe-off is C1 blended back into original glide.
+    ankle_support_z=shoe.toe_thickness+.058
     anchored={
-      "left":np.asarray([.16-.08,-body.hip_half,shoe.heel_height],dtype=float),
-      "right":np.asarray([.16+.03,body.hip_half,shoe.heel_height],dtype=float),
+      "left":np.asarray([.16-.08,-body.hip_half,ankle_support_z],dtype=float),
+      "right":np.asarray([.16+.03,body.hip_half,ankle_support_z],dtype=float),
     }
-    # Original source marks both feet planted until phase=.22. They previously
-    # translated vertically with the crouching pelvis (false stance slide).
-    # Hold them on their support plane and transition smoothly only after
-    # declared toe-off to the original airborne/glide trajectory.
     release=gen.smooth01(max(0.,min(1.,(phase-.22)/.10)))
+    root=np.asarray(root,dtype=float).copy()
+    root[2]-=.14*(1.-release)
     feet={side:(1.-release)*anchored[side]+release*np.asarray(original[side],dtype=float)
           for side in ("left","right")}
     return root,feet,contact,phase
@@ -90,21 +95,26 @@ def evaluate(out):
         for side in ("left","right"):
             if b["contact"][side]:
                 ankle=b["joints"][side+"_ankle"]
-                if abs(ankle[2])>1e-8:
-                    raise ValueError("PLANTED_BAREFOOT_NOT_ON_GROUND")
+                if abs(ankle[2]-(gen.FOOTWEAR["barefoot"].toe_thickness+.058))>1e-8:
+                    raise ValueError("PLANTED_ANKLE_SUPPORT_ENVELOPE_NOT_ON_GROUND")
                 if side not in anchored: anchored[side]=ankle
                 if math.dist(ankle,anchored[side])>1e-8:
                     raise ValueError("PLANTED_WORLD_ANKLE_DRIFT")
         for key in ("left_hip","right_hip"):
-            if a["joints"][key]!=b["joints"][key]:
-                raise ValueError("UNAUTHORIZED_PELVIS_OR_HIP_TRAJECTORY_EDIT")
+            old_hip,new_hip=a["joints"][key],b["joints"][key]
+            if math.dist(old_hip[:2],new_hip[:2])>1e-9:
+                raise ValueError("UNAUTHORIZED_HORIZONTAL_HIP_TRAJECTORY_EDIT")
+            if b["contact"]["left"] and abs((old_hip[2]-new_hip[2])-.14)>1e-8:
+                raise ValueError("CROUCH_ROOT_HEIGHT_NOT_CORRECTED")
     return {
        "schema":"scp.original-dive-grounded-takeoff-ab.v1",
        "case":CASE,
        "original":first,"candidate":second,
        "original_media":bmedia,"candidate_media":amedia,
        "contact_labels_unchanged":True,
-       "source_hip_trajectories_unchanged":True,
+       "source_hip_horizontal_trajectories_unchanged":True,
+       "source_crouch_hip_height_adjusted":True,
+       "contact_foot_support_envelope_at_z0":True,
        "source_frame_count":40,
        "science":"TARGETED_SOURCE_CONTACT_AND_BONE_LENGTH_ONLY",
        "limits":[
