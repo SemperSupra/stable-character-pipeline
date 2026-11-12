@@ -4,7 +4,7 @@ set -euo pipefail
 phase="$(printenv R009_PHASE || printf producer)"
 case "$phase" in producer|consumer) ;; *) echo INVALID_PHASE >&2; exit 2;; esac
 work="$(mktemp -d)"
-name="r009-oci-test-$phase-$"
+name="r009-oci-test-$phase-$RANDOM"
 image_tag="r009-public-synthetic-oci:$phase"
 mkdir -p "$work/build" synthetic-oci-evidence
 cid=""
