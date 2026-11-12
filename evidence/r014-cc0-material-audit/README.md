@@ -38,3 +38,20 @@ The material assignments total 18,486 faces. Most source textures are 2048×2048
 - `43289453499-male-material-summary.json`
 
 These are exact model-generated stdout JSON summaries from source-native original GHA executions (the full accessory-mesh listing is retained only in original GHA artifacts). **NO MERGE/RELEASE or cinematic photoreal promotion.**
+
+
+## Bounded nested PBR shader graph follow-up — source verified
+
+**Public free-tier run [43290409906](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43290409906): two independent saved-source Blender 4.5.16 actor jobs PASS.** The source metadata originates from the two material-census fixtures above; no model files were copied into the repository.
+
+Both male/female actors:
+- Six **active** body material slots, each with surface-linked Material Output and nested source shader groups containing a **Principled BSDF**, packed source image texture nodes, noise/normal-map/bump adjustments. Two packed image texture node references per active material graph.
+- Unused body material slot index 6, named genitals, has **zero assigned body polygons**. The existence of an unused shader graph does not prove geometric anatomy.
+- The nested group includes a PBR shader; the source lacks a standalone dedicated BSDF_SUBSURFACE_SCATTERING node, which does *not* rule out Principled BSDF subsurface controls. Those input parameters and actual rendered skin response remain unchecked.
+- Nested source inventories are diagnostic graph traversals, not proof all nodes are connected to the final surface, not visual acceptance. Independent shader link reachability, close-up true render review, eyes/cornea, hair collisions, material roughness, SSS, skin displacement, UV seam and asset-body registration are still HOLD.
+
+**Durable compact JSON:**
+- `43290409906-female-nested-pbr-summary.json`
+- `43290409906-male-nested-pbr-summary.json`
+
+No change to cinema-quality release disposition. No private imagery, no main merge or release.
