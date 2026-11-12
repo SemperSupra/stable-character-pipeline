@@ -385,6 +385,44 @@ def run(repo_path, path):
         record["all_output_finite"]=finite
         record["score_calibration"]="NOT_VALIDATED; 0.25 is synthetic numeric probe, not measured CLIP score"
         record["status"]="PASS_ACTUAL_PUBLISHED_MAPPER_NUMERIC_FORWARD_ONLY" if finite and repeat_diff==0 and output_size==10 else "FAIL_NATIVE_PRETRAINED_FORWARD"
+        if os.environ.get("R015_SCORE_REPLAY_RECEIPT"):
+            fixture_path=Path(os.environ["R015_SCORE_REPLAY_RECEIPT"])
+            fixture=json.loads(fixture_path.read_text(encoding="utf8"))
+            prior=fixture["original_clip_chain"]
+            assert prior["source_clip_weights_sha256"]=="40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af"
+            expected=prior["mapper_output_10_smplx_betas"]
+            scores=prior["scores_raw_image_text_logits"]
+            if len(scores)!=3 or len(expected)!=3 or any(len(x)!=8 for x in scores) or any(len(v)!=10 for v in expected):
+                record["status"]="REJECT_SCORE_FIXTURE_SHAPE"
+                return record
+            with torch.inference_mode():
+                got=model(torch.tensor(scores,dtype=torch.float32))
+                target=torch.tensor(expected,dtype=torch.float32)
+                abs_error=torch.abs(got-target)
+            maxerr=float(abs_error.max().item())
+            mae=float(abs_error.mean().item())
+            # Reference was rounded to six decimal places. Allow documented
+            # roundoff and CPU threading differences, but not numerical drift.
+            tol=0.0003
+            status="PASS_MODERN_FRAMEWORK_SCORE_REPLAY" if maxerr<=tol and torch.isfinite(got).all() else "FAIL_MODERN_FRAMEWORK_SCORE_REPLAY"
+            record["modern_score_replay"]={
+                "status":status,
+                "reference_receipt_sha256":digest(fixture_path),
+                "reference_github_run":43278119546,
+                "reference_clip_weights_sha256":prior["source_clip_weights_sha256"],
+                "input_source":"published CLIP ViT-B/32 raw scores on 3 synthetic age-neutral adult silhouettes from prior original source run",
+                "test_vectors":3,"inputs_each":8,"output_betas_each":10,
+                "max_abs_beta_error":round(maxerr,9),
+                "mean_abs_beta_error":round(mae,9),
+                "max_abs_error_allowed":tol,
+                "checkpoint_sha256":record["checkpoint_sha256"],
+                "torch_version":torch.__version__,
+                "native_mesh_qualified":False,
+                "native_LLM_qualified":False,
+                "no_new_image_encoding":True,
+            }
+            if not status.startswith("PASS"):
+                record["status"]=status
         if os.environ.get("R015_CLIP_SOURCE"):
             realclip=original_clip_numeric_fixture(model, metadata["labels"], os.environ.get("RUNNER_TEMP","/tmp"))
             record["original_clip_chain"]=realclip
