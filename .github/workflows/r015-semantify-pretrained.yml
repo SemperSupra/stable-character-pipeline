@@ -5,7 +5,6 @@ on:
       - research/r015-prior-art-bakeoff-r1-20261112
     paths:
       - '.github/workflows/r015-semantify-pretrained.yml'
-      - 'research/r015_prior_art/semantify_pretrained.py'
 permissions:
   contents: read
 concurrency:
