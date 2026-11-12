@@ -7,7 +7,7 @@ class ContactCoverTests(unittest.TestCase):
     def test_full_sliding_path_is_not_all_contact(self):
         edges = list(range(39))
         count, witness = minimum_cover_dp(edges, 40)
-        self.assertEqual(count, 19)  # forty path vertices, 39 sliding edges
+        self.assertEqual(count, 20)  # forty path vertices, 39 sliding edges
         self.assertTrue(all(i in witness or i+1 in witness for i in edges))
         self.assertEqual(maximum_matching_path(edges, 40)[0], count)
 
