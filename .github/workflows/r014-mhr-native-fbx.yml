@@ -73,6 +73,28 @@ jobs:
             --native "$RUNNER_TEMP/r014-mhr/evidence/native_bounds.json" \
             --glb "$RUNNER_TEMP/r014-mhr/evidence/glb_bounds.json" \
             --receipt "$RUNNER_TEMP/r014-mhr/evidence/scale_gate.json"
+      - name: Animate documented MHR facial morphs and render real character motion
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-mhr/evidence/R014_MHR_neutral_lod1.blend" \
+            --python r014/mhr_face_motion.py -- \
+            --output "$RUNNER_TEMP/r014-mhr/evidence" \
+            --receipt "$RUNNER_TEMP/r014-mhr/evidence/face_motion.json"
+          python3 - <<'PY'
+          import os,struct,json
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'r014-mhr/evidence/R014_MHR_face_motion.glb'
+          with p.open('rb') as f:
+              f.read(12)
+              size,kind=struct.unpack('<I4s',f.read(8))
+              assert kind==b'JSON'
+              g=json.loads(f.read(size))
+          paths=[c.get('target',{}).get('path') for a in g.get('animations',[]) for c in a.get('channels',[])]
+          assert 'weights' in paths,('no exported facial morph weight animation',paths)
+          assert (p.parent/'R014_MHR_face_morph_technical.mp4').stat().st_size>1000
+          print('PASS_PORTABLE_FACE_WEIGHTS_ONLY',len(paths))
+          PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -81,4 +103,5 @@ jobs:
             ${{ runner.temp }}/r014-mhr/evidence/*.json
             ${{ runner.temp }}/r014-mhr/evidence/*.blend
             ${{ runner.temp }}/r014-mhr/evidence/*.glb
+            ${{ runner.temp }}/r014-mhr/evidence/*.mp4
           retention-days: 7
