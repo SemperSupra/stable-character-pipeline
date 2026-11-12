@@ -44,9 +44,10 @@ git fetch origin --no-tags
 git rev-parse origin/qualification/visualqa-nine-fix-original-corpus-r1-20261112
 git merge-base HEAD origin/qualification/visualqa-nine-fix-original-corpus-r1-20261112
 git log --oneline --left-right --cherry-pick HEAD...origin/qualification/visualqa-nine-fix-original-corpus-r1-20261112
+git for-each-ref --format='%(refname) %(objectname)' refs/heads/workcell/visualqa-male-jump-slippers refs/remotes/origin/workcell/visualqa-male-jump-slippers
 ```
 
-If fetched baseline is NOT the exact pinned SHA, **stop and report drift**; no assumed successful synchronization. If the working tree is dirty, detached, local commits are unpushed, branches diverge, or a candidate branch exists remotely, do **not** automatically `checkout`, `pull`, `reset`, `rebase`, `stash`, `clean`, `push --force`, overwrite branch history, or delete old work. Instead, preserve the work, enumerate the state and identify a non-destructive safe continuation on the *same owned branch*. Document anything requiring owner arbitration, but independently continue unrelated safe checks.
+If fetched baseline is NOT the exact pinned SHA, **stop and report drift**; no assumed successful synchronization. Check whether an actor branch already exists remotely before creating a new one. A remote branch may advance after the fetch: rejected ordinary non-force push is a **reconciliation hold**, not permission to force/reset/overwrite. If the working tree is dirty, detached, local commits are unpushed, branches diverge, or a candidate branch exists remotely, do **not** automatically `checkout`, `pull`, `reset`, `rebase`, `stash`, `clean`, `push --force`, overwrite branch history, or delete old work. Instead, preserve the work, enumerate the state and identify a non-destructive safe continuation on the *same owned branch*. Document anything requiring owner arbitration, but independently continue unrelated safe checks.
 
 If the workspace is clean and there is **no existing local actor branch/work to preserve**, create a dedicated branch from the pinned baseline:
 
