@@ -1,0 +1,75 @@
+name: Motion S0 diagnostic official CMU certificate chain no capture ingest
+on:
+  push:
+    branches: [research/motion-cmu07-source-admission-20261112]
+    paths: [.github/workflows/motion-cmu07-tls-diagnostic.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  authenticated_metadata_only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Inspect publicly presented TLS certificate chain WITHOUT acquiring any raw source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu-tls/certs" "$RUNNER_TEMP/cmu-tls/out"
+          # This is NOT a model-data download. Untrusted TLS handshake is used
+          # only to inspect PUBLIC certificate bytes and identify missing issuers.
+          timeout 30s openssl s_client -connect mocap.cs.cmu.edu:443 \
+            -servername mocap.cs.cmu.edu -showcerts </dev/null \
+            > "$RUNNER_TEMP/cmu-tls/presented.txt" \
+            2> "$RUNNER_TEMP/cmu-tls/handshake.err" || true
+          awk -v dir="$RUNNER_TEMP/cmu-tls/certs" '
+            /-----BEGIN CERTIFICATE-----/ { inside=1; count++; name=sprintf("%s/chain%02d.pem",dir,count) }
+            inside { print > name }
+            /-----END CERTIFICATE-----/ { inside=0; close(name) }
+          ' "$RUNNER_TEMP/cmu-tls/presented.txt"
+          python3 - <<'PY'
+          import subprocess,json,hashlib,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"cmu-tls"
+          c=sorted((p/"certs").glob("chain*.pem"))
+          assert len(c)<15
+          def run(cmd):
+              q=subprocess.run(cmd,text=True,capture_output=True,timeout=25)
+              return {"exit":q.returncode,"stdout":q.stdout[:4000],"stderr":q.stderr[:2000]}
+          items=[]
+          for cert in c:
+              x=run(["openssl","x509","-in",str(cert),"-noout",
+                     "-subject","-issuer","-dates","-fingerprint","-sha256",
+                     "-ext","authorityInfoAccess"])
+              items.append({"file":cert.name,"sha256_of_pem":hashlib.sha256(cert.read_bytes()).hexdigest(),
+                            "parsed_certificate":x})
+          if c:
+              chain=p/"certs/intermediates.pem"
+              chain.write_bytes(b"".join(x.read_bytes() for x in c[1:]))
+              trust=run(["openssl","verify","-CAfile","/etc/ssl/certs/ca-certificates.crt",
+                         "-untrusted",str(chain),str(c[0])])
+          else:
+              trust={"exit":-1,"stdout":"","stderr":"TLS handshake did not return a certificate"}
+          report={"schema":"motion.cmu07.tls_peer_chain_diagnostic.v1",
+              "host":"mocap.cs.cmu.edu",
+              "source_files_acquired":0,
+              "purpose":"PUBLIC_TLS_CERTIFICATE_METADATA_ONLY",
+              "status":"TRUSTED_CHAIN_CONFIRMED" if trust["exit"]==0 else "CERTIFICATE_TRUST_NOT_ESTABLISHED",
+              "presented_certificate_count":len(c),
+              "peer_certificate_metadata":items,
+              "system_root_bundle_verification":trust,
+              "limitations":["A diagnostic TLS handshake is NOT an authenticated source data transfer",
+                             "No certificate override, HTTP/unsafe mirror or raw CMU capture downloaded",
+                             "Do not count this as owner source/admission approval or verified ASF/AMC FK"]}
+          out=p/"out/cmu07_tls_diagnostic.json"
+          out.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+          print("CMU07_TLS_CHAIN_DIAGNOSTIC",json.dumps({"status":report["status"],
+                   "cert_count":len(c),"openssl_verify_exit":trust["exit"]},sort_keys=True))
+          PY
+          (cd "$RUNNER_TEMP/cmu-tls/out" && sha256sum *.json > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: cmu07-tls-chain-metadata-only
+          path: ${{ runner.temp }}/cmu-tls/out/*
+          retention-days: 7
