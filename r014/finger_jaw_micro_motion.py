@@ -56,18 +56,13 @@ def reset_pose():
     scene.frame_set(1)
     bpy.context.view_layer.update()
 
-def target_vertices(names):
-    refs=[body.vertex_groups.get(n) for n in names]
-    gids={g.index for g in refs if g is not None}
-    ids=[v.index for v in body.data.vertices
-         if any(g.group in gids and g.weight>.02 for g in v.groups)]
-    return ids
-
-def world_points(indices):
+def world_points():
     dg=bpy.context.evaluated_depsgraph_get()
     ev=body.evaluated_get(dg)
     mesh=ev.to_mesh()
-    try:return {i:ev.matrix_world@mesh.vertices[i].co for i in indices}
+    # MPFB source 19158 vertices includes helpers trimmed by evaluated
+    # geometry (13380 vertices). Never index evaluated verts using source IDs.
+    try:return [ev.matrix_world@v.co for v in mesh.vertices]
     finally:ev.to_mesh_clear()
 
 results=[]
@@ -101,13 +96,17 @@ for shot in ("hand","jaw_gaze"):
             rig.pose.bones["eye.R"].rotation_euler.z=.06*amplitude
             for name in driven:
                 rig.pose.bones[name].keyframe_insert(data_path="rotation_euler",frame=f)
-    indices=target_vertices(driven)
-    # A bone-action log alone is insufficient; prove that skinned mesh actually moved.
-    assert len(indices)>10,("no skin geometry driven by target bones",shot,len(indices))
+    # Select a physical neighborhood around the animated hand/jaw from
+    # evaluated neutral geometry, not source index IDs (source removes helpers).
     scene.frame_set(1);bpy.context.view_layer.update()
-    first=world_points(indices)
+    first=world_points()
+    anchor=rig.matrix_world@rig.pose.bones[origin_bone].head
+    radius=.26 if shot=="hand" else .30
+    indices=[i for i,v in enumerate(first) if (v-anchor).length<radius]
+    assert len(indices)>10,("missing evaluated regional geometry",shot,len(indices),len(first))
     scene.frame_set(18);bpy.context.view_layer.update()
-    changed=world_points(indices)
+    changed=world_points()
+    assert len(first)==len(changed),("evaluated topology changed across pose",shot)
     deltas=sorted((first[i]-changed[i]).length for i in indices)
     max_delta=deltas[-1]
     p95=deltas[min(len(deltas)-1,int(.95*len(deltas)))]
