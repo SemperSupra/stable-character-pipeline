@@ -1,0 +1,237 @@
+{
+  "actor": "male",
+  "audit_limits": [
+    "No visual skin texture realism, color, anatomical correctness or photographic quality conclusion",
+    "Having one material slot name ending in 'genitals' does not prove external genital mesh or realistic skin; count polygons and effective shader graph",
+    "Hair, eyes, lashes, brows and tooth assets require independent geometry/collision/visual region gates",
+    "UV existence and packed image links do not establish proper UV topology, shading normals or nonpenetration",
+    "Source mesh eyes/MHCLo metadata not independently region-tagged",
+    "Prior upstream pack said CC0; verify each asset license on release"
+  ],
+  "baked_source_textures": [
+    {
+      "image_resolution": [
+        1024,
+        1024
+      ],
+      "name_sha": "5879962e6ef9a0",
+      "packed_bytes": 610817
+    },
+    {
+      "image_resolution": [
+        512,
+        512
+      ],
+      "name_sha": "e2157c17736e5b",
+      "packed_bytes": 89619
+    },
+    {
+      "image_resolution": [
+        512,
+        512
+      ],
+      "name_sha": "0b1bac561b988f",
+      "packed_bytes": 91600
+    },
+    {
+      "image_resolution": [
+        2048,
+        2048
+      ],
+      "name_sha": "b5bf07be35cfca",
+      "packed_bytes": 2915253
+    },
+    {
+      "image_resolution": [
+        2048,
+        2048
+      ],
+      "name_sha": "8d3ed1fbc6e861",
+      "packed_bytes": 2354146
+    },
+    {
+      "image_resolution": [
+        2048,
+        2048
+      ],
+      "name_sha": "2f6a6d421445d1",
+      "packed_bytes": 1452584
+    },
+    {
+      "image_resolution": [
+        2048,
+        2048
+      ],
+      "name_sha": "f1221688cf743a",
+      "packed_bytes": 1799930
+    },
+    {
+      "image_resolution": [
+        1024,
+        1024
+      ],
+      "name_sha": "25c915a4fd8d0d",
+      "packed_bytes": 625419
+    },
+    {
+      "image_resolution": [
+        2048,
+        2048
+      ],
+      "name_sha": "07050f46b2062e",
+      "packed_bytes": 4391156
+    },
+    {
+      "image_resolution": [
+        2048,
+        2048
+      ],
+      "name_sha": "884fbc9a8376b7",
+      "packed_bytes": 3693828
+    }
+  ],
+  "blender": "4.5.16 LTS",
+  "body_faces": 18486,
+  "body_material_slots": [
+    {
+      "material": {
+        "has_material_output": true,
+        "has_node_group": true,
+        "has_principled": false,
+        "image_node_images": [],
+        "name": "R014_male_textured_body.body",
+        "node_types": {
+          "GROUP": 1,
+          "OUTPUT_MATERIAL": 1
+        },
+        "uses_nodes": true
+      },
+      "polygon_count": 17136,
+      "polygon_share": 0.926972,
+      "slot": 0
+    },
+    {
+      "material": {
+        "has_material_output": true,
+        "has_node_group": true,
+        "has_principled": false,
+        "image_node_images": [],
+        "name": "R014_male_textured_body.nipple",
+        "node_types": {
+          "GROUP": 1,
+          "OUTPUT_MATERIAL": 1
+        },
+        "uses_nodes": true
+      },
+      "polygon_count": 78,
+      "polygon_share": 0.004219,
+      "slot": 1
+    },
+    {
+      "material": {
+        "has_material_output": true,
+        "has_node_group": true,
+        "has_principled": false,
+        "image_node_images": [],
+        "name": "R014_male_textured_body.lips",
+        "node_types": {
+          "GROUP": 1,
+          "OUTPUT_MATERIAL": 1
+        },
+        "uses_nodes": true
+      },
+      "polygon_count": 380,
+      "polygon_share": 0.020556,
+      "slot": 2
+    },
+    {
+      "material": {
+        "has_material_output": true,
+        "has_node_group": true,
+        "has_principled": false,
+        "image_node_images": [],
+        "name": "R014_male_textured_body.fingernails",
+        "node_types": {
+          "GROUP": 1,
+          "OUTPUT_MATERIAL": 1
+        },
+        "uses_nodes": true
+      },
+      "polygon_count": 92,
+      "polygon_share": 0.004977,
+      "slot": 3
+    },
+    {
+      "material": {
+        "has_material_output": true,
+        "has_node_group": true,
+        "has_principled": false,
+        "image_node_images": [],
+        "name": "R014_male_textured_body.toenails",
+        "node_types": {
+          "GROUP": 1,
+          "OUTPUT_MATERIAL": 1
+        },
+        "uses_nodes": true
+      },
+      "polygon_count": 200,
+      "polygon_share": 0.010819,
+      "slot": 4
+    },
+    {
+      "material": {
+        "has_material_output": true,
+        "has_node_group": true,
+        "has_principled": false,
+        "image_node_images": [],
+        "name": "R014_male_textured_body.ears",
+        "node_types": {
+          "GROUP": 1,
+          "OUTPUT_MATERIAL": 1
+        },
+        "uses_nodes": true
+      },
+      "polygon_count": 600,
+      "polygon_share": 0.032457,
+      "slot": 5
+    },
+    {
+      "material": {
+        "has_material_output": true,
+        "has_node_group": true,
+        "has_principled": false,
+        "image_node_images": [],
+        "name": "R014_male_textured_body.genitals",
+        "node_types": {
+          "GROUP": 1,
+          "OUTPUT_MATERIAL": 1
+        },
+        "uses_nodes": true
+      },
+      "polygon_count": 0,
+      "polygon_share": 0,
+      "slot": 6
+    }
+  ],
+  "body_uv_map_count": 1,
+  "body_vertices": 19158,
+  "cinematic_4k": "HOLD",
+  "external_reproductive_topology": "UNQUALIFIED",
+  "material_assignment": "EVIDENCE_ONLY_NO_VISUAL_PROOF",
+  "merge_release": "HOLD",
+  "photoreal_visual_acceptance": "HOLD_NOT_RUN",
+  "rig_deform_groups": 291,
+  "schema": "r014.cc0.native_material_coverage_audit.v1",
+  "source_archive_sha256": "b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107",
+  "source_mpbf": "6ff1eb358f6c1959ced77e79e6dd2406d9a71f49",
+  "source_run": 43207664661,
+  "status": "PASS_SOURCE_MATERIAL_FACE_ASSIGNMENT_AND_PACKED_IMAGE_AUDIT_ONLY",
+  "unmapped_body_faces": 0,
+  "unpacked_source_images": [],
+  "github_execution": {
+    "run_id": 43289453499,
+    "job_id": 131431486653,
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43289453499",
+    "log_scope": "stdout material coverage summary; detailed visible secondary-mesh list resides only in run artifact"
+  }
+}

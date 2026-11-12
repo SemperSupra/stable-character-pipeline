@@ -1,0 +1,97 @@
+name: R014 Real CC0 Human Material and Mesh UV Coverage Falsifier
+on:
+  push:
+    branches: [research/r014-real-cc0-material-coverage-audit-20261112]
+    paths:
+      - r014/cc0_material_coverage_audit.py
+      - .github/workflows/r014-cc0-material-coverage.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-source-cc0-material-coverage
+  cancel-in-progress: true
+jobs:
+  original-saved-cc0-materials:
+    name: Independent saved Blender source body surface material audit ${{ matrix.sex }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sex: female
+            source_run: 43288582735
+          - sex: male
+            source_run: 43287691272
+    steps:
+      - name: Checkout independent source-audit Python
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Compile before any external binary inputs
+        run: python3 -m compileall -q r014/cc0_material_coverage_audit.py
+      - name: Retrieve independently authenticated prior research-only CC0 actor native files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ matrix.sex }}
+          SOURCE_RUN: ${{ matrix.source_run }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cc0-audit/source" "$RUNNER_TEMP/cc0-audit/out"
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "r014-cc0-real-morph-motion-$ACTOR" --dir "$RUNNER_TEMP/cc0-audit/source"
+          test -s "$RUNNER_TEMP/cc0-audit/source/R014_${ACTOR}_CC0_morph_editable_motion.blend"
+          test -s "$RUNNER_TEMP/cc0-audit/source/morph_receipt.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"cc0-audit/source/morph_receipt.json"
+          j=json.loads(p.read_text())
+          assert j["source_official_pack_sha256"]=="b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107"
+          assert j["sex_macro_label"]==os.environ["ACTOR"]
+          assert j["status"]=="PASS_SOURCE_NATIVE_CC0_MORPH_MOTION_RENDER_STRUCTURAL_ONLY"
+          PY
+      - name: Fetch and checksum exact official Blender 4.5.16 runner binary
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/cc0-audit"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 "$base/blender-4.5.16.sha256" -o official.sha256
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 5 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          expected="$(grep -F blender-4.5.16-linux-x64.tar.xz official.sha256 | awk '{print $1}')"
+          test "${#expected}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$expected" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/cc0-audit" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Independently reopen actual original material graph and count UV and per-face assignments
+        env:
+          ACTOR: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/cc0-audit/source/R014_${ACTOR}_CC0_morph_editable_motion.blend" \
+            --python-exit-code 3 --python r014/cc0_material_coverage_audit.py -- \
+            --sex "$ACTOR" \
+            --blend "$RUNNER_TEMP/cc0-audit/source/R014_${ACTOR}_CC0_morph_editable_motion.blend" \
+            --receipt "$RUNNER_TEMP/cc0-audit/source/morph_receipt.json" \
+            --out "$RUNNER_TEMP/cc0-audit/out/material_coverage_$ACTOR.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"cc0-audit/out"/("material_coverage_"+os.environ["ACTOR"]+".json")
+          j=json.loads(p.read_text())
+          assert j["status"]=="PASS_SOURCE_MATERIAL_FACE_ASSIGNMENT_AND_PACKED_IMAGE_AUDIT_ONLY"
+          assert j["photoreal_visual_acceptance"]=="HOLD_NOT_RUN"
+          print("PASS_SOURCE_MATERIAL_CENSUS_WITH_REALISM_HOLD",j["actor"])
+          PY
+      - name: Archive numeric/material names only, never trained model/Blender assets
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-cc0-material-audit-${{ matrix.sex }}
+          path: ${{ runner.temp }}/cc0-audit/out/*.json
+          if-no-files-found: warn
+          retention-days: 7
