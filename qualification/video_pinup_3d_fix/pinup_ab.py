@@ -29,7 +29,7 @@ def sha(path):
 
 def corrected(hip, ankle, thigh, shin, bend_sign=1):
     candidate=ORIGINAL(hip,ankle,thigh,shin,bend_sign=bend_sign)
-    row=solve_3d(list(hip),list(ankle),thigh,shin,list(candidate))
+    row=solve_3d(np.asarray(hip,dtype=float).tolist(),np.asarray(ankle,dtype=float).tolist(),thigh,shin,np.asarray(candidate,dtype=float).tolist())
     if row["status"]!="FEASIBLE" or row["candidate_knee_bone_error_m"]>1e-7:
         raise ValueError("ORIGINAL_3D_POSE_NOT_FEASIBLE")
     return np.asarray(row["candidate_knee_xyz"],dtype=float)
