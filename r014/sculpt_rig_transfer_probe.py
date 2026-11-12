@@ -71,7 +71,7 @@ src_vertices=np.array([list(v) for v in src],dtype=np.float64)
 
 mpfb.data.calc_loop_triangles()
 tris=[tuple(int(v) for v in t.vertices) for t in mpfb.data.loop_triangles]
-assert len(tris)>30000
+assert len(tris)>15000 and len(tris)<150000,("cleaned source triangle census",len(tris))
 bvh=BVHTree.FromPolygons([Vector(v) for v in src_vertices],tris,all_triangles=True)
 
 def place(flip):
