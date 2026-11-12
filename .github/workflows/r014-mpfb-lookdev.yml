@@ -12,7 +12,7 @@ concurrency:
 jobs:
   native-lookdev:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 55
     env:
       BLENDER_USER_CONFIG: /tmp/r014-mpfb-surface/config
       BLENDER_USER_SCRIPTS: /tmp/r014-mpfb-surface/scripts
@@ -51,23 +51,24 @@ jobs:
           test -f "$ext"
           "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r014-surface/extensions"
           "$BLENDER_BIN" --command extension install-file -r r014lab -e "$ext"
-      - name: Pin CC0 core asset archive digest and safely unpack
+      - name: Resume original publisher ZIP until full exact SHA-256 verified
         shell: bash
         run: |
           set -euo pipefail
-          curl -fL --retry 3 --connect-timeout 20 --max-time 480 \
-            https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip \
-            -o "$RUNNER_TEMP/r014-surface/assets.zip"
+          mkdir -p "$RUNNER_TEMP/r014-surface/result"
+          python3 r014/resume_verified_assets.py --self-test
+          python3 r014/resume_verified_assets.py \
+            --out "$RUNNER_TEMP/r014-surface/assets.zip" \
+            --receipt "$RUNNER_TEMP/r014-surface/result/acquisition.json" \
+            --max-attempts 12 --per-attempt-seconds 240
           python3 - <<'PY'
-          import hashlib,os,zipfile
+          import os,zipfile
           from pathlib import Path
-          folder=Path(os.environ['RUNNER_TEMP'])/'r014-surface'
-          archive=folder/'assets.zip'
-          assert hashlib.sha256(archive.read_bytes()).hexdigest()=='b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107'
-          with zipfile.ZipFile(archive) as z:
+          folder=Path(os.environ["RUNNER_TEMP"])/"r014-surface"
+          with zipfile.ZipFile(folder/"assets.zip") as z:
               assert z.testzip() is None
-              assert all(not i.filename.startswith('/') and '..' not in i.filename.split('/') for i in z.infolist())
-              z.extractall(folder/'assets')
+              assert all(not i.filename.startswith("/") and ".." not in i.filename.split("/") for i in z.infolist())
+              z.extractall(folder/"assets")
           PY
       - name: Reject reversed MPFB phenotype macros before native lookdev
         shell: bash
