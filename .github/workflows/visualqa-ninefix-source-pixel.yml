@@ -1,0 +1,156 @@
+name: visualqa-ninefix-source-h264-pixel-temporal
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_ninefix_pixels/**'
+      - '.github/workflows/visualqa-ninefix-source-pixel.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: visualqa-ninefix-source-pixel-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  per-family-readonly-source-pixel-audit:
+    name: Original ninefix exact 3D source to real H264 luma / ${{ matrix.family }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        family: [locomotion, exercise_pose, dance_combat, aquatic]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43216360740
+          github-token: ${{ github.token }}
+          name: original-nine-fix-22-model-source-h264
+          path: research/ninefix
+      - name: Install only fresh temporary public-runner decoder tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+      - name: SHA-verified native H264 frames vs GT 3D time correlation (no oracle)
+        env:
+          FAMILY: ${{ matrix.family }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/visualqa_ninefix_pixels -p 'test_source_pixel_temporal.py' -v
+          python3 qualification/visualqa_ninefix_pixels/source_pixel_temporal.py \
+            --root research/ninefix --family "$FAMILY" \
+            --out "receipts/$FAMILY.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ninefix-source-pixel-${{ matrix.family }}
+          path: receipts/${{ matrix.family }}.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-22-case-h264-triage-join:
+    name: Independently join four real-media source-pixel witnesses to existing Go H264 receipts
+    needs: per-family-readonly-source-pixel-audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: ninefix-source-pixel-*
+          merge-multiple: true
+          path: receipts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43216360740
+          github-token: ${{ github.token }}
+          name: ninefix-actual-decoded-22-h264
+          path: research/previous-go
+      - name: Exact SHA and no-oracle 22-case independent reconciliation
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,math,re
+          from pathlib import Path
+          families={"locomotion":8,"exercise_pose":7,"dance_combat":5,"aquatic":2}
+          cases=[]
+          for family,expected in families.items():
+              d=json.loads((Path("receipts")/(family+".json")).read_text())
+              assert d["schema"]=="scp.visualqa.ninefix-source-to-decoded-h264-luma.v1"
+              assert d["family"]==family and d["case_count"]==expected
+              assert len(d["cases"])==expected and d["disposition"]=="RESEARCH_TRIAGE_ONLY"
+              assert re.fullmatch(r"[a-f0-9]{64}",d["manifest_sha256"])
+              for c in d["cases"]:
+                  assert c["actual_decoded_frames"]==40
+                  assert 1<=c["unique_decoded_64px_grayscale_frames"]<=40
+                  assert c["verdict"]=="NUMERIC_DIAGNOSTIC_NOT_REALISM_ACCEPTANCE"
+                  for k in ("source_h264_sha256","source_glb_sha256","source_ground_truth_sha256","decoded_64px_luma_sha256"):
+                      assert re.fullmatch(r"[a-f0-9]{64}",c[k])
+                  assert c["source_joint_count"]>0
+                  p=c["source_video_transition_pearson_r"]
+                  assert p is None or math.isfinite(p) and -1.<=p<=1.
+                  assert 0<=c["identical_downsampled_adjacent_frames"]<=39
+                  assert len(c["top_uncalibrated_temporal_review_frames"])==5
+                  cases.append(c)
+          assert len(cases)==len({c["case"] for c in cases})==22
+          other=json.loads(Path("research/previous-go/ninefix-decoded-video.json").read_text())
+          assert other["schema"]=="scp.video-bakeoff-receipt.v1"
+          assert other["total"]==len(other["results"])==22
+          assert other["matched"]==other["discrepancies"]==0
+          prior={x["id"].removesuffix("_video"):x for x in other["results"]}
+          assert set(prior)=={c["case"] for c in cases}
+          assert {s:sum(x["verdict"]==s for x in other["results"]) for s in ("PASS","FAIL","UNKNOWN")}=={"PASS":14,"FAIL":6,"UNKNOWN":2}
+          out=[]
+          for c in cases:
+              v=prior[c["case"]]
+              assert v["source_sha256"]==c["source_h264_sha256"]
+              assert v["kind"]=="video" and v.get("expected","")=="" and not v.get("error")
+              assert v["matches_oracle"] is False and v["verdict"] in ("PASS","FAIL","UNKNOWN")
+              out.append({"case":c["case"],"previous_no_oracle_codec_verdict":v["verdict"],
+                          "previous_video_findings":v["findings"],
+                          "source_h264_sha256":c["source_h264_sha256"],
+                          "source_glb_sha256":c["source_glb_sha256"],
+                          "source_gt_sha256":c["source_ground_truth_sha256"],
+                          "unique_64px_gray_frames":c["unique_decoded_64px_grayscale_frames"],
+                          "identical_downsampled_adjacent_pairs":c["identical_downsampled_adjacent_frames"],
+                          "source_to_decoded_luma_pearson_r":c["source_video_transition_pearson_r"],
+                          "max_source_mean_joint_speed_m_s":c["source_mean_joint_velocity_m_s"]["max"],
+                          "max_decoded_gray_difference":c["decoded_mean_abs_luma_delta_fraction"]["max"],
+                          "top_review_frames":c["top_uncalibrated_temporal_review_frames"],
+                          "realism_accepted":False})
+          priority={"FAIL":0,"UNKNOWN":1,"PASS":2}
+          out.sort(key=lambda r:(priority[r["previous_no_oracle_codec_verdict"]],-r["identical_downsampled_adjacent_pairs"],r["case"]))
+          result={"schema":"scp.visualqa.ninefix-original-22-source-pixel-reconciled.v1",
+                  "case_count":22,"previous_codec_counts":{"PASS":14,"FAIL":6,"UNKNOWN":2},
+                  "pixel_sample":"FFmpeg actually decoded 40 frames @ 20fps into 64x64 grayscale",
+                  "cases":out,"research_status":"NO_ORACLE_TEMPORAL_REVIEW_PRIORITIES_ONLY",
+                  "original_source_negatives":"IMMUTABLE",
+                  "global_human_realism":"NOT_QUALIFIED","release":"HOLD"}
+          Path("receipts/22-case-pixel-join.json").write_text(json.dumps(result,sort_keys=True,indent=2)+"\n")
+          lines=["# Nine-fix 22-case actual decoded H264 / 3D source temporal triage","",
+                 "All source/GT/GLB/H264 bytes SHA-verified against original rights-only ninefix candidate.",
+                 "A codec FAIL or a 64px pixel/time discrepancy is NOT a physical-motion verdict.",
+                 "No production or human realism admission; original negative controls untouched.","",
+                 "| Case | Prior FFmpeg verdict | Identical 64px adjacent pairs | Source–luma r |",
+                 "|---|---|---:|---:|"]
+          for c in out:
+              corr=c["source_to_decoded_luma_pearson_r"]
+              lines.append("| "+c["case"]+" | "+c["previous_no_oracle_codec_verdict"]+" | "+
+                           str(c["identical_downsampled_adjacent_pairs"])+" | "+(f"{corr:.3f}" if corr is not None else "undefined")+" |")
+          lines+=["","Source/pixel correlations are uncalibrated and can be undefined for intended static poses, occlusion and camera effects.",
+                  "Inspect native H264 and full geometry visually before any acceptance, especially the six existing FFmpeg FAILs."]
+          Path("receipts/22-case-pixel-review.md").write_text("\n".join(lines)+"\n")
+          print("NINEFIX_ORIGINAL_22_DECODED_PIXEL_JOIN",[(x["case"],x["previous_no_oracle_codec_verdict"],
+                x["identical_downsampled_adjacent_pairs"],x["source_to_decoded_luma_pearson_r"]) for x in out])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ninefix-source-pixel-22-case-human-agent-join
+          path: |
+            receipts/22-case-pixel-join.json
+            receipts/22-case-pixel-review.md
+          retention-days: 14
+          if-no-files-found: error
