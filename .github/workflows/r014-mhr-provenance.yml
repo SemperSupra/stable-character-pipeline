@@ -1,0 +1,65 @@
+name: R014 pinned MHR source and model archive rights inspection
+on:
+  push:
+    branches: [research/r014-mhr-provenance-v1]
+    paths:
+      - r014/**
+      - .github/workflows/r014-mhr-provenance.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-mhr-provenance-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mhr-source:
+    name: Source identity and syntax without model weights
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: facebookresearch/MHR
+          ref: 85fc2cbaf77f606e41346cb791d8ad96a75e1a4b
+          persist-credentials: false
+      - name: Source pin, license and Python syntax only
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "85fc2cbaf77f606e41346cb791d8ad96a75e1a4b"
+          grep -F 'Apache License' LICENSE
+          python3 -m compileall -q mhr
+          python3 - <<'PY'
+          import json, subprocess
+          o={'status':'PASS_SOURCE_ONLY','revision':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+             'code_license':'Apache-2.0; upstream checked',
+             'limits':'Does not admit model-weight license, run inference or validate human geometry'}
+          open('source-receipt.json','w').write(json.dumps(o,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-mhr-source
+          path: source-receipt.json
+          retention-days: 7
+  mhr-release-asset-rights:
+    name: Archive hash and embedded asset-license text
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Retrieve only official pinned release archive into disposable temp
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-mhr"
+          curl --fail --location --retry 3 --connect-timeout 15 \
+            https://github.com/facebookresearch/MHR/releases/download/v1.0.1/assets.zip \
+            -o "$RUNNER_TEMP/r014-mhr/assets.zip"
+          python3 r014/mhr_release_inspect.py "$RUNNER_TEMP/r014-mhr/assets.zip" \
+            --expected e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94 \
+            --out "$RUNNER_TEMP/r014-mhr/evidence"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mhr-asset-license-only
+          path: ${{ runner.temp }}/r014-mhr/evidence/*
+          retention-days: 7
