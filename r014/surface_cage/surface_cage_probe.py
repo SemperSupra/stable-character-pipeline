@@ -20,6 +20,7 @@ p = argparse.ArgumentParser()
 p.add_argument("--sex", choices=("female", "male"), required=True)
 p.add_argument("--source", type=Path, required=True)
 p.add_argument("--baseline", type=Path, required=True)
+p.add_argument("--fresh-reopen", type=Path, required=True)
 p.add_argument("--out", type=Path, required=True)
 args = p.parse_args(sys.argv[sys.argv.index("--") + 1:])
 args.out.mkdir(parents=True, exist_ok=True)
@@ -28,6 +29,11 @@ baseline = json.loads(args.baseline.read_text())
 assert baseline["sex_source_macro"] == {"female": 0.0, "male": 1.0}[args.sex]
 assert baseline["source_mesh_vertices"] == 13380
 assert baseline["target_mesh_vertices"] == 10582
+fresh = json.loads(args.fresh_reopen.read_text())
+assert fresh["status"] == "PASS_SAVED_NATIVE_SOURCE_GEOMETRY_PARITY_ONLY"
+assert fresh["target_matrix_world_translation_norm"] < 1e-5
+assert fresh["p95_reproduction_delta_m"] < .01
+assert fresh["required_anatomical_registration"] == "HOLD"
 
 source = bpy.data.objects["R014_" + args.sex + "_body_clean_export"]
 target = bpy.data.objects["GEO-body_" + args.sex + "_realistic"]
@@ -38,8 +44,9 @@ assert len(rig.data.bones) == 163
 assert len(source.data.vertices) == 13380 and len(target.data.vertices) == 10582
 original_modifiers = [(m.name, m.type) for m in target.modifiers]
 
-# The earlier held source scene retained an incorrect object transform. Repair
-# only the experimental in-memory copy, with displacement captured in receipt.
+# The earlier held source had a catastrophic stale world transform, repaired
+# in the distinct public PR #437 fresh-reopen source. This experiment ONLY uses
+# corrected scene input, rejects unverified source. No centroid reposition.
 source.hide_set(False)
 source.hide_viewport = False
 for bname in ("upperarm01.L", "upperleg01.L"):
@@ -71,8 +78,9 @@ original_offset = src.mean(axis=0) - tgt.mean(axis=0)
 if float(np.linalg.norm(original_offset)) > 4.0:
     raise ValueError("Unbounded source/sculpt rest transform mismatch: " +
                      repr(original_offset.tolist()))
-# For this test alone, align mean positions; NOT anatomical correspondence.
-target.location += Vector(original_offset.tolist())
+# Do not apply shape-agnostic bbox/centroid alignment. Legitimate anatomical
+# proportion differences remain as measured residuals to fix by landmarks.
+assert np.linalg.norm(target.matrix_world.translation) < 1e-5
 bpy.context.view_layer.update()
 tgt = base_points(target)
 
@@ -312,10 +320,13 @@ receipt = {
     "source_mpbf_mesh_vertices": len(src),
     "source_bone_count": len(rig.data.bones),
     "target_studio_base_vertices": len(tgt),
-    "source_tissue_baseline": "failed nearest-triangle weights; retained as negative control",
+    "source_tissue_baseline": "corrected persisted world coordinates from #437, transferred weights still held",
     "experimental_method": "Blender Surface Deform; rigged MPFB skin is cage",
     "prior_target_modifiers": original_modifiers,
-    "experimental_transform_repair_m": original_offset.tolist(),
+    "experimental_transform_repair_m": [0., 0., 0.],
+    "rest_centroid_difference_m": original_offset.tolist(),
+    "source_reopen_gate": "PASS_SAVED_NATIVE_SOURCE_GEOMETRY_PARITY_ONLY",
+    "source_reopen_run": 43248830711,
     "prebind_source_distance_p95_m": registration_p95,
     "prebind_source_distance_over_50mm": registration_far,
     "cage_bound": bool(cage.is_bound),
