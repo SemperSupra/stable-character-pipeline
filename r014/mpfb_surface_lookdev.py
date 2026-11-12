@@ -18,6 +18,7 @@ p=argparse.ArgumentParser()
 p.add_argument("--assets",type=Path,required=True)
 p.add_argument("--output",type=Path,required=True)
 p.add_argument("--receipt",type=Path,required=True)
+p.add_argument("--eye-material",choices=["PROCEDURAL_EYES","MAKESKIN"],default="PROCEDURAL_EYES")
 a=p.parse_args(sys.argv[sys.argv.index("--")+1:])
 assert a.assets.is_dir(),"Asset directory not present"
 a.output.mkdir(parents=True,exist_ok=True)
@@ -32,6 +33,7 @@ Props=service("mpfb.entities.objectproperties","HumanObjectProperties")
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.object.delete(use_global=False)
 receipt={"status":"BLOCKED","blender":bpy.app.version_string,
+         "eye_material_mode":a.eye_material,
          "source_license":"MPFB makehuman_system_assets_cc0, official catalog, per-asset recheck required",
          "characters":[]}
 for sex,gender,x,skin,hair in (
@@ -50,7 +52,7 @@ for sex,gender,x,skin,hair in (
     assert mhmat.is_file(),str(mhmat)
     Human.set_character_skin(str(mhmat),body,skin_type="ENHANCED_SSS")
     assets=[
-      ("eyes","high-poly","Eyes","PROCEDURAL_EYES"),
+      ("eyes","high-poly","Eyes",a.eye_material),
       ("teeth","teeth_base","Teeth","MAKESKIN"),
       ("tongue","tongue01","Tongue","MAKESKIN"),
       ("eyebrows","eyebrow001","Eyebrows","MAKESKIN"),
