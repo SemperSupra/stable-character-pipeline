@@ -103,9 +103,7 @@ def evaluate(batch,root,original_root):
         integration.TARGETS=TARGETS-frozenset((PINUP,))
     if report["schema"]!="scp.integrated-original-22-4fix-candidate-batch.v1":
         raise ValueError("ORIGINAL_INTEGRATION_RECEIPT_SHAPE_DRIFT")
-    expected={"locomotion":set(),"exercise_pose":{PINUP,"male_stand_barefoot"},
-              "dance_combat":{"female_judo_kata_barefoot","male_dance_boots","female_dance_high_heels"},
-              "aquatic":set()}[batch]
+    expected={case for case in TARGETS if case in set(gen.BATCHES[batch])}
     actual=set(report["improved_cases"])
     if actual!=expected:
         raise ValueError("CHANGED_CASE_SCOPE_NOT_AS_ADMITTED")
