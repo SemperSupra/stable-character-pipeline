@@ -1,0 +1,81 @@
+name: R014 Native MHR Skeleton Root Motion/Skinned Mesh Integrity
+on:
+  push:
+    branches: [research/r014-mhr-root-motion-integrity-20261112]
+    paths:
+      - r014/mhr_root_motion_integrity_probe.py
+      - .github/workflows/r014-mhr-root-motion-integrity.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-mhr-root-integrity-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source_native_root_hierarchy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 23
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [object, pose-root]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Static syntax gate before any download
+        run: python3 -m compileall -q r014
+      - name: Download hash-checked Blender into disposable workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-root/out"
+          cd "$RUNNER_TEMP/r014-root"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          sha="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#sha}" -eq 64
+          printf '%s  %s\n' "$sha" blender-4.5.16-linux-x64.tar.xz | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-root" -maxdepth 2 -name blender -type f | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Import exact original MHR public rig and mesh
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-all-errors --connect-timeout 20 \
+            https://github.com/facebookresearch/MHR/releases/download/v1.0.1/assets.zip \
+            -o "$RUNNER_TEMP/r014-root/assets.zip"
+          echo "e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94  $RUNNER_TEMP/r014-root/assets.zip" | sha256sum -c -
+          "$BLENDER_BIN" --background --factory-startup --python-exit-code 3 \
+            --python r014/mhr_fbx_native_probe.py -- \
+            --phase create --archive "$RUNNER_TEMP/r014-root/assets.zip" \
+            --sha256 e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94 \
+            --output "$RUNNER_TEMP/r014-root/out" \
+            --receipt "$RUNNER_TEMP/r014-root/out/source_create.json"
+      - name: Fresh process reopen and independently measure pure skeleton-root displacement
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-root/out/R014_MHR_neutral_lod1.blend" \
+            --python-exit-code 3 --python r014/mhr_root_motion_integrity_probe.py -- \
+            --mode '${{ matrix.mode }}' --out "$RUNNER_TEMP/r014-root/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-root/out"
+          r=json.loads((p/"mhr_root_motion_integrity.json").read_text())
+          assert r["mode"] == "${{ matrix.mode }}"
+          assert r["vertex_count"] == 18439 and r["triangles"] == 36874
+          assert r["status"] in ["PASS_PURE_ROOT_TRANSLATION_GEOMETRY_ONLY","HOLD_ROOT_HIERARCHY_OR_SKIN_DEFORMATION"]
+          assert len(r["technical_frames"])==2
+          assert all((p/x).stat().st_size>5000 for x in r["technical_frames"])
+          print("R014_ACTUAL_ROOT_HIERARCHY_STATUS",r["status"],"P95",r["translation_residual_p95"])
+          PY
+          (cd "$RUNNER_TEMP/r014-root/out" && sha256sum *.blend *.json *.png > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mhr-root-motion-${{ matrix.mode }}-research
+          path: ${{ runner.temp }}/r014-root/out/*
+          retention-days: 7
