@@ -50,7 +50,9 @@ Directional sanity checks on the **stylized controls only**: the tall/narrow sil
 
 ## Follow-up execution gate
 
-[Warm native CLIP serial-vs-batched O&M run 43279459776](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43279459776) checks image-text logit equivalence and measured CPU speed/memory on the *same six* controls. This run is independent of published pretrained BodyShapeGPT weights and native SMPL-X licensing. See canonical job receipt for outcome; do not infer from queued status.
+**Completed O&M qualification**: [Original source-native CLIP serial-vs-batched run 43279459776](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43279459776), receipt `43279459776-original-clip-batching-om.json`, **SUCCESS / PASS_NUMERIC_EQUIVALENCE**. On the *same six* public stylized controls and eight descriptor strings, official OpenAI CLIP performed two warm sequential rounds of 48 image-text scoring calls, median **6.756967 seconds**, versus five warm single-batch rounds (6×8 image-text logits), median **0.655090 seconds**: **10.3146× speedup**. Maximum absolute logit difference compared with the *actual original source scorer* and with the warm sequential control: **0.00001526**. Measured Python Linux process maxRSS **2,131,340 KiB (~2.03 GiB)**, including both original CLIP and mapper contexts; this is not steady-state CLIP-only memory. Neither strategy was judged on actual SMPL-X mesh fidelity.
+
+**Implementation differential:** keep original Semantify score semantics and descriptor order, but build a vectorized stateless descriptor scorer rather than the author's one-image/one-label Python loop. This short CPU proof substantially reduces a likely production cost; still independently qualify cold-start/artifact download, full pipeline p50/p95 across a representative real mesh/render dataset, model rights and output bounds before deployment.
 
 ## Repository and DLE hygiene
 
