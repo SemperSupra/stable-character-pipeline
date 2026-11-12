@@ -1,8 +1,8 @@
 # R014 sculpt-to-rig surface-cage experiment — not release quality
 
-This is an independent, source-only research workcell: the previous 2026-11-12
-[failed sculpt-to-MPFB weight-transfer job](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43218606862)
-is rehydrated unchanged. Each real synthetic male/female adult sculpt is
+This is an independent, source-only research workcell: the source-preserved 2026-11-12
+[PR #437 corrected world coordinates and fresh-reopen baseline](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43248830711)
+is rehydrated unchanged. The prior [failed source scene](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43218606862) is retained as negative control. Each real synthetic male/female adult sculpt is
 evaluated against the 163-bone MPFB rig without copying mismatched skin weights.
 
 ## Why this experiment exists
@@ -29,8 +29,10 @@ posed rendered camera-framed images; and saved native Blender scenes.
   identity photos, private character models, protected content, or restricted keys.
 - $0 public GitHub Actions disposable runner. Source-only Git; large native
   binaries stay in short-lived GHA staging until verified private Drive custody.
-- Pre-bind mesh registration still fails; diagnostic translation of the
-  incorrectly saved scene is **not** a valid anatomical landmark fit.
+- The saved source must pass a separate Blender fresh-reopen geometry-position
+  receipt; this workcell applies **zero** centroid transformation. The prior
+  stale-world-coordinate scene remains a rejected independent negative control.
+  Source/target residual anatomy correspondence remains poor regardless.
 - Even a successful bind and an L1 vertex-count match cannot certify sculpt
   detail, UV preservation, facial anatomy, genital morphology, foot contact,
   physically plausible deformation or human realism.
