@@ -1,0 +1,33 @@
+name: R014 official MPFB system skin/eye/hair asset provenance
+on:
+  push:
+    branches: [research/r014-mpfb-system-assets-v1]
+    paths: [r014/**, .github/workflows/r014-mpfb-system-asset-source.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-mpfb-assets-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  official-asset-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download official CC0 core asset-pack archive in temporary runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-assets"
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 480 \
+            https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip \
+            --output "$RUNNER_TEMP/r014-assets/system.zip"
+          python3 r014/mpfb_asset_pack_inspect.py "$RUNNER_TEMP/r014-assets/system.zip" \
+            --out "$RUNNER_TEMP/r014-assets/evidence"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-system-assets-provenance-only
+          path: ${{ runner.temp }}/r014-assets/evidence/system_assets_provenance.json
+          retention-days: 7
