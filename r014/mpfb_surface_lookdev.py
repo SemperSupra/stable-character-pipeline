@@ -113,9 +113,23 @@ for sex,x in (("female",-.85),("male",.85)):
     bpy.ops.render.render(write_still=True)
     assert Path(scene.render.filepath).stat().st_size>10000
 
+# Deliberately reveal complete body neutral silhouettes instead of relying on a
+# face-only proof. Surface anatomy remains unqualified until a region mask review.
+scene.render.resolution_x=640
+scene.render.resolution_y=768
+camdata.ortho_scale=3.65
+for view,loc in (("fullbody_pair_front",(0,-6.1,1.43)),
+                 ("fullbody_pair_back",(0,6.1,1.43))):
+    cam.location=loc
+    cam.rotation_euler=(Vector((0,0,1.07))-cam.location).to_track_quat("-Z","Y").to_euler()
+    scene.render.filepath=str(a.output/(view+".png"))
+    bpy.ops.render.render(write_still=True)
+    assert Path(scene.render.filepath).stat().st_size>10000
+
 receipt.update({"status":"PASS_ASSET_ATTACH_AND_RENDER_UNREVIEWED",
                 "native_blend":blend.name,
-                "views":["female_skin_eyes_hair.png","male_skin_eyes_hair.png"],
+                "views":["female_skin_eyes_hair.png","male_skin_eyes_hair.png",
+                         "fullbody_pair_front.png","fullbody_pair_back.png"],
                 "asset_archive_sha256":"b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107",
                 "limits":["No complete external reproductive organ meshes",
                           "Skin/hair quality and rig contact not visually accepted",
