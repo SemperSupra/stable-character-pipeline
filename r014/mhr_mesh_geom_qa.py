@@ -153,7 +153,7 @@ if __name__=="__main__":
         p=argparse.ArgumentParser()
         p.add_argument("--glb",required=True,type=Path)
         p.add_argument("--receipt",required=True,type=Path)
-        args=p.parse_args()
+        args=p.parse_args(sys.argv[sys.argv.index("--")+1:])
         output=assess(*load(args.glb))
         args.receipt.write_text(json.dumps(output,indent=2,sort_keys=True)+"\n")
         print("R014_MHR_GEOMETRY_GATE",json.dumps({k:v for k,v in output.items() if k!="measurements"},sort_keys=True))
