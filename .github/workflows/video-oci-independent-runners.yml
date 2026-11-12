@@ -1,0 +1,159 @@
+name: video-oci-two-independent-public-runners
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/video-oci-independent-runners.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-oci-two-public-runners-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-oci-export:
+    name: Public Ubuntu clean VM / ${{ matrix.rep }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        rep: [alpha, beta]
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Export genuine SHA-verified source-date-normalized OCI image on disposable free VM
+        env:
+          REP: ${{ matrix.rep }}
+        run: |
+          set -euo pipefail
+          mkdir -p cross-runner
+          docker buildx create --name "oci-independent-$REP" --driver docker-container --use
+          trap 'docker buildx rm "oci-independent-$REP" >/dev/null 2>&1 || true' EXIT
+          docker buildx inspect --bootstrap >cross-runner/builder.txt
+          docker buildx version >cross-runner/buildx.txt
+          docker version >cross-runner/docker.txt
+          git rev-parse HEAD >cross-runner/source-commit.txt
+          sha256sum Dockerfile.timestamp-experiment go.mod >cross-runner/source-input-sha256.txt
+          docker buildx build --pull --no-cache --provenance=false --sbom=false \
+            --build-arg SOURCE_DATE_EPOCH=1704067200 \
+            --file Dockerfile.timestamp-experiment \
+            --output "type=oci,dest=cross-runner/image.oci.tar,rewrite-timestamp=true" .
+      - name: Verify all OCI SHA-256 blobs, runtime UID, image manifest and whole archive
+        env:
+          REP: ${{ matrix.rep }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,tarfile
+          from pathlib import Path
+          root=Path("cross-runner")
+          def sha(blob):return hashlib.sha256(blob).hexdigest()
+          with tarfile.open(root/"image.oci.tar","r") as src:
+            index=json.loads(src.extractfile("index.json").read())
+            if len(index.get("manifests",[]))!=1:raise ValueError("BAD_OCI_INDEX")
+            def content(digest):
+              if not isinstance(digest,str) or not digest.startswith("sha256:"):
+                raise ValueError("INVALID_DIGEST")
+              part=src.extractfile("blobs/sha256/"+digest.split(":")[1])
+              if part is None:raise ValueError("MISSING_CONTENT_ADDRESSED_BLOB")
+              data=part.read()
+              if sha(data)!=digest.split(":")[1]:raise ValueError("OCI_BLOB_SHA_MISMATCH")
+              return data
+            descriptor=index["manifests"][0]
+            manifest=json.loads(content(descriptor["digest"]))
+            if manifest.get("schemaVersion")!=2 or not manifest.get("layers"):
+              raise ValueError("BAD_OCI_MANIFEST")
+            config=json.loads(content(manifest["config"]["digest"]))
+            if config.get("config",{}).get("User")!="65532:65532":
+              raise ValueError("NONROOT_UID_REGRESSION")
+            layers=[]
+            for l in manifest["layers"]:
+              data=content(l["digest"])
+              if len(data)!=l["size"]:raise ValueError("OCI_LAYER_LENGTH_MISMATCH")
+              layers.append(l["digest"])
+          out={
+            "schema":"scp.video-oci-two-independent-public-cold-runners.v1",
+            "rep":os.environ["REP"],
+            "arch":"amd64",
+            "runner":"ubuntu-24.04",
+            "timestamp_rewrite":True,
+            "source_date_epoch":1704067200,
+            "git_checkout_head":(root/"source-commit.txt").read_text().strip(),
+            "source_input_sha256":(root/"source-input-sha256.txt").read_text().strip(),
+            "image_manifest_sha256":descriptor["digest"],
+            "config_sha256":manifest["config"]["digest"],
+            "layer_sha256":layers,
+            "uncompressed_diff_ids":config.get("rootfs",{}).get("diff_ids",[]),
+            "image_oci_tar_sha256":sha((root/"image.oci.tar").read_bytes()),
+            "buildx_version":(root/"buildx.txt").read_text().strip(),
+            "builder_status_sha256":sha((root/"builder.txt").read_bytes()),
+            "status":"RDT_E_INDEPENDENT_RUNNER_OBSERVATION_ONLY",
+          }
+          (root/"receipt.json").write_text(json.dumps(out,sort_keys=True,indent=2)+"\n")
+          print("INDEPENDENT_PUBLIC_OCI_EXPORT",out["rep"],out["image_manifest_sha256"],out["image_oci_tar_sha256"])
+          PY
+          rm cross-runner/image.oci.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-video-oci-crossrunner-${{ matrix.rep }}
+          path: qualification/video_physics_bakeoff/cross-runner/
+          retention-days: 14
+          if-no-files-found: error
+  independent-compare:
+    name: Independent two-VM OCI byte reproducibility classification and holds
+    needs: independent-oci-export
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: original-video-oci-crossrunner-*
+          path: evidence/
+      - name: Require distinct free VM reports and distinguish true byte equality from source drift
+        run: |
+          set -euo pipefail
+          mkdir -p conclusions
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("evidence")
+          inputs={}
+          for rep in ("alpha","beta"):
+            p=root/("original-video-oci-crossrunner-"+rep)/"receipt.json"
+            data=json.loads(p.read_text())
+            if data["schema"]!="scp.video-oci-two-independent-public-cold-runners.v1" or data["rep"]!=rep or len(data["layer_sha256"])<2:
+              raise ValueError("UNVERIFIED_RUNNER_RECEIPT")
+            inputs[rep]=data
+          a,b=inputs["alpha"],inputs["beta"]
+          if a["source_input_sha256"]!=b["source_input_sha256"] or a["git_checkout_head"]!=b["git_checkout_head"]:
+            raise ValueError("NOT_SAME_SOURCE_CODE_OR_DEPENDENCIES")
+          fields=("image_manifest_sha256","config_sha256","layer_sha256","uncompressed_diff_ids","image_oci_tar_sha256")
+          eq={k:a[k]==b[k] for k in fields}
+          out={
+            "schema":"scp.video-oci-cross-runner-qualification-join.v1",
+            "distinct_public_runner_jobs":2,
+            "same_input_source_sha":True,
+            "cross_runner_image_byte_identical":all(eq.values()),
+            "comparison":eq,
+            "observations":inputs,
+            "science":"CROSS_RUNNER_RESEARCH_ONLY",
+            "deployment_holds":[
+              "Only identical Ubuntu 24.04 x86-64 public runner class, no macOS/Windows/ARM64 runtime image qualification",
+              "BuildKit builder/runtime transitive dependencies not full immutably snapshotted",
+              "No full software bill of materials, vulnerability/license review, signed provenance or multiarch OCI manifest",
+              "No GHCR registry promotion, deployed lifecycle teardown, or human-motion physics acceptance",
+            ]}
+          (Path("conclusions")/"crossrunner.json").write_text(json.dumps(out,sort_keys=True,indent=2)+"\n")
+          print("ACTUAL_CROSS_PUBLIC_RUNNER_OCI_REPRO",eq,"qualified_same_class",out["cross_runner_image_byte_identical"])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-oci-two-public-runners-joined-science
+          path: conclusions/
+          retention-days: 14
+          if-no-files-found: error
