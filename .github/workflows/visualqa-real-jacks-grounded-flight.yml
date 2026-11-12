@@ -143,9 +143,16 @@ jobs:
         with:
           name: rights-original-jacks-true-ground-flight-ab
           path: evidence
+      - name: Decode tools in fresh disposable runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
       - name: Source/codec/actual decoded frame diversity witness
         run: |
           set -euo pipefail
+          command -v ffmpeg
+          command -v ffprobe
           mkdir -p receipts
           ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,nb_frames,width,height,avg_frame_rate,pix_fmt \
             -of json evidence/exercise_pose/female_jumping_jacks_sandals_side.mp4 > receipts/ffprobe.json
