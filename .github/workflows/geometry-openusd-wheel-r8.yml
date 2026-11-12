@@ -1,0 +1,47 @@
+name: R8 Official OpenUSD Native Wheels (public disposable)
+run-name: R8 USD clean consumer ${{ github.ref_name }}
+on:
+  push:
+    branches: [research/geometry-openusd-wheel-r8-20261112]
+    paths:
+      - 'qualification/geometry-donors/r8-openusd/**'
+      - '.github/workflows/geometry-openusd-wheel-r8.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: geometry-usd-r8-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  usd-wheel:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: linux-amd64
+          - runner: ubuntu-24.04-arm
+            arch: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install exact official binary wheel in disposable venv; write and reopen typed USD
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 -m py_compile qualification/geometry-donors/r8-openusd/*.py
+          bash qualification/geometry-donors/r8-openusd/run.sh 2>&1 | tee qualification/geometry-donors/r8-openusd/run.log
+      - name: Retain wheel digest and USD source/consumer receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: geometry-openusd-wheel-r8-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: |
+            qualification/geometry-donors/r8-openusd/results/
+            qualification/geometry-donors/r8-openusd/run.log
+          if-no-files-found: warn
+          retention-days: 7
