@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "status": "TOY_SYNTHETIC_PUBLIC_ONLY",
+  "items": [
+    {
+      "id": "compact",
+      "adult_state": "FICTIONAL_ADULT",
+      "height_cm": 160,
+      "shoulder_cm": 37,
+      "waist_cm": 72,
+      "hip_cm": 94,
+      "inseam_cm": 70,
+      "muscularity": 0.42,
+      "fullness": 0.47,
+      "waist_hip_ratio": 0.766,
+      "inseam_height_ratio": 0.4375,
+      "native_mhr_map": null,
+      "native_mpfb_map": null
+    },
+    {
+      "id": "elongated",
+      "adult_state": "FICTIONAL_ADULT",
+      "height_cm": 183,
+      "shoulder_cm": 43,
+      "waist_cm": 79,
+      "hip_cm": 101,
+      "inseam_cm": 88,
+      "muscularity": 0.41,
+      "fullness": 0.42,
+      "waist_hip_ratio": 0.7822,
+      "inseam_height_ratio": 0.4809,
+      "native_mhr_map": null,
+      "native_mpfb_map": null
+    },
+    {
+      "id": "wide_frame",
+      "adult_state": "FICTIONAL_ADULT",
+      "height_cm": 178,
+      "shoulder_cm": 50,
+      "waist_cm": 88,
+      "hip_cm": 107,
+      "inseam_cm": 81,
+      "muscularity": 0.63,
+      "fullness": 0.54,
+      "waist_hip_ratio": 0.8224,
+      "inseam_height_ratio": 0.4551,
+      "native_mhr_map": null,
+      "native_mpfb_map": null
+    }
+  ]
+}

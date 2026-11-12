@@ -1,0 +1,44 @@
+name: R015 public synthetic morphology contract
+on:
+  push:
+    branches:
+      - research/r015-public-morphology-contract-20261112
+    paths:
+      - r015/morphology-contract/**
+      - .github/workflows/r015-morphology-contract.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r015-morphology-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synthetic-contract:
+    name: Go stdlib morphology fixture and adversarial QA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: r015/morphology-contract
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify disposable Go toolchain
+        run: go version
+      - name: Deterministic and negative tests
+        run: go test -count=1 -v ./...
+      - name: Race-qualified tests
+        run: go test -race -count=1 ./...
+      - name: Static vet
+        run: go vet ./...
+      - name: Emit source-only synthetic receipt
+        run: |
+          go run . -file fixtures.json > receipt.json
+          grep -F 'PASS_PUBLIC_TOY_CONTRACT_ONLY' receipt.json
+          test "$(sha256sum fixtures.json | awk '{print $1}')" = "$(python3 -c 'import json; print(json.load(open("receipt.json"))["input_sha256"])')"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r015-public-synthetic-only
+          path: r015/morphology-contract/receipt.json
+          retention-days: 7
