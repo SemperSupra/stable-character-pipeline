@@ -1,0 +1,71 @@
+name: R014 actual MHR identity morph numerical sensitivity study
+on:
+  push:
+    branches: [research/r014-mhr-native-shape-sensitivity-20261112]
+    paths:
+      - 'r014/morphometry/**'
+      - '.github/workflows/r014-mhr-morph-sensitivity.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-mhr-morph-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent_latent_shards:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 26
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Compile source before downloading any model assets
+        run: python3 -m compileall -q r014/morphometry
+      - name: Install pinned CPU inference tools in temporary runner venv
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r014-venv"
+          "$RUNNER_TEMP/r014-venv/bin/python" -m pip install --disable-pip-version-check --no-cache-dir 'torch==2.8.0' --index-url https://download.pytorch.org/whl/cpu
+          "$RUNNER_TEMP/r014-venv/bin/python" -m pip install --disable-pip-version-check --no-cache-dir 'numpy==2.2.6'
+          echo "PYTHON_EXE=$RUNNER_TEMP/r014-venv/bin/python" >> "$GITHUB_ENV"
+      - name: Run geometry negative controls (no upstream model required)
+        run: |
+          "$PYTHON_EXE" r014/morphometry/mhr_latent_sensitivity.py --self-test
+      - name: Acquire exact public model and verify immutable release digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-morph/out"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
+            https://github.com/facebookresearch/MHR/releases/download/v1.0.1/assets.zip \
+            -o "$RUNNER_TEMP/r014-morph/assets.zip"
+          echo "e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94  $RUNNER_TEMP/r014-morph/assets.zip" | sha256sum -c -
+      - name: Measure actual numerical mesh response for one independent 45-D half
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$PYTHON_EXE" r014/morphometry/mhr_latent_sensitivity.py \
+            --archive "$RUNNER_TEMP/r014-morph/assets.zip" \
+            --shard '${{ matrix.shard }}' --out "$RUNNER_TEMP/r014-morph/out"
+          "$PYTHON_EXE" - <<'PY'
+          import json,os
+          from pathlib import Path
+          shard=${{ matrix.shard }}
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"r014-morph/out"/f"mhr_morph_sensitivity_shard_{shard}.json").read_text())
+          assert r["status"]=="PASS_MHR_OPAQUE_SHAPE_RESPONSE_RESEARCH_ONLY"
+          assert r["control_indices"]==list(range(shard,45,2))
+          assert len(r["per_latent"])==len(r["control_indices"])
+          assert r["geometry_units"]=="OPAQUE_MHR_NATIVE_UNCALIBRATED"
+          assert r["model_pt_sha256"] and r["mesh_vertices"]>1000
+          print("PASS_REAL_MHR_VERTEX_RESPONSE_ONLY; CHARACTER_REALISM_AND_BODY_METRICS_HOLD")
+          PY
+          (cd "$RUNNER_TEMP/r014-morph/out" && sha256sum *.json > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mhr-opaque-sensitivity-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/r014-morph/out/*
+          retention-days: 7
