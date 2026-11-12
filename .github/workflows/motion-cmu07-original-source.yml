@@ -26,6 +26,46 @@ jobs:
           set -euo pipefail
           python3 -m compileall -q motion_learning/source_admission
           python3 motion_learning/source_admission/cmu07_original_metadata.py --selftest
+      - name: Reconstruct missing official Let's Encrypt issuer chain and verify against existing root store
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu07/certificates"
+          cd "$RUNNER_TEMP/cmu07/certificates"
+          # Unverified handshake only to INSPECT certificate/public key, not
+          # to acquire or trust capture content. No HTTP or --insecure use.
+          timeout 30s openssl s_client -connect mocap.cs.cmu.edu:443 \
+            -servername mocap.cs.cmu.edu -showcerts </dev/null \
+            > peer_chain.txt 2> peer_chain.err || true
+          awk '/-----BEGIN CERTIFICATE-----/{inside=1} inside{print} /-----END CERTIFICATE-----/{exit}' \
+            peer_chain.txt > leaf.pem
+          openssl x509 -in leaf.pem -noout -subject -issuer -dates
+          openssl x509 -in leaf.pem -noout -subject | grep -F 'CN = mocap.cs.cmu.edu'
+          openssl x509 -in leaf.pem -noout -issuer | grep -F 'CN = YE1'
+          # CA-owned material is fetched over authentic https from the
+          # issuer, NOT from the unauthenticated CMU AIA HTTP URL.
+          issuer=https://letsencrypt.org/certs/gen-y
+          curl --fail --location --silent --show-error --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "$issuer/int-ye1.pem" -o int-ye1.pem
+          curl --fail --location --silent --show-error --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "$issuer/root-ye-by-x2.pem" -o root-ye-by-x2.pem
+          curl --fail --location --silent --show-error --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "$issuer/root-x2-by-x1.pem" -o root-x2-by-x1.pem
+          for p in int-ye1.pem root-ye-by-x2.pem root-x2-by-x1.pem; do
+            openssl x509 -in "$p" -noout -subject -issuer -dates
+          done
+          cat int-ye1.pem root-ye-by-x2.pem root-x2-by-x1.pem > untrusted_chain.pem
+          # THIS command MUST succeed under preexisting Ubuntu trust roots.
+          # Failing it aborts source download; never trust a self-signed YE.
+          openssl verify -verify_hostname mocap.cs.cmu.edu -purpose sslserver \
+            -CAfile /etc/ssl/certs/ca-certificates.crt \
+            -untrusted untrusted_chain.pem leaf.pem
+          cat /etc/ssl/certs/ca-certificates.crt untrusted_chain.pem > verified_ca_bundle.pem
+          echo "CMU_CA_BUNDLE=$RUNNER_TEMP/cmu07/certificates/verified_ca_bundle.pem" >> "$GITHUB_ENV"
+          echo "CMU_SOURCE_TLS_CHAIN_VERIFIED_TO_SYSTEM_ROOT"
       - name: Download ONLY individually indexed official CMU source ASF and one AMC in isolated runner
         shell: bash
         run: |
@@ -34,10 +74,10 @@ jobs:
           # No --insecure, no HTTP, no broad crawling, no third-party mirrors.
           base=https://mocap.cs.cmu.edu/subjects/07
           curl --fail --location --silent --show-error --retry 3 --retry-delay 3 \
-            --proto '=https' --proto-redir '=https' --connect-timeout 20 \
+            --proto '=https' --proto-redir '=https' --cacert "$CMU_CA_BUNDLE" --connect-timeout 20 \
             "$base/07.asf" -o "$RUNNER_TEMP/cmu07/source/07.asf"
           curl --fail --location --silent --show-error --retry 3 --retry-delay 3 \
-            --proto '=https' --proto-redir '=https' --connect-timeout 20 \
+            --proto '=https' --proto-redir '=https' --cacert "$CMU_CA_BUNDLE" --connect-timeout 20 \
             "$base/${{ matrix.motion }}.amc" \
             -o "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc"
           test -s "$RUNNER_TEMP/cmu07/source/07.asf"
