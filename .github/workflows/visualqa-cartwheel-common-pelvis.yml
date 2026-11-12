@@ -1,0 +1,122 @@
+name: visualqa-cartwheel-original-3d-pelvis-envelope
+on:
+  pull_request:
+    paths:
+      - 'qualification/visualqa_cartwheel/**'
+      - '.github/workflows/visualqa-cartwheel-common-pelvis.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: cartwheel-common-pelvis-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-analytical-3d-feasibility:
+    name: SHA-bound 40-frame common vertical pelvis analytical feasibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43174097569
+          github-token: ${{ github.token }}
+          name: original-integrated-eight-fix-exercise_pose
+          path: research/immutable
+      - name: Analytical original-cartwheel 3D test and immutable source envelope
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s qualification/visualqa_cartwheel -p 'test_cartwheel_vertical.py' -v
+          python3 qualification/visualqa_cartwheel/cartwheel_vertical.py --root research/immutable --out receipts/analytical.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cartwheel-3d-analytical-envelope
+          path: receipts/analytical.json
+          retention-days: 14
+          if-no-files-found: error
+
+  independent-numerical-validation:
+    name: Independent 40-frame endpoint distances and actor-ready witness
+    needs: original-analytical-3d-feasibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          run-id: 43174097569
+          github-token: ${{ github.token }}
+          name: original-integrated-eight-fix-exercise_pose
+          path: research/immutable
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: cartwheel-3d-analytical-envelope
+          path: receipts
+      - name: Independent numerical geometry and actor handoff
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import math,json,hashlib
+          from pathlib import Path
+          source=Path("research/immutable/exercise_pose/female_cartwheel_barefoot_ground_truth.json")
+          d=json.loads(Path("receipts/analytical.json").read_text())
+          frames=json.loads(source.read_text())["frames"]
+          assert len(frames)==len(d["frames"])==40
+          assert hashlib.sha256(source.read_bytes()).hexdigest()==d["source_labels_sha256"]
+          original_unreachable=0;feasible=0;impossible=0;largest=0.
+          for i,(fr,row) in enumerate(zip(frames,d["frames"])):
+              assert i==fr["frame"]==row["frame"]
+              for side in ("left","right"):
+                  h=fr["joints"][side+"_hip"];a=fr["joints"][side+"_ankle"]
+                  length=math.dist(h,a)
+                  assert abs(length-row["hip_to_ankle_original_m"][side])<1e-9
+                  original_unreachable+=int(length>1.03+1e-9 or length<.01-1e-9)
+              delta=row["minimum_abs_common_pelvis_shift_m"]
+              if delta is None:
+                  impossible+=1
+                  assert row["common_pelvis_vertical_shift_interval_m"] is None
+              else:
+                  feasible+=1;largest=max(largest,abs(delta))
+                  interval=row["common_pelvis_vertical_shift_interval_m"]
+                  assert interval[0]-1e-8<=delta<=interval[1]+1e-8
+                  for side in ("left","right"):
+                      hip=fr["joints"][side+"_hip"].copy()
+                      ankle=fr["joints"][side+"_ankle"]
+                      hip[2]+=delta
+                      assert .01-1e-6<=math.dist(hip,ankle)<=1.03+1e-6
+          assert original_unreachable==d["original_cartwheel_unreachable_leg_observations"]==36
+          assert feasible==d["frames_with_common_vertical_solution"]
+          assert impossible==d["frames_without_common_vertical_solution"]
+          assert feasible+impossible==40
+          assert abs(largest-d["maximum_abs_hypothetical_pelvis_shift_m"])<1e-8
+          out={"schema":"scp.visualqa.cartwheel-independent-3d-root-witness.v1",
+               "source_labels_sha256":d["source_labels_sha256"],
+               "original_unreachable_leg_endpoints":36,
+               "frames_feasible_by_common_vertical_pelvis_shift":feasible,
+               "frames_impossible_under_1d_hypothesis":impossible,
+               "largest_hypothetical_shift_m":largest,
+               "disposition":"ORIGINAL_CARTWHEEL_UNCHANGED_REQUIRES_TRAJECTORY_AND_CONTACT_REPAIR",
+               "human_realism":"NOT_QUALIFIED"}
+          Path("receipts/independent.json").write_text(json.dumps(out,sort_keys=True,indent=2)+"\n")
+          lines=["# Cartwheel read-only mathematical feasibility baton","",
+            "Original 40-frame 3D source retains 36 geometrically unreachable hip/ankle observations.",
+            "Common per-frame pelvis-only vertical shift mathematically feasible: "+str(feasible)+"/40",
+            "Not feasible under one-dimensional hypothesis: "+str(impossible)+"/40",
+            "Largest hypothetical vertical shift (m): "+str(round(largest,6)),
+            "No actual cartwheel motion, knee, foot contact, dynamics, GLB or H264 were modified.",
+            "This analysis is NOT an accepted human motion, continuity or balance proof.",
+            "Next actor must repair actual geometry and preserve negative controls in separate draft PR."]
+          Path("receipts/human-handoff.md").write_text("\n".join(lines)+"\n")
+          print("INDEPENDENT_ORIGINAL_CARTWHEEL_3D_PELVIS_BOUND",out)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cartwheel-independent-pelvis-baton
+          path: |
+            receipts/independent.json
+            receipts/human-handoff.md
+          retention-days: 14
+          if-no-files-found: error
