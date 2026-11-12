@@ -75,6 +75,7 @@ def evaluate(out):
     if first["status"]!="FAIL" or first["defect_count"]!=16:
         raise ValueError("ORIGINAL_DIVE_NEGATIVE_CONTROL_NOT_REPRODUCED")
     if second["status"]!="PASS" or second["defect_count"]!=0:
+        print("DIVE_REJECTED_SOURCE_DEFECTS", json.dumps({"status":second["status"],"count":second["defect_count"],"first_findings":second["findings"][:50],"limb_max":second["max_limb_length_error_m"],"stance_peak":second["peak_labeled_stance_speed_m_s"]},sort_keys=True),flush=True)
         raise ValueError("SOURCE_KINEMATIC_REPAIR_NOT_QUALIFIED")
     if bmedia["glb_sha256"]==amedia["glb_sha256"] or bmedia["h264_sha256"]==amedia["h264_sha256"]:
         raise ValueError("NO_ACTUAL_GLTF_OR_H264_DELTA")
