@@ -27,8 +27,8 @@ basis=keys["Basis"]
 inv_vector=body.matrix_world.inverted().to_3x3()
 
 REGIONS=(
-    {"region":"left_cheek_research_mask","anchor":(-.075,-.10,1.51),
-     "std":(.055,.055,.055),"outward":(0,-1,0),"max_m":.008,
+    {"region":"left_cheek_research_mask","anchor":(-.085,-.10,1.51),
+     "std":(.035,.035,.05),"outward":(0,-1,0),"max_m":.008,
      "params":RegionParameters(.2,180.,18.,.008)},
     {"region":"abdomen_research_mask","anchor":(0,-.075,.97),
      "std":(.13,.09,.12),"outward":(0,-1,0),"max_m":.02,
