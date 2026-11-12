@@ -55,6 +55,7 @@ for m in sculpt.modifiers:
     if m.type=="MULTIRES":m.show_viewport=False;m.show_render=False
 
 # Object world mesh coordinates, preserving untouched original .blend in Drive.
+bpy.context.view_layer.update()
 src=[mpfb.matrix_world@v.co for v in mpfb.data.vertices]
 tgt=[sculpt.matrix_world@v.co for v in sculpt.data.vertices]
 def centroid_extent(points):
@@ -90,10 +91,28 @@ def sample_cost(positions):
 candidate=[(sample_cost(place(flip)),flip) for flip in (False,True)]
 cost,flip=min(candidate,key=lambda x:x[0])
 aligned=place(flip)
-inv=sculpt.matrix_world.inverted()
-for idx,v in enumerate(sculpt.data.vertices):
-    v.co=inv@Vector(aligned[idx].tolist())
+# Explicitly bake transformed target geometry into object-local coordinates
+# while forcing the sculpt object's matrix to identity. In the prior workcell,
+# a stale library-linked matrix_world was inverted before depsgraph evaluation,
+# causing the saved file to reopen with female -0.54m and male -3.06m X drift.
+assert sculpt.parent is None,("unexpected source parent",sculpt.parent)
+sculpt.matrix_world=Matrix.Identity(4)
+sculpt.location=(0,0,0)
+sculpt.rotation_euler=(0,0,0)
+sculpt.scale=(1,1,1)
 bpy.context.view_layer.update()
+for idx,v in enumerate(sculpt.data.vertices):
+    v.co=Vector(aligned[idx].tolist())
+bpy.context.view_layer.update()
+actual=np.array([list(sculpt.matrix_world@v.co) for v in sculpt.data.vertices],dtype=np.float64)
+max_location_error=float(np.linalg.norm(actual-aligned,axis=1).max())
+assert max_location_error<1e-5,("saved source coordinate mismatch",max_location_error)
+print("R014_SCULPT_WORLD_BAKE_PARITY",json.dumps({
+    "sex":a.sex,"max_world_offset_error_m":max_location_error,
+    "final_sculpt_matrix":[list(row) for row in sculpt.matrix_world],
+    "target_centroid":actual.mean(axis=0).tolist(),
+    "source_centroid":src_vertices.mean(axis=0).tolist()
+},sort_keys=True),flush=True)
 
 def baryweights(pos,a,b,c):
     v0=b-a;v1=c-a;v2=pos-a
@@ -245,6 +264,8 @@ result={
  "source_mesh_vertices":len(src),"target_mesh_vertices":len(tgt),
  "source_bones":len(rig.data.bones),
  "source_triangles":len(tris),
+ "coordinate_integrity":{"target_object_world_identity_expected":True,
+                          "pre_save_max_coordinate_error_m":max_location_error},
  "alignment":{"axis_scale":scale.tolist(),"facing_rotated_180_degrees":flip,
               "sample_p95_before_full_transfer_m":cost},
  "correspondence":{"mean_m":float(distance.mean()),
