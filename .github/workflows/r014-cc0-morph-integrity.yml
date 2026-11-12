@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sex: [female, male]
+        sex: [female] # male source/run 43287691272 already passed; avoid rerunning its public CPU work
     env:
       BLENDER_USER_CONFIG: /tmp/r014-cc0-morph/blender-config
       BLENDER_USER_SCRIPTS: /tmp/r014-cc0-morph/blender-scripts
@@ -59,8 +59,10 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/r014-cc0-morph"
           base=https://download.blender.org/release/Blender4.5
-          curl -fL --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
-          curl -fL --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 \
+            "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 20 \
+            "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
           expected="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
           test "${#expected}" -eq 64
           printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$expected" | sha256sum -c -
