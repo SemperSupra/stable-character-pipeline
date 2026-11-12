@@ -24,7 +24,7 @@ def validate_provenance(sex,gen,motion,studio):
     if gen.get("eye_material_mode")!="MAKESKIN":problems.append("UNQUALIFIED_EYE_MATERIAL")
     if motion.get("source_rig_bones")!=163 or actor.get(sex,{}).get("body_vertices")!=19158:
         problems.append("SOURCE_RIG_OR_VERTICES_DRIFT")
-    candidates=[x for x in studio.get("selected_realistic_bases",[]) if sex in x.get("name","").lower()]
+    candidates=[x for x in studio.get("selected_realistic_bases",[]) if x.get("name","").lower()==("geo-body_"+sex+"_realistic")]
     if len(candidates)!=1 or candidates[0].get("rigged") is not False:
         problems.append("SCULPT_SOURCE_UNEXPECTED")
     return problems
