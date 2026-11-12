@@ -99,7 +99,8 @@ jobs:
               if row["case"] in ids: raise ValueError("DUPLICATE_ORIGINAL_CASE")
               ids.add(row["case"]);records.append(row)
             c=report["counts"]
-            for k in sample_counts:sample_counts[k]+=c[k]
+            for public_key,local_key in (("DETECTED","detected"),("UNKNOWN","unknown"),("NOT_DETECTED","not_detected")):
+            sample_counts[public_key]+=c[local_key]
             lines.append(f'| {batch} | {report["case_count"]} | {c["detected"]} | {c["not_detected"]} | {c["unknown"]} |')
           if len(ids)!=22 or len(records)!=22 or sum(sample_counts.values())!=22*8*2:
             raise ValueError("MISSING_ORIGINAL_CASE_OR_FRAME")
