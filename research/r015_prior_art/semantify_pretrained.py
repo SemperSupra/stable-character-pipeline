@@ -89,7 +89,8 @@ def original_clip_numeric_fixture(mapper, labels, scratch):
     st=time.monotonic()
     scope["generate_clip_scores"](device="cpu",multiview=False,imgs_dir=str(root),descriptors=[str(v[0]) for v in labels])
     elapsed=round(time.monotonic()-st,3)
-    expected=clip._MODELS["ViT-B/32"].split("/")[-2]
+    from clip.clip import _MODELS
+    expected=_MODELS["ViT-B/32"].split("/")[-2]
     cache=Path.home()/".cache/clip/ViT-B-32.pt"
     if not cache.is_file() or digest(cache)!=expected:
         raise RuntimeError("FAIL_CLOSED_CLIP_WEIGHTS_DIGEST")
