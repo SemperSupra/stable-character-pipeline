@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 28
     env:
-      BLENDER_USER_CONFIG: ${{ runner.temp }}/r014-mpfb/blender-config
-      BLENDER_USER_SCRIPTS: ${{ runner.temp }}/r014-mpfb/blender-scripts
+      BLENDER_USER_CONFIG: /tmp/r014-mpfb/blender-config
+      BLENDER_USER_SCRIPTS: /tmp/r014-mpfb/blender-scripts
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
