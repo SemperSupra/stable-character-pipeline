@@ -104,25 +104,55 @@ def run(repo_path, path):
         import torch
         import torch.nn as nn
         record["torch_version"]=torch.__version__
+        # Immutable original public snapshot: only this audited archive+checkpoint may
+        # receive narrowly scoped compatibility allowlisting. Fail on any upstream drift.
+        if record["archive_sha256"]!="91682ac20d450f02c02f97e99ab5858fc12e0f15dbcedbd1e8d2bb4c244a72c2" or record["checkpoint_sha256"]!="7bb79747504919656ecacb120b5be70b51b6faac1535d1cfd7f46b1401a3ed7b":
+            record["status"]="REJECT_ARCHIVE_OR_CHECKPOINT_DRIFT"
+            return record
+        # Static pickle opcode enumeration does not execute any deserializer.
+        import pickletools
+        with zipfile.ZipFile(io.BytesIO(bytes_ckpt)) as kzip:
+            kname=next(n for n in kzip.namelist() if n.endswith("/data.pkl") or n=="data.pkl")
+            pbytes=kzip.read(kname)
+        ops=list(pickletools.genops(pbytes))
+        actual_globals=sorted({str(arg) for op,arg,pos in ops if op.name=="GLOBAL"})
+        stack_global=sum(1 for op,arg,pos in ops if op.name=="STACK_GLOBAL")
+        record["pickle_GLOBAL_symbols"]=actual_globals
+        record["pickle_STACK_GLOBAL_count"]=stack_global
+        record["pickle_opcode_count"]=len(ops)
+        allowed_globals=sorted([
+            "__builtin__ dict","__builtin__ list","__builtin__ long",
+            "collections OrderedDict","collections defaultdict",
+            "omegaconf.base ContainerMetadata","omegaconf.base Metadata",
+            "omegaconf.dictconfig DictConfig","omegaconf.listconfig ListConfig",
+            "omegaconf.nodes AnyNode","torch FloatStorage",
+            "torch._utils _rebuild_tensor_v2","typing Any"
+        ])
+        if actual_globals!=allowed_globals or stack_global:
+            record["status"]="REJECT_UNREVIEWED_PICKLE_GLOBALS"
+            return record
         try:
             obj=torch.load(io.BytesIO(bytes_ckpt),map_location="cpu",weights_only=True)
+            record["safe_load_mode"]="torch.weights_only_no_custom_globals"
         except Exception as e:
-            record["status"]="BLOCKED_SAFE_DESERIALIZATION"
-            record["safe_load_error"]=type(e).__name__+": "+str(e)[-1700:]
-            # Static Python pickle opcode inspection does not unpickle or execute.
-            # Record the exact globals that block PyTorch's restricted weights loader.
+            record["default_weights_only_error"]=type(e).__name__+": "+str(e)[-900:]
+            # Pinned OmegaConf 2.3.0 structural containers only, from the audited
+            # pickle global manifest above; *never* weights_only=False.
             try:
-                import pickletools
-                with zipfile.ZipFile(io.BytesIO(bytes_ckpt)) as kzip:
-                    kname=next(n for n in kzip.namelist() if n.endswith("/data.pkl") or n=="data.pkl")
-                    pbytes=kzip.read(kname)
-                ops=list(pickletools.genops(pbytes))
-                record["pickle_GLOBAL_symbols"]=sorted({str(arg) for op,arg,pos in ops if op.name=="GLOBAL"})[:100]
-                record["pickle_STACK_GLOBAL_count"]=sum(1 for op,arg,pos in ops if op.name=="STACK_GLOBAL")
-                record["pickle_opcode_count"]=len(ops)
-            except Exception as pe:
-                record["static_pickle_diagnostics_error"]=type(pe).__name__+": "+str(pe)[:250]
-            return record
+                from collections import defaultdict
+                from omegaconf.base import ContainerMetadata,Metadata
+                from omegaconf.dictconfig import DictConfig
+                from omegaconf.listconfig import ListConfig
+                from omegaconf.nodes import AnyNode
+                from typing import Any
+                safe=[defaultdict,ContainerMetadata,Metadata,DictConfig,ListConfig,AnyNode,Any]
+                with torch.serialization.safe_globals(safe):
+                    obj=torch.load(io.BytesIO(bytes_ckpt),map_location="cpu",weights_only=True)
+                record["safe_load_mode"]="weights_only_explicit_audited_omegaconf_2_3_0_globals"
+            except Exception as restricted:
+                record["status"]="BLOCKED_RESTRICTED_WEIGHTS_ONLY_DESERIALIZATION"
+                record["restricted_error"]=type(restricted).__name__+": "+str(restricted)[-1100:]
+                return record
         state=obj.get("state_dict",obj) if isinstance(obj,dict) else {}
         if not isinstance(state,dict) or len(state)>200:
             record["status"]="REJECT_INVALID_STATE_DICT"
