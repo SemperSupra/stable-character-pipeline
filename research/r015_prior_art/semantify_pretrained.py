@@ -30,6 +30,106 @@ def digest(b):
         return h.hexdigest()
     return sha256(b).hexdigest()
 
+
+def original_clip_numeric_fixture(mapper, labels, scratch):
+    """Execute original Semantify CLIP scoring function (AST-isolated, pinned sources).
+    All images are locally generated stylized nonsexual adult silhouette controls.
+    No SMPL-X geometry or photorealism is asserted.
+    """
+    import torch
+    from PIL import Image,ImageDraw
+    from tqdm import tqdm
+    clip_source=Path(os.environ.get("R015_CLIP_SOURCE",""))
+    clip_sha="d05afc436d78f1c48dc0dbf8e5980a9d471f35f6"
+    got=subprocess.check_output(["git","-C",str(clip_source),"rev-parse","HEAD"],text=True).strip()
+    if got!=clip_sha:raise RuntimeError("FAIL_CLOSED_OPENAI_CLIP_SHA")
+    import sys
+    sys.path.insert(0,str(clip_source))
+    import clip
+    import hashlib
+    import time
+    torch.set_num_threads(2)
+    root=Path(scratch)/"r015-silhouettes"
+    root.mkdir(parents=True,exist_ok=True)
+    shapes=[
+        {"id":0,"kind":"tall-narrow-analytic","top":9,"bottom":220,"shoulder":26,"waist":13,"hip":19,"head_r":10},
+        {"id":1,"kind":"short-broad-analytic","top":38,"bottom":197,"shoulder":45,"waist":31,"hip":37,"head_r":14},
+        {"id":2,"kind":"medium-analytic-control","top":23,"bottom":208,"shoulder":35,"waist":23,"hip":28,"head_r":12}
+    ]
+    hashes={}
+    for cfg in shapes:
+        canvas=Image.new("RGB",(224,224),(244,244,244))
+        draw=ImageDraw.Draw(canvas)
+        cx=112
+        top=cfg["top"];bottom=cfg["bottom"];sr=cfg["shoulder"];wa=cfg["waist"];hip=cfg["hip"];head=cfg["head_r"]
+        head_y=top+head
+        draw.ellipse((cx-head,top,cx+head,top+2*head),fill=(32,42,50))
+        necktop=top+head*2+2
+        shoulder_y=necktop+10
+        waist_y=shoulder_y+(bottom-shoulder_y)*0.34
+        hip_y=waist_y+(bottom-shoulder_y)*0.19
+        # Neutral, fully clothed abstract adult figure. No sexual detail/age-coded features.
+        draw.polygon([(cx-sr,shoulder_y),(cx+sr,shoulder_y),(cx+wa,waist_y),(cx+hip,hip_y),(cx-hip,hip_y),(cx-wa,waist_y)],fill=(32,42,50))
+        arm_bottom=hip_y+8
+        draw.line([(cx-sr+2,shoulder_y+5),(cx-sr-7,arm_bottom)],fill=(32,42,50),width=11)
+        draw.line([(cx+sr-2,shoulder_y+5),(cx+sr+7,arm_bottom)],fill=(32,42,50),width=11)
+        draw.polygon([(cx-hip+3,hip_y),(cx-3,hip_y),(cx-8,bottom),(cx-hip+2,bottom)],fill=(32,42,50))
+        draw.polygon([(cx+3,hip_y),(cx+hip-3,hip_y),(cx+hip-2,bottom),(cx+8,bottom)],fill=(32,42,50))
+        outfile=root/(str(cfg["id"])+"_front.png")
+        canvas.save(outfile)
+        hashes[cfg["kind"]]=digest(outfile)
+    source=Path(os.environ["R015_SEMANTIFY_SOURCE"])/"semantify/data_management/creation/clip_encoder.py"
+    tree=ast.parse(source.read_text(encoding="utf8"))
+    native=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=="generate_clip_scores")
+    # Original function compiled unchanged, but neither the heavyweight Semantify
+    # general imports nor any renderer/model-asset code is imported.
+    scope={"clip":clip,"torch":torch,"Image":Image,"tqdm":tqdm,"Path":Path,"json":json,"List":List}
+    exec(compile(ast.Module(body=[native],type_ignores=[]),str(source),"exec"),scope)
+    # Author's function downloads signed official ViT-B/32 weights verified via SHA.
+    st=time.monotonic()
+    scope["generate_clip_scores"](device="cpu",multiview=False,imgs_dir=str(root),descriptors=[str(v[0]) for v in labels])
+    elapsed=round(time.monotonic()-st,3)
+    expected=clip._MODELS["ViT-B/32"].split("/")[-2]
+    cache=Path.home()/".cache/clip/ViT-B-32.pt"
+    if not cache.is_file() or digest(cache)!=expected:
+        raise RuntimeError("FAIL_CLOSED_CLIP_WEIGHTS_DIGEST")
+    scores=[]
+    for cfg in shapes:
+        datum=json.loads((root/(str(cfg["id"])+"_labels.json")).read_text())
+        vals=[]
+        for lab in labels:
+            key=str(lab[0])
+            raw=datum[key]
+            vals.append(float(raw[0][0]))
+        scores.append(vals)
+    x=torch.tensor(scores,dtype=torch.float32)
+    with torch.no_grad():
+        mapped=mapper(x)
+        repeated=mapper(x)
+    if not torch.isfinite(x).all() or not torch.isfinite(mapped).all():
+        raise RuntimeError("NONFINITE_CLIP_OR_MAPPER")
+    beta=mapped.tolist()
+    norms=[round(float(torch.linalg.vector_norm(mapped[i]).item()),5) for i in range(len(shapes))]
+    return {
+        "status":"PASS_ORIGINAL_CLIP_TO_ORIGINAL_MAPPER_NUMERIC_CHAIN_ONLY",
+        "source_clip_commit":clip_sha,
+        "source_clip_weights_sha256":digest(cache),
+        "source_semantify_score_function_sha256":digest(source),
+        "descriptor_order":[str(v[0]) for v in labels],
+        "synthetic_silhouette_hashes":hashes,
+        "scores_raw_image_text_logits":[[round(v,5) for v in row] for row in scores],
+        "mapper_output_10_smplx_betas":[[round(v,6) for v in row] for row in beta],
+        "mapped_vector_l2_norms":norms,
+        "repeat_max_abs_delta":round(float((mapped-repeated).abs().max().item()),8),
+        "score_min":round(float(x.min().item()),5),
+        "score_max":round(float(x.max().item()),5),
+        "original_clip_score_and_mapper_wall_seconds":elapsed,
+        "cpu_concurrent_model_calls":"Sequential per image and descriptor, matching upstream scoring",
+        "disclaimer":"Inputs are public vector-drawn stylized adult silhouettes, NOT native 3DMM renders, CLIP scores are not calibrated to original SMPL-X training image distribution. No real body geometry or photoreal output evaluated.",
+        "model_assets_redistributed":False,
+        "generated_images_redistributed":False,
+    }
+
 def run(repo_path, path):
     record={
         "schema":"r015.semantify.pretrained.v1",
@@ -207,6 +307,12 @@ def run(repo_path, path):
         record["all_output_finite"]=finite
         record["score_calibration"]="NOT_VALIDATED; 0.25 is synthetic numeric probe, not measured CLIP score"
         record["status"]="PASS_ACTUAL_PUBLISHED_MAPPER_NUMERIC_FORWARD_ONLY" if finite and repeat_diff==0 and output_size==10 else "FAIL_NATIVE_PRETRAINED_FORWARD"
+        if os.environ.get("R015_CLIP_SOURCE"):
+            realclip=original_clip_numeric_fixture(model, metadata["labels"], os.environ.get("RUNNER_TEMP","/tmp"))
+            record["original_clip_chain"]=realclip
+            if realclip["status"].startswith("PASS_"):
+                record["status"]="PASS_ORIGINAL_CLIP_TO_ORIGINAL_MAPPER_NUMERIC_CHAIN_ONLY"
+
     except Exception as e:
         traceback.print_exc()
         record["status"]="FAILED_EXCEPTION"
