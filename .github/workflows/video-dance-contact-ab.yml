@@ -1,0 +1,60 @@
+name: video-original-dance-contact-corrective-ab
+on:
+  pull_request:
+    paths:
+      - 'qualification/video_dance_repair/**'
+      - '.github/workflows/video-dance-contact-ab.yml'
+permissions:
+  contents: read
+concurrency:
+  group: video-dance-ab-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-motion-corrective-ab:
+    name: Real H264/GLB source contact correction on two original dance cases
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install only inside disposable public Actions VM
+        env:
+          PY: ${{ runner.temp }}/video-dance-venv
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          python3 -m venv "$PY"
+          "$PY/bin/python" -m pip install --no-cache-dir --disable-pip-version-check \
+            numpy==2.3.5 opencv-python-headless==4.13.0.92
+      - name: Real original-vs-anchored-dance mesh and decoded H264 A/B
+        env:
+          PY: ${{ runner.temp }}/video-dance-venv
+        run: |
+          set -euo pipefail
+          "$PY/bin/python" qualification/video_dance_repair/dance_ab.py --out qualification/video_dance_repair/runs
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("qualification/video_dance_repair/runs")
+          d=json.loads((root/"dance-ab.json").read_text())
+          assert d["schema"]=="scp.dance-original-anchored-contact-ab.v1"
+          assert d["case_count"]==2 and len(d["observations"])==2
+          for r in d["observations"]:
+            assert r["original"]["status"]=="FAIL" and r["candidate"]["status"]=="PASS"
+            assert r["original"]["defect_count"]>0 and r["candidate"]["defect_count"]==0
+            assert not r["labels_changed"]
+            for mode,metadata in (("before","before_media"),("after","after_media")):
+              for suffix,key in ((".glb","glb_sha256"),("_side.mp4","h264_sha256")):
+                path=root/mode/r["case"]/(r["case"]+suffix)
+                assert hashlib.sha256(path.read_bytes()).hexdigest()==r[metadata][key]
+          print("ACTUAL_SOURCE_AUDIT_REPAIRED_DANCE_PAIRS",len(d["observations"]))
+          PY
+          printf 'original_corrupted_controls=UNMODIFIED\nsource_gait_realism=NOT_QUALIFIED\nfoot_contact_relabel=PROHIBITED\n' >qualification/video_dance_repair/runs/qualification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: original-dance-two-new-h264-glb-kinematic-ab
+          path: qualification/video_dance_repair/runs/
+          retention-days: 7
+          if-no-files-found: error
