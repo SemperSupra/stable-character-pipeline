@@ -98,7 +98,11 @@ def main():
             body_result={
                "raw_local_bounds_xyz":bounds(raw),
                "evaluated_local_bounds_xyz":bounds(evaluated),
-               "raw_to_evaluated_rms":stats_between(raw,evaluated)["rms_euclidean_local_blender_units"],
+               "raw_to_evaluated_rms":(
+                   stats_between(raw,evaluated)["rms_euclidean_local_blender_units"]
+                   if len(raw)==len(evaluated) else None),
+               "raw_vertex_count":len(raw),
+               "raw_and_evaluated_topology_matches":len(raw)==len(evaluated),
                "evaluated_mesh_hash_sha256_rounded_8_places":numeric_vector_hash(evaluated),
                "evaluated_vertex_count":len(evaluated),
                "nonzero_shape_key_weights":keys[:40]
