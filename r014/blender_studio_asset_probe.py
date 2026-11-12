@@ -32,6 +32,10 @@ with zipfile.ZipFile(args.archive) as z:
         with z.open(blend_paths[0]) as inp,path.open("wb") as dst:
             import shutil
             shutil.copyfileobj(inp,dst)
+        # Remove Blender factory Cube, Camera and Light. Do not save factory
+        # startup geometry into the recovered character authoring scene.
+        bpy.ops.object.select_all(action="SELECT")
+        bpy.ops.object.delete(use_global=False)
         with bpy.data.libraries.load(str(path),link=False) as (src,dst):
             all_object_names=list(src.objects)
             selections=[n for n in all_object_names if
@@ -60,6 +64,7 @@ with zipfile.ZipFile(args.archive) as z:
                 "material_slots":len(obj.material_slots)
             })
         assert all(x["vertices"]>=2000 for x in inv),inv
+        assert len([o for o in bpy.data.objects if o.type=="MESH"])==6,             "unexpected leftover factory-startup or source helper geometry"
         # Preserve original sculpt modifiers; do not falsely substitute a
         # rasterized high-poly render for an editable native multires base.
         target=args.out/"R014_BlenderStudio_CC0_realistic_sculpt_bases.blend"
