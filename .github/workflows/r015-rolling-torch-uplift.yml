@@ -1,0 +1,76 @@
+name: R015 Rolling PyTorch Uplift — Actual Pretrained Mapper Parity
+on:
+  push:
+    branches:
+      - research/r015-continuous-uplift-r3-20261112
+    paths:
+      - '.github/workflows/r015-rolling-torch-uplift.yml'
+      - 'research/r015_prior_art/semantify_pretrained.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r015-rolling-torch-uplift
+  cancel-in-progress: true
+jobs:
+  source-pinned-mapper-matrix:
+    name: Actual Semantify mapper — Torch ${{ matrix.torch }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        torch: ['2.5.1','2.14.0','2.15.0']
+    steps:
+      - name: Checkout public research branch without persistent token
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install ephemeral CPU-only framework version
+        env:
+          TORCH_VERSION: ${{ matrix.torch }}
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r015-torch"
+          . "$RUNNER_TEMP/r015-torch/bin/activate"
+          python -m pip install --no-cache-dir --no-input --disable-pip-version-check "torch==$TORCH_VERSION" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir --no-input --disable-pip-version-check "omegaconf==2.3.0" "numpy==1.26.4"
+          python - <<'PY'
+          import torch,platform
+          print("PYTHON", platform.python_version(), "TORCH", torch.__version__, "CUDA",torch.version.cuda)
+          assert not torch.cuda.is_available()
+          PY
+      - name: Fetch pinned original Semantify source
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/semantify-original"
+          git -C "$RUNNER_TEMP/semantify-original" fetch -q --depth 1 https://github.com/Omergral/Semantify.git 78b001d3dc4ea4efa428e3aff1213cefddf6ebd8
+          git -C "$RUNNER_TEMP/semantify-original" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/semantify-original" rev-parse HEAD)" = 78b001d3dc4ea4efa428e3aff1213cefddf6ebd8
+      - name: Safe-load exact published checkpoint and compare native CLIP input/output replay
+        env:
+          TORCH_VERSION: ${{ matrix.torch }}
+          R015_SCORE_REPLAY_RECEIPT: evidence/r015-prior-art-bakeoff/43278119546-realclip-original-pretrained-mapper.json
+        run: |
+          set -euo pipefail
+          . "$RUNNER_TEMP/r015-torch/bin/activate"
+          python research/r015_prior_art/semantify_pretrained.py "$RUNNER_TEMP/semantify-original" "receipts/torch-$TORCH_VERSION.json"
+          python - "$TORCH_VERSION" <<'PY'
+          import json,sys
+          from pathlib import Path
+          p=Path("receipts")/("torch-"+sys.argv[1]+".json")
+          obj=json.loads(p.read_text())
+          parity=obj.get("modern_score_replay",{}).get("status","MISSING")
+          if obj.get("status")=="PASS_ACTUAL_PUBLISHED_MAPPER_NUMERIC_FORWARD_ONLY" and parity=="PASS_MODERN_FRAMEWORK_SCORE_REPLAY":
+              print("QUALIFIED_FRAMEWORK_NUMERIC_PARITY",sys.argv[1])
+          else:
+              raise SystemExit("FAIL_CLOSED_PARITY "+repr((obj.get("status"),parity)))
+          PY
+      - name: Retain public JSON receipt, never publish model archives
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r015-torch-${{ matrix.torch }}
+          path: receipts/*.json
+          if-no-files-found: warn
+          retention-days: 7
