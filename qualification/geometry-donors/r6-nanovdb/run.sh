@@ -27,7 +27,7 @@ package="$here/results/nanovdb-cpu-headers.tar.gz"
 tar -C "$scratch/sdk" --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner -czf "$package" .
 sha256sum "$package" | tee "$here/results/package-sha256.txt"
 tar -tzf "$package" | sort > "$here/results/package-contents.txt"
-test "$(grep -c 'NanoVDB.h' "$here/results/package-contents.txt")" -eq 1
+test "$(grep -Fxc './include/nanovdb/NanoVDB.h' "$here/results/package-contents.txt")" -eq 1
 
 # Fresh consumer: no access to original source root, only extracted SDK.
 mkdir -p "$scratch/relocated" "$scratch/build"
