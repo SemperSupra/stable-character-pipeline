@@ -1,0 +1,126 @@
+name: R014 MPFB native eye shader compatibility bakeoff
+on:
+  push:
+    branches: [research/r014-mpfb-eye-shader-v1]
+    paths: [r014/**, .github/workflows/r014-mpfb-eye-shader.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-mpfb-eyes-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-lookdev:
+    strategy:
+      fail-fast: false
+      matrix:
+        eye_material: [PROCEDURAL_EYES, MAKESKIN]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-mpfb-surface/config
+      BLENDER_USER_SCRIPTS: /tmp/r014-mpfb-surface/scripts
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: makehumancommunity/mpfb2
+          ref: 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          path: _vendor/mpfb2
+          persist-credentials: false
+      - name: Pinned MPFB source and official Blender binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C _vendor/mpfb2 rev-parse HEAD)" = "6ff1eb358f6c1959ced77e79e6dd2406d9a71f49"
+          mkdir -p "$RUNNER_TEMP/r014-surface"
+          cd "$RUNNER_TEMP/r014-surface"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-surface" -maxdepth 2 -type f -name blender | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Install MPFB extension in disposable user configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$RUNNER_TEMP/r014-surface/extensions"
+          "$BLENDER_BIN" --command extension build --source-dir _vendor/mpfb2/src/mpfb --output-dir "$RUNNER_TEMP/r014-surface"
+          ext="$(find "$RUNNER_TEMP/r014-surface" -maxdepth 1 -name 'mpfb-*.zip' | head -1)"
+          test -f "$ext"
+          "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r014-surface/extensions"
+          "$BLENDER_BIN" --command extension install-file -r r014lab -e "$ext"
+      - name: Pin CC0 core asset archive digest and safely unpack
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --connect-timeout 20 --max-time 480 \
+            https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip \
+            -o "$RUNNER_TEMP/r014-surface/assets.zip"
+          python3 - <<'PY'
+          import hashlib,os,zipfile
+          from pathlib import Path
+          folder=Path(os.environ['RUNNER_TEMP'])/'r014-surface'
+          archive=folder/'assets.zip'
+          assert hashlib.sha256(archive.read_bytes()).hexdigest()=='b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107'
+          with zipfile.ZipFile(archive) as z:
+              assert z.testzip() is None
+              assert all(not i.filename.startswith('/') and '..' not in i.filename.split('/') for i in z.infolist())
+              z.extractall(folder/'assets')
+          PY
+      - name: Reject reversed MPFB phenotype macros before native lookdev
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-surface/result"
+          python3 r014/mpfb_gender_contract.py --self-test
+          python3 r014/mpfb_gender_contract.py \
+            --source _vendor/mpfb2/src/mpfb \
+            --receipt "$RUNNER_TEMP/r014-surface/result/gender_source.json"
+      - name: Create and render two skin/eye/hair-equipped adults
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-surface/result"
+          "$BLENDER_BIN" --background --python r014/mpfb_surface_lookdev.py -- \
+            --eye-material "${{ matrix.eye_material }}" \
+            --assets "$RUNNER_TEMP/r014-surface/assets" \
+            --output "$RUNNER_TEMP/r014-surface/result" \
+            --receipt "$RUNNER_TEMP/r014-surface/result/generation.json" \
+            2>&1 | tee "$RUNNER_TEMP/r014-surface/result/eye_shader.log"
+      - name: Validate generated phenotype macro receipts from official source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 r014/mpfb_gender_contract.py \
+            --source _vendor/mpfb2/src/mpfb \
+            --report "$RUNNER_TEMP/r014-surface/result/generation.json" \
+            --receipt "$RUNNER_TEMP/r014-surface/result/gender_verified.json"
+      - name: Classify actual Blender node errors for selected eye shader
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 r014/mpfb_shader_audit.py --self-test
+          python3 r014/mpfb_shader_audit.py \
+            --log "$RUNNER_TEMP/r014-surface/result/eye_shader.log" \
+            --shader-mode "${{ matrix.eye_material }}" \
+            --receipt "$RUNNER_TEMP/r014-surface/result/eye_shader_audit.json"
+      - name: Verify packed texture files and rigged bodies survive fresh reopen
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-surface/result/R014_MPFB_CC0_surface_study.blend" \
+            --python r014/mpfb_surface_verify.py -- \
+            --blend "$RUNNER_TEMP/r014-surface/result/R014_MPFB_CC0_surface_study.blend" \
+            --receipt "$RUNNER_TEMP/r014-surface/result/reopened.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mpfb-eye-${{ matrix.eye_material }}-lookdev
+          path: ${{ runner.temp }}/r014-surface/result/*
+          retention-days: 7
