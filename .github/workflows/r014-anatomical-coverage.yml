@@ -1,0 +1,30 @@
+name: R014 adult anatomical coverage gate (manifest only)
+on:
+  push:
+    branches: [research/r014-anatomical-coverage-v1]
+    paths: [r014/**, .github/workflows/r014-anatomical-coverage.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Run negative and positive admission controls
+        run: python3 -m unittest discover -v -s r014/tests
+      - name: Emit explicitly held candidates
+        run: |
+          python3 -m r014.check_anatomy --schema r014/anatomical_coverage_v1.json --out coverage_receipts.json
+          python3 - <<'PY'
+          import json
+          results=json.load(open('coverage_receipts.json'))
+          assert len(results)==2 and all(x['status']=='HOLD_UNVERIFIED' for x in results)
+          print("Expected fail-closed HOLD for current anatomy candidates verified")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-anatomy-held-receipts
+          path: coverage_receipts.json
+          retention-days: 7
