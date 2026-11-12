@@ -60,6 +60,8 @@ jobs:
             --tmpfs /tmp:rw,noexec,nosuid,size=16m \
             -v "$PWD/receipts/fixtures:/data:ro" -v "$PWD/receipts:/out:rw" \
             local/video-bakeoff:rdte -manifest /data/cases.json -out /out/oci-video-receipt.json
+          # Read back isolated UID 65532's mode-0600 receipt on this disposable VM only.
+          sudo chown "$(id -u):$(id -g)" receipts/oci-video-receipt.json
           python3 - <<'PY'
           import json
           from pathlib import Path
