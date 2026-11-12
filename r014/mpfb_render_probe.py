@@ -12,17 +12,28 @@ a.output.mkdir(parents=True,exist_ok=True)
 assert 'R014_female_body' in bpy.data.objects
 assert 'R014_male_body' in bpy.data.objects
 scene=bpy.context.scene
-scene.render.engine='BLENDER_WORKBENCH'
+scene.render.engine='CYCLES'
+scene.cycles.device='CPU'
+scene.cycles.samples=8
+scene.render.threads_mode='FIXED'
+scene.render.threads=4
 scene.render.resolution_x=640
 scene.render.resolution_y=640
 scene.render.resolution_percentage=100
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
-scene.display.shading.light='STUDIO'
-scene.display.shading.color_type='MATERIAL'
-scene.display.shading.show_shadows=True
-scene.display.shading.show_cavity=True
-scene.display.shading.cavity_type='BOTH'
+world=bpy.data.worlds.new('R014NeutralWorld')
+world.use_nodes=True
+world.node_tree.nodes.get('Background').inputs['Color'].default_value=(0.7,0.73,0.78,1.0)
+world.node_tree.nodes.get('Background').inputs['Strength'].default_value=0.8
+scene.world=world
+lamp_data=bpy.data.lights.new('R014AreaKey','AREA')
+lamp=bpy.data.objects.new('R014AreaKey',lamp_data)
+bpy.context.collection.objects.link(lamp)
+lamp.location=(2.0,-3.0,4.0)
+lamp_data.energy=600
+lamp_data.shape='DISK'
+lamp_data.size=5.0
 camera_data=bpy.data.cameras.new('R014_QA_camera')
 cam=bpy.data.objects.new('R014_QA_camera',camera_data)
 bpy.context.collection.objects.link(cam)
@@ -63,7 +74,7 @@ report={'status':'PASS_VISUAL_RECEIPTS_GENERATED_NOT_REVIEWED',
         'blender':bpy.app.version_string,
         'static_views':['pair_front','pair_back','pair_side','female_face','male_face','female_hands','male_hands'],
         'motion':'24 frames camera orbit ONLY, not humanoid motion',
-        'limits':['Workbench clay-shaded only','No photoreal skin/hair/eyes',
+        'limits':['Neutral CPU Cycles only','No photoreal skin/hair/eyes',
                   'No actual gait or soft-tissue mechanics','No face close-up realism acceptance']}
 a.receipt.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
 print('R014_RENDER_RECEIPT',json.dumps(report,sort_keys=True))
