@@ -1,0 +1,82 @@
+{
+  "baseline_status": "PASS_DATA_DERIVED_PROXY_ONLY",
+  "comparison": {
+    "held_out_rows": 600,
+    "interpretation": "These are CPU text-regression baselines on BodyShapeGPT's released pairs, NOT BodyShapeGPT Llama-3/LoRA inference, NOT geometric accuracy or metric measurements.",
+    "mean_absolute_error_beta": {
+      "mean": 1.140213,
+      "nearest_neighbor": 1.300534,
+      "ridge": 0.91575
+    },
+    "methods": [
+      "train_mean",
+      "TFIDF_Ridge",
+      "TFIDF_nearest_neighbor"
+    ],
+    "nearest_to_mean_mae_ratio": 1.14061,
+    "ridge_per_coefficient_mae": [
+      0.58252,
+      0.55884,
+      0.70406,
+      0.82449,
+      1.12484,
+      1.03873,
+      1.08197,
+      1.04547,
+      1.06568,
+      1.13089
+    ],
+    "ridge_to_mean_mae_ratio": 0.80314,
+    "train_test_split": "sha256(normalized prompt) % 10, disjoint by exact normalized prompt, then bounded sample",
+    "training_and_inference_seconds": 0.321,
+    "training_rows": 6000
+  },
+  "cpu_count": 4,
+  "dataset": {
+    "json_top_level_fields": [
+      "description",
+      "shape_params"
+    ],
+    "parsed_pairs": 21000,
+    "raw_prompts_in_receipt": false,
+    "rows": 21000,
+    "source_blob_sha256": "e093c965d58a44ddd499d19452d9a71d0ccf70863cd2a54d58c60f2de9a42e65",
+    "unique_casefolded_description_hashes": 19429,
+    "unparsed_rows": 0
+  },
+  "job_status": "COMPLETED_WITH_BOUNDARIES",
+  "lane": "bodyshapegpt",
+  "merge_release_gate": "HOLD",
+  "native_inference": {
+    "base_model": "meta-llama/Meta-Llama-3-8B (access-controlled, 8B, CUDA 4-bit in upstream demo)",
+    "lora": "OneDrive-linked safetensors not included in GitHub repo",
+    "native_llm_executed": false,
+    "repository_weight_files": [
+      "adapter_config.json"
+    ],
+    "runner_gpu_required_by_upstream_demo": true,
+    "status": "BLOCKED_EXTERNAL_MODEL_ASSETS_AND_ACCELERATOR"
+  },
+  "native_mesh_qualification": "NOT_PERFORMED",
+  "python": "3.12.3",
+  "schema": "r015.prior_art.bakeoff.v1",
+  "scope": "public research / synthetic adult morphology / no private assets",
+  "source": "/home/runner/work/_temp/upstream",
+  "start_epoch": 1794501896,
+  "upstream_commit": "758bf5a1b3dbd12984de6f68ad4d3bf8c95ef409",
+  "upstream_native_parser": {
+    "allows_integers_in_answer": false,
+    "description_number_leakage": true,
+    "normal_10_values": true,
+    "note": "Native parser selects first ten decimal numbers in *entire* decoded prompt+answer. Observed malformed returns are source-native behavior, not the learned model's quality.",
+    "requires_full_exact_10_vector": false,
+    "source": "demo.py parse_betas AST exact upstream function"
+  },
+  "github_execution": {
+    "run_id": 43261962857,
+    "job_id": 131335367194,
+    "workflow_head": "e3952299732b17baebf69ac28b6a0f3a32360dec",
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43261962857",
+    "evidence_extract": "exact JSON reconstructed from GitHub job log"
+  }
+}
