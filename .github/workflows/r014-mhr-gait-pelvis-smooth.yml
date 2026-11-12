@@ -1,0 +1,109 @@
+name: R014 actual MHR reach-preserving smooth pelvis world contact DoE
+on:
+  push:
+    branches: [research/r014-mhr-gait-pelvis-smooth-20261112]
+    paths: ['r014/mhr_gait_pelvis_smooth_probe.py','r014/pelvis_lipschitz_envelope.py','.github/workflows/r014-mhr-gait-pelvis-smooth.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-mhr-foot-ik-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent_real_rig_variants:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [neutral, shape20]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Validate source syntax and workflow input before binaries
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014
+          python3 r014/pelvis_lipschitz_envelope.py
+      - name: Retrieve exactly pinned public Go gait trajectory proof
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014gait/source" "$RUNNER_TEMP/r014gait/out"
+          gh run download 43246188313 --repo "$GITHUB_REPOSITORY" \
+            --name r014-gait-contact-math-and-technical-video \
+            --dir "$RUNNER_TEMP/r014gait/source"
+          echo "44d8ebb4bee9a01f522a92ff4377c4cc66c9b19df835bb4b6a1e2a847179fd56  $RUNNER_TEMP/r014gait/source/gait_frames.json" | sha256sum --check
+          echo "d83114db0718c059f7f6099355a50ed9db8ec62bf4df77fe63c326f39da62442  $RUNNER_TEMP/r014gait/source/gait_receipt.json" | sha256sum --check
+      - name: Pin disposable Blender 4.5.16
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014gait"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          sha="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#sha}" -eq 64
+          printf '%s  %s\n' "$sha" blender-4.5.16-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014gait" -maxdepth 2 -name blender -type f | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Exact official public MHR source and native Blender scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-all-errors --connect-timeout 20 \
+            https://github.com/facebookresearch/MHR/releases/download/v1.0.1/assets.zip \
+            -o "$RUNNER_TEMP/r014gait/assets.zip"
+          echo "e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94  $RUNNER_TEMP/r014gait/assets.zip" | sha256sum --check
+          "$BLENDER_BIN" --background --factory-startup --python-exit-code 3 \
+            --python r014/mhr_fbx_native_probe.py -- \
+            --phase create --archive "$RUNNER_TEMP/r014gait/assets.zip" \
+            --sha256 e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94 \
+            --output "$RUNNER_TEMP/r014gait/out" \
+            --receipt "$RUNNER_TEMP/r014gait/out/native_create.json"
+      - name: Apply keyed world-root + foot IK to actual MHR body and emit 5 review frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014gait/out/R014_MHR_neutral_lod1.blend" \
+            --python-exit-code 3 --python r014/mhr_gait_pelvis_smooth_probe.py -- \
+            --frames "$RUNNER_TEMP/r014gait/source/gait_frames.json" \
+            --gait-receipt "$RUNNER_TEMP/r014gait/source/gait_receipt.json" \
+            --out "$RUNNER_TEMP/r014gait/out" \
+            --variant '${{ matrix.variant }}'
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'r014gait/out'
+          r=json.loads((p/'mhr_gait_retarget_receipt.json').read_text())
+          assert r['status']=='HOLD_NATIVE_GAIT_ANATOMY_AND_CINEMATIC_VIDEO'
+          assert r['variant']=='${{ matrix.variant }}'
+          assert r['source_mesh_vertices']==18439 and r['source_rig_bones']==126
+          assert r['gait_frames']==169
+          assert r['corrected_ik_end_effector']=='foot'
+          assert r['corrected_ik_chain_count']==3
+          assert r['native_rig_world_scale']==0.01
+          assert all('max_skin_motion_world_units' in m for m in r['skin_geometry_samples'].values())
+          assert 'reachability' in r and set(r['reachability'])=={'l','r'}
+          assert r['pelvis_adjustment_world_units_applied_in_real_native_animation'] is True
+          assert r['pelvis_vertical_reach_preplan']['preview_window_frames']==0
+          assert r['pelvis_slope_control_verified'] is True
+          assert r['pelvis_vertical_reach_preplan']['max_interframe_lowering_change_world']<=.00800001
+          assert r['pelvis_vertical_reach_preplan']['frames_capped']==0
+          assert max(r['ik_end_effector_to_ankle_source_gap_native'].values())<.001
+          assert len(r['rendered_sparse_frames'])==5
+          assert all((p/x).stat().st_size>5000 for x in r['rendered_sparse_frames'])
+          print('R014_CORRECTED_FOOT_END_GAIT_EVIDENCE_ONLY; ACTUAL FOOT_SLIP AND GEOMETRY ARE',r['contact'])
+          PY
+          (cd "$RUNNER_TEMP/r014gait/out" && sha256sum *.blend *.json *.png > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-mhr-pelvis-smooth-${{ matrix.variant }}-HOLD
+          path: ${{ runner.temp }}/r014gait/out/*
+          retention-days: 7
