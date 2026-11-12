@@ -1,0 +1,68 @@
+name: Oneirifact public-safe DCC R0 (direct, no dispatch)
+run-name: Oneirifact synthetic indexed GLB Blender roundtrip — ${{ github.ref_name }}
+
+on:
+  push:
+    branches: [research/oneirifact-public-dcc-r0-20261112]
+    paths:
+      - 'qualification/geometry-donors/oneirifact-dcc-r0/**'
+      - '.github/workflows/oneirifact-public-dcc-r0.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oneirifact-public-dcc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  blender-roundtrip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout reviewed public-safe fixtures
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify synthetic derived geometry fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          base64 --decode qualification/geometry-donors/oneirifact-dcc-r0/drilled-box-detail16.glb.b64 > out/model.glb
+          echo '41f08fdf03eb7458adabd9c0a3026379b01f13bf8db2882cfc2f7a76f732ff35  out/model.glb' | sha256sum -c -
+          python3 -m py_compile qualification/geometry-donors/oneirifact-dcc-r0/*.py
+      - name: Download official Blender 4.5.16 and verify vendor SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/oneirifact-blender"
+          cd "$RUNNER_TEMP/oneirifact-blender"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fsSL --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fsSL --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          echo "BLENDER_BIN=$RUNNER_TEMP/oneirifact-blender/blender-4.5.16-linux-x64/blender" >> "$GITHUB_ENV"
+      - name: Independent Blender original import and fresh-process roundtrip
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LIBGL_ALWAYS_SOFTWARE=1
+          script=qualification/geometry-donors/oneirifact-dcc-r0/blender_oracle.py
+          "$BLENDER_BIN" --background --factory-startup --python-exit-code 8 --python "$script" -- import out/model.glb out/first-import.json
+          "$BLENDER_BIN" --background --factory-startup --python-exit-code 8 --python "$script" -- roundtrip out/blender-roundtrip.glb out/second-import.json
+          python3 qualification/geometry-donors/oneirifact-dcc-r0/check_receipts.py
+      - name: Retain receipt, not source or sensitive inputs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: oneirifact-synthetic-dcc-r0-${{ github.run_attempt }}
+          path: |
+            out/first-import.json
+            out/second-import.json
+          if-no-files-found: warn
+          retention-days: 7
