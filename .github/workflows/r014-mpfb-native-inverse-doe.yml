@@ -1,0 +1,108 @@
+name: R014/R015 Real MPFB Native Geometry DOE and Inverse CPU Regression
+on:
+  push:
+    branches: [research/r014-mpfb-native-morphometry-doe-20261112]
+    paths:
+      - 'r014/mpfb_native_inverse_doe.py'
+      - '.github/workflows/r014-mpfb-native-inverse-doe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-real-native-morph-doe
+  cancel-in-progress: true
+jobs:
+  exact-native-doe:
+    name: Actual MPFB native Blender geometry samples and mapper shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1]
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-morph-doe/config
+      BLENDER_USER_SCRIPTS: /tmp/r014-morph-doe/scripts
+    steps:
+      - name: Checkout standalone research without persisted credential
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Compile source and verify exact-gender contract before large downloads
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/mpfb_native_inverse_doe.py
+          python3 r014/mpfb_gender_contract.py --self-test
+      - name: Check out unmodified and exactly pinned official MPFB generator
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: makehumancommunity/mpfb2
+          ref: 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          path: _vendor/mpfb2
+          persist-credentials: false
+      - name: Pin source, rights and original semantics
+        run: |
+          set -euo pipefail
+          test "$(git -C _vendor/mpfb2 rev-parse HEAD)" = 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          grep -F 'GPLv3' _vendor/mpfb2/LICENSE.md
+          grep -F 'CC0' _vendor/mpfb2/LICENSE.md
+          mkdir -p "$RUNNER_TEMP/r014-doe/results"
+          python3 r014/mpfb_gender_contract.py --source _vendor/mpfb2/src/mpfb --receipt "$RUNNER_TEMP/r014-doe/results/source_macro_gender.json"
+      - name: Obtain verified official Blender only in disposable runner
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-doe"
+          cd "$RUNNER_TEMP/r014-doe"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          digest="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#digest}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$digest" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-doe" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Build exact pinned MPFB in disposable native Blender profile
+        run: |
+          set -euo pipefail
+          mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$RUNNER_TEMP/r014-doe/extensions"
+          "$BLENDER_BIN" --command extension build --source-dir _vendor/mpfb2/src/mpfb --output-dir "$RUNNER_TEMP/r014-doe"
+          ext="$(find "$RUNNER_TEMP/r014-doe" -maxdepth 1 -name 'mpfb-*.zip' | head -1)"
+          test -s "$ext"
+          "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r014-doe/extensions"
+          "$BLENDER_BIN" --command extension install-file -r r014lab -e "$ext"
+          "$BLENDER_BIN" --command extension list
+      - name: Generate 36 actual shapes and test heldout numeric inverse model
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background --python-exit-code 5 --python r014/mpfb_native_inverse_doe.py -- \
+            --shard "$SHARD" --out "$RUNNER_TEMP/r014-doe/results"
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-doe/results"
+          shard=int(os.environ["SHARD"])
+          r=json.loads((root/f"native_inverse_doe_shard_{shard}.json").read_text())
+          assert r["status"]=="PASS_REAL_NATIVE_GEOMETRY_DOE_AND_INVERSE_CPU_BASELINES"
+          assert r["actual_samples"]==36 and r["distinct_actual_evaluated_shapes"]==36
+          assert r["regressor"]["train_records"]==27 and r["regressor"]["test_records"]==9
+          assert len((root/f"native_inverse_doe_samples_{shard}.jsonl").read_text().splitlines())==36
+          print("PASS_NATIVE_SHAPE_DOE",shard,r["regressor"]["l1_native_control_error"])
+          PY
+      - name: Record digests for public numeric-only research receipts
+        if: always()
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/r014-doe/results"
+          if [ -d "$root" ]; then (cd "$root" && find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 -r sha256sum > source_digests.txt); fi
+      - name: Retain only public deterministic numeric fixtures and aggregate comparison
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-native-shape-doe-${{ matrix.shard }}
+          path: ${{ runner.temp }}/r014-doe/results/*
+          if-no-files-found: warn
+          retention-days: 7
