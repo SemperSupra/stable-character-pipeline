@@ -187,3 +187,106 @@ jobs:
           path: qualification/video_physics_bakeoff/epoch/
           retention-days: 14
           if-no-files-found: error
+
+  rootfs-normalized-diff:
+    name: Independent OCI root filesystem content versus timestamp falsifier
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    defaults:
+      run:
+        shell: bash
+        working-directory: qualification/video_physics_bakeoff
+    env:
+      DOCKER_BUILDKIT: '1'
+      SOURCE_DATE_EPOCH: '1704067200'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Rebuild twice without cache and export rootfs only inside disposable runner
+        run: |
+          set -euo pipefail
+          mkdir -p rootfs
+          docker build --pull --no-cache --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" -f Dockerfile.research -t local/videoqa-rootfs:first .
+          docker build --pull --no-cache --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" -f Dockerfile.research -t local/videoqa-rootfs:second .
+          for tag in first second; do
+            cid="$(docker create local/videoqa-rootfs:"$tag")"
+            docker export -o "rootfs/$tag.tar" "$cid"
+            docker rm "$cid"
+            docker image inspect local/videoqa-rootfs:"$tag" --format '{{.Id}}' >"rootfs/image-$tag.txt"
+          done
+      - name: Compare normalized file payloads separately from mutable timestamps
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,tarfile
+          from pathlib import Path
+          root=Path("rootfs")
+          def items(path):
+            result={}
+            with tarfile.open(path,"r|") as archive:
+              for item in archive:
+                # Keep path normalization and disallow duplicate entries.
+                name=item.name.rstrip("/")
+                if not name or name in result:raise ValueError("MISSING_OR_DUPLICATE_ROOTFS_NAME")
+                digest=None
+                if item.isfile():
+                  stream=archive.extractfile(item)
+                  if stream is None:raise ValueError("UNREADABLE_ROOTFS_FILE")
+                  h=hashlib.sha256()
+                  for chunk in iter(lambda:stream.read(1024*1024),b""):
+                    h.update(chunk)
+                  digest=h.hexdigest()
+                result[name]={
+                  "type":item.type.decode("ascii","replace") if isinstance(item.type,bytes) else str(item.type),
+                  "content_sha256":digest,"symlink_target":item.linkname,
+                  "mode":item.mode,"uid":item.uid,"gid":item.gid,"mtime":item.mtime,
+                }
+            if len(result)<100:raise ValueError("ROOTFS_TOO_SMALL_OR_INCOMPLETE")
+            return result
+          a=items(root/"first.tar");b=items(root/"second.tar")
+          missing_a=sorted(set(b)-set(a));missing_b=sorted(set(a)-set(b))
+          content=[]; metadata=[]; timestamp_only=[]
+          for name in sorted(set(a)&set(b)):
+            aa,bb=a[name],b[name]
+            if any(aa[k]!=bb[k] for k in ("type","content_sha256","symlink_target")):
+              content.append(name)
+            elif aa["mode"]!=bb["mode"] or aa["uid"]!=bb["uid"] or aa["gid"]!=bb["gid"]:
+              metadata.append(name)
+            elif aa["mtime"]!=bb["mtime"]:
+              timestamp_only.append(name)
+          result={
+            "schema":"scp.video-physics-oci-normalized-rootfs-rebuild-diff.v1",
+            "input_source_date_epoch":1704067200,
+            "rootfs_entry_counts":[len(a),len(b)],
+            "file_payload_difference_count":len(content),
+            "file_metadata_difference_count":len(metadata),
+            "timestamp_only_difference_count":len(timestamp_only),
+            "only_in_first_count":len(missing_b),"only_in_second_count":len(missing_a),
+            "payload_difference_paths_first_40":content[:40],
+            "metadata_difference_paths_first_40":metadata[:40],
+            "timestamp_difference_paths_first_40":timestamp_only[:40],
+            "only_in_first_paths_first_40":missing_b[:40],
+            "only_in_second_paths_first_40":missing_a[:40],
+            "image_ids":[(root/"image-first.txt").read_text().strip(),
+                         (root/"image-second.txt").read_text().strip()],
+            "normalized_rootfs_content_stable":not(content or metadata or missing_a or missing_b),
+            "science":"REPRODUCIBILITY_DIAGNOSTIC_ONLY_NO_RELEASE",
+            "limitations":["Docker-export is a view of merged rootfs, not layer tar identity",
+                "Identical merged rootfs does not prove bit-for-bit image reproducibility",
+                "Source-date epoch is not an immutable APK repository snapshot or SBOM attestation"],
+          }
+          (root/"normalized-rootfs-diff.json").write_text(json.dumps(result,sort_keys=True,indent=2)+"\n")
+          print("ROOTFS_NORMALIZED_AB",{"content":len(content),"metadata":len(metadata),
+             "timestamp_only":len(timestamp_only),"only_first":len(missing_b),"only_second":len(missing_a)})
+          PY
+          sha256sum rootfs/normalized-rootfs-diff.json >rootfs/receipt-sha256.txt
+          rm -f rootfs/first.tar rootfs/second.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: video-physics-oci-normalized-rootfs-repro-falsifier
+          path: |
+            qualification/video_physics_bakeoff/rootfs/normalized-rootfs-diff.json
+            qualification/video_physics_bakeoff/rootfs/receipt-sha256.txt
+          retention-days: 14
+          if-no-files-found: error
