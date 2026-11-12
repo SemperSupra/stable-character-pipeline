@@ -133,7 +133,7 @@ def evaluate(root:Path,family:str):
         gt,mp4=verify_assets(folder,item)
         velocities,joint_count=joint_velocity_series(safe_json(gt),item["case"])
         pixels,decoded_sha,unique=decoded_luma_series(mp4)
-        if len(velocities)!=len(pixels)!=39:raise AssertionError("BAD_TIME_COUPLING")
+        if len(velocities)!=39 or len(pixels)!=39:raise AssertionError("BAD_TIME_COUPLING")
         out.append({"case":item["case"],
                     "source_ground_truth_sha256":item["ground_truth"]["sha256"],
                     "source_glb_sha256":item["model"]["sha256"],
