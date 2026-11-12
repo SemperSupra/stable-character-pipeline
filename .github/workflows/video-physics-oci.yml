@@ -54,7 +54,7 @@ jobs:
             {"id":"oci-unlabelled","kind":"video","path":"videos/clean.mp4","expected_motion":true}
           ]}
           JSON
-          chmod -R a+rX receipts/fixtures
+          # Native files created by UID 65532 are readable; do not chmod files from the host.
           chmod 777 receipts
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m \
             --tmpfs /tmp:rw,noexec,nosuid,size=16m \
