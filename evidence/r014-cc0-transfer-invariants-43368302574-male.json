@@ -1,0 +1,59 @@
+{
+  "actual_surface_fidelity": "NOT_EVALUATED",
+  "appearance_photoreal_and_anatomy": "HOLD",
+  "changed_accessory_names": [
+    "R014_male_textured_body.eyebrow001",
+    "R014_male_textured_body.eyelashes01",
+    "R014_male_textured_body.high-poly",
+    "R014_male_textured_body.short01",
+    "R014_male_textured_body.teeth_base",
+    "R014_male_textured_body.tongue01"
+  ],
+  "changed_real_accessory_geometry_count": 6,
+  "cohort": "male",
+  "inside_outside_and_contact_approval": "HOLD",
+  "merge_release": "HOLD",
+  "motion": "NOT_TESTED_HERE",
+  "per_mesh_structural_fields_compared": [
+    "parent",
+    "object_type",
+    "raw_vertices",
+    "raw_edges",
+    "raw_polygons",
+    "loops",
+    "polygon_index_layout_sha256",
+    "material_index_layout_sha256",
+    "material_slots",
+    "modifiers",
+    "vertex_group_names",
+    "weights_sha256_rounded_8",
+    "uv_layers",
+    "shape_key_schema"
+  ],
+  "schema": "r014.cc0.transfer.source_geometry_uv_material_invariants.v1",
+  "selftest": "PASS_SYNTHETIC_NEGATIVE_GUARDS",
+  "source_actor_mesh_count": 7,
+  "source_after_sha256": "4fffe83b03865f5735480f66328d6e695577da7c0f4f09fef690c75e1edccb8a",
+  "source_before_sha256": "9a8bb9e4df5ccd1529ee6bf5194a847ac41aa41064d34c899a4cd8a550834cf6",
+  "status": "PASS_SOURCE_NATIVE_UV_TOPOLOGY_MATERIAL_PRESERVATION_ONLY",
+  "strict_material_slots_and_polygon_assignments_invariant": true,
+  "strict_original_uv_loop_hash_invariant": true,
+  "strict_source_pack_hash_invariant": true,
+  "strict_surface_topology_hash_invariant": true,
+  "unchanged_original_body_geometry": true,
+  "unchanged_packed_images": 10,
+  "unchanged_rig_bones": 163,
+  "github_execution": {
+    "run_id": 43368302574,
+    "job_id": 131697849950,
+    "run_url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43368302574",
+    "source_public_run": 43365071496,
+    "rights": "only public CC0/MPFB synthetic research scene",
+    "quality_holds": [
+      "anatomical geometry",
+      "watertight contact",
+      "visible texture/film review",
+      "natural head/face motion"
+    ]
+  }
+}
