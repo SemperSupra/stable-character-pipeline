@@ -148,6 +148,20 @@ for f in frames:
         required=max(required,max(0.0,float(hip.z-tgt.z)-vertical_allowed))
     raw_pelvis_lowering.append(required)
 assert len(raw_pelvis_lowering)==N
+# The original CMU source is not an anatomically identical neutral stance.
+# Report the EXACT source reach deficit before the fail-closed max cap;
+# never widen caps or label impossible IK as successful walking.
+source_height=go["source_first_hip_ankle_vertical_m"]
+print("R014_CMU_NATIVE_REACH_PREFLIGHT",json.dumps({
+    "motion":go["motion"],"mhr_leg_length_native":mhr_lengths,
+    "source_leg_length":go["source_leg_numerical_m"],
+    "source_first_hip_ankle_vertical_m":source_height,
+    "source_first_hip_ankle_horizontal_m":go["source_first_hip_ankle_horizontal_m"],
+    "target_leg_initial_vertical":{k:mhr_landmarks[k]["hip"][2]-mhr_landmarks[k]["ankle"][2] for k in ("l","r")},
+    "needed_max_pelvis_lowering":max(raw_pelvis_lowering),
+    "pelvis_cap":PELVIS_MAX_LOWERING,
+    "horizontal_out_of_reach_counts":{k:len(v) for k,v in horizontal_unreachable.items()}
+},sort_keys=True),flush=True)
 # Source-backed minimal Lipschitz MAJORANT: x[t] >= original two-leg
 # reach need, and |x[t]-x[t-1]| <= 0.008 world units, rather than the
 # original 13-frame max window's observed ~0.0504 world-unit jumps.
