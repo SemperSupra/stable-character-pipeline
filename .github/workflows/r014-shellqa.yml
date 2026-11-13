@@ -1,0 +1,37 @@
+name: R014 bounded synthetic shell geometry QA
+on:
+  pull_request:
+    paths:
+      - 'r014/shellqa/**'
+      - '.github/workflows/r014-shellqa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-shellqa-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  shellqa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Read-only checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Test with Go standard library and race detector
+        working-directory: r014/shellqa
+        run: |
+          go version
+          go test -race -count=1 -v ./...
+          go vet ./...
+      - name: Produce bounded source-safe artifact
+        working-directory: r014/shellqa
+        run: go run ./cmd/receipt > "$GITHUB_WORKSPACE/r014_shellqa_synthetic_receipt.json"
+      - name: Upload only synthetic numeric receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-shellqa-synthetic-receipt
+          path: r014_shellqa_synthetic_receipt.json
+          if-no-files-found: error
+          retention-days: 7
