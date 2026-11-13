@@ -64,7 +64,11 @@ def main():
     if aa.self_test:
         print("R014_PLANE_EXACT_SELFTEST",json.dumps(selftest,sort_keys=True))
         return
-    aa.out.mkdir(parents=True,exist_ok=True)
+    # --out is an output JSON *file*, not a directory. Earlier public batch
+    # created a directory at this file path and failed only on final receipt.
+    assert aa.out.suffix==".json","REQUIRE_EXPLICIT_JSON_OUTPUT_PATH"
+    aa.out.parent.mkdir(parents=True,exist_ok=True)
+    assert not aa.out.is_dir(),"REJECT_OUTPUT_FILE_DIRECTORY_COLLISION"
     orig=aa.original/f"native_inverse_doe_samples_{aa.shard}.jsonl"
     old=[json.loads(s) for s in orig.read_text().splitlines() if s]
     assert len(old)==36
