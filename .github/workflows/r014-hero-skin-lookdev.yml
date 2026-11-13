@@ -1,0 +1,101 @@
+name: R014 real CC0 hero matched original skin vs experimental physical shader study
+on:
+  push:
+    branches: [research/r014-hero-skin-pbr-lookdev-20261113]
+    paths:
+      - r014/cc0_hero_matched_pbr_skin_lookdev.py
+      - .github/workflows/r014-hero-skin-lookdev.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-hero-matched-pbr-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  real_hero_lookdev_falsifiers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        sex: [female, male]
+        mode: [baseline, skin-sss-microbump]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Static source safety qualification
+        shell: bash
+        run: python3 -m compileall -q r014
+      - name: Rehydrate original verified skin/motion/GLB from exact original public synthetic GHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014pbr/source" "$RUNNER_TEMP/r014pbr/out"
+          gh run download 43395948140 --repo "$GITHUB_REPOSITORY" \
+            --name 'r014-hero-coldglb-visual-materials-${{ matrix.sex }}' \
+            --dir "$RUNNER_TEMP/r014pbr/source"
+          (cd "$RUNNER_TEMP/r014pbr/source" && sha256sum -c artifact_manifest.sha256)
+          python3 - <<'PY'
+          import json,hashlib,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014pbr/source"
+          r=json.loads((p/"corrected_morph_motion_receipt.json").read_text())
+          assert r["sex_macro"]=="${{ matrix.sex }}"
+          assert r["status"]=="PASS_ACTUAL_NATIVE_MASK_BAKED_GLTF_MORPH_AND_MOTION_STRUCTURAL_ONLY"
+          assert r["merge_release"]=="HOLD"
+          assert (p/r["imported_editable_native"]["name"]).stat().st_size>100000
+          print("MATCHED_COLD_GLTF_HERO_SOURCE_BOUNDED",r["sex_macro"])
+          PY
+      - name: Pinned official Blender only in disposable temporary runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014pbr"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014pbr" -maxdepth 2 -type f -name blender | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Render authentic source/experimental full-human match across constant camera and Cycles setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          source="$RUNNER_TEMP/r014pbr/source/R014_${{ matrix.sex }}_corrected_maskbake_GLTF_editable.blend"
+          "$BLENDER_BIN" --background "$source" --python-exit-code 4 \
+            --python r014/cc0_hero_matched_pbr_skin_lookdev.py -- \
+            --source "$source" \
+            --source-receipt "$RUNNER_TEMP/r014pbr/source/corrected_morph_motion_receipt.json" \
+            --sex '${{ matrix.sex }}' \
+            --mode '${{ matrix.mode }}' \
+            --out "$RUNNER_TEMP/r014pbr/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014pbr/out"
+          r=json.loads((p/"r014_skin_lookdev_matched_receipt.json").read_text())
+          assert r["subject"]=="${{ matrix.sex }}" and r["mode"]=="${{ matrix.mode }}"
+          assert r["aesthetic_release"]=="HOLD_HUMAN_PHOTOREAL_CINEMATIC_AND_ANATOMY_REVIEW"
+          assert r["status"]=="PASS_MATCHED_CYCLES_RESEARCH_RENDER_ONLY"
+          assert r["skin_source_geometry_vertices"]==14926
+          assert len(r["render_images"])==2
+          assert all((p/x["name"]).stat().st_size>5000 for x in r["render_images"])
+          if r["mode"]=="baseline":assert not r["experimental_changes"]
+          else:assert len(r["experimental_changes"])>=3
+          print("R014_REAL_SOURCE_MATCHED_LOOKDEV_HOLD",r["subject"],r["mode"])
+          PY
+          (cd "$RUNNER_TEMP/r014pbr/out" && sha256sum *.json *.png > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r014-hero-skin-lookdev-${{ matrix.sex }}-${{ matrix.mode }}-HOLD
+          path: ${{ runner.temp }}/r014pbr/out/*
+          retention-days: 7
