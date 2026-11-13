@@ -4,6 +4,7 @@ on:
     branches: [research/r014-hero-material-audit-20261113]
     paths:
       - 'r014/cc0_glb_corrected_morph_animation_render.py'
+      - 'r014/cc0_hero_lookdev_material_anatomy_review.py'
       - '.github/workflows/r014-hero-material-visibility.yml'
   workflow_dispatch:
 permissions:
