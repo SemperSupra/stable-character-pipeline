@@ -1,0 +1,606 @@
+{
+  "actual_new_shapes": 20,
+  "actual_shape_duplicate_count": 0,
+  "age_macro": "0.65 not proof of chronological adulthood",
+  "baseline_replay_exact_mesh_hash": true,
+  "merge_release": "HOLD",
+  "models": {
+    "bbox": {
+      "ood_distance_flags": 2,
+      "ood_distance_flags_by_design": {
+        "extreme_interaction": 1,
+        "extreme_single": 1,
+        "interior_novel": 0
+      },
+      "per_macro_mae": {
+        "height": 0.057193,
+        "muscle": 0.1293467,
+        "proportions": 0.1118825,
+        "weight": 0.1581069
+      },
+      "test_90pct_interval_coverage_all": 0.8625,
+      "test_90pct_interval_coverage_by_design": {
+        "extreme_interaction": 0.6875,
+        "extreme_single": 0.8125,
+        "interior_novel": 1
+      },
+      "test_mae_all": 0.1141323,
+      "test_mae_by_design": {
+        "extreme_interaction": 0.1865674,
+        "extreme_single": 0.1197213,
+        "interior_novel": 0.0723256
+      },
+      "test_predictions": [
+        {
+          "abstain_ood": false,
+          "case": 0,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 0.627687,
+          "yhat": [
+            0.1148633,
+            0.484388,
+            0.4772879,
+            0.5337291
+          ]
+        },
+        {
+          "abstain_ood": true,
+          "case": 1,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 1.447391,
+          "yhat": [
+            1,
+            0.5188979,
+            0.4926991,
+            0.5723175
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 2,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 0.086423,
+          "yhat": [
+            0.4278175,
+            0.4315567,
+            0.4977049,
+            0.447376
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 3,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 0.203557,
+          "yhat": [
+            0.4347716,
+            0.5391589,
+            0.4598792,
+            0.4218168
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 4,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 0.166326,
+          "yhat": [
+            0.4518509,
+            0.8034299,
+            0.3669793,
+            0.3590436
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 5,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 0.077608,
+          "yhat": [
+            0.4271709,
+            0.4215515,
+            0.501222,
+            0.4497525
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 6,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 0.081212,
+          "yhat": [
+            0.4326262,
+            0.5199043,
+            0.455029,
+            0.2468614
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 7,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 0.408018,
+          "yhat": [
+            0.4243771,
+            0.3627659,
+            0.5348502,
+            0.6640176
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 8,
+          "group": "extreme_interaction",
+          "nearest_train_feature_distance": 0.598087,
+          "yhat": [
+            0.1187108,
+            0.5439236,
+            0.4563592,
+            0.5195875
+          ]
+        },
+        {
+          "abstain_ood": true,
+          "case": 9,
+          "group": "extreme_interaction",
+          "nearest_train_feature_distance": 1.414001,
+          "yhat": [
+            1,
+            0.4613227,
+            0.5129387,
+            0.5859935
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 10,
+          "group": "extreme_interaction",
+          "nearest_train_feature_distance": 0.450301,
+          "yhat": [
+            0.4454542,
+            0.688896,
+            0.4202048,
+            0.5865503
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 11,
+          "group": "extreme_interaction",
+          "nearest_train_feature_distance": 0.08373,
+          "yhat": [
+            0.4291991,
+            0.4668762,
+            0.4736701,
+            0.2594574
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 12,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.268277,
+          "yhat": [
+            0.6009347,
+            0.4119686,
+            0.5131609,
+            0.51446
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 13,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.110378,
+          "yhat": [
+            0.3382471,
+            0.5449239,
+            0.4604135,
+            0.4991394
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 14,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.296365,
+          "yhat": [
+            0.4441588,
+            0.4974915,
+            0.4793146,
+            0.5009787
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 15,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.046188,
+          "yhat": [
+            0.3973654,
+            0.4795319,
+            0.4773538,
+            0.3955219
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 16,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.615624,
+          "yhat": [
+            0.5601182,
+            0.4724521,
+            0.4868175,
+            0.4394374
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 17,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.120663,
+          "yhat": [
+            0.3649432,
+            0.4618762,
+            0.4863916,
+            0.4561553
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 18,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.502255,
+          "yhat": [
+            0.5013075,
+            0.4820968,
+            0.4830147,
+            0.4547076
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 19,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.185029,
+          "yhat": [
+            0.431872,
+            0.4923146,
+            0.477994,
+            0.4584005
+          ]
+        }
+      ],
+      "train_and_calibration": {
+        "calibration_90pct_marginal_empirical_coverage": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "calibration_90pct_symmetric_native_control_radii": [
+          0.1006441,
+          0.2803012,
+          0.2867242,
+          0.2865944
+        ],
+        "calibration_mae": 0.119813,
+        "calibration_nnd_95pct_threshold": 0.6967042,
+        "calibration_samples": 18,
+        "feature_count": 4,
+        "train_samples": 54
+      }
+    },
+    "slices": {
+      "ood_distance_flags": 3,
+      "ood_distance_flags_by_design": {
+        "extreme_interaction": 2,
+        "extreme_single": 1,
+        "interior_novel": 0
+      },
+      "per_macro_mae": {
+        "height": 0.0286928,
+        "muscle": 0.1402702,
+        "proportions": 0.0502996,
+        "weight": 0.1002571
+      },
+      "test_90pct_interval_coverage_all": 0.925,
+      "test_90pct_interval_coverage_by_design": {
+        "extreme_interaction": 0.75,
+        "extreme_single": 0.9375,
+        "interior_novel": 1
+      },
+      "test_mae_all": 0.0798799,
+      "test_mae_by_design": {
+        "extreme_interaction": 0.1213071,
+        "extreme_single": 0.0804326,
+        "interior_novel": 0.0586136
+      },
+      "test_predictions": [
+        {
+          "abstain_ood": false,
+          "case": 0,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 1.210665,
+          "yhat": [
+            0.068132,
+            0.4943448,
+            0.4618077,
+            0.391712
+          ]
+        },
+        {
+          "abstain_ood": true,
+          "case": 1,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 2.771801,
+          "yhat": [
+            0.9849611,
+            0.6143724,
+            0.64836,
+            0.4540687
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 2,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 0.608566,
+          "yhat": [
+            0.4484919,
+            0.1351734,
+            0.618062,
+            0.4464051
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 3,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 0.942319,
+          "yhat": [
+            0.4526048,
+            0.5936944,
+            0.5266644,
+            0.4493049
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 4,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 1.192827,
+          "yhat": [
+            0.4728285,
+            0.5922323,
+            0.2442064,
+            0.4748021
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 5,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 1.288608,
+          "yhat": [
+            0.4902936,
+            0.4690138,
+            0.6410869,
+            0.4403572
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 6,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 1.01018,
+          "yhat": [
+            0.4589833,
+            0.5153326,
+            0.3581058,
+            0.0624695
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 7,
+          "group": "extreme_single",
+          "nearest_train_feature_distance": 1.500762,
+          "yhat": [
+            0.4789366,
+            0.3965594,
+            0.5081149,
+            0.8908351
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 8,
+          "group": "extreme_interaction",
+          "nearest_train_feature_distance": 1.110219,
+          "yhat": [
+            0.0845215,
+            0.615234,
+            0.3620316,
+            0.5532359
+          ]
+        },
+        {
+          "abstain_ood": true,
+          "case": 9,
+          "group": "extreme_interaction",
+          "nearest_train_feature_distance": 2.052121,
+          "yhat": [
+            0.976862,
+            0.3351871,
+            0.7949972,
+            0.5007677
+          ]
+        },
+        {
+          "abstain_ood": true,
+          "case": 10,
+          "group": "extreme_interaction",
+          "nearest_train_feature_distance": 1.872157,
+          "yhat": [
+            0.4947858,
+            0.5459133,
+            0.2108968,
+            0.9465105
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 11,
+          "group": "extreme_interaction",
+          "nearest_train_feature_distance": 1.035694,
+          "yhat": [
+            0.4928248,
+            0.5357805,
+            0.565261,
+            0.0593994
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 12,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.437044,
+          "yhat": [
+            0.6215927,
+            0.3594108,
+            0.4950047,
+            0.540201
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 13,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.540474,
+          "yhat": [
+            0.3556357,
+            0.4799988,
+            0.4289037,
+            0.5382187
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 14,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 1.310334,
+          "yhat": [
+            0.4783153,
+            0.4829015,
+            0.4433259,
+            0.5735216
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 15,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.252496,
+          "yhat": [
+            0.4180201,
+            0.3760967,
+            0.4307926,
+            0.2824184
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 16,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 1.001855,
+          "yhat": [
+            0.5635091,
+            0.4751573,
+            0.501461,
+            0.4123771
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 17,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.573366,
+          "yhat": [
+            0.3821622,
+            0.5596061,
+            0.4891302,
+            0.4893193
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 18,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 1.540517,
+          "yhat": [
+            0.5169373,
+            0.3347471,
+            0.5089309,
+            0.4713422
+          ]
+        },
+        {
+          "abstain_ood": false,
+          "case": 19,
+          "group": "interior_novel",
+          "nearest_train_feature_distance": 0.880543,
+          "yhat": [
+            0.4522201,
+            0.4409749,
+            0.5488234,
+            0.4695745
+          ]
+        }
+      ],
+      "train_and_calibration": {
+        "calibration_90pct_marginal_empirical_coverage": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "calibration_90pct_symmetric_native_control_radii": [
+          0.0818959,
+          0.2475918,
+          0.2932423,
+          0.2680804
+        ],
+        "calibration_mae": 0.0812351,
+        "calibration_nnd_95pct_threshold": 1.7474885,
+        "calibration_samples": 18,
+        "feature_count": 14,
+        "train_samples": 54
+      }
+    }
+  },
+  "native_body_units": "unscaled Blender units, NOT cm",
+  "novel_extreme_cases": 12,
+  "novel_interior_cases": 8,
+  "original_72_shape_generation_run": 43289442194,
+  "original_training_digests": {
+    "source_0_jsonl_sha256": "3f48a7291de20557255a488e42e4786cf1f69cc549a20a1f7962c6c67a9d5a9b",
+    "source_0_report_sha256": "f81d2dff07287d321b0b0405b7b0ea4003dcbdeafac6f2d9a5d401a9402ed5c2",
+    "source_1_jsonl_sha256": "09b4f8ba6bc518ad825f9c6d0e6252c6e4166fe23c0d69bfdb99153a96cd753c",
+    "source_1_report_sha256": "a26fe55bf4ae5d486829a9972ad9159f94a334f85482370c9b2d5899f89230a2"
+  },
+  "real_3D_human_photorealism": "NOT_QUALIFIED",
+  "recognized_CPE_concepts_or_generation_policy": "NOT_EXECUTED",
+  "schema": "r015.native_mpfb_out_of_distribution.v1",
+  "shard": 1,
+  "source_macro_overlap_count": 0,
+  "source_sha": "6ff1eb358f6c1959ced77e79e6dd2406d9a71f49",
+  "status": "PASS_REAL_UNSEEN_SOURCE_NATIVE_MESH_STRESS_EVIDENCE_ONLY",
+  "execution": {
+    "github_run_id": 43364022773,
+    "job_id": 131684047223,
+    "url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43364022773",
+    "source_commit": "201bdb89e903050dd5bfe63ee89120829cc596fc"
+  }
+}
