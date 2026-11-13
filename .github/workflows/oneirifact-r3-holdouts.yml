@@ -1,5 +1,5 @@
 name: Oneirifact R3 independent geometry matrix (direct public GHA)
-run-name: Oneirifact R3 Blender + Manifold geometry bakeoff — ${{ github.ref_name }}
+run-name: Oneirifact R3 analytic-volume Blender roundtrip — ${{ github.ref_name }}
 
 on:
   push:
