@@ -60,6 +60,8 @@ assert 60<=len(indices)<=67
 selected=[kin[i] for i in indices]
 base=selected[0]
 source_leg_lengths={}
+source_first_hip_ankle_vertical_m={}
+source_first_hip_ankle_horizontal_m={}
 for side in ("l","r"):
  # ASF source node coordinates represent the END of named segments:
  # lhipjoint ends at hip, lfemur ends at knee, ltibia ends at ankle.
@@ -67,6 +69,8 @@ for side in ("l","r"):
  # materially undercounted leg reach. Pin to source #469/#485.
  hip=base[side+"hipjoint"];knee=base[side+"femur"];ankle=base[side+"tibia"]
  source_leg_lengths[side]=float(np.linalg.norm(hip-knee)+np.linalg.norm(knee-ankle))
+ source_first_hip_ankle_vertical_m[side]=float(abs(hip[1]-ankle[1]))
+ source_first_hip_ankle_horizontal_m[side]=float(np.linalg.norm((hip-ankle)[[0,2]]))
 assert all(.4<x<1.5 for x in source_leg_lengths.values())
 frames=[]
 for t,(i,j) in enumerate(zip(indices,selected),start=1):
@@ -98,6 +102,8 @@ receipt={
  "original_raw_root_horizontal_travel_m":travel,
  "original_root_forward_horizontal_xz":forward.tolist(),
  "source_leg_numerical_m":source_leg_lengths,
+ "source_first_hip_ankle_vertical_m":source_first_hip_ankle_vertical_m,
+ "source_first_hip_ankle_horizontal_m":source_first_hip_ankle_horizontal_m,
  "source_leg_joint_role_chain":{"l":["lhipjoint","lfemur","ltibia"],"r":["rhipjoint","rfemur","rtibia"]},
  "source_measured_ankle_end_node":"ltibia/rtibia",
  "original_unit_scale_publisher_only":METRE_FACTOR,
@@ -112,4 +118,7 @@ a.out.mkdir(parents=True,exist_ok=True)
 (a.out/"cmu07_ephemeral_source_receipt.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n")
 print("CMU07_REAL_TARGETS_PREPARED_EPHEMERAL",json.dumps({
  "motion":a.motion,"frames":len(frames),"root_travel":travel,
- "source_lengths":source_leg_lengths,"contact":receipt["contact"]},sort_keys=True),flush=True)
+ "source_lengths":source_leg_lengths,
+ "initial_hip_ankle_vertical_m":source_first_hip_ankle_vertical_m,
+ "initial_hip_ankle_horizontal_m":source_first_hip_ankle_horizontal_m,
+ "contact":receipt["contact"]},sort_keys=True),flush=True)
