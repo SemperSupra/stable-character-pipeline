@@ -8,6 +8,10 @@ on:
       - r014/mhr_cmu07_skin_foldover_atlas.py
       - r014/mhr_cmu07_topology_differential.py
       - .github/workflows/r014-cmu07-native-topology-differential.yml
+  pull_request:
+    paths:
+      - r014/mhr_cmu07_topology_differential.py
+      - .github/workflows/r014-cmu07-native-topology-differential.yml
   workflow_dispatch:
 permissions:
   contents: read
