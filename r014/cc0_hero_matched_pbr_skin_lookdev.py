@@ -113,8 +113,8 @@ scene.cycles.device="CPU"
 scene.cycles.samples=20
 scene.render.threads_mode="FIXED"
 scene.render.threads=4
-scene.render.resolution_x=720
-scene.render.resolution_y=900
+scene.render.resolution_x=1080
+scene.render.resolution_y=1350
 scene.render.resolution_percentage=100
 scene.render.image_settings.file_format="PNG"
 world=bpy.data.worlds.new("R014_MatchedSkinLookdevWorld")
@@ -140,12 +140,14 @@ def render(label,focus,offset,scale):
  bpy.ops.render.render(write_still=True)
  p=Path(scene.render.filepath);assert p.stat().st_size>5000
  return {"name":p.name,"sha256":sha(p),"view":label,
-         "pixels":[720,900],"source_renderer":"Cycles CPU 20 samples matched lighting"}
+         "pixels":[1080,1350],"source_renderer":"Cycles CPU 20 samples matched lighting"}
 images=[
  render("face", (mid[0],mid[1],hi[2]-.19*ext[2]),
         (0,-max(1.2,float(ext[2]*1.0)),.17),max(.6,float(ext[2])*.53)),
  render("hand", (mid[0]+.38*ext[0],mid[1],lo[2]+.54*ext[2]),
         (.25,-max(1.2,float(ext[2])),.1),max(.62,float(ext[2])*.45)),
+ render("foot", (mid[0]+.18*ext[0],mid[1],lo[2]+.10*ext[2]),
+        (.16,-max(1.2,float(ext[2])),.09),max(.52,float(ext[2])*.31)),
 ]
 after={k:{"subsurface":float(next(n for n in m.node_tree.nodes if n.type=="BSDF_PRINCIPLED").inputs["Subsurface Weight"].default_value),
           "roughness":float(next(n for n in m.node_tree.nodes if n.type=="BSDF_PRINCIPLED").inputs["Roughness"].default_value),
@@ -175,9 +177,13 @@ record={
  "physical_skin_thickness_and_bump_calibration":"UNKNOWN_BLENDER_NATIVE_UNITS",
  "external_anatomy_and_organ_completeness":"HOLD_NOT_VERIFIED",
  "skin_hair_eye_4K_cinematic_acceptance":"HOLD_NOT_INDEPENDENTLY_REVIEWED",
+ "face_hand_foot_highres_1080px_width":"SOURCE_NATIVE_REVIEW_ONLY__NO_ANATOMY_OR_4K_PASS",
+ "native_render_resolution":[1080,1350],
+ "highres_source_cameras":"body-bounds-derived, not independent photogrammetric frame alignment",
  "limits":["No matched photographic material reference, device color calibration or source optical ground truth",
    "No physically calibrated subsurface thickness, pore size, roughness distribution or hair fiber simulation",
    "No face FACS/viseme, grasp, body soft tissue, ground contact or original human gait",
+   "1080px width still renders do not prove photorealism, face, hand or foot anatomy",
    "No normative morphology/body-type/age/sex interpretation from source labels",
    "No canonical pack, protected person source or release rights from this run"],
 }

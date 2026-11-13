@@ -1,7 +1,11 @@
-name: R014 real CC0 hero matched original skin vs experimental physical shader study
+name: R014 original CC0 1080px face hand foot actual Cycles visual evidence
 on:
   push:
     branches: [research/r014-hero-skin-pbr-lookdev-20261113]
+    paths:
+      - r014/cc0_hero_matched_pbr_skin_lookdev.py
+      - .github/workflows/r014-hero-skin-lookdev.yml
+  pull_request:
     paths:
       - r014/cc0_hero_matched_pbr_skin_lookdev.py
       - .github/workflows/r014-hero-skin-lookdev.yml
@@ -15,7 +19,7 @@ concurrency:
 jobs:
   real_hero_lookdev_falsifiers:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +90,9 @@ jobs:
           assert r["aesthetic_release"]=="HOLD_HUMAN_PHOTOREAL_CINEMATIC_AND_ANATOMY_REVIEW"
           assert r["status"]=="PASS_MATCHED_CYCLES_RESEARCH_RENDER_ONLY"
           assert r["skin_source_geometry_vertices"]==14926
-          assert len(r["render_images"])==2
+          assert len(r["render_images"])==3
+          assert sorted(x["view"] for x in r["render_images"])==["face","foot","hand"]
+          assert all(x["pixels"]==[1080,1350] for x in r["render_images"])
           assert all((p/x["name"]).stat().st_size>5000 for x in r["render_images"])
           if r["mode"]=="baseline":assert not r["experimental_changes"]
           else:assert len(r["experimental_changes"])>=3
