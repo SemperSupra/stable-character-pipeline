@@ -1,0 +1,37 @@
+name: R015 source-safe typed morphology consumer negative controls
+on:
+  pull_request:
+    paths:
+      - 'r015/morphgate/**'
+      - '.github/workflows/r015-morphgate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r015-morphgate-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  morphgate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run typed consumer negative controls
+        working-directory: r015/morphgate
+        run: |
+          go version
+          go test -race -count=1 -v ./...
+          go vet ./...
+      - name: Emit synthetic proposal-only receipt
+        working-directory: r015/morphgate
+        run: go run ./cmd/receipt > "$GITHUB_WORKSPACE/r015_morphgate_receipt.json"
+      - name: Archive synthetic receipt for private Drive custody
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r015-morphgate-synthetic-receipt
+          path: r015_morphgate_receipt.json
+          if-no-files-found: error
+          retention-days: 7
