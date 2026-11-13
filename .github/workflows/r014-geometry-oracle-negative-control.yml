@@ -1,0 +1,25 @@
+name: R014 public-safe geometry-oracle negative control
+on:
+  pull_request:
+    paths:
+      - 'r014/geometry_normal_reversal_negative_control.py'
+      - '.github/workflows/r014-geometry-oracle-negative-control.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-synthetic-geometry-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  synthetic-normal-falsifier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source without credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Execute four deterministic synthetic negative controls
+        run: python3 r014/geometry_normal_reversal_negative_control.py
+      - name: Print synthetic machine-readable receipt
+        run: python3 r014/geometry_normal_reversal_negative_control.py --receipt
