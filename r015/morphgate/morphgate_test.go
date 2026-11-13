@@ -92,3 +92,35 @@ func TestStrictDecoderRejectsTrailingJSON(t *testing.T){
  raw=append(raw,[]byte(` {"schema":"forged"}`)...)
  if _,e:=DecodeStrict(raw);e==nil{t.Fatal("trailing document accepted")}
 }
+
+func TestTrustedScaleWithoutCentimeterEvidenceMustAbstain(t *testing.T) {
+ s:=example()
+ s.ScaleRecordID="synthetic-fixture"
+ r:=registry()
+ r.ScaleByID["synthetic-fixture"]=TrustedScale{SourceSHA256:sHash,CentimetersPerNative:2,Admitted:true}
+ result,e:=Validate(s,r);if e!=nil {t.Fatal(e)}
+ if result.UnitConversion!="UNKNOWN_NO_MEASUREMENT_CONVERSION"||
+    !strings.HasPrefix(result.Status,"UNKNOWN_"){
+   t.Fatalf("false-positive scale-only PASS: %+v",result)
+ }
+}
+func TestDeclaredScaleWithoutConvertedMeasurementMustAbstain(t *testing.T) {
+ s:=example()
+ s.ScaleRecordID="synthetic-fixture";s.ClaimedCentimetersPerNative=f(2)
+ r:=registry()
+ r.ScaleByID["synthetic-fixture"]=TrustedScale{SourceSHA256:sHash,CentimetersPerNative:2,Admitted:true}
+ result,e:=Validate(s,r);if e!=nil {t.Fatal(e)}
+ if result.UnitConversion!="UNKNOWN_NO_MEASUREMENT_CONVERSION"||
+    !strings.HasPrefix(result.Status,"UNKNOWN_"){
+   t.Fatalf("declared scale alone must not assert numeric conversion: %+v",result)
+ }
+}
+func TestCentimeterClaimWithoutExplicitDeclaredScaleRejected(t *testing.T) {
+ s:=example()
+ s.ScaleRecordID="synthetic-fixture"
+ s.Measurements[0].ClaimedCentimeters=f(4)
+ s.Measurements[0].UncertaintyCentimeters=f(.1)
+ r:=registry()
+ r.ScaleByID["synthetic-fixture"]=TrustedScale{SourceSHA256:sHash,CentimetersPerNative:2,Admitted:true}
+ requireReject(t,s,r)
+}
