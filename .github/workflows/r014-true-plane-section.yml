@@ -1,0 +1,109 @@
+name: R014 True Native Mesh Plane-Section and Morphometry Regression
+on:
+  push:
+    branches: [research/r014-real-plane-section-morphometry-20261113]
+    paths:
+      - 'r014/mpfb_mesh_plane_section.py'
+      - 'r014/mpfb_native_plane_section_doe.py'
+      - '.github/workflows/r014-true-plane-section.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-exact-native-section-evaluation
+  cancel-in-progress: true
+jobs:
+  genuine-native-body-plane:
+    name: Original 36 evaluated real MPFB bodies / section shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1]
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-native-section/config
+      BLENDER_USER_SCRIPTS: /tmp/r014-native-section/scripts
+    steps:
+      - name: Checkout exact research code with no retained token
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Python compile-only and original source macro preflight
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/mpfb_native_plane_section_doe.py r014/mpfb_mesh_plane_section.py
+          python3 r014/mpfb_gender_contract.py --self-test
+      - name: Retrieve immutable numerical source from original 72 ACTUAL bodies
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-sections/source" "$RUNNER_TEMP/r014-sections/results"
+          gh run download 43289442194 --repo "$GITHUB_REPOSITORY" \
+            --name "r014-native-shape-doe-$SHARD" \
+            --dir "$RUNNER_TEMP/r014-sections/source"
+          test -s "$RUNNER_TEMP/r014-sections/source/native_inverse_doe_samples_$SHARD.jsonl"
+      - name: Obtain official Blender 4.5.16 in disposable worker with digest
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-sections"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 8 --retry-all-errors --retry-delay 5 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 6 --retry-all-errors --retry-delay 5 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          expected="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#expected}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$expected" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-sections" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Checkout actual released MPFB source at exact observed original commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: makehumancommunity/mpfb2
+          ref: 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          path: _vendor/mpfb2
+          persist-credentials: false
+      - name: Build original official MPFB into ephemeral Blender extension directory
+        run: |
+          set -euo pipefail
+          test "$(git -C _vendor/mpfb2 rev-parse HEAD)" = 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          grep -F 'GPLv3' _vendor/mpfb2/LICENSE.md
+          grep -F 'CC0' _vendor/mpfb2/LICENSE.md
+          mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$RUNNER_TEMP/r014-sections/extensions"
+          "$BLENDER_BIN" --command extension build --source-dir _vendor/mpfb2/src/mpfb --output-dir "$RUNNER_TEMP/r014-sections"
+          addon="$(find "$RUNNER_TEMP/r014-sections" -maxdepth 1 -name 'mpfb-*.zip' | head -1)"
+          test -s "$addon"
+          "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r014-sections/extensions"
+          "$BLENDER_BIN" --command extension install-file -r r014lab -e "$addon"
+          "$BLENDER_BIN" --command extension list
+      - name: Exact geometric positive/negative controls, then replay 36 original source bodies
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background --python-exit-code 3 --python r014/mpfb_native_plane_section_doe.py -- \
+            --shard "$SHARD" --original "$RUNNER_TEMP/r014-sections/source" \
+            --out "$RUNNER_TEMP/r014-sections/results/sections_shard_$SHARD.json"
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          shard=int(os.environ["SHARD"])
+          j=json.loads((Path(os.environ["RUNNER_TEMP"])/"r014-sections/results"/f"sections_shard_{shard}.json").read_text())
+          assert j["status"]=="PASS_NATIVE_SECTION_MEASUREMENT_EVIDENCE_ONLY"
+          assert j["source_actual_shapes"]==36 and j["old_36_shape_hashes_replayed_exactly"]
+          assert j["selftest"]["status"]=="PASS_EXACT_CUBE_TWO_DISJOINT_CUBES_OPEN_NEGATIVE"
+          print("PASS_36_TRUE_SOURCE_NATIVE_TRIANGLE_SECTIONS",shard,
+                j["with_any_closed_loop"],j["without_closed_loop"])
+          PY
+      - name: Retain numeric evidence and negative quality controls only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-true-plane-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/r014-sections/results/*.json
+          if-no-files-found: warn
+          retention-days: 7
