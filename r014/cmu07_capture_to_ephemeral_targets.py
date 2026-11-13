@@ -61,7 +61,11 @@ selected=[kin[i] for i in indices]
 base=selected[0]
 source_leg_lengths={}
 for side in ("l","r"):
- hip=base[side+"femur"];knee=base[side+"tibia"];ankle=base[side+"foot"]
+ # ASF source node coordinates represent the END of named segments:
+ # lhipjoint ends at hip, lfemur ends at knee, ltibia ends at ankle.
+ # Prior wrong lfemur->ltibia->lfoot was knee->ankle->midfoot and
+ # materially undercounted leg reach. Pin to source #469/#485.
+ hip=base[side+"hipjoint"];knee=base[side+"femur"];ankle=base[side+"tibia"]
  source_leg_lengths[side]=float(np.linalg.norm(hip-knee)+np.linalg.norm(knee-ankle))
 assert all(.4<x<1.5 for x in source_leg_lengths.values())
 frames=[]
@@ -69,7 +73,8 @@ for t,(i,j) in enumerate(zip(indices,selected),start=1):
  root=map_displacement(j["root"]-base["root"])
  legs={}
  for side,field in (("l","left_leg"),("r","right_leg")):
-  foot=map_displacement(j[side+"foot"]-base[side+"foot"])
+  # Measured ankle from end of tibia, NOT from foot segment end.
+  foot=map_displacement(j[side+"tibia"]-base[side+"tibia"])
   ball=map_displacement(j[side+"toes"]-base[side+"toes"])
   legs[field]={"ankle":dict(zip(("x","y","z"),map(float,foot))),
                "ball":dict(zip(("x","y","z"),map(float,ball))),
@@ -93,6 +98,8 @@ receipt={
  "original_raw_root_horizontal_travel_m":travel,
  "original_root_forward_horizontal_xz":forward.tolist(),
  "source_leg_numerical_m":source_leg_lengths,
+ "source_leg_joint_role_chain":{"l":["lhipjoint","lfemur","ltibia"],"r":["rhipjoint","rfemur","rtibia"]},
+ "source_measured_ankle_end_node":"ltibia/rtibia",
  "original_unit_scale_publisher_only":METRE_FACTOR,
  "orientation":"SOURCE_Y_UP_ROOT_TRAVEL_TO_BLENDER_X_FORWARD; YAW_UNOBSERVED",
  "source_rights":"CMU official no direct resale of original or converted capture data",
