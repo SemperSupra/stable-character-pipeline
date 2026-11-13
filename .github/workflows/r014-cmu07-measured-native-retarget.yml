@@ -1,0 +1,213 @@
+name: R014 authentic CMU 120Hz measured walk onto real skinned MHR 24Hz native rig
+on:
+  push:
+    branches: [research/r014-cmu07-native-walk-integration-20261113]
+    paths:
+      - r014/cmu07_capture_to_ephemeral_targets.py
+      - r014/mhr_cmu07_native_walk_retarget.py
+      - .github/workflows/r014-cmu07-measured-native-retarget.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-native-cmu-original-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source_safe_native_mhr:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 33
+    strategy:
+      fail-fast: false
+      matrix:
+        motion: [07_01, 07_02]
+        variant: [neutral, shape20]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Static source qualification before any download
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014
+          python3 r014/pelvis_lipschitz_envelope.py
+      - name: Reconstruct missing official Let's Encrypt issuer chain and verify against existing root store
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu07/certificates"
+          cd "$RUNNER_TEMP/cmu07/certificates"
+          # Unverified handshake only to INSPECT certificate/public key, not
+          # to acquire or trust capture content. No HTTP or --insecure use.
+          timeout 30s openssl s_client -connect mocap.cs.cmu.edu:443 \
+            -servername mocap.cs.cmu.edu -showcerts </dev/null \
+            > peer_chain.txt 2> peer_chain.err || true
+          awk '/-----BEGIN CERTIFICATE-----/{inside=1} inside{print} /-----END CERTIFICATE-----/{exit}' \
+            peer_chain.txt > leaf.pem
+          openssl x509 -in leaf.pem -noout -subject -issuer -dates
+          openssl x509 -in leaf.pem -noout -subject | grep -F 'CN = mocap.cs.cmu.edu'
+          openssl x509 -in leaf.pem -noout -issuer | grep -F 'CN = YE1'
+          # CA-owned material is fetched over authentic https from the
+          # issuer, NOT from the unauthenticated CMU AIA HTTP URL.
+          issuer=https://letsencrypt.org/certs/gen-y
+          curl --fail --location --silent --show-error --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "$issuer/int-ye1.pem" -o int-ye1.pem
+          curl --fail --location --silent --show-error --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "$issuer/root-ye-by-x2.pem" -o root-ye-by-x2.pem
+          curl --fail --location --silent --show-error --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "$issuer/root-x2-by-x1.pem" -o root-x2-by-x1.pem
+          for p in int-ye1.pem root-ye-by-x2.pem root-x2-by-x1.pem; do
+            openssl x509 -in "$p" -noout -subject -issuer -dates
+          done
+          cat int-ye1.pem root-ye-by-x2.pem root-x2-by-x1.pem > untrusted_chain.pem
+          # THIS command MUST succeed under preexisting Ubuntu trust roots.
+          # Failing it aborts source download; never trust a self-signed YE.
+          openssl verify -verify_hostname mocap.cs.cmu.edu -purpose sslserver \
+            -CAfile /etc/ssl/certs/ca-certificates.crt \
+            -untrusted untrusted_chain.pem leaf.pem
+          cat /etc/ssl/certs/ca-certificates.crt untrusted_chain.pem > verified_ca_bundle.pem
+          echo "CMU_CA_BUNDLE=$RUNNER_TEMP/cmu07/certificates/verified_ca_bundle.pem" >> "$GITHUB_ENV"
+          echo "CMU_SOURCE_TLS_CHAIN_VERIFIED_TO_SYSTEM_ROOT"
+      - name: Download ONLY individually indexed official CMU source ASF and one AMC in isolated runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu07/source" "$RUNNER_TEMP/cmu07/out"
+          # No --insecure, no HTTP, no broad crawling, no third-party mirrors.
+          base=https://mocap.cs.cmu.edu/subjects/07
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 3 \
+            --proto '=https' --proto-redir '=https' --cacert "$CMU_CA_BUNDLE" --connect-timeout 20 \
+            "$base/07.asf" -o "$RUNNER_TEMP/cmu07/source/07.asf"
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 3 \
+            --proto '=https' --proto-redir '=https' --cacert "$CMU_CA_BUNDLE" --connect-timeout 20 \
+            "$base/${{ matrix.motion }}.amc" \
+            -o "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc"
+          test -s "$RUNNER_TEMP/cmu07/source/07.asf"
+          test -s "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc"
+      - name: Match exact pinned original source ASF and AMC hashes from independently captured S1 run
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "c29414591d76a34885bff0b04a2666bf9659f869751a2549591c55277cf95b04  $RUNNER_TEMP/cmu07/source/07.asf" | sha256sum -c -
+          if [ "${{ matrix.motion }}" = 07_01 ]; then
+            echo "3ca8e8b834481c97c32e9dd555f8c9023e33b6c52d93c9d556c83570204bf3f2  $RUNNER_TEMP/cmu07/source/07_01.amc" | sha256sum -c -
+          else
+            echo "a6062c6c6bce037241d345ca8d802ab36a5cf003b60f759aa7b1db545219c065  $RUNNER_TEMP/cmu07/source/07_02.amc" | sha256sum -c -
+          fi
+      - name: Obtain immutable third-party MIT AMC forward-kinematics witness and venv
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone -q --no-tags --filter=blob:none https://github.com/CalciferZh/AMCParser.git \
+            "$RUNNER_TEMP/cmu07/third-party"
+          git -C "$RUNNER_TEMP/cmu07/third-party" checkout -q --detach \
+            08e5a3662e197e7e40eed2c18fc254282eb381f9
+          test "$(git -C "$RUNNER_TEMP/cmu07/third-party" rev-parse HEAD)" = 08e5a3662e197e7e40eed2c18fc254282eb381f9
+          grep -F 'MIT License' "$RUNNER_TEMP/cmu07/third-party/LICENSE"
+          python3 -m venv "$RUNNER_TEMP/cmu07/.venv"
+          "$RUNNER_TEMP/cmu07/.venv/bin/python" -m pip install --disable-pip-version-check --no-cache-dir \
+            numpy==2.2.6 transforms3d==0.4.2 matplotlib==3.10.6
+      - name: Pin disposable Blender 4.5.16
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014gait"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          sha="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#sha}" -eq 64
+          printf '%s  %s\n' "$sha" blender-4.5.16-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014gait" -maxdepth 2 -name blender -type f | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Exact official public MHR source and native Blender scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-all-errors --connect-timeout 20 \
+            https://github.com/facebookresearch/MHR/releases/download/v1.0.1/assets.zip \
+            -o "$RUNNER_TEMP/r014gait/assets.zip"
+          echo "e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94  $RUNNER_TEMP/r014gait/assets.zip" | sha256sum --check
+          "$BLENDER_BIN" --background --factory-startup --python-exit-code 3 \
+            --python r014/mhr_fbx_native_probe.py -- \
+            --phase create --archive "$RUNNER_TEMP/r014gait/assets.zip" \
+            --sha256 e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94 \
+            --output "$RUNNER_TEMP/r014gait/out" \
+            --receipt "$RUNNER_TEMP/r014gait/out/native_create.json"
+      - name: Generate exact-source measured trajectory packet EPHEMERALLY in independent Python FK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu07/ephemeral" "$RUNNER_TEMP/r014gait/out" "$RUNNER_TEMP/r014gait/metadata"
+          "$RUNNER_TEMP/cmu07/.venv/bin/python" r014/cmu07_capture_to_ephemeral_targets.py \
+            --asf "$RUNNER_TEMP/cmu07/source/07.asf" \
+            --amc "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc" \
+            --motion '${{ matrix.motion }}' \
+            --parser "$RUNNER_TEMP/cmu07/third-party" \
+            --out "$RUNNER_TEMP/cmu07/ephemeral"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"cmu07/ephemeral"
+          m=json.loads((p/"cmu07_ephemeral_source_receipt.json").read_text())
+          assert m["motion"]=="${{ matrix.motion }}" and m["source_fps"]==120
+          assert m["contact"].startswith("UNKNOWN_")
+          assert 60<=m["sampled_source_frames"]<=67
+          assert m["full_motion_data_venue"]=="EPHEMERAL_RUNNER_TEMP_ONLY"
+          print("CMU07_EPHEMERAL_SOURCE_MEASURED_FRAMES",m["sampled_source_frames"])
+          PY
+      - name: Actual native MHR 126-bone skinned human animates to original measured FK targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014gait/out/R014_MHR_neutral_lod1.blend" \
+            --python-exit-code 3 --python r014/mhr_cmu07_native_walk_retarget.py -- \
+            --frames "$RUNNER_TEMP/cmu07/ephemeral/cmu07_ephemeral_frames.json" \
+            --gait-receipt "$RUNNER_TEMP/cmu07/ephemeral/cmu07_ephemeral_source_receipt.json" \
+            --out "$RUNNER_TEMP/r014gait/out" \
+            --variant '${{ matrix.variant }}'
+          python3 - <<'PY'
+          import json,hashlib,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014gait/out"
+          r=json.loads((p/"mhr_gait_retarget_receipt.json").read_text())
+          assert r["status"]=="HOLD_NATIVE_GAIT_ANATOMY_AND_CINEMATIC_VIDEO"
+          assert r["source_mesh_vertices"]==18439 and r["source_rig_bones"]==126
+          assert r["source_gait"].startswith("actual source CMU")
+          assert r["variant"]=="${{ matrix.variant }}"
+          assert r["original_source_motion"]=="${{ matrix.motion }}"
+          assert r["capture_contact_provenance"]=="UNKNOWN_NOT_FORCE_MEASURED"
+          assert r["derived_full_animation_artifact_distribution"]=="WITHHELD_SOURCE_RIGHTS_VENUE_GATE"
+          assert 60<=r["gait_frames"]<=67 and r["corrected_ik_chain_count"]==3
+          assert r["native_rig_world_scale"]==0.01 and len(r["skin_geometry_samples"])==5
+          assert all(c["planted_pairs"]==0 for c in r["contact"].values())
+          assert len(r["rendered_sparse_frames"])==5
+          withheld=[p/r["native_blend"]]+[p/n for n in r["rendered_sparse_frames"]]
+          assert all(q.stat().st_size>5000 for q in withheld)
+          # Quantitative source/skin receipt only. This public artifact is not
+          # an original AMC or a full capture-derived native animation.
+          safe=dict(r)
+          safe.pop("rendered_sparse_frames",None)
+          safe.pop("native_blend",None)
+          safe["full_motion_asset_written_in_runner"]=True
+          safe["original_capture_or_derived_scene_uploaded"]=False
+          safe["native_scene_and_render_sha256_EPHEMERAL_ONLY"]={
+             x.name:hashlib.sha256(x.read_bytes()).hexdigest() for x in withheld}
+          out=Path(os.environ["RUNNER_TEMP"])/"r014gait/metadata"
+          (out/"cmu07_actual_mhr_numeric_only.json").write_text(json.dumps(safe,indent=2,sort_keys=True)+"\n")
+          print("R014_ACTUAL_MEASURED_MHR_NATIVE_MOTION_NOT_RELEASED",json.dumps({
+             "motion":r["original_source_motion"],"variant":r["variant"],
+             "frames":r["gait_frames"],
+             "ankle_targets":r["actual_ankle_target_max_Blender_units"],
+             "max_inverted_triangles":max(x["inverted_triangles"] for x in r["skin_geometry_samples"].values()),
+             "planted_contacts_observed":0},sort_keys=True))
+          PY
+          (cd "$RUNNER_TEMP/r014gait/metadata" && sha256sum *.json > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-measured-mhr-${{ matrix.motion }}-${{ matrix.variant }}-NUMERIC_ONLY
+          path: ${{ runner.temp }}/r014gait/metadata/*
+          retention-days: 7
