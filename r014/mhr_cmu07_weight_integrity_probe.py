@@ -5,7 +5,7 @@ import bpy
 import numpy as np
 
 p=argparse.ArgumentParser()
-for key in ("motion","native_source","numeric_receipt","out"):p.add_argument("--"+key,required=True)
+for flag in ("motion","native-source","numeric-receipt","out"):p.add_argument("--"+flag,required=True)
 a=p.parse_args(sys.argv[sys.argv.index("--")+1:])
 assert a.motion in ("07_01","07_02")
 assert Path(bpy.data.filepath).resolve()==Path(a.native_source).resolve()
