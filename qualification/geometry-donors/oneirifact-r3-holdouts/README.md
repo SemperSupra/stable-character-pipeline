@@ -1,0 +1,11 @@
+# Oneirifact public R3 analytic-geometry holdout qualification
+
+**Purpose:** Run independent numerical/geometry and real DCC import checks on **public-safe derived synthetic fixtures only**, with no private Oneirifact implementation source, private models, secrets or user data. Owning private DLE [oneirifact-private#1](https://github.com/SemperSupra/oneirifact-private/issues/1); numeric QA in [private draft PR #21](https://github.com/SemperSupra/oneirifact-private/pull/21).
+
+**Fixture set:** one rectangular box, sphere, cylinder, drilled block (one tunnel), and a disconnected two-sphere union. The five GLBs are generated outputs of the private v0.0.1 candidate, represented in Git as Base64 only because file-upload transport is text-based. Their decoded SHA-256s and analytic expected volumes/bounds/topology are pinned in `manifest.json`. No source graph or code of the private engine is included.
+
+**Provisional fixture-specific acceptance (engineering proposal, not universal precision certificate):** at detail32, independently imported GLB must deviate by **no more than 3.0%** from analytic volume and **0.15 m** from analytic Y-up bounds; exact surface component/genus expectations, nondegenerate triangles, indexed shared vertices, closed 2-incident edges and SHA match. The values were fixed before first local test; first test falsely failed two bounds because the oracle assumed source Z-up rather than glTF Y-up. Correcting the reference frame without modifying thresholds yielded five passing local fixtures.
+
+**Workflow:** direct public standard `ubuntu-24.04` hosted GHA, without Agent Dispatch. Independent stdlib Python GLB parser, official Blender 4.5.16 download verified by vendor SHA-256, actual native Blender import/reexport, *separate Blender process* reimport, compare topology/bounds/volume, archive JSON receipts for seven days. No GitHub private-hosted Actions minutes and no source licensing or owner publication decision implied.
+
+**Limits:** This is a synthetic five-fixture qualification, not random-input coverage, rendering or normal-shading acceptance, native browser UX, full graph stability, commercial/printability fitness, mesh self-intersections in all cases, or a product release. Public draft PR remains unmerged.
