@@ -24,10 +24,13 @@ for name in common:
     else:
         topo="SAME_EVALUATED_VERTEX_COUNT"
     movement=math.dist(before["evaluated_world_centroid"],after["evaluated_world_centroid"])
+    same_world_samples=(before["world_sample_geometry_sha256_rounded_7"]==
+                        after["world_sample_geometry_sha256_rounded_7"])
     if not math.isfinite(movement):raise AssertionError("NONFINITE_MOVEMENT")
     items.append({
         "object_name":name,"topology_comparison":topo,
         "centroid_move_native":round(movement,7),
+        "unchanged_world_geometry_sha256_at_7_decimals":same_world_samples,
         "native_mean_surface_distance_before":before["mean_nearest_body_distance_native"],
         "native_mean_surface_distance_after":after["mean_nearest_body_distance_native"],
         "native_mean_surface_distance_change":round(after["mean_nearest_body_distance_native"]-before["mean_nearest_body_distance_native"],7),
@@ -48,6 +51,8 @@ out={
  "original_only_meshes":sorted(set(oc)-set(nc)),
  "morphed_only_meshes":sorted(set(nc)-set(oc)),
  "items":items,
+ "unchanged_accessory_world_meshes":sum(x["unchanged_world_geometry_sha256_at_7_decimals"] for x in items),
+ "suspected_accessory_transfer_risk":any(x["unchanged_world_geometry_sha256_at_7_decimals"] and abs(x["native_mean_surface_distance_change"])>1e-5 for x in items),
  "policy":"PASS means evidence instrumentation, NOT accessory fit, watertight intersection, eye realism, or garment clearance",
  "geometry_approval":"HOLD",
  "admission":"SOURCE_PUBLIC_LICENSED_SYNTHETIC_ONLY",
@@ -60,5 +65,7 @@ print("R014_ACCESSORY_COMPARISON",json.dumps({
  "sex_macro":out["sex_macro"],"status":out["status"],
  "common_meshes":len(common),"object_names":common,
  "max_mean_surface_distance_change":max([abs(x["native_mean_surface_distance_change"]) for x in items],default=None),
- "max_centroid_move_native":max([x["centroid_move_native"] for x in items],default=None)
+ "max_centroid_move_native":max([x["centroid_move_native"] for x in items],default=None),
+ "unchanged_world_meshes":out["unchanged_accessory_world_meshes"],
+ "suspected_accessory_transfer_risk":out["suspected_accessory_transfer_risk"]
 },sort_keys=True))
