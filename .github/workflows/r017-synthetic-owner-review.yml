@@ -1,0 +1,38 @@
+name: R017 public synthetic owner-review verifier
+on:
+  push:
+    branches:
+      - research/r017-signed-owner-review-verifier-20261113
+    paths:
+      - 'research/r017-approval-verifier/**'
+      - '.github/workflows/r017-synthetic-owner-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r017-owner-review-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Fetch exact current source without third-party actions
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          mkdir -p research/r017-approval-verifier
+          for file in verifier.go verifier_test.go; do
+            curl --fail --location --silent --show-error --retry 2 --connect-timeout 10 --max-time 30 \
+              "https://raw.githubusercontent.com/${GH_REPO}/${GH_SHA}/research/r017-approval-verifier/${file}" \
+              -o "research/r017-approval-verifier/${file}"
+          done
+      - name: Synthetic Go tests with race detector and static vet
+        run: |
+          set -eu
+          cd research/r017-approval-verifier
+          go version
+          GO111MODULE=off go test -race -count=1 -v ./...
+          GO111MODULE=off go vet ./...
