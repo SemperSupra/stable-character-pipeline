@@ -92,6 +92,11 @@ def main():
             try:
                 if len(evaluated.vertices)==0:continue
                 pts=co_world(eval_obj,evaluated,limit=512)
+                fingerprint=sha256()
+                for point in pts:
+                    fingerprint.update(",".join(f"{float(v):.7f}" for v in point).encode("ascii"))
+                    fingerprint.update(b";")
+                world_sample_sha256=fingerprint.hexdigest()
                 distances=[];side=[]
                 for v in pts:
                     closest=tree.find_nearest(inverse@v)
@@ -103,6 +108,7 @@ def main():
                 report["attached_meshes"].append({
                    "name":obj.name,"parent":obj.parent.name if obj.parent else None,
                    "sampled_evaluated_vertices":len(distances),
+                   "world_sample_geometry_sha256_rounded_7":world_sample_sha256,
                    "total_evaluated_vertices":len(evaluated.vertices),
                    "evaluated_world_centroid":[round(float(sum(p[i] for p in pts)/len(pts)),6) for i in range(3)],
                    "mean_nearest_body_distance_native":round(float(sum(distances)/len(distances)),7),
