@@ -53,10 +53,7 @@ func readVerified(path,want string)([]string,error){
  h:=sha256.Sum256(b)
  if hex.EncodeToString(h[:])!=want{return nil,fmt.Errorf("source digest mismatch %s",filepath.Base(path))}
  if len(b)>15000000||len(b)<100{return nil,errors.New("source size out of bounds")}
- return strings.Split(strings.ReplaceAll(string(b),"
-","
-"),"
-"),nil
+ return strings.Split(strings.ReplaceAll(string(b),string(rune(13))+string(rune(10)),string(rune(10))),string(rune(10))),nil
 }
 func floats(parts []string, n int)([]float64,error){
  if len(parts)!=n{return nil,fmt.Errorf("invalid vector of length %d expected %d",len(parts),n)}
@@ -213,8 +210,6 @@ func main(){
  ClockHz:120,SourceHashes:map[string]string{"asf":asfSHA,"amc":sha},
  BoneCount:len(bones),Frames:all}
  b,e:=json.Marshal(output);if e!=nil{panic(e)}
- if e:=os.WriteFile(*out,append(b,'
-'),0600);e!=nil{panic(e)}
- fmt.Printf("CMU_GO_SOURCE_FK_ORACLE motion=%s frames=%d bones=%d SHA256=%x EPHEMERAL_ONLY
-",*motion,len(all),len(bones),sha256.Sum256(b))
+ if e:=os.WriteFile(*out,append(b,byte(10)),0600);e!=nil{panic(e)}
+ fmt.Println(fmt.Sprintf("CMU_GO_SOURCE_FK_ORACLE motion=%s frames=%d bones=%d SHA256=%x EPHEMERAL_ONLY",*motion,len(all),len(bones),sha256.Sum256(b)))
 }
