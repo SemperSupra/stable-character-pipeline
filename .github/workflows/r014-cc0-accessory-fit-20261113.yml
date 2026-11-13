@@ -1,0 +1,124 @@
+name: R014 Actual CC0 Native Accessory Geometry Fit Diagnostic
+on:
+  push:
+    branches: [research/r014-cc0-accessory-transform-audit-20261113]
+    paths:
+      - r014/cc0_accessory_nearest_surface.py
+      - r014/cc0_accessory_compare.py
+      - .github/workflows/r014-cc0-accessory-fit-20261113.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-correct-source-cc0-fit-diagnostic
+  cancel-in-progress: true
+jobs:
+  independently-reopen-original-and-morph:
+    name: Real native CC0 original vs changed shape / ${{ matrix.sex }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sex: female
+            source_run: 43288582735
+            source_artifact: r014-cc0-real-morph-motion-female
+          - sex: male
+            source_run: 43287691272
+            source_artifact: r014-cc0-real-morph-motion-male
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-cc0-accessories/config
+      BLENDER_USER_SCRIPTS: /tmp/r014-cc0-accessories/scripts
+    steps:
+      - name: Checkout public research no-persistent credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Compile source-only before any Blender fetch
+        run: python3 -m compileall -q r014/cc0_accessory_nearest_surface.py r014/cc0_accessory_compare.py
+      - name: Retrieve exact independently qualified author source and modified native model
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEX: ${{ matrix.sex }}
+          MORPH_RUN: ${{ matrix.source_run }}
+          MORPH_ARTIFACT: ${{ matrix.source_artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-cc0-attach/original" "$RUNNER_TEMP/r014-cc0-attach/morphed" "$RUNNER_TEMP/r014-cc0-attach/out"
+          gh run download 43207664661 --repo "$GITHUB_REPOSITORY" --name r014-mpfb-eye-MAKESKIN-lookdev --dir "$RUNNER_TEMP/r014-cc0-attach/original"
+          gh run download "$MORPH_RUN" --repo "$GITHUB_REPOSITORY" --name "$MORPH_ARTIFACT" --dir "$RUNNER_TEMP/r014-cc0-attach/morphed"
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-cc0-attach"
+          src=json.loads((root/"original/generation.json").read_text())
+          assert src["eye_material_mode"]=="MAKESKIN"
+          assert src["asset_archive_sha256"]=="b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107"
+          assert {(x["sex"],x["source_gender_macro"]) for x in src["characters"]}=={("female",0.0),("male",1.0)}
+          receipt=json.loads((root/"morphed/morph_receipt.json").read_text())
+          assert receipt["status"]=="PASS_SOURCE_NATIVE_CC0_MORPH_MOTION_RENDER_STRUCTURAL_ONLY"
+          assert receipt["sex_macro_label"]==os.environ["SEX"]
+          scene=root/"morphed"/receipt["editable_blend"]["name"]
+          assert scene.stat().st_size==receipt["editable_blend"]["bytes"]
+          h=hashlib.sha256()
+          with scene.open("rb") as f:
+            for b in iter(lambda:f.read(1<<20),b""):h.update(b)
+          assert h.hexdigest()==receipt["editable_blend"]["sha256"],"SOURCE_BLENDER_CONTENT_DRIFT"
+          assert (root/"original/R014_MPFB_CC0_surface_study.blend").stat().st_size>10_000_000
+          print("PASS_SOURCE_NATIVE_CC0_TWO_REAL_BLENDER_SCENES",os.environ["SEX"],h.hexdigest())
+          PY
+      - name: Fetch original author Blender 4.5.16 with SHA verification
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-cc0-attach"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          checksum="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#checksum}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$checksum" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-cc0-attach" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: In independent Blender processes measure attached geometry and nearest body surface
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-cc0-attach/original/R014_MPFB_CC0_surface_study.blend" \
+            --python-exit-code 3 --python r014/cc0_accessory_nearest_surface.py -- \
+            --scene "$RUNNER_TEMP/r014-cc0-attach/original/R014_MPFB_CC0_surface_study.blend" \
+            --sex "$SEX" --stage original \
+            --out "$RUNNER_TEMP/r014-cc0-attach/out/original.json"
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-cc0-attach/morphed/R014_${SEX}_CC0_morph_editable_motion.blend" \
+            --python-exit-code 3 --python r014/cc0_accessory_nearest_surface.py -- \
+            --scene "$RUNNER_TEMP/r014-cc0-attach/morphed/R014_${SEX}_CC0_morph_editable_motion.blend" \
+            --sex "$SEX" --stage morphed \
+            --out "$RUNNER_TEMP/r014-cc0-attach/out/morphed.json"
+      - name: Cross-original-morphed diagnostics and explicit uncertainty gate
+        run: |
+          set -euo pipefail
+          python3 r014/cc0_accessory_compare.py \
+             --original "$RUNNER_TEMP/r014-cc0-attach/out/original.json" \
+             --morphed "$RUNNER_TEMP/r014-cc0-attach/out/morphed.json" \
+             --receipt "$RUNNER_TEMP/r014-cc0-attach/morphed/morph_receipt.json" \
+             --out "$RUNNER_TEMP/r014-cc0-attach/out/comparison.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          r=json.loads((Path(os.environ["RUNNER_TEMP"])/"r014-cc0-attach/out/comparison.json").read_text())
+          assert r["geometry_approval"]=="HOLD"
+          assert r["status"] in {"PASS_SOURCE_NATIVE_ACCESSORY_COMPARISON_DIAGNOSTIC_ONLY","UNKNOWN_NO_COMMON_ATTACHED_MESHES"}
+          print("RECORDED_ACCESSORY_QA_NOT_ACCEPTANCE",r["status"],r["common_meshes"])
+          PY
+      - name: Preserve provenance and diagnostics only, never source model ZIPs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-cc0-actual-attachment-qa-${{ matrix.sex }}
+          path: ${{ runner.temp }}/r014-cc0-attach/out/*.json
+          if-no-files-found: warn
+          retention-days: 7
