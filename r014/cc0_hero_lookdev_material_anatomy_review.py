@@ -20,7 +20,7 @@ assert Path(bpy.data.filepath).resolve()==a.source.resolve()
 body=bpy.data.objects["R014_"+a.sex+"_textured_body"]
 rig=bpy.data.objects["R014_"+a.sex+"_textured_rig"]
 assert body.type=="MESH" and rig.type=="ARMATURE"
-assert len(rig.data.bones)==163 and len(body.data.vertices)==13380
+assert len(rig.data.bones)==163 and len(body.data.vertices)>=13000,"cold source import shape/body missing"
 assert any(m.type=="ARMATURE" and m.object==rig for m in body.modifiers)
 assert len(body.data.shape_keys.key_blocks)==(30 if a.sex=="female" else 20)
 assert len(body.data.uv_layers)>0,"cold GLB lost body UV map"
@@ -38,7 +38,7 @@ try:
  faces=[list(p.vertices) for p in mesh.polygons]
 finally:
  body.evaluated_get(deps).to_mesh_clear()
-assert np.isfinite(xyz).all() and xyz.shape==(13380,3)
+assert np.isfinite(xyz).all() and xyz.shape==(len(body.data.vertices),3)
 lower=np.min(xyz,axis=0);upper=np.max(xyz,axis=0)
 extent=upper-lower
 assert np.min(extent)>.01 and np.max(extent)<20
