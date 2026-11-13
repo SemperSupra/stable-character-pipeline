@@ -7,10 +7,12 @@ on:
       - r014/mhr_cmu07_native_walk_retarget.py
       - r014/mhr_cmu07_skin_foldover_atlas.py
       - r014/mhr_cmu07_topology_differential.py
+      - r014/mhr_cmu07_weight_integrity_probe.py
       - .github/workflows/r014-cmu07-native-topology-differential.yml
   pull_request:
     paths:
       - r014/mhr_cmu07_topology_differential.py
+      - r014/mhr_cmu07_weight_integrity_probe.py
       - .github/workflows/r014-cmu07-native-topology-differential.yml
   workflow_dispatch:
 permissions:
@@ -282,6 +284,36 @@ jobs:
                 [(f,x["opposing_interior_hinges_reference_coplanar"],
                   x["nonadjacent_bvh_triangle_overlap_candidate_pairs"])
                  for f,x in d["samples"].items()])
+          PY
+          (cd "$RUNNER_TEMP/r014gait/metadata" && sha256sum *.json > sha256sum.txt)
+      - name: Source-native MHR right-lowleg/root integrity versus unaffected regional controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/r014gait/out"
+          native="R014_MHR_neutral_${{ matrix.motion }}_CMU_CAPTURE_RESEARCH_ONLY.blend"
+          test -s "$root/$native"
+          "$BLENDER_BIN" --background "$root/$native" --python-exit-code 6 \
+            --python r014/mhr_cmu07_weight_integrity_probe.py -- \
+            --native-source "$root/$native" \
+            --numeric-receipt "$root/mhr_gait_retarget_receipt.json" \
+            --motion '${{ matrix.motion }}' \
+            --out "$RUNNER_TEMP/r014gait/metadata"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014gait/metadata/r014_mhr_skin_influence_aggregates_ONLY.json"
+          d=json.loads(p.read_text())
+          assert d["schema"]=="r014.mhr_source_skin_influence_integrity.v1"
+          assert d["status"]=="HOLD_REAL_HUMAN_SKIN_AND_SOURCE_RIGHTS"
+          assert d["motion"]=="${{ matrix.motion }}"
+          assert d["mesh_vertices"]==18439 and d["rig_bones"]==126 and d["triangles"]==36874
+          assert d["actual_blender_frame_count"] in (64,66)
+          assert d["unique_collapsed_faces_vs_first_frame"]>0
+          assert d["unique_collapsed_faces_vs_raw_mesh"]>0
+          print("R014_REAL_SOURCE_SKIN_INFLUENCE_RESEARCH_HOLD",
+                d["motion"],d["unique_collapsed_faces_vs_first_frame"],
+                d["unique_collapsed_faces_vs_raw_mesh"])
           PY
           (cd "$RUNNER_TEMP/r014gait/metadata" && sha256sum *.json > sha256sum.txt)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
