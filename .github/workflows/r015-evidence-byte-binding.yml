@@ -1,0 +1,55 @@
+name: R015 actual artifact byte-binding guard with adversarial claimant spoofing
+on:
+  push:
+    branches: [research/r015-evidence-byte-binding-20261113]
+    paths:
+      - 'research/r015-measurement-admission/**'
+      - '.github/workflows/r015-evidence-byte-binding.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r015-byte-binding-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent_structural_byte_bound_gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Run exact source Go byte-binding and hostile receipt tampering tests in disposable public runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GO111MODULE=off
+          go version
+          go test -race -count=1 -v ./research/r015-measurement-admission
+          go vet ./research/r015-measurement-admission
+          echo 'R015_BYTE_BINDING_ADVERSARIAL_RESEARCH_PASS_NOT_MORPHOLOGY_OR_CANONICAL_ACCEPTANCE'
+      - name: Emit explicit research-only limitation receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r015-binding"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r015-binding"
+          d={"schema":"r015.byte_binding_adversarial_research.v1",
+             "status":"PASS_SOURCE_BYTE_BINDING_TESTS_ONLY",
+             "morphological_measurement_status":"UNKNOWN_NO_INDEPENDENT_PHYSICAL_CALIBRATION",
+             "independent_issuer_status":"UNKNOWN_NO_TRUSTED_SIGNER",
+             "canonical_characterpack_status":"HOLD_HUMAN_OWNER",
+             "actual_blender_geometry_proven":"NOT_IN_THIS_GO_ONLY_TEST",
+             "next":"Source-native evaluated real Blender mesh and calibrated anthropometric/holdout geometry data required"}
+          (p/"receipt.json").write_text(json.dumps(d,indent=2,sort_keys=True)+"\n")
+          PY
+          (cd "$RUNNER_TEMP/r015-binding" && sha256sum *.json > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r015-provenance-byte-binding-structural-only
+          path: ${{ runner.temp }}/r015-binding/*
+          retention-days: 7
