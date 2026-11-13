@@ -73,7 +73,25 @@ rest, polygons = geometry()
 tris = np.asarray([(p[0],p[k],p[k+1])
                    for p in polygons for k in range(1,len(p)-1)], dtype=np.int32)
 assert len(tris) == 36874
+# RAW, undeformed source mesh: independent reference proxy, NOT certified
+# true anatomical bind pose (armature rest transform/shape-key state unknown).
+# All output is nonreconstructive numerical QA; never export coordinates.
+raw_faces=[tuple(int(k) for k in p.vertices) for p in body.data.polygons]
+assert raw_faces == polygons, "unequal original and evaluated face topology"
+inv = rig.matrix_world.inverted_safe()
+raw_reference=np.asarray([list(inv @ (body.matrix_world @ v.co))
+     for v in body.data.vertices],dtype=np.float64)
+assert raw_reference.shape==rest.shape and np.isfinite(raw_reference).all()
+raw_n,raw_m,raw_l=normals_and_lengths(raw_reference,tris)
+raw_valid_area=raw_m>1e-11
+raw_valid_edges=raw_l>1e-9
+raw_degenerate_faces=int(np.count_nonzero(~raw_valid_area))
+raw_degenerate_edges=int(np.count_nonzero(~raw_valid_edges))
 n0, m0, l0 = normals_and_lengths(rest, tris)
+# Hereafter raw-to-first compares actual evaluated captured frame 1 to
+# the undeformed raw source mesh, not to a fabricated SI-scale human.
+raw_first_area_ratio=np.divide(m0,raw_m,out=np.ones_like(raw_m),where=raw_valid_area)
+raw_first_edge_ratio=np.divide(l0,raw_l,out=np.ones_like(raw_l),where=raw_valid_edges)
 assert np.isfinite(m0).all() and np.min(m0) > 1e-11
 assert np.min(l0) > 1e-9
 
@@ -159,6 +177,12 @@ for frame in all_frames:
     n, m, lengths = normals_and_lengths(sample, tris)
     historic = int(np.count_nonzero(np.einsum("ij,ij->i",n0,n)<=0))
     collapse = int(np.count_nonzero(m < .1*m0))
+    collapsed_first_mask=(m < .1*m0)
+    collapsed_raw_mask=raw_valid_area & (m < .1*raw_m)
+    collapsed_raw_count=int(np.count_nonzero(collapsed_raw_mask))
+    raw_edge_ratio=np.divide(lengths,raw_l,out=np.ones_like(lengths),where=raw_valid_edges)
+    raw_strain_max=float(np.max(np.abs(raw_edge_ratio[raw_valid_edges]-1))) if np.any(raw_valid_edges) else 0.0
+    collapse_both_count=int(np.count_nonzero(collapsed_first_mask&collapsed_raw_mask))
     if frame in sample_frame_set:
         expected = source["skin_geometry_samples"][str(frame)]
         assert historic == expected["inverted_triangles"], ("history changed", frame)
@@ -185,11 +209,16 @@ for frame in all_frames:
         "rest_normal_reversals": historic, "area_collapses": collapse,
         "compressed_faces": compressed, "stretched_faces": stretched,
         "max_abs_edge_strain": max_strain,
+        "collapsed_faces_vs_raw_reference": collapsed_raw_count,
+        "collapsed_faces_vs_both_references": collapse_both_count,
+        "max_abs_edge_strain_vs_raw_reference": raw_strain_max,
         "opposing_hinges": opposing, "nonadjacent_bvh_pairs": overlaps})
     if frame in sample_frame_set:
         results[str(frame)] = {
         "historical_rest_normal_reversal_count_NOT_PROVEN_INVERSION": historic,
         "severe_area_collapse_count_under_0_1_reference": collapse,
+        "collapsed_area_under_0_1_raw_source_reference": collapsed_raw_count,
+        "collapsed_under_0_1_both_reference_proxies": collapse_both_count,
         "faces_any_edge_compressed_under_0_75": compressed,
         "faces_any_edge_stretched_over_1_25": stretched,
         "maximum_absolute_edge_strain_dimensionless": max_strain,
@@ -215,7 +244,9 @@ def summary(key):
             "mean":float(vals.mean()),"frames_positive":int(np.count_nonzero(vals>0)),
             "worst_frame":int(all_frame_metrics[int(np.argmax(vals))]["frame"])}
 field_names = ("rest_normal_reversals","area_collapses","compressed_faces",
-               "stretched_faces","max_abs_edge_strain","opposing_hinges","nonadjacent_bvh_pairs")
+               "stretched_faces","max_abs_edge_strain","collapsed_faces_vs_raw_reference",
+               "collapsed_faces_vs_both_references","max_abs_edge_strain_vs_raw_reference",
+               "opposing_hinges","nonadjacent_bvh_pairs")
 all_window_summary = {key:summary(key) for key in field_names}
 source_weight_group_summary={
   key:{"dominant_source_bone_groups_face_frame_occurrences":counter.most_common(12),
@@ -248,6 +279,15 @@ doc = {
     "mesh_triangle_fans":len(tris),
     "mesh_interior_edges":len(pairs),
     "reference_near_planar_interior_edges":count_near_planar,
+    "raw_undeformed_source_reference_status":"RAW_BODY_DATA_PROXY_NOT_CERTIFIED_ARMATURE_BIND_POSE",
+    "raw_source_face_degenerate_count":raw_degenerate_faces,
+    "raw_source_edge_degenerate_count":raw_degenerate_edges,
+    "frame1_evaluated_vs_raw_reference_area_ratio_p05_p50_p95":
+       [float(v) for v in np.percentile(raw_first_area_ratio[raw_valid_area],[5,50,95])]
+       if np.any(raw_valid_area) else [],
+    "frame1_evaluated_vs_raw_reference_max_abs_edge_ratio_delta":
+       float(np.max(np.abs(raw_first_edge_ratio[raw_valid_edges]-1)))
+       if np.any(raw_valid_edges) else None,
     "scene_coordinate_units":"RIG_LOCAL_UNCALIBRATED",
     "test_thresholds":{"area_ratio":.1,"edge_compress_ratio":.75,
        "edge_stretch_ratio":1.25,"reference_coplanar_cos_min":.95,
@@ -261,6 +301,8 @@ doc = {
     "what_is_not_proven":[
        "Full window scanned but only aggregate diagnostics retained; no full framewise pose track exported",
        "Reference frame is first sampled captured pose, not independently validated undeformed bind/rest mesh",
+       "Raw mesh body.data vertices are an undeformed source reference proxy, not a validated armature rest/bind configuration",
+       "Two reference proxies quantify deformation sensitivity but cannot establish clinical tissue injury or corrective weights",
        "Dominant original MHR skin weight group is approximate region evidence, not true anatomical landmark measurement",
        "No self-intersection narrow-phase oracle or physical tissue collision proof",
        "No calibrated centimeters, full kinetic/force/contact or anatomical realism",
