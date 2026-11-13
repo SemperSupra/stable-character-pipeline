@@ -1,0 +1,108 @@
+name: R014 Cold GLB Human Rig, Materials and Animation Re-Import
+on:
+  push:
+    branches: [research/r014-cc0-gltf-cold-import-motion-20261113]
+    paths:
+      - 'r014/cc0_gltf_cold_import_motion.py'
+      - '.github/workflows/r014-cc0-gltf-cold-import.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-cc0-glb-cold-import-independent
+  cancel-in-progress: true
+jobs:
+  actual-fresh-blender-import:
+    name: Original source-free GLB import and skin deformation / ${{ matrix.sex }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        sex: [female,male]
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-cold-glb/config
+      BLENDER_USER_SCRIPTS: /tmp/r014-cold-glb/scripts
+    steps:
+      - name: Source checkout no retained credential
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Compile cold importer
+        run: python3 -m compileall -q r014/cc0_gltf_cold_import_motion.py
+      - name: Acquire only portable GLB and receipt, not the native Blender source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-cold-glb/source" "$RUNNER_TEMP/r014-cold-glb/out"
+          gh run download 43368839856 --repo "$GITHUB_REPOSITORY" \
+            --name "r014-real-cc0-source-headturn-$SEX" --dir "$RUNNER_TEMP/r014-cold-glb/source"
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-cold-glb/source"
+          sex=os.environ["SEX"]
+          doc=json.loads((root/"temporal_fit_receipt.json").read_text())
+          assert doc["sex_macro"]==sex
+          assert doc["status"]=="PASS_BOUNDED_REAL_SOURCE_NATIVE_TEMPORAL_EVIDENCE_CAPTURE_ONLY"
+          assert doc["head_turn_fit_status"].startswith("HOLD")
+          glb=root/f"R014_{sex}_head_turn_skin_and_accessories.glb"
+          h=hashlib.sha256()
+          with glb.open("rb") as f:
+              for c in iter(lambda:f.read(1<<20),b""):h.update(c)
+          assert h.hexdigest()==doc["glb"]["sha256"]
+          assert glb.stat().st_size==doc["glb"]["bytes"]
+          print("PASS_IMMUTABLE_ORIGINAL_163BONE_CC0_GLB_ONLY",sex,h.hexdigest())
+          PY
+      - name: Verified official Blender in isolated public runner
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-cold-glb"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          h="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#h}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$h" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-cold-glb" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Fresh-process import actual human portable GLB and independently actuate its skin
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background --python-exit-code 4 --python r014/cc0_gltf_cold_import_motion.py -- \
+            --sex "$SEX" \
+            --source "$RUNNER_TEMP/r014-cold-glb/source/R014_${SEX}_head_turn_skin_and_accessories.glb" \
+            --author-receipt "$RUNNER_TEMP/r014-cold-glb/source/temporal_fit_receipt.json" \
+            --out "$RUNNER_TEMP/r014-cold-glb/out"
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          doc=json.loads((Path(os.environ["RUNNER_TEMP"])/"r014-cold-glb/out/cold_import_receipt.json").read_text())
+          assert doc["status"]=="PASS_ACTUAL_COLD_IMPORTED_SKINNED_GLTF_MOTION_ONLY"
+          assert doc["actual_imported_body_motion_pass"] and doc["actual_imported_body_return_pass"]
+          assert doc["merge_release"]=="HOLD"
+          print("PASS_NATIVE_ACTUAL_IMPORTED_BONE_SKIN_MOTION",doc["source_sex_macro"])
+          PY
+      - name: Retain exact-hash native importer proofs in binary receipts
+        if: always()
+        run: |
+          set -euo pipefail
+          directory="$RUNNER_TEMP/r014-cold-glb/out"
+          if [ -d "$directory" ]; then
+            (cd "$directory" && find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 -r sha256sum > import_artifacts.sha256)
+          fi
+      - name: Seven-day independent source-only re-imported human 3D editables and proof images
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-cold-glb-import-skinned-${{ matrix.sex }}
+          path: ${{ runner.temp }}/r014-cold-glb/out/*
+          if-no-files-found: warn
+          retention-days: 7
