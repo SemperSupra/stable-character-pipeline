@@ -16,3 +16,8 @@ Local disposable Go stdlib tests: 18/18 synthetic cases PASS with race detector 
 `verifier_test.go 3dcec33acb099fde0d182a70f53797d2417cc974e570d4f613c0c395fdcd0b3d`.
 
 CI is a narrow, read-only, 8-minute public GitHub Actions job with no third-party Actions and no persistent state. Observe exact GitHub run before claiming cloud qualification. No integration/merge/release/deploy/CPE promotion without review.
+## Independent red/blue correction (2026-11-13)
+
+- FIRST RED reproduced in local disposable Go: original source accepted a validly signed receipt whose caller-controlled `Scope` and expected scope were both `canonical-write`, returning `VERIFIED_FOR_HUMAN_REVIEW_ONLY`; this was an authorization-context confusion even though no actual canonical write existed.
+- BLUE: explicit `candidate-review` scope is now the only admissible review verifier request. An independent `adversarial_test.go` locks the denial, with one additional transparent test documenting that two calls against the same unchanged nonce snapshot BOTH return review-verified. **Atomic single-use nonce consumption remains NOT IMPLEMENTED** and must be enforced by product authority.
+- Local corrected source Go race/vet PASS (18 existing cases + 2 adversarial cases). Exact-head public GHA remains unverified until an observed completed run and logs. This is synthetic review intent only, never proof of owner authentication, actual CharacterPack canonicalization or release.
