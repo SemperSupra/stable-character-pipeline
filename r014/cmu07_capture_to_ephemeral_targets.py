@@ -59,6 +59,16 @@ indices=list(range(0,len(kin),5))
 assert 60<=len(indices)<=67
 selected=[kin[i] for i in indices]
 base=selected[0]
+# A real human's pelvis is the mean bilateral hip-joint WORLD position.
+# The AMC global root is a coordinate-frame node, not automatically the
+# anatomical pelvis origin. Track the actually reconstructed hip midpoint.
+def hip_mid(sample):
+ return .5*(sample["lhipjoint"]+sample["rhipjoint"])
+base_hip_mid=hip_mid(base)
+initial_ankle_relative_hipcenter={}
+for side in ("l","r"):
+ v=map_displacement(base[side+"tibia"]-base_hip_mid)
+ initial_ankle_relative_hipcenter[side]=dict(zip(("x","y","z"),map(float,v)))
 source_leg_lengths={}
 source_first_hip_ankle_vertical_m={}
 source_first_hip_ankle_horizontal_m={}
@@ -74,7 +84,7 @@ for side in ("l","r"):
 assert all(.4<x<1.5 for x in source_leg_lengths.values())
 frames=[]
 for t,(i,j) in enumerate(zip(indices,selected),start=1):
- root=map_displacement(j["root"]-base["root"])
+ root=map_displacement(hip_mid(j)-base_hip_mid)
  legs={}
  for side,field in (("l","left_leg"),("r","right_leg")):
   # Measured ankle from end of tibia, NOT from foot segment end.
@@ -105,6 +115,8 @@ receipt={
  "source_first_hip_ankle_vertical_m":source_first_hip_ankle_vertical_m,
  "source_first_hip_ankle_horizontal_m":source_first_hip_ankle_horizontal_m,
  "source_leg_joint_role_chain":{"l":["lhipjoint","lfemur","ltibia"],"r":["rhipjoint","rfemur","rtibia"]},
+ "source_initial_ankle_relative_bilateral_hipcentre":initial_ankle_relative_hipcenter,
+ "measured_motion_root_reference":"source true bilateral hipjoint centroid, NOT original AMC reference-frame root",
  "source_measured_ankle_end_node":"ltibia/rtibia",
  "original_unit_scale_publisher_only":METRE_FACTOR,
  "orientation":"SOURCE_Y_UP_ROOT_TRAVEL_TO_BLENDER_X_FORWARD; YAW_UNOBSERVED",
@@ -119,6 +131,7 @@ a.out.mkdir(parents=True,exist_ok=True)
 print("CMU07_REAL_TARGETS_PREPARED_EPHEMERAL",json.dumps({
  "motion":a.motion,"frames":len(frames),"root_travel":travel,
  "source_lengths":source_leg_lengths,
+ "true_hip_motion_world_m":float(np.linalg.norm(map_displacement(hip_mid(selected[-1])-base_hip_mid))),
  "initial_hip_ankle_vertical_m":source_first_hip_ankle_vertical_m,
  "initial_hip_ankle_horizontal_m":source_first_hip_ankle_horizontal_m,
  "contact":receipt["contact"]},sort_keys=True),flush=True)
