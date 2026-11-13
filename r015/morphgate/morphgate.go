@@ -92,7 +92,7 @@ func Validate(s Evidence,trust Registry) (Result,error) {
    return result,errors.New("untrusted, mismatched or nonfinite physical scale claim")
   }
  }
- qualified:=0;unknown:=0
+ qualified:=0;unknown:=0;verifiedCentimeterMeasurements:=0
  for i,m:=range s.Measurements {
   if m.Region==""||m.Method==""||!finite(m.NativeValue)||m.NativeValue<=0 {
    return result,fmt.Errorf("invalid native measure %d",i)
@@ -100,7 +100,7 @@ func Validate(s Evidence,trust Registry) (Result,error) {
   key:=m.Region+"|"+m.Method
   if trust.QualifiedRegionMethods[key] {qualified++}else{unknown++}
   if m.ClaimedCentimeters!=nil {
-   if !validScale {return result,fmt.Errorf("unadmitted centimeter claim %d",i)}
+   if !validScale||s.ClaimedCentimetersPerNative==nil {return result,fmt.Errorf("centimeter claim %d lacks explicit admitted scale",i)}
    target:=m.NativeValue*registered.CentimetersPerNative
    if !finite(*m.ClaimedCentimeters)||math.Abs(target-*m.ClaimedCentimeters)>1e-6*math.Max(1,target) {
     return result,fmt.Errorf("unit conversion contradiction %d",i)
@@ -108,6 +108,7 @@ func Validate(s Evidence,trust Registry) (Result,error) {
    if m.UncertaintyCentimeters==nil||!finite(*m.UncertaintyCentimeters)||*m.UncertaintyCentimeters<=0 {
     return result,fmt.Errorf("unqualified uncertainty %d",i)
    }
+   verifiedCentimeterMeasurements++
   }
   if m.UncertaintyCentimeters!=nil && m.ClaimedCentimeters==nil {
    return result,fmt.Errorf("unitless uncertainty claim %d",i)
@@ -115,11 +116,13 @@ func Validate(s Evidence,trust Registry) (Result,error) {
  }
  result.QualifiedLandmarkMethods=qualified
  result.UnknownLandmarkMethods=unknown
- if validScale {
+ if validScale && verifiedCentimeterMeasurements>0 {
   result.UnitConversion="PASS_NUMERIC_CONVERSION_ONLY_NOT_ANATOMY"
   result.Status="PASS_ADMITTED_NUMERIC_CONVERSION_ONLY__HOLD_PHYSICAL_ACCEPTANCE"
- }
- if !validScale&&s.ClaimedCentimetersPerNative==nil {result.UnitConversion="UNKNOWN_NATIVE_ONLY"}
+ } else if validScale {
+  // Trusted scale metadata is NOT a verified centimeter conversion by itself.
+  result.UnitConversion="UNKNOWN_NO_MEASUREMENT_CONVERSION"
+ } else if s.ClaimedCentimetersPerNative==nil {result.UnitConversion="UNKNOWN_NATIVE_ONLY"}
  if unknown>0 {result.Status="UNKNOWN_UNQUALIFIED_LANDMARK_METHOD__HOLD_PHYSICAL_ACCEPTANCE"}
  if s.HeldoutStatus=="NOT_TESTED"||s.OODStatus=="NOT_TESTED" {
   result.FullBodyOOD="NOT_TESTED_HOLD"
