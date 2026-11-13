@@ -1,0 +1,156 @@
+name: Motion S2b two independent engines verify original CMU07 full ASF/AMC joint FK
+on:
+  push:
+    branches: [research/motion-cmu07-go-fk-parity-20261113]
+    paths:
+      - motion_learning/qualification/cmu07_independent_fk.go
+      - motion_learning/qualification/cmu07_dual_fk_parity.py
+      - .github/workflows/motion-cmu07-dual-fk-parity.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: motion-cmu07-dual-fk-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent_real_source_fk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        motion: [07_01, 07_02]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Validate source safely without external media
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q motion_learning/source_admission
+          python3 motion_learning/source_admission/cmu07_original_metadata.py --selftest
+      - name: Reconstruct missing official Let's Encrypt issuer chain and verify against existing root store
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu07/certificates"
+          cd "$RUNNER_TEMP/cmu07/certificates"
+          # Unverified handshake only to INSPECT certificate/public key, not
+          # to acquire or trust capture content. No HTTP or --insecure use.
+          timeout 30s openssl s_client -connect mocap.cs.cmu.edu:443 \
+            -servername mocap.cs.cmu.edu -showcerts </dev/null \
+            > peer_chain.txt 2> peer_chain.err || true
+          awk '/-----BEGIN CERTIFICATE-----/{inside=1} inside{print} /-----END CERTIFICATE-----/{exit}' \
+            peer_chain.txt > leaf.pem
+          openssl x509 -in leaf.pem -noout -subject -issuer -dates
+          openssl x509 -in leaf.pem -noout -subject | grep -F 'CN = mocap.cs.cmu.edu'
+          openssl x509 -in leaf.pem -noout -issuer | grep -F 'CN = YE1'
+          # CA-owned material is fetched over authentic https from the
+          # issuer, NOT from the unauthenticated CMU AIA HTTP URL.
+          issuer=https://letsencrypt.org/certs/gen-y
+          curl --fail --location --silent --show-error --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "$issuer/int-ye1.pem" -o int-ye1.pem
+          curl --fail --location --silent --show-error --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "$issuer/root-ye-by-x2.pem" -o root-ye-by-x2.pem
+          curl --fail --location --silent --show-error --retry 3 \
+            --proto '=https' --proto-redir '=https' \
+            "$issuer/root-x2-by-x1.pem" -o root-x2-by-x1.pem
+          for p in int-ye1.pem root-ye-by-x2.pem root-x2-by-x1.pem; do
+            openssl x509 -in "$p" -noout -subject -issuer -dates
+          done
+          cat int-ye1.pem root-ye-by-x2.pem root-x2-by-x1.pem > untrusted_chain.pem
+          # THIS command MUST succeed under preexisting Ubuntu trust roots.
+          # Failing it aborts source download; never trust a self-signed YE.
+          openssl verify -verify_hostname mocap.cs.cmu.edu -purpose sslserver \
+            -CAfile /etc/ssl/certs/ca-certificates.crt \
+            -untrusted untrusted_chain.pem leaf.pem
+          cat /etc/ssl/certs/ca-certificates.crt untrusted_chain.pem > verified_ca_bundle.pem
+          echo "CMU_CA_BUNDLE=$RUNNER_TEMP/cmu07/certificates/verified_ca_bundle.pem" >> "$GITHUB_ENV"
+          echo "CMU_SOURCE_TLS_CHAIN_VERIFIED_TO_SYSTEM_ROOT"
+      - name: Download ONLY individually indexed official CMU source ASF and one AMC in isolated runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu07/source" "$RUNNER_TEMP/cmu07/out"
+          # No --insecure, no HTTP, no broad crawling, no third-party mirrors.
+          base=https://mocap.cs.cmu.edu/subjects/07
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 3 \
+            --proto '=https' --proto-redir '=https' --cacert "$CMU_CA_BUNDLE" --connect-timeout 20 \
+            "$base/07.asf" -o "$RUNNER_TEMP/cmu07/source/07.asf"
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 3 \
+            --proto '=https' --proto-redir '=https' --cacert "$CMU_CA_BUNDLE" --connect-timeout 20 \
+            "$base/${{ matrix.motion }}.amc" \
+            -o "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc"
+          test -s "$RUNNER_TEMP/cmu07/source/07.asf"
+          test -s "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc"
+      - name: Match exact pinned original source ASF and AMC hashes from independently captured S1 run
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "c29414591d76a34885bff0b04a2666bf9659f869751a2549591c55277cf95b04  $RUNNER_TEMP/cmu07/source/07.asf" | sha256sum -c -
+          if [ "${{ matrix.motion }}" = 07_01 ]; then
+            echo "3ca8e8b834481c97c32e9dd555f8c9023e33b6c52d93c9d556c83570204bf3f2  $RUNNER_TEMP/cmu07/source/07_01.amc" | sha256sum -c -
+          else
+            echo "a6062c6c6bce037241d345ca8d802ab36a5cf003b60f759aa7b1db545219c065  $RUNNER_TEMP/cmu07/source/07_02.amc" | sha256sum -c -
+          fi
+      - name: Obtain immutable third-party MIT AMC forward-kinematics witness and venv
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone -q --no-tags --filter=blob:none https://github.com/CalciferZh/AMCParser.git \
+            "$RUNNER_TEMP/cmu07/third-party"
+          git -C "$RUNNER_TEMP/cmu07/third-party" checkout -q --detach \
+            08e5a3662e197e7e40eed2c18fc254282eb381f9
+          test "$(git -C "$RUNNER_TEMP/cmu07/third-party" rev-parse HEAD)" = 08e5a3662e197e7e40eed2c18fc254282eb381f9
+          grep -F 'MIT License' "$RUNNER_TEMP/cmu07/third-party/LICENSE"
+          python3 -m venv "$RUNNER_TEMP/cmu07/.venv"
+          "$RUNNER_TEMP/cmu07/.venv/bin/python" -m pip install --disable-pip-version-check --no-cache-dir \
+            numpy==2.2.6 transforms3d==0.4.2 matplotlib==3.10.6
+      - name: Run independently authored Go FK math tests before actual source evaluation
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          go run motion_learning/qualification/cmu07_independent_fk.go --selftest
+          "$RUNNER_TEMP/cmu07/.venv/bin/python" motion_learning/qualification/cmu07_dual_fk_parity.py --selftest
+      - name: Evaluate all 31 source nodes at every 120 Hz frame through independent Go engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu07/ephemeral" "$RUNNER_TEMP/cmu07/out"
+          go run motion_learning/qualification/cmu07_independent_fk.go \
+            --motion '${{ matrix.motion }}' \
+            --asf "$RUNNER_TEMP/cmu07/source/07.asf" \
+            --amc "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc" \
+            --out "$RUNNER_TEMP/cmu07/ephemeral/${{ matrix.motion }}.go_all_trajectories.json"
+          test -s "$RUNNER_TEMP/cmu07/ephemeral/${{ matrix.motion }}.go_all_trajectories.json"
+      - name: Independent pinned Python FK versus original Go FK; export numerical parity metadata ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/cmu07/.venv/bin/python" motion_learning/qualification/cmu07_dual_fk_parity.py \
+            --motion '${{ matrix.motion }}' \
+            --asf "$RUNNER_TEMP/cmu07/source/07.asf" \
+            --amc "$RUNNER_TEMP/cmu07/source/${{ matrix.motion }}.amc" \
+            --parser "$RUNNER_TEMP/cmu07/third-party" \
+            --go-ephemeral "$RUNNER_TEMP/cmu07/ephemeral/${{ matrix.motion }}.go_all_trajectories.json" \
+            --out "$RUNNER_TEMP/cmu07/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"cmu07/out/${{ matrix.motion }}.two_engine_fk_parity.json"
+          r=json.loads(p.read_text())
+          assert r["source_motion"]=="${{ matrix.motion }}"
+          assert r["status"]=="PASS_DUAL_ENGINE_3D_FK_GEOMETRY_ONLY"
+          assert r["all_frames_all_bones_compared"]==r["original_source_120hz_frames"]*31
+          assert r["max_world_position_disagreement_m"]<1e-7
+          assert r["capture_bytes_or_full_trajectories_in_artifact"] is False
+          print("CMU07_ALL_JOINT_FK_PARITY_GEOMETRY_ONLY_NO_SOURCE_REUPLOAD",r["source_motion"])
+          PY
+          (cd "$RUNNER_TEMP/cmu07/out" && sha256sum *.json > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: cmu-original-${{ matrix.motion }}-dual-fk-parity-no-raw
+          path: ${{ runner.temp }}/cmu07/out/*
+          retention-days: 7
