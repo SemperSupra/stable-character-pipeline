@@ -54,7 +54,7 @@ jobs:
           curl -fL --retry 8 --retry-all-errors --retry-delay 5 "$base/blender-4.5.16.sha256" -o blender.sha256
           curl -fL --retry 6 --retry-all-errors --retry-delay 5 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
           expected="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
-          test "${#expected\}" -eq 64
+          test "${#expected}" -eq 64
           printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$expected" | sha256sum -c -
           tar -xJf blender-4.5.16-linux-x64.tar.xz
           bin="$(find "$RUNNER_TEMP/r014-sections" -maxdepth 2 -type f -name blender | head -1)"
