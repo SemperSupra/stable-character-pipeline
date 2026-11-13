@@ -26,6 +26,14 @@ assert len(body.data.shape_keys.key_blocks)==(30 if a.sex=="female" else 20)
 assert len(body.data.uv_layers)>0,"cold GLB lost body UV map"
 meshes=sorted([o for o in bpy.data.objects if o.type=="MESH"],key=lambda x:x.name)
 assert len(meshes)>=7
+# Critical observed negative: prior first multiview images had a giant white
+# default Cube occluding source legs; the GLB truly has seven character meshes,
+# but cold-import Blender scene retained unrelated Cube/Icosphere fixture.
+# This renderer explicitly excludes ONLY these independent original primitives
+# and logs the exclusion. The source GLB, body, hair and native rig are untouched.
+nonactor=[o for o in meshes if not o.name.startswith("R014_"+a.sex+"_textured_body")]
+assert set(o.name for o in nonactor).issubset({"Cube","Icosphere"}), "unexpected unrelated scene mesh requires manual review"
+for o in nonactor:o.hide_render=True
 scene=bpy.context.scene
 actions=list(bpy.data.actions)
 assert actions,"real cold import is missing rig animation"
@@ -150,6 +158,8 @@ receipt={
  "body_morph_keys":len(body.data.shape_keys.key_blocks),
  "body_uv_sets":len(body.data.uv_layers),
  "body_triangle_fans":tri_count,
+ "non_character_default_blender_primitives_excluded_from_review_images":[o.name for o in nonactor],
+ "non_character_render_exclusion_must_not_change_original_asset":True,
  "body_world_bbox":{ "lower":lower.tolist(),"upper":upper.tolist(),"extent":extent.tolist()},
  "cold_import_actions":[{"name":x.name,"frames":list(x.frame_range)} for x in actions],
  "observed_named_accessories":{
@@ -161,6 +171,7 @@ receipt={
  "not_proven":[
   "Anatomical region completeness or external genital geometry",
   "Professional skin pore normal/displacement/SSS/eye cornea/hair strand quality",
+  "Body shader currently 0 SSS weights in six original body material slots; no photoreal skin claim",
   "Hair, eyes, teeth and tongue rigging/physics/collision with motion",
   "Microgeometry UV/LOD comparisons, physical skin reflectance or human judged resemblance",
   "Actual CMU measured human walking on THIS MPFB hero mesh",
