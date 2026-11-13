@@ -61,6 +61,7 @@ func Verify(s Signed, e Expectation, t Trust) Decision {
  unknown:=func(reason string) Decision{return Decision{Unknown,reason}}
  r:=s.Receipt
  if r.Schema!="suprahuman-owner-selection-v1" || r.Issuer=="" || r.CandidateID=="" || r.PackRevision=="" || r.Scope=="" || r.Nonce=="" {return reject("invalid_identity_or_schema")}
+ if r.Scope!="candidate-review" || e.Scope!="candidate-review" {return reject("scope_not_review_only")}
  if !digestValid(r.EvidenceSHA256) || !digestValid(e.EvidenceSHA256) {return reject("invalid_evidence_digest")}
  if r.CandidateID!=e.CandidateID || r.PackRevision!=e.PackRevision || r.EvidenceSHA256!=e.EvidenceSHA256 || r.Scope!=e.Scope {return reject("scope_revision_or_evidence_mismatch")}
  if r.IssuedUnix<=0 || r.ExpiresUnix<=r.IssuedUnix || r.ExpiresUnix-r.IssuedUnix>86400 {return reject("invalid_receipt_lifetime")}
