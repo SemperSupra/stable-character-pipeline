@@ -1,0 +1,127 @@
+name: R014 CC0 Actual Source vs Cold GLB Spatial Fidelity Red-Team
+on:
+  push:
+    branches: [research/r014-cc0-glb-source-spatial-parity-20261113]
+    paths:
+      - 'r014/cc0_compare_source_vs_cold_glb_snapshot.py'
+      - 'r014/cc0_source_glb_spatial_compare.py'
+      - '.github/workflows/r014-cc0-glb-spatial-fidelity.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-gltf-3d-source-fidelity
+  cancel-in-progress: true
+jobs:
+  independent-source-glb-geometry-falsifier:
+    name: Source vs portable cold-imported actual mesh spatial fidelity ${{ matrix.sex }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        sex: [female,male]
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-source-glb-compare/config
+      BLENDER_USER_SCRIPTS: /tmp/r014-source-glb-compare/scripts
+    steps:
+      - name: Public research code read-only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Source verification and pure CPU negative controls
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/cc0_compare_source_vs_cold_glb_snapshot.py r014/cc0_source_glb_spatial_compare.py
+          python3 -m venv "$RUNNER_TEMP/r014-source-compare-python"
+          . "$RUNNER_TEMP/r014-source-compare-python/bin/activate"
+          python -m pip install --no-input --no-cache-dir --disable-pip-version-check "numpy==2.1.3" "scipy==1.15.2"
+          python - <<'PY'
+          import importlib.util
+          spec=importlib.util.spec_from_file_location("oracle","r014/cc0_source_glb_spatial_compare.py")
+          obj=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(obj)
+          print(obj.selftest())
+          PY
+      - name: Acquire immutable author-source scene and previous independent GLB reimport scene
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-glb-compare/source" "$RUNNER_TEMP/r014-glb-compare/imported" "$RUNNER_TEMP/r014-glb-compare/out"
+          gh run download 43368839856 --repo "$GITHUB_REPOSITORY" \
+            --name "r014-real-cc0-source-headturn-$SEX" \
+            --dir "$RUNNER_TEMP/r014-glb-compare/source"
+          gh run download 43369510428 --repo "$GITHUB_REPOSITORY" \
+            --name "r014-cold-glb-import-skinned-$SEX" \
+            --dir "$RUNNER_TEMP/r014-glb-compare/imported"
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-glb-compare"
+          sex=os.environ["SEX"]
+          a=json.loads((root/"source/temporal_fit_receipt.json").read_text())
+          b=json.loads((root/"imported/cold_import_receipt.json").read_text())
+          assert a["status"]=="PASS_BOUNDED_REAL_SOURCE_NATIVE_TEMPORAL_EVIDENCE_CAPTURE_ONLY"
+          assert b["status"]=="PASS_ACTUAL_COLD_IMPORTED_SKINNED_GLTF_MOTION_ONLY"
+          assert a["sex_macro"]==b["source_sex_macro"]==sex
+          assert b["source_exact_glb_sha256"]==a["glb"]["sha256"],"ARTIFACT_LINEAGE_BREAK"
+          original=root/"source"/a["native_scene"]["filename"]
+          imported=root/"imported"/b["independent_import_scene"]["name"]
+          def digest(path):
+              h=hashlib.sha256()
+              with path.open("rb") as f:
+                  for c in iter(lambda:f.read(1<<20),b""):h.update(c)
+              return h.hexdigest()
+          assert digest(original)==a["native_scene"]["sha256"]
+          assert digest(imported)==b["independent_import_scene"]["sha256"]
+          print("PASS_EXACT_AUTHOR_TO_GLTF_TO_COLD_IMPORT_BINARY_CHAIN",sex)
+          PY
+      - name: Obtain exact verified official source Blender only in disposable worker
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-glb-compare"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          wanted="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#wanted}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$wanted" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-glb-compare" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Generate actual original-evaluated-mesh source data in fresh Blender
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          source="$RUNNER_TEMP/r014-glb-compare/source/R014_${SEX}_head_turn_source_native_research.blend"
+          "$BLENDER_BIN" --background "$source" --python-exit-code 4 --python r014/cc0_compare_source_vs_cold_glb_snapshot.py -- \
+            --source "$source" --sex "$SEX" --mode source --out "$RUNNER_TEMP/r014-glb-compare/out/source_actual_geometry.json"
+      - name: Generate actual independently cold-imported GLB evaluated-mesh data in a second fresh Blender
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          imported="$RUNNER_TEMP/r014-glb-compare/imported/R014_${SEX}_cold_imported_GLTF_reeditable.blend"
+          "$BLENDER_BIN" --background "$imported" --python-exit-code 4 --python r014/cc0_compare_source_vs_cold_glb_snapshot.py -- \
+            --source "$imported" --sex "$SEX" --mode import --out "$RUNNER_TEMP/r014-glb-compare/out/import_actual_geometry.json"
+      - name: Compare actual 3D body and six accessory surfaces; FAIL-CLOSED on large deviation
+        run: |
+          set -euo pipefail
+          . "$RUNNER_TEMP/r014-source-compare-python/bin/activate"
+          python r014/cc0_source_glb_spatial_compare.py \
+            --source "$RUNNER_TEMP/r014-glb-compare/out/source_actual_geometry.json" \
+            --imported "$RUNNER_TEMP/r014-glb-compare/out/import_actual_geometry.json" \
+            --out "$RUNNER_TEMP/r014-glb-compare/out/spatial_parity_receipt.json"
+      - name: Retain measured negative control even when geometry fidelity fails
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-glb-source-spatial-${{ matrix.sex }}
+          path: ${{ runner.temp }}/r014-glb-compare/out/*.json
+          if-no-files-found: warn
+          retention-days: 7
