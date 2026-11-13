@@ -86,6 +86,25 @@ if not (.65<scale<1.5):
 def map_move(obj):
     return Vector((float(obj["x"]),float(obj["y"]),float(obj["z"])))*scale
 
+# True source-motion retarget rest condition: a CMU captured human does not
+# begin in MHR's artificially extended straight-leg neutral pose. Map the
+# ORIGINAL first-frame source ankle offsets relative to the true source
+# bilateral hip midpoint onto MHR's true rest hip midpoint. This changes
+# source posture calibration, NOT IK reach tolerances or anatomy lengths.
+source_initial=go["source_initial_ankle_relative_bilateral_hipcentre"]
+assert set(source_initial)=={"l","r"}
+native_hips=[rig.matrix_world @ rig.data.bones[k+"_upleg"].head_local for k in ("l","r")]
+native_hip_mid=(native_hips[0]+native_hips[1])*.5
+neutral_ankles={k:initial_points[k].copy() for k in ("l","r")}
+initial_points={k:native_hip_mid+map_move(source_initial[k]) for k in ("l","r")}
+print("R014_CMUMHR_TRUE_CAPTURE_POSE_CALIBRATION",json.dumps({
+  "source":go["motion"],
+  "source_to_target_ratio":scale,
+  "native_hip_mid_world":list(native_hip_mid),
+  "initial_native_neutral_ankles":{k:list(v) for k,v in neutral_ankles.items()},
+  "captured_source_aligned_initial_ankles":{k:list(v) for k,v in initial_points.items()},
+  "source_reference":go["measured_motion_root_reference"]},sort_keys=True),flush=True)
+
 def subtract_dict(x,y):
     return {k:float(x[k])-float(y[k]) for k in ("x","y","z")}
 
@@ -383,7 +402,9 @@ receipt={
     "original_source_motion":go["motion"],
     "original_source_fps":go["source_fps"],
     "capture_contact_provenance":"UNKNOWN_NOT_FORCE_MEASURED",
-    "native_cmu_retarget_method":"Original source 3D FK ankle positional target only, fixed pelvis yaw, bounded source-leg ratio, 3-link source-MHR IK",
+    "native_cmu_retarget_method":"Measured source true bilateral hip-joint midpoint root track, initial hip-relative captured ankle world pose, positional target 3-link MHR IK, 24Hz direct samples",
+    "true_capture_first_pose_source_ankle_anchor_world":{k:list(v) for k,v in initial_points.items()},
+    "neutral_MHR_ankles_original_world":{k:list(v) for k,v in neutral_ankles.items()},
     "derived_full_animation_artifact_distribution":"WITHHELD_SOURCE_RIGHTS_VENUE_GATE",
     "mhr_model_release_sha256":"e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94",
     "source_mesh_vertices":len(rest),"source_rig_bones":len(rig.data.bones),
