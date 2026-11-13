@@ -21,5 +21,27 @@ jobs:
           persist-credentials: false
       - name: Execute four deterministic synthetic negative controls
         run: python3 r014/geometry_normal_reversal_negative_control.py
-      - name: Print synthetic machine-readable receipt
-        run: python3 r014/geometry_normal_reversal_negative_control.py --receipt
+      - name: Produce versioned machine-readable synthetic receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          source=Path("r014/geometry_normal_reversal_negative_control.py")
+          record=json.loads(subprocess.check_output(["python3",str(source),"--receipt"],text=True))
+          record["github_sha"]=os.environ["GITHUB_SHA"]
+          record["github_run_id"]=os.environ["GITHUB_RUN_ID"]
+          record["github_repository"]=os.environ["GITHUB_REPOSITORY"]
+          record["source_sha256"]=hashlib.sha256(source.read_bytes()).hexdigest()
+          Path("r014_geometry_oracle_synthetic_receipt.json").write_text(
+              json.dumps(record,sort_keys=True,indent=2)+"\n",encoding="utf-8")
+          print(json.dumps(record,sort_keys=True))
+          PY
+      - name: Archive synthetic receipt for Drive custody handoff
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-geometry-oracle-synthetic-receipt
+          path: r014_geometry_oracle_synthetic_receipt.json
+          if-no-files-found: error
+          retention-days: 7
