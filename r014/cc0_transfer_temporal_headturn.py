@@ -96,8 +96,8 @@ def pmax(a,b):
     return max(math.dist(x,y) for x,y in zip(a,b)) if a else 0
 
 def head_bone(rig):
-    candidates=[name for name in rig.pose.bones if "head" in name.lower() and not any(
-         end in name.lower() for end in ["_end","end","nub","helper","target"])]
+    candidates=[bone.name for bone in rig.pose.bones if "head" in bone.name.lower() and not any(
+         end in bone.name.lower() for end in ["_end","end","nub","helper","target"])]
     if not candidates:
         return None,[]
     # Prefer the actual named head control over eye attachments and endpoint.
