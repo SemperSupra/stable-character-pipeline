@@ -30,8 +30,9 @@ jobs:
         working-directory: qualification/geometry-donors/oneirifact-r3-holdouts
         run: |
           set -euo pipefail
-          python3 -m py_compile decode_and_validate.py blender_matrix.py check_blender_reports.py
+          python3 -m py_compile decode_and_validate.py blender_matrix.py check_blender_reports.py surface_residual_r4.py
           python3 decode_and_validate.py
+          python3 surface_residual_r4.py
       - name: Obtain official Blender 4.5.16 with vendor checksum
         shell: bash
         run: |
@@ -64,6 +65,7 @@ jobs:
           name: oneirifact-r3-blender-${{ github.run_attempt }}
           path: |
             qualification/geometry-donors/oneirifact-r3-holdouts/glb-measurements.json
+            qualification/geometry-donors/oneirifact-r3-holdouts/surface-residual-report.json
             qualification/geometry-donors/oneirifact-r3-holdouts/blender-reports.json
             qualification/geometry-donors/oneirifact-r3-holdouts/fixtures/*.import.json
             qualification/geometry-donors/oneirifact-r3-holdouts/fixtures/*.reimport.json
