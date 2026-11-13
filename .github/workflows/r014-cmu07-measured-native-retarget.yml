@@ -111,6 +111,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014gait/out" "$RUNNER_TEMP/r014gait/metadata"
           cd "$RUNNER_TEMP/r014gait"
           base=https://download.blender.org/release/Blender4.5
           curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16.sha256" -o blender.sha256
