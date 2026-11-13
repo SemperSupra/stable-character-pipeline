@@ -1,7 +1,7 @@
 name: R014 True Native Mesh Plane-Section and Morphometry Regression
 on:
   push:
-    branches: [research/r014-real-plane-section-morphometry-20261113]
+    branches: [research/r014-real-plane-section-output-corrective-20261113]
     paths:
       - 'r014/mpfb_mesh_plane_section.py'
       - 'r014/mpfb_native_plane_section_doe.py'
@@ -11,7 +11,7 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: r014-exact-native-section-evaluation
+  group: r014-exact-native-section-output-corrective
   cancel-in-progress: true
 jobs:
   genuine-native-body-plane:
