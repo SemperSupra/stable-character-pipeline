@@ -1,0 +1,13 @@
+# R015 evidence binding corrective — explicit structural-only result, never human/body acceptance
+
+This stacked branch builds on the known self-assertion gap in [R015 draft #482](https://github.com/SemperSupra/stable-character-pipeline/pull/482), which accepted a nonempty fake source SHA and caller-supplied `true` evidence flags as `PASS_STRUCTURAL_ONLY`. Private [R015 #141](https://github.com/SemperSupra/stable-character-pipeline-private/issues/141) retains semantic/morphology authority; R014 #138 owns actual geometry/skin, product #2 owns canonical pack and source R012 #35 controls rights. No CPE accepted ontology writeback or implicit model promotion.
+
+## What actually changes
+
+Adds an independent Go standard-library `CheckBound` wrapper that **opens actual source geometry bytes and measurement receipt bytes**, recomputes 64-hex lowercase SHA256 and compares to the supplied claimed hashes, validates a strictly typed unambiguous receipt schema, binds EVERY claimant measurement's name, value, unit, method, landmark provenance and source digest to bytes, and rejects tampered/removed files, alternate geometry, fake hash, changed landmark/value and unknown schema. Runs `go test -race -count=1` and `go vet` in disposable public Ubuntu Actions, with explicit hostile fixtures.
+
+**Critical scientific and authority distinction:** Any source and receipt can be self-consistent for a *fictional* synthetic mesh and fabricated measurement. Hash binding proves immutable byte consistency, **not actual Blender evaluation, reliable centimeter calibration, true anatomical landmarks, independent OOD evidence or a trusted issuer**. `CheckBound` therefore always yields `UNKNOWN_ABSTAIN` even for intact bytes and all claimed true flags. Only explicitly inconsistent/malicious bytes `REJECT`. A later independent signed trusted-native-mesh measurement protocol is necessary before accepting physically meaningful morphology. No self asserted HumanApprovalID can authorize canon.
+
+## Next actual needed work
+
+R014 source native Blender evaluate calibrated geometry across independent MHR/MPFB full-body shape changes and verified mesh ownership. Externally documented anatomical landmark sets plus UV/mesh cross-sections and target unit calibration with held-out morph classes. Prove independent verifier and trusted issuer binding, source rights/realism/quality with per-character immutable receipt. Product D1 parallel cinematic hero + morphology streams remain independent, D2 full external anatomy core/internal optional, D3 owner canonical choice, D4 separately qualified cloud+local execution. All product/film and morphology meaning HOLD. Source-only draft/unmerged, no private media or persistent host installs.
