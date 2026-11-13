@@ -1,0 +1,125 @@
+name: Oneirifact R2 independent geometry matrix (direct public GHA)
+run-name: Oneirifact R2 Blender + Manifold geometry bakeoff — ${{ github.ref_name }}
+
+on:
+  push:
+    branches: [research/oneirifact-geometry-bakeoff-r2-20261112]
+    paths:
+      - 'qualification/geometry-donors/oneirifact-bakeoff-r2/**'
+      - '.github/workflows/oneirifact-bakeoff-r2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oneirifact-r2-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  blender-fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout synthetic-only public fixtures
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate independent GLB structure and fixture hashes
+        shell: bash
+        working-directory: qualification/geometry-donors/oneirifact-bakeoff-r2
+        run: |
+          set -euo pipefail
+          python3 -m py_compile decode_and_validate.py blender_matrix.py check_blender_reports.py
+          python3 decode_and_validate.py
+      - name: Obtain official Blender 4.5.16 with vendor checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/oneirifact-r2-blender"
+          cd "$RUNNER_TEMP/oneirifact-r2-blender"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fsSL --retry 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fsSL --retry 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#hash}" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          echo "BLENDER_BIN=$RUNNER_TEMP/oneirifact-r2-blender/blender-4.5.16-linux-x64/blender" >> "$GITHUB_ENV"
+      - name: Original and fresh-process Blender reimports for all CSG modes
+        shell: bash
+        working-directory: qualification/geometry-donors/oneirifact-bakeoff-r2
+        run: |
+          set -euo pipefail
+          export LIBGL_ALWAYS_SOFTWARE=1
+          for name in drilled-box sphere-box-intersection two-spheres-disconnected two-spheres-union; do
+            "$BLENDER_BIN" --background --factory-startup --python-exit-code 8 --python blender_matrix.py -- import "fixtures/$name.glb" "fixtures/$name.import.json"
+            "$BLENDER_BIN" --background --factory-startup --python-exit-code 8 --python blender_matrix.py -- reimport "fixtures/$name.roundtrip.glb" "fixtures/$name.reimport.json"
+          done
+          python3 check_blender_reports.py
+      - name: Upload receipts only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: oneirifact-r2-blender-${{ github.run_attempt }}
+          path: |
+            qualification/geometry-donors/oneirifact-bakeoff-r2/glb-measurements.json
+            qualification/geometry-donors/oneirifact-bakeoff-r2/blender-reports.json
+            qualification/geometry-donors/oneirifact-bakeoff-r2/fixtures/*.import.json
+            qualification/geometry-donors/oneirifact-bakeoff-r2/fixtures/*.reimport.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  manifold-reference:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: linux-amd64
+          - runner: ubuntu-24.04-arm
+            arch: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout synthetic-only public fixtures
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Acquire pinned official manifold3d 3.5.4 wheel in disposable venv
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/oneirifact-m3d"
+          mkdir -p "$RUNNER_TEMP/oneirifact-m3d-wheels"
+          "$RUNNER_TEMP/oneirifact-m3d/bin/python" -m pip download --only-binary=:all: --no-deps manifold3d==3.5.4 -d "$RUNNER_TEMP/oneirifact-m3d-wheels"
+          wheel_sha="$(sha256sum "$RUNNER_TEMP/oneirifact-m3d-wheels"/*.whl | awk '{print $1}')"
+          test "${#wheel_sha}" -eq 64
+          echo "MANIFOLD_WHEEL_SHA256=$wheel_sha" >> "$GITHUB_ENV"
+          echo "R2_PINNED_MANIFOLD_WHEEL_SHA256=$wheel_sha"
+          case '${{ matrix.arch }}' in
+            linux-amd64) expected='4a985892699268bbf07192b78b5e5569034c41ce74bf8183495123e8095af4fe' ;;
+            linux-arm64) expected='4f4e8ca1c59d68047b262dbdb6e917ac4abff2942a65e7e469f4a398ce1f0b9b' ;;
+            *) echo 'Unexpected runner platform'; exit 1 ;;
+          esac
+          test "$wheel_sha" = "$expected" || { echo 'Manifold wheel SHA mismatch'; exit 1; }
+          "$RUNNER_TEMP/oneirifact-m3d/bin/python" -m pip install --no-index --no-deps --find-links "$RUNNER_TEMP/oneirifact-m3d-wheels" manifold3d==3.5.4
+          echo "PYTHON_MANIFOLD=$RUNNER_TEMP/oneirifact-m3d/bin/python" >> "$GITHUB_ENV"
+      - name: Independent mesh and CSG volume/topology comparison
+        shell: bash
+        working-directory: qualification/geometry-donors/oneirifact-bakeoff-r2
+        run: |
+          set -euo pipefail
+          "$PYTHON_MANIFOLD" decode_and_validate.py
+          "$PYTHON_MANIFOLD" manifold_benchmark.py
+      - name: Upload only vendor comparison receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: oneirifact-r2-manifold-${{ matrix.arch }}-${{ github.run_attempt }}
+          path: |
+            qualification/geometry-donors/oneirifact-bakeoff-r2/glb-measurements.json
+            qualification/geometry-donors/oneirifact-bakeoff-r2/manifold-report.json
+          if-no-files-found: warn
+          retention-days: 7
