@@ -92,6 +92,46 @@ ref_dihedral = np.einsum("ij,ij->i",n0unit[pairs[:,0]],n0unit[pairs[:,1]])
 near_planar = ref_dihedral >= .95
 count_near_planar = int(np.count_nonzero(near_planar))
 
+# Weight group labels are original MHR source controls, NOT validated human
+# anatomy. Aggregate only approximate source group names, never face IDs,
+# per-frame mesh coordinates, original CMU tracks, or derived images.
+source_group_names = {g.index:g.name for g in body.vertex_groups}
+source_rig_bones = {b.name for b in rig.data.bones}
+dominant_face_group_cache = {}
+def dominant_face_group(index):
+    index=int(index)
+    if index in dominant_face_group_cache:
+        return dominant_face_group_cache[index]
+    weights=collections.defaultdict(float)
+    for vertex_id in tris[index]:
+        for vertex_weight in body.data.vertices[int(vertex_id)].groups:
+            group=source_group_names.get(vertex_weight.group,"")
+            if group in source_rig_bones:
+                weights[group]+=float(vertex_weight.weight)
+    group=max(weights,key=weights.get) if weights else "UNBOUND_MESH"
+    dominant_face_group_cache[index]=group
+    return group
+
+def group_category(name):
+    low=name.lower()
+    if any(k in low for k in ("foot","ball","toe","heel","tarsal","ankle","tibia",
+                              "lowleg","upleg","thigh","femur","calf","knee","hip")):
+        return "LOWER_BODY_OR_LEG"
+    if any(k in low for k in ("arm","hand","finger","thumb","wrist","elbow","shoulder")):
+        return "UPPER_LIMB_HAND"
+    if any(k in low for k in ("pelvis","root","spine","torso","chest","abdomen")):
+        return "PELVIS_TORSO"
+    if any(k in low for k in ("head","face","jaw","eye","neck","tongue")):
+        return "HEAD_FACE_NECK"
+    return "OTHER_OR_UNKNOWN"
+anomaly_group_counts=collections.defaultdict(collections.Counter)
+anomaly_category_counts=collections.defaultdict(collections.Counter)
+def accumulate_group(kind, face_indices):
+    for fid in face_indices:
+        group=dominant_face_group(fid)
+        anomaly_group_counts[kind][group]+=1
+        anomaly_category_counts[kind][group_category(group)]+=1
+
 def bvh_overlap_candidates(points):
     # Blender BVH returns potentially coplanar/near-touching pairs. Exclude
     # pairs sharing even one vertex, canonicalize duplicates, report only a
@@ -132,6 +172,15 @@ for frame in all_frames:
     opposing = int(np.count_nonzero(near_planar & (cos <= -.90)))
     overlaps = bvh_overlap_candidates(sample)
     if baseline_bvh is None: baseline_bvh = overlaps
+    collapsed_ids=np.flatnonzero(m < .1*m0)
+    compressed_ids=np.flatnonzero(np.any(strain<.75,axis=1))
+    stretched_ids=np.flatnonzero(np.any(strain>1.25,axis=1))
+    opposed_pair_ids=np.flatnonzero(near_planar & (cos<=-.90))
+    accumulate_group("area_collapse",collapsed_ids)
+    accumulate_group("edge_compressed",compressed_ids)
+    accumulate_group("edge_stretched",stretched_ids)
+    if len(opposed_pair_ids):
+        accumulate_group("opposing_hinge_faces",np.unique(pairs[opposed_pair_ids].ravel()))
     all_frame_metrics.append({"frame": frame,
         "rest_normal_reversals": historic, "area_collapses": collapse,
         "compressed_faces": compressed, "stretched_faces": stretched,
@@ -168,6 +217,12 @@ def summary(key):
 field_names = ("rest_normal_reversals","area_collapses","compressed_faces",
                "stretched_faces","max_abs_edge_strain","opposing_hinges","nonadjacent_bvh_pairs")
 all_window_summary = {key:summary(key) for key in field_names}
+source_weight_group_summary={
+  key:{"dominant_source_bone_groups_face_frame_occurrences":counter.most_common(12),
+       "approximate_source_categories_face_frame_occurrences":
+           dict(anomaly_category_counts[key])}
+  for key,counter in anomaly_group_counts.items()
+}
 assert all_window_summary["area_collapses"]["frames_positive"] >= 0
 # Retain a handful of diagnostic indices, not a full framewise source-derived sequence.
 top_strain = sorted(all_frame_metrics,key=lambda x:x["max_abs_edge_strain"],reverse=True)[:5]
@@ -200,11 +255,13 @@ doc = {
     "samples":results,
     "full_motion_window_frames_diagnosed":len(all_frame_metrics),
     "full_motion_window_aggregate_metrics_NO_TRACK":all_window_summary,
+    "source_weight_group_attribution_DIAGNOSTIC_NOT_ANATOMY":source_weight_group_summary,
     "five_worst_edge_strain_frame_indices_NO_COORDINATES":top_strain_frame_ids,
     "what_is_proven":"Actual evaluated source-native MHR geometry, stable topology and exact legacy counts at sampled frames only",
     "what_is_not_proven":[
        "Full window scanned but only aggregate diagnostics retained; no full framewise pose track exported",
        "Reference frame is first sampled captured pose, not independently validated undeformed bind/rest mesh",
+       "Dominant original MHR skin weight group is approximate region evidence, not true anatomical landmark measurement",
        "No self-intersection narrow-phase oracle or physical tissue collision proof",
        "No calibrated centimeters, full kinetic/force/contact or anatomical realism",
        "No full native scene/CMU source/derived frames allowed in downloadable artifact",
