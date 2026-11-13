@@ -1,0 +1,208 @@
+name: R014 CC0 hero cold GLB video gate repair and real material visual evidence
+on:
+  push:
+    branches: [research/r014-hero-material-audit-20261113]
+    paths:
+      - 'r014/cc0_glb_corrected_morph_animation_render.py'
+      - '.github/workflows/r014-hero-material-visibility.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-hero-lookdev-source-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independently-regenerate-real-corrected-morphable-glb:
+    name: Corrected original CC0 true-mask-baked body morph & animation ${{ matrix.sex }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 42
+    strategy:
+      fail-fast: false
+      matrix:
+        sex: [female,male]
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-morphable-cc0/config
+      BLENDER_USER_SCRIPTS: /tmp/r014-morphable-cc0/scripts
+    steps:
+      - name: Source checkout credential-free
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Source compilation and source-geometry positive/negative test
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/cc0_glb_helper_mask_bakeoff.py r014/cc0_glb_candidate_cold_import.py r014/cc0_glb_corrected_morph_animation_render.py r014/cc0_hero_lookdev_material_anatomy_review.py r014/cc0_compare_source_vs_cold_glb_snapshot.py r014/cc0_source_glb_spatial_compare.py
+          python3 -m venv "$RUNNER_TEMP/r014-morphable-numeric"
+          . "$RUNNER_TEMP/r014-morphable-numeric/bin/activate"
+          python -m pip install --no-input --no-cache-dir --disable-pip-version-check numpy==2.1.3 scipy==1.15.2
+          python - <<'PY'
+          import importlib.util
+          s=importlib.util.spec_from_file_location("oracle","r014/cc0_source_glb_spatial_compare.py")
+          m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          print(m.selftest())
+          PY
+      - name: Retrieve exact author source and verify prior original public asset hashes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-morphable/source" "$RUNNER_TEMP/r014-morphable/out" "$RUNNER_TEMP/r014-morphable/reimported"
+          gh run download 43368839856 --repo "$GITHUB_REPOSITORY" \
+            --name "r014-real-cc0-source-headturn-$SEX" --dir "$RUNNER_TEMP/r014-morphable/source"
+          python3 - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-morphable/source"
+          doc=json.loads((root/"temporal_fit_receipt.json").read_text())
+          assert doc["sex_macro"]==os.environ["SEX"]
+          assert doc["status"]=="PASS_BOUNDED_REAL_SOURCE_NATIVE_TEMPORAL_EVIDENCE_CAPTURE_ONLY"
+          p=root/doc["native_scene"]["filename"]
+          def sha(x):
+              h=hashlib.sha256()
+              with x.open("rb") as f:
+                  for b in iter(lambda:f.read(1<<20),b""):h.update(b)
+              return h.hexdigest()
+          assert sha(p)==doc["native_scene"]["sha256"]
+          print("PASS_ORIGINAL_ACTOR_SOURCE",os.environ["SEX"],sha(p))
+          PY
+      - name: Official Blender checksum and exact MPFB source with no persistent host change
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-morphable"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          expected="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#expected}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$expected" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-morphable" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Checkout pinned original MakeHuman/MPFB source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: makehumancommunity/mpfb2
+          ref: 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          path: _vendor/mpfb2
+          persist-credentials: false
+      - name: Register source-compatible MakeHuman extension in disposable Blender config
+        run: |
+          set -euo pipefail
+          test "$(git -C _vendor/mpfb2 rev-parse HEAD)" = 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          grep -F GPLv3 _vendor/mpfb2/LICENSE.md
+          grep -F CC0 _vendor/mpfb2/LICENSE.md
+          mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$RUNNER_TEMP/r014-morphable/extensions"
+          "$BLENDER_BIN" --command extension build --source-dir _vendor/mpfb2/src/mpfb --output-dir "$RUNNER_TEMP/r014-morphable"
+          ext="$(find "$RUNNER_TEMP/r014-morphable" -maxdepth 1 -name 'mpfb-*.zip' | head -1)"
+          test -s "$ext"
+          "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r014-morphable/extensions"
+          "$BLENDER_BIN" --command extension install-file -r r014lab -e "$ext"
+      - name: Source-native original 13K-mask evaluated body sample
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          original="$RUNNER_TEMP/r014-morphable/source/R014_${SEX}_head_turn_source_native_research.blend"
+          "$BLENDER_BIN" --background "$original" --python-exit-code 4 --python r014/cc0_compare_source_vs_cold_glb_snapshot.py -- \
+            --source "$original" --sex "$SEX" --mode source --out "$RUNNER_TEMP/r014-morphable/out/actual_source_mesh.json"
+      - name: Rebuild the winning original source MPFB mask-baked portable glTF, keep full binary
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          original="$RUNNER_TEMP/r014-morphable/source/R014_${SEX}_head_turn_source_native_research.blend"
+          "$BLENDER_BIN" --background "$original" --python-exit-code 4 --python r014/cc0_glb_helper_mask_bakeoff.py -- \
+            --sex "$SEX" --strategy mpfb_mask_bake --source "$original" \
+            --source-receipt "$RUNNER_TEMP/r014-morphable/source/temporal_fit_receipt.json" \
+            --out "$RUNNER_TEMP/r014-morphable/out"
+      - name: Cold-import actual new GLB independently and verify original spatial parity
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          file="$RUNNER_TEMP/r014-morphable/out/R014_${SEX}_mpfb_mask_bake_portable_human.glb"
+          "$BLENDER_BIN" --background --python-exit-code 4 --python r014/cc0_glb_candidate_cold_import.py -- \
+            --glb "$file" --out "$RUNNER_TEMP/r014-morphable/reimported/imported.blend"
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-morphable/reimported/imported.blend" \
+            --python-exit-code 4 --python r014/cc0_compare_source_vs_cold_glb_snapshot.py -- \
+            --source "$RUNNER_TEMP/r014-morphable/reimported/imported.blend" --sex "$SEX" --mode import \
+            --out "$RUNNER_TEMP/r014-morphable/out/actual_cold_import_mesh.json"
+          . "$RUNNER_TEMP/r014-morphable-numeric/bin/activate"
+          python r014/cc0_source_glb_spatial_compare.py \
+            --source "$RUNNER_TEMP/r014-morphable/out/actual_source_mesh.json" \
+            --imported "$RUNNER_TEMP/r014-morphable/out/actual_cold_import_mesh.json" \
+            --out "$RUNNER_TEMP/r014-morphable/out/cold_GLTF_spatial_parity.json"
+      - name: Provide ffprobe in disposable Ubuntu runner only (prior PR #481 source video failed here)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install ffmpeg
+          command -v ffprobe
+          ffprobe -version | head -1
+      - name: Render true cold-imported morph-actuated body with real rig, original CC0 materials and H264
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-morphable/reimported/imported.blend" \
+            --python-exit-code 4 --python r014/cc0_glb_corrected_morph_animation_render.py -- \
+            --source "$RUNNER_TEMP/r014-morphable/reimported/imported.blend" \
+            --glb "$RUNNER_TEMP/r014-morphable/out/R014_${SEX}_mpfb_mask_bake_portable_human.glb" \
+            --export-receipt "$RUNNER_TEMP/r014-morphable/out/export_bakeoff_receipt.json" \
+            --sex "$SEX" --out "$RUNNER_TEMP/r014-morphable/out"
+          python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-morphable/out"
+          s=json.loads((root/"cold_GLTF_spatial_parity.json").read_text())
+          r=json.loads((root/"corrected_morph_motion_receipt.json").read_text())
+          assert s["status"]=="PASS_SOURCE_GLTF_SPATIAL_EQUIVALENCE_ONLY"
+          assert r["status"]=="PASS_ACTUAL_NATIVE_MASK_BAKED_GLTF_MORPH_AND_MOTION_STRUCTURAL_ONLY"
+          assert r["actual_morph_targets"]==(30 if os.environ["SEX"]=="female" else 20)
+          assert r["merge_release"]=="HOLD"
+          print("PASS_CORRECTED_SOURCE_NATIVE_GLTF_SOURCE_GEOMETRY_AND_ACTUAL_MORPH_MOTION",os.environ["SEX"])
+          PY
+      - name: Independent actual native Cycles closeups and image/material/anatomy visibility inventory
+        env:
+          SEX: ${{ matrix.sex }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          source="$RUNNER_TEMP/r014-morphable/reimported/imported.blend"
+          "$BLENDER_BIN" --background "$source" --python-exit-code 4 \
+            --python r014/cc0_hero_lookdev_material_anatomy_review.py -- \
+            --source "$source" --sex "$SEX" --out "$RUNNER_TEMP/r014-morphable/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r014-morphable/out"
+          r=json.loads((p/"r014_hero_lookdev_coverage.json").read_text())
+          assert r["sex"]==os.environ["SEX"]
+          assert r["structural_status"]=="PASS_TRUE_COLD_IMPORTED_SKIN_MORPH_SURFACE_CENSUS"
+          assert r["aesthetic_status"]=="HOLD_HUMAN_INDEPENDENT_PHOTOREAL_AND_COMPLETE_EXTERNAL_ANATOMY_REVIEW"
+          assert r["rig_bones"]==163 and r["body_vertices"]==13380
+          assert r["body_morph_keys"]==(30 if r["sex"]=="female" else 20)
+          assert len(r["technical_multi_view_pngs"])==4
+          assert all((p/x["name"]).stat().st_size>5000 for x in r["technical_multi_view_pngs"])
+          print("R014_ACTUAL_COLD_GLTF_HERO_MATERIAL_CLOSEUPS_CAPTURED_NOT_CINEMATIC_ACCEPTED")
+          PY
+      - name: Source/checkpoint SHA list for all portable outputs
+        if: always()
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/r014-morphable/out"
+          if [ -d "$root" ]; then
+            (cd "$root" && find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 -r sha256sum > artifact_manifest.sha256)
+          fi
+      - name: Original corrected source-native 3D formats and Cycles/H264 evidence, 7-day runner backup
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-hero-coldglb-visual-materials-${{ matrix.sex }}
+          path: ${{ runner.temp }}/r014-morphable/out/*
+          if-no-files-found: warn
+          retention-days: 7
