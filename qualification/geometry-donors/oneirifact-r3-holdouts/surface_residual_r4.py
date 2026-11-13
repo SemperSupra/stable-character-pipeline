@@ -39,7 +39,7 @@ def points(glb):
         if not all(math.isfinite(n) for n in (x,y,z)):
             raise ValueError("invalid vertex")
         # glTF Y-up -> canonical graph Z-up. Synthetic fixtures have identity nodes.
-        yield (x,z,y)
+        yield (x,-z,y)
 
 def sdf_box(xyz,h):
     q = [abs(p)-r for p,r in zip(xyz,h)]
@@ -61,10 +61,41 @@ def reference(name,xyz):
     if name=='disconnected-spheres': return min(sdf_sphere(xyz,-.65,.35),sdf_sphere(xyz,.65,.35))
     raise ValueError('unknown synthetic fixture')
 
+def asymmetric_sphere_inverse_negative_control(detail):
+    """Synthetic glTF Z translation makes a symmetric source sphere Y-asymmetric.
+
+    Reuse an existing SHA-verified derived GLB, no private implementation code:
+    source +0.80m Y is glTF -0.80m Z. The intentionally wrong sign must fail.
+    """
+    raw = base64.b64decode((FIXTURES / "sphere.glb.b64").read_text().strip(), validate=True)
+    expected = json.loads((ROOT / "manifest.json").read_text())['fixtures']['sphere']
+    assert hashlib.sha256(raw).hexdigest() == expected['sha256']
+    radius, offset = 0.73, 0.80
+    pitch = (2 * radius) / (detail - 4)
+    correct_peak = 0.0
+    incorrect_peak = 0.0
+    for x, source_y, z in points(raw):
+        # glTF (x,z,-y) translated along glTF Z by -offset, equivalent
+        # to source-space +offset Y.
+        good_y = source_y + offset
+        bad_y = -source_y - offset
+        correct_peak = max(correct_peak, abs(math.sqrt(x*x+(good_y-offset)**2+z*z)-radius))
+        incorrect_peak = max(incorrect_peak, abs(math.sqrt(x*x+(bad_y-offset)**2+z*z)-radius))
+    threshold = pitch * MAX_GRID_PITCH_MULTIPLIER
+    assert correct_peak <= threshold, (correct_peak, threshold)
+    assert incorrect_peak > 10 * threshold, (incorrect_peak, threshold)
+    print('ONEIRIFACT_PUBLIC_R8_ASYMMETRIC_Y_INVERSE_PASS', json.dumps({
+        'source_y_translation_m': offset,
+        'correct_max_residual_m': round(correct_peak, 8),
+        'wrong_sign_max_residual_m': round(incorrect_peak, 8),
+        'threshold_m': round(threshold, 8),
+        'private_source_published': False}, sort_keys=True))
+
 def run():
     manifest=json.loads((ROOT/'manifest.json').read_text())
     detail=manifest['fixture_tolerance']['detail']
     if detail < 8: raise ValueError('invalid detail')
+    asymmetric_sphere_inverse_negative_control(detail)
     report={}
     for name,expected in sorted(manifest['fixtures'].items()):
         raw=base64.b64decode((FIXTURES/(name+'.glb.b64')).read_text().strip(),validate=True)
