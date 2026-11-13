@@ -1,0 +1,124 @@
+name: R014 CC0 Native Attachment Transfer UV / Material / Topology Continuity
+on:
+  push:
+    branches: [research/r014-cc0-morph-transfer-topology-material-20261113]
+    paths:
+      - 'r014/cc0_transfer_topology_snapshot.py'
+      - 'r014/cc0_transfer_contract_compare.py'
+      - '.github/workflows/r014-cc0-transfer-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-transfer-material-invariant
+  cancel-in-progress: true
+jobs:
+  independent-source-material-audit:
+    name: Actual native source pre/post transfer material and topology — ${{ matrix.sex }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sex: female
+            source_run: 43288582735
+            corrected_artifact: r014-cc0-experimental-barycentric-female
+          - sex: male
+            source_run: 43287691272
+            corrected_artifact: r014-cc0-experimental-barycentric-male
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-transfer-audit/blender-config
+      BLENDER_USER_SCRIPTS: /tmp/r014-transfer-audit/blender-scripts
+    steps:
+      - name: Source checkout without retained credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Compile source and run negative controls (pure stdlib)
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/cc0_transfer_topology_snapshot.py r014/cc0_transfer_contract_compare.py
+          python3 - <<'PY'
+          import importlib.util
+          spec=importlib.util.spec_from_file_location("contract","r014/cc0_transfer_contract_compare.py")
+          obj=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(obj)
+          print(obj.selftest())
+          PY
+      - name: Reuse exact source-morphed and independently corrected public CC0 native Blender assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEX: ${{ matrix.sex }}
+          SOURCE_RUN: ${{ matrix.source_run }}
+          CORRECTED_ARTIFACT: ${{ matrix.corrected_artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-transfer-audit/before" "$RUNNER_TEMP/r014-transfer-audit/after" "$RUNNER_TEMP/r014-transfer-audit/out"
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "r014-cc0-real-morph-motion-$SEX" --dir "$RUNNER_TEMP/r014-transfer-audit/before"
+          gh run download 43365071496 --repo "$GITHUB_REPOSITORY" --name "$CORRECTED_ARTIFACT" --dir "$RUNNER_TEMP/r014-transfer-audit/after"
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          base=Path(os.environ["RUNNER_TEMP"])/"r014-transfer-audit"
+          sex=os.environ["SEX"]
+          src=json.loads((base/"before/morph_receipt.json").read_text())
+          corrected=json.loads((base/"after/candidate_transfer_receipt.json").read_text())
+          assert src["status"]=="PASS_SOURCE_NATIVE_CC0_MORPH_MOTION_RENDER_STRUCTURAL_ONLY"
+          assert corrected["status"]=="PASS_EXPERIMENTAL_NATIVE_MESH_TRANSFER_AND_REVIEW_FILES_ONLY"
+          assert src["sex_macro_label"]==corrected["sex_macro"]==sex
+          before=base/"before"/src["editable_blend"]["name"]
+          after=base/"after"/corrected["native_blend"]["name"]
+          def sha(f):
+              h=hashlib.sha256()
+              with f.open("rb") as stream:
+                  for x in iter(lambda:stream.read(1<<20),b""):h.update(x)
+              return h.hexdigest()
+          assert sha(before)==src["editable_blend"]["sha256"]
+          assert sha(after)==corrected["native_blend"]["sha256"]
+          assert corrected["source_morphed_blend_sha256"]==src["editable_blend"]["sha256"]
+          print("PASS_EXACT_SOURCE_MORPH_AND_TRANSFER_BINARY_CHAIN",sex)
+          PY
+      - name: Download pinned Blender with official checksum into disposable runner
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-transfer-audit"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          wanted="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#wanted}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$wanted" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-transfer-audit" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Create independent original morphed body/attachments material and topology baseline
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          source="$RUNNER_TEMP/r014-transfer-audit/before/R014_${SEX}_CC0_morph_editable_motion.blend"
+          "$BLENDER_BIN" --background "$source" --python-exit-code 4 --python r014/cc0_transfer_topology_snapshot.py -- \
+            --mode snapshot --sex "$SEX" --scene "$source" --out "$RUNNER_TEMP/r014-transfer-audit/out/before.json"
+      - name: Independently reopen corrected native scene and compare exact source topology and assets
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          corrected="$RUNNER_TEMP/r014-transfer-audit/after/R014_${SEX}_experimental_accessory_transfer.blend"
+          "$BLENDER_BIN" --background "$corrected" --python-exit-code 4 --python r014/cc0_transfer_topology_snapshot.py -- \
+            --mode snapshot --sex "$SEX" --scene "$corrected" --out "$RUNNER_TEMP/r014-transfer-audit/out/after.json"
+          python3 r014/cc0_transfer_contract_compare.py \
+            --before "$RUNNER_TEMP/r014-transfer-audit/out/before.json" \
+            --after "$RUNNER_TEMP/r014-transfer-audit/out/after.json" \
+            --out "$RUNNER_TEMP/r014-transfer-audit/out/invariant_receipt.json"
+      - name: Keep only small numeric/safe-source receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-cc0-material-uv-contract-${{ matrix.sex }}
+          path: ${{ runner.temp }}/r014-transfer-audit/out/*.json
+          if-no-files-found: warn
+          retention-days: 7
