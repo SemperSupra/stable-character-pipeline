@@ -90,8 +90,15 @@ for t,(i,j) in enumerate(zip(indices,selected),start=1):
   # Measured ankle from end of tibia, NOT from foot segment end.
   foot=map_displacement(j[side+"tibia"]-base[side+"tibia"])
   ball=map_displacement(j[side+"toes"]-base[side+"toes"])
+  # Actual original CMU ASF femur END is knee. This is a measured 3D
+  # source knee relative to the CURRENT bilateral hip centroid, not a
+  # guessed pole direction or a renderer heuristic. Derived full track
+  # stays strictly in disposable runner scratch.
+  knee=map_displacement(j[side+"femur"]-hip_mid(j))
   legs[field]={"ankle":dict(zip(("x","y","z"),map(float,foot))),
                "ball":dict(zip(("x","y","z"),map(float,ball))),
+               "knee_relative_hipcentre_world_m":dict(zip(("x","y","z"),map(float,knee))),
+               "knee_jcs_interpretation":"original_CMUSOURCE_femur_endpoint_position_not_anatomical_rotation",
                "contact":False,   # genuine ground contact not directly observed
                "contact_evidence":"UNKNOWN_NOT_FORCE_MEASURED"}
  frames.append({"frame":t,"original_source_sample_one_indexed":i+1,
