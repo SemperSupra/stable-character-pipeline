@@ -1,0 +1,107 @@
+name: R014 S3 native MHR original CMU07 source 3D rest-role span probe
+on:
+  push:
+    branches: [research/r014-cmu07-mhr-static-role-span-20261113]
+    paths:
+      - r014/mhr_cmu07_source_static_role_span.py
+      - .github/workflows/r014-cmu07-mhr-static-role-span.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-cmu-mhr-role-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source_and_target_rest_roles:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 24
+    strategy:
+      fail-fast: false
+      matrix:
+        motion: [07_01, 07_02]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Compile source before any asset
+        run: python3 -m compileall -q r014
+      - name: Reuse signed original CMU 3D FK METADATA only, no ASF/AMC recording acquisition
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cmu-rest/source"
+          gh run download 43323993856 --repo "$GITHUB_REPOSITORY" \
+            --name 'cmu-original-${{ matrix.motion }}-source-fk-profile-no-raw' \
+            --dir "$RUNNER_TEMP/cmu-rest/source"
+          (cd "$RUNNER_TEMP/cmu-rest/source" && sha256sum -c sha256sum.txt)
+          test -s "$RUNNER_TEMP/cmu-rest/source/${{ matrix.motion }}.fk_profile.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          f=Path(os.environ["RUNNER_TEMP"])/"cmu-rest/source/${{ matrix.motion }}.fk_profile.json"
+          r=json.loads(f.read_text())
+          assert r["source_motion"]=="${{ matrix.motion }}"
+          assert r["status"]=="PASS_ORIGINAL_SOURCE_FK_STRUCTURAL_METADATA_ONLY"
+          assert r["source_calibrated_asf_bones"]==30
+          assert r["source_fps"]==120
+          print("CMU07_SOURCE_FK_METADATA_ONLY_AUTHENTICATED",r["source_motion"])
+          PY
+      - name: Download source hash-checked Blender in disposable workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-static-ik/out"
+          cd "$RUNNER_TEMP/r014-static-ik"
+          base=https://download.blender.org/release/Blender4.5
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          sha="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#sha}" -eq 64
+          printf '%s  %s\n' "$sha" blender-4.5.16-linux-x64.tar.xz | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-static-ik" -maxdepth 2 -name blender -type f | head -1)"
+          test -n "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Import authentic pinned MHR public neutral rig
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-all-errors --connect-timeout 20 \
+            https://github.com/facebookresearch/MHR/releases/download/v1.0.1/assets.zip \
+            -o "$RUNNER_TEMP/r014-static-ik/assets.zip"
+          echo "e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94  $RUNNER_TEMP/r014-static-ik/assets.zip" | sha256sum -c -
+          "$BLENDER_BIN" --background --factory-startup --python-exit-code 3 \
+            --python r014/mhr_fbx_native_probe.py -- \
+            --phase create --archive "$RUNNER_TEMP/r014-static-ik/assets.zip" \
+            --sha256 e4f4f205cd87c0fa106577ba1de4fc763e4eb197c924461d2ef7e6944e9d6b94 \
+            --output "$RUNNER_TEMP/r014-static-ik/out" \
+            --receipt "$RUNNER_TEMP/r014-static-ik/out/source_create.json"
+      - name: Fresh-process original MHR rig rest roles versus genuine CMU FK metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-static-ik/out/R014_MHR_neutral_lod1.blend" \
+            --python-exit-code 3 --python r014/mhr_cmu07_source_static_role_span.py -- \
+            --motion '${{ matrix.motion }}' \
+            --source-profile "$RUNNER_TEMP/cmu-rest/source/${{ matrix.motion }}.fk_profile.json" \
+            --out "$RUNNER_TEMP/cmu-rest/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"cmu-rest/out"
+          r=json.loads((p/"${{ matrix.motion }}.mhr_static_role_span.json").read_text())
+          assert r["status"]=="PASS_NAMED_REST_ROLE_SPANS_ONLY_NOT_NATIVE_MOTION_RETARGET"
+          assert r["target_mhr_vertices"]==18439 and r["target_mhr_bones"]==126
+          assert r["source_original_motion"]=="${{ matrix.motion }}"
+          assert r["release"]=="R014_R009_PRODUCTION_HOLD"
+          assert set(r["mapped_source_named_roles_to_target_mhr_rest"])=={"l","r"}
+          print("REAL_CMUSOURCE_REAL_MHR_REST_BONE_ROLE_METADATA_ONLY",r["source_original_motion"])
+          PY
+          (cd "$RUNNER_TEMP/cmu-rest/out" && sha256sum *.json > sha256sum.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: r014-cmu-mhr-role-${{ matrix.motion }}-metadata-only
+          path: ${{ runner.temp }}/cmu-rest/out/*
+          retention-days: 7
