@@ -1,0 +1,116 @@
+{
+  "fixture_tolerance": {
+    "detail": 32,
+    "max_abs_bound_error_m": 0.15,
+    "max_relative_volume_error_pct": 3.0
+  },
+  "fixtures": {
+    "cylinder": {
+      "analytic_volume_m3": 0.8866831105491833,
+      "bytes": 98216,
+      "components": 1,
+      "expected_bounds_y_up": [
+        [
+          -0.42,
+          0.42
+        ],
+        [
+          -0.8,
+          0.8
+        ],
+        [
+          -0.42,
+          0.42
+        ]
+      ],
+      "genus_sum": 0,
+      "sha256": "a360078df8ab7f73a1e2f3b21fc87805c17235cae6c556a2d86c4d0493b75085"
+    },
+    "disconnected-spheres": {
+      "analytic_volume_m3": 0.3591887600604329,
+      "bytes": 45528,
+      "components": 2,
+      "expected_bounds_y_up": [
+        [
+          -1,
+          1
+        ],
+        [
+          -0.35,
+          0.35
+        ],
+        [
+          -0.35,
+          0.35
+        ]
+      ],
+      "genus_sum": 0,
+      "sha256": "16f9854ef28e4330ccc5c492429ba51921ebc69ac242f9806c770dda6b022b9d"
+    },
+    "drilled-block": {
+      "analytic_volume_m3": 7.0927080416432675,
+      "bytes": 272112,
+      "components": 1,
+      "expected_bounds_y_up": [
+        [
+          -1,
+          1
+        ],
+        [
+          -1,
+          1
+        ],
+        [
+          -1,
+          1
+        ]
+      ],
+      "genus_sum": 1,
+      "sha256": "34ab9d78f04aae5df213c5d27e6b220741c3f2c4423bfe331dcdb4c94bc2691e"
+    },
+    "rectangular-box": {
+      "analytic_volume_m3": 1.672,
+      "bytes": 94852,
+      "components": 1,
+      "expected_bounds_y_up": [
+        [
+          -0.95,
+          0.95
+        ],
+        [
+          -0.4,
+          0.4
+        ],
+        [
+          -0.55,
+          0.55
+        ]
+      ],
+      "genus_sum": 0,
+      "sha256": "1cdbecead12b3a1be18f5bc08623cec182fb9c5903a591b10159359b41e70db8"
+    },
+    "sphere": {
+      "analytic_volume_m3": 1.629510599095387,
+      "bytes": 178564,
+      "components": 1,
+      "expected_bounds_y_up": [
+        [
+          -0.73,
+          0.73
+        ],
+        [
+          -0.73,
+          0.73
+        ],
+        [
+          -0.73,
+          0.73
+        ]
+      ],
+      "genus_sum": 0,
+      "sha256": "1d75b382592c678865c20ed80ba234657181642979cbd6dd358bd23e47bb6f98"
+    }
+  },
+  "origin": "synthetic derived GLBs from private unmerged Oneirifact R1/R3 source; source not published",
+  "schema": "oneirifact.public-geometry-r3/v1"
+}
