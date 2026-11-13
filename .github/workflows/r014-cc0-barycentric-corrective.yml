@@ -1,0 +1,156 @@
+name: R014 Experimental Original-Body Barycentric Transfer of Real CC0 Accessories
+on:
+  push:
+    branches: [research/r014-cc0-surface-barycentric-attachment-transfer-20261113]
+    paths:
+      - r014/cc0_source_barycentric_transfer.py
+      - .github/workflows/r014-cc0-barycentric-corrective.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r014-source-cc0-barycentric-corrective
+  cancel-in-progress: true
+jobs:
+  independent-actual-3d-correction:
+    name: Correct native public CC0 shape attachments with old/new body triangles - ${{ matrix.sex }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 36
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sex: female
+            morph_run: 43288582735
+            morph_artifact: r014-cc0-real-morph-motion-female
+          - sex: male
+            morph_run: 43287691272
+            morph_artifact: r014-cc0-real-morph-motion-male
+    env:
+      BLENDER_USER_CONFIG: /tmp/r014-morph-transfer/config
+      BLENDER_USER_SCRIPTS: /tmp/r014-morph-transfer/scripts
+    steps:
+      - name: GitHub source checkout read-only, no persistent token
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Source syntax check
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/cc0_source_barycentric_transfer.py r014/cc0_accessory_nearest_surface.py
+      - name: Retrieve exact original author public CC0 scenes and separate verified native morph outputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SEX: ${{ matrix.sex }}
+          MORPH_RUN: ${{ matrix.morph_run }}
+          MORPH_ARTIFACT: ${{ matrix.morph_artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r014-morph-transfer/original" "$RUNNER_TEMP/r014-morph-transfer/morphed" "$RUNNER_TEMP/r014-morph-transfer/out"
+          gh run download 43207664661 --repo "$GITHUB_REPOSITORY" --name r014-mpfb-eye-MAKESKIN-lookdev --dir "$RUNNER_TEMP/r014-morph-transfer/original"
+          gh run download "$MORPH_RUN" --repo "$GITHUB_REPOSITORY" --name "$MORPH_ARTIFACT" --dir "$RUNNER_TEMP/r014-morph-transfer/morphed"
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-morph-transfer"
+          src=json.loads((root/"original/generation.json").read_text())
+          assert src["eye_material_mode"]=="MAKESKIN"
+          assert src["asset_archive_sha256"]=="b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107"
+          assert {(r["sex"],r["source_gender_macro"]) for r in src["characters"]}=={("female",0.),("male",1.)}
+          row=json.loads((root/"morphed/morph_receipt.json").read_text())
+          assert row["status"]=="PASS_SOURCE_NATIVE_CC0_MORPH_MOTION_RENDER_STRUCTURAL_ONLY"
+          assert row["sex_macro_label"]==os.environ["SEX"]
+          f=root/"morphed"/row["editable_blend"]["name"]
+          assert f.stat().st_size==row["editable_blend"]["bytes"]
+          h=hashlib.sha256()
+          with f.open("rb") as stream:
+              for b in iter(lambda:stream.read(1<<20),b""):h.update(b)
+          assert h.hexdigest()==row["editable_blend"]["sha256"]
+          print("PASS_SOURCE_AND_MORPHED_PUBLIC_CC0_SHA",os.environ["SEX"],h.hexdigest())
+          PY
+      - name: Install pinned Blender in fully disposable environment and verify archive digest
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/r014-morph-transfer"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          wanted="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#wanted}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$wanted" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r014-morph-transfer" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Export immutable actual evaluated source body surface and triangle index from fresh Blender
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-morph-transfer/original/R014_MPFB_CC0_surface_study.blend" \
+            --python-exit-code 3 --python r014/cc0_source_barycentric_transfer.py -- \
+            --mode export --sex "$SEX" \
+            --original-blend "$RUNNER_TEMP/r014-morph-transfer/original/R014_MPFB_CC0_surface_study.blend" \
+            --out "$RUNNER_TEMP/r014-morph-transfer/original/original_body.npz"
+          test -s "$RUNNER_TEMP/r014-morph-transfer/original/original_body.npz"
+          test -s "$RUNNER_TEMP/r014-morph-transfer/original/original_body.json"
+      - name: Map source-body barycentric deformation into six accessory meshes in original native rigged scene
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-morph-transfer/morphed/R014_${SEX}_CC0_morph_editable_motion.blend" \
+            --python-exit-code 3 --python r014/cc0_source_barycentric_transfer.py -- \
+            --mode apply --sex "$SEX" \
+            --morphed-blend "$RUNNER_TEMP/r014-morph-transfer/morphed/R014_${SEX}_CC0_morph_editable_motion.blend" \
+            --morph-receipt "$RUNNER_TEMP/r014-morph-transfer/morphed/morph_receipt.json" \
+            --reference "$RUNNER_TEMP/r014-morph-transfer/original/original_body.npz" \
+            --source-receipt "$RUNNER_TEMP/r014-morph-transfer/original/original_body.json" \
+            --out "$RUNNER_TEMP/r014-morph-transfer/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-morph-transfer/out"
+          r=json.loads((root/"candidate_transfer_receipt.json").read_text())
+          assert r["status"]=="PASS_EXPERIMENTAL_NATIVE_MESH_TRANSFER_AND_REVIEW_FILES_ONLY"
+          assert r["transferred_accessory_meshes"]>=5
+          assert r["original_to_target_body_max_vertex_delta"]>0.005
+          assert r["geometry_approval"]=="HOLD"
+          print("PASS_EXPERIMENTAL_REAL_NATIVE_TRANSFER_NOT_ANATOMICAL_ACCEPTANCE",r["transferred_accessory_meshes"])
+          PY
+      - name: Independently reopen corrected Blender and re-measure body-to-accessory proximity
+        env:
+          SEX: ${{ matrix.sex }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background "$RUNNER_TEMP/r014-morph-transfer/out/R014_${SEX}_experimental_accessory_transfer.blend" \
+            --python-exit-code 3 --python r014/cc0_accessory_nearest_surface.py -- \
+            --scene "$RUNNER_TEMP/r014-morph-transfer/out/R014_${SEX}_experimental_accessory_transfer.blend" \
+            --sex "$SEX" --stage morphed \
+            --out "$RUNNER_TEMP/r014-morph-transfer/out/fresh_reopen_diagnostic.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"r014-morph-transfer/out"
+          j=json.loads((root/"fresh_reopen_diagnostic.json").read_text())
+          assert j["status"]=="PASS_SOURCE_NATIVE_ATTACHED_MESH_GEOMETRY_DIAGNOSTIC_ONLY"
+          assert j["related_candidate_meshes"]>=5
+          print("PASS_FRESH_REOPEN_SOURCE_NATIVE_ACCESSORY_3D",j["sex_macro"])
+          PY
+      - name: Create provenance list, never modify original source or private data
+        if: always()
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/r014-morph-transfer/out"
+          if [ -d "$root" ]; then
+            (cd "$root" && find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 -r sha256sum > corrective_artifact_digests.txt)
+          fi
+      - name: Short-lived public experimental corrected Blender and real Cycles reference stills
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r014-cc0-experimental-barycentric-${{ matrix.sex }}
+          path: ${{ runner.temp }}/r014-morph-transfer/out/*
+          if-no-files-found: warn
+          retention-days: 7
