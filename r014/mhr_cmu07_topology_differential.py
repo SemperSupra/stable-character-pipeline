@@ -41,6 +41,8 @@ scene = bpy.context.scene
 sample_frames = sorted(int(x) for x in source["skin_geometry_samples"])
 assert len(sample_frames) == 5 and sample_frames[0] == 1
 assert sample_frames[-1] == source["gait_frames"]
+all_frames = range(1, source["gait_frames"] + 1)
+sample_frame_set = set(sample_frames)
 
 def geometry():
     deps = bpy.context.evaluated_depsgraph_get()
@@ -107,18 +109,20 @@ def bvh_overlap_candidates(points):
     return len(unique)
 
 results = {}
+all_frame_metrics = []  # EPHEMERAL; only summaries leave the runner
 baseline_bvh = None
-for frame in sample_frames:
+for frame in all_frames:
     scene.frame_set(frame)
     bpy.context.view_layer.update()
     sample, other = geometry()
     assert other == polygons, ("evaluated topology changed",frame)
     n, m, lengths = normals_and_lengths(sample, tris)
     historic = int(np.count_nonzero(np.einsum("ij,ij->i",n0,n)<=0))
-    expected = source["skin_geometry_samples"][str(frame)]
-    assert historic == expected["inverted_triangles"], ("history changed", frame)
     collapse = int(np.count_nonzero(m < .1*m0))
-    assert collapse == expected["severe_area_collapse"], ("collapse history changed",frame)
+    if frame in sample_frame_set:
+        expected = source["skin_geometry_samples"][str(frame)]
+        assert historic == expected["inverted_triangles"], ("history changed", frame)
+        assert collapse == expected["severe_area_collapse"], ("collapse history changed",frame)
     strain = lengths/l0
     compressed = int(np.count_nonzero(np.any(strain<.75,axis=1)))
     stretched = int(np.count_nonzero(np.any(strain>1.25,axis=1)))
@@ -128,7 +132,13 @@ for frame in sample_frames:
     opposing = int(np.count_nonzero(near_planar & (cos <= -.90)))
     overlaps = bvh_overlap_candidates(sample)
     if baseline_bvh is None: baseline_bvh = overlaps
-    results[str(frame)] = {
+    all_frame_metrics.append({"frame": frame,
+        "rest_normal_reversals": historic, "area_collapses": collapse,
+        "compressed_faces": compressed, "stretched_faces": stretched,
+        "max_abs_edge_strain": max_strain,
+        "opposing_hinges": opposing, "nonadjacent_bvh_pairs": overlaps})
+    if frame in sample_frame_set:
+        results[str(frame)] = {
         "historical_rest_normal_reversal_count_NOT_PROVEN_INVERSION": historic,
         "severe_area_collapse_count_under_0_1_reference": collapse,
         "faces_any_edge_compressed_under_0_75": compressed,
@@ -139,13 +149,36 @@ for frame in sample_frames:
         "delta_bvh_candidate_pairs_relative_first_frame": overlaps - baseline_bvh,
         "cannot_conclude": "BVH overlap candidates include near contact/coplanar cases; negative count does not certify global absence of surface penetration"
     }
-    print("R014_REAL_MHR_DIMENSIONLESS_TOPOLOGY_DIFFERENTIAL",
-          json.dumps({"motion":args.motion,"frame":frame,
-                      "rest_normal_reversals":historic,"area_collapse":collapse,
-                      "opposing_hinges":opposing,"nonadjacent_bvh_pairs":overlaps},
-                     sort_keys=True),flush=True)
+    if frame in sample_frame_set:
+        print("R014_REAL_MHR_DIMENSIONLESS_TOPOLOGY_DIFFERENTIAL",
+              json.dumps({"motion":args.motion,"frame":frame,
+                          "rest_normal_reversals":historic,"area_collapse":collapse,
+                          "opposing_hinges":opposing,"nonadjacent_bvh_pairs":overlaps},
+                         sort_keys=True),flush=True)
 
+assert len(all_frame_metrics) == source["gait_frames"]
 assert args.native_source.stat().st_size > 100000
+
+def summary(key):
+    vals = np.asarray([x[key] for x in all_frame_metrics],dtype=np.float64)
+    return {"min":float(vals.min()),"p50":float(np.percentile(vals,50)),
+            "p95":float(np.percentile(vals,95)),"max":float(vals.max()),
+            "mean":float(vals.mean()),"frames_positive":int(np.count_nonzero(vals>0)),
+            "worst_frame":int(all_frame_metrics[int(np.argmax(vals))]["frame"])}
+field_names = ("rest_normal_reversals","area_collapses","compressed_faces",
+               "stretched_faces","max_abs_edge_strain","opposing_hinges","nonadjacent_bvh_pairs")
+all_window_summary = {key:summary(key) for key in field_names}
+assert all_window_summary["area_collapses"]["frames_positive"] >= 0
+# Retain a handful of diagnostic indices, not a full framewise source-derived sequence.
+top_strain = sorted(all_frame_metrics,key=lambda x:x["max_abs_edge_strain"],reverse=True)[:5]
+top_strain_frame_ids=[int(x["frame"]) for x in top_strain]
+print("R014_ALL_CAPTURE_FRAMES_AGGREGATE_HOLD",json.dumps({
+    "motion":args.motion,"count":len(all_frame_metrics),
+    "severe_area_collapse_frames":all_window_summary["area_collapses"]["frames_positive"],
+    "max_strain":all_window_summary["max_abs_edge_strain"]["max"],
+    "max_strain_frame":all_window_summary["max_abs_edge_strain"]["worst_frame"],
+    "max_BVH_overlap_candidates":all_window_summary["nonadjacent_bvh_pairs"]["max"]},
+    sort_keys=True),flush=True)
 src_sha = hashlib.sha256(args.native_source.read_bytes()).hexdigest()
 doc = {
     "schema":"r014.actual_source_mhr_topology_differential.v1",
@@ -165,9 +198,13 @@ doc = {
        "edge_stretch_ratio":1.25,"reference_coplanar_cos_min":.95,
        "opposed_hinge_cos_max":-.90,"bvh_epsilon_rig_local":1e-7},
     "samples":results,
+    "full_motion_window_frames_diagnosed":len(all_frame_metrics),
+    "full_motion_window_aggregate_metrics_NO_TRACK":all_window_summary,
+    "five_worst_edge_strain_frame_indices_NO_COORDINATES":top_strain_frame_ids,
     "what_is_proven":"Actual evaluated source-native MHR geometry, stable topology and exact legacy counts at sampled frames only",
     "what_is_not_proven":[
-       "No full-sequence all-frame QA beyond five sampled frames",
+       "Full window scanned but only aggregate diagnostics retained; no full framewise pose track exported",
+       "Reference frame is first sampled captured pose, not independently validated undeformed bind/rest mesh",
        "No self-intersection narrow-phase oracle or physical tissue collision proof",
        "No calibrated centimeters, full kinetic/force/contact or anatomical realism",
        "No full native scene/CMU source/derived frames allowed in downloadable artifact",
