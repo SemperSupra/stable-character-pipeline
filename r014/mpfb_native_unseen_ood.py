@@ -185,6 +185,7 @@ def main():
        "actual_shape_duplicate_count":0,"source_macro_overlap_count":0,
        "baseline_replay_exact_mesh_hash":True,
        "models":models,
+       "novel_genuine_mesh_test_cases":cases, # public synthetic full geometry features; no private images
        "native_body_units":"unscaled Blender units, NOT cm",
        "age_macro":"0.65 not proof of chronological adulthood",
        "recognized_CPE_concepts_or_generation_policy":"NOT_EXECUTED",

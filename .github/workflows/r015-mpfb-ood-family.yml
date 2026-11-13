@@ -1,0 +1,131 @@
+name: R015 Real Native Body OOD Detection Family — True Unseen Geometry
+on:
+  push:
+    branches: [research/r015-native-ood-detector-family-20261113]
+    paths:
+      - r014/mpfb_native_unseen_ood.py
+      - r014/mpfb_native_ood_detector_family.py
+      - .github/workflows/r015-mpfb-ood-family.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: r015-mpfb-actual-native-shape-unsupervised-detectors
+  cancel-in-progress: true
+jobs:
+  source-native-unseen:
+    name: Independent 20 novel meshes + 4 unsupervised detectors / cohort ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0,1]
+    env:
+      BLENDER_USER_CONFIG: /tmp/r015-newshape/config
+      BLENDER_USER_SCRIPTS: /tmp/r015-newshape/scripts
+    steps:
+      - name: Checkout no-persisted-credentials public research only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Validate source syntax and official source gender semantics
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q r014/mpfb_native_inverse_doe.py r014/mpfb_native_unseen_ood.py r014/mpfb_native_ood_detector_family.py
+          python3 r014/mpfb_gender_contract.py --self-test
+      - name: Acquire original public numerical 72 real-body 3D measurement fixtures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r015-newshape/source/shard0" "$RUNNER_TEMP/r015-newshape/source/shard1" "$RUNNER_TEMP/r015-newshape/out"
+          gh run download 43289442194 --repo "$GITHUB_REPOSITORY" --name r014-native-shape-doe-0 --dir "$RUNNER_TEMP/r015-newshape/source/shard0"
+          gh run download 43289442194 --repo "$GITHUB_REPOSITORY" --name r014-native-shape-doe-1 --dir "$RUNNER_TEMP/r015-newshape/source/shard1"
+          test -s "$RUNNER_TEMP/r015-newshape/source/shard0/native_inverse_doe_samples_0.jsonl"
+          test -s "$RUNNER_TEMP/r015-newshape/source/shard1/native_inverse_doe_samples_1.jsonl"
+      - name: Fetch exact approved original MPFB generator source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: makehumancommunity/mpfb2
+          ref: 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          path: _vendor/mpfb2
+          persist-credentials: false
+      - name: Source SHA/rights admission
+        run: |
+          set -euo pipefail
+          test "$(git -C _vendor/mpfb2 rev-parse HEAD)" = 6ff1eb358f6c1959ced77e79e6dd2406d9a71f49
+          grep -F CC0 _vendor/mpfb2/LICENSE.md
+          grep -F GPLv3 _vendor/mpfb2/LICENSE.md
+      - name: Install original pinned Blender into disposable runner and verify checksum
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r015-newshape"
+          cd "$RUNNER_TEMP/r015-newshape"
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 8 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --fail --location --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          digest="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "${#digest}" -eq 64
+          printf '%s  blender-4.5.16-linux-x64.tar.xz\n' "$digest" | sha256sum -c -
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r015-newshape" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "BLENDER_BIN=$bin" >> "$GITHUB_ENV"
+      - name: Build pinned author MPFB extension in disposable Blender profile
+        run: |
+          set -euo pipefail
+          mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$RUNNER_TEMP/r015-newshape/extensions"
+          "$BLENDER_BIN" --command extension build --source-dir _vendor/mpfb2/src/mpfb --output-dir "$RUNNER_TEMP/r015-newshape"
+          ext="$(find "$RUNNER_TEMP/r015-newshape" -maxdepth 1 -name 'mpfb-*.zip' | head -1)"
+          test -s "$ext"
+          "$BLENDER_BIN" --command extension repo-add r014lab --directory "$RUNNER_TEMP/r015-newshape/extensions"
+          "$BLENDER_BIN" --command extension install-file -r r014lab -e "$ext"
+      - name: Generate truly unseen source-native geometry and test held-out calibrated inverse
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          "$BLENDER_BIN" --background --python-exit-code 4 --python r014/mpfb_native_unseen_ood.py -- \
+            --shard "$SHARD" --original "$RUNNER_TEMP/r015-newshape/source" --out "$RUNNER_TEMP/r015-newshape/out"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          f=Path(os.environ["RUNNER_TEMP"])/"r015-newshape/out"/f"native_ood_{os.environ['SHARD']}.json"
+          r=json.loads(f.read_text())
+          assert r["status"]=="PASS_REAL_UNSEEN_SOURCE_NATIVE_MESH_STRESS_EVIDENCE_ONLY"
+          assert r["actual_new_shapes"]==20 and r["novel_extreme_cases"]==12 and r["novel_interior_cases"]==8
+          assert r["source_macro_overlap_count"]==0 and r["actual_shape_duplicate_count"]==0
+          print("PASS_TRUE_OUT_OF_SAMPLE_GEOMETRY",r["shard"])
+          PY
+      - name: Independently qualify four native geometry OOD detectors using disjoint real-model train calibration
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r015-ood-sklearn"
+          . "$RUNNER_TEMP/r015-ood-sklearn/bin/activate"
+          python -m pip install --no-cache-dir --no-input --disable-pip-version-check numpy==2.1.3 scipy==1.15.2 scikit-learn==1.6.1
+          python r014/mpfb_native_ood_detector_family.py --shard "$SHARD" \
+            --original "$RUNNER_TEMP/r015-newshape/source" \
+            --new "$RUNNER_TEMP/r015-newshape/out/native_ood_$SHARD.json" \
+            --out "$RUNNER_TEMP/r015-newshape/out/native_ood_family_$SHARD.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r015-newshape/out"/("native_ood_family_"+os.environ["SHARD"]+".json")
+          j=json.loads(p.read_text())
+          assert j["status"]=="PASS_TRUE_NATIVE_GEOMETRY_MODEL_OOD_COMPARISON_EVIDENCE_ONLY"
+          assert len(j["detectors"]["bbox"])==4 and len(j["detectors"]["slices"])==4
+          assert j["designed_extreme_native_macro_cases"]==12
+          print("PASS_INDEPENDENT_REAL_MESH_FAMILY_EVIDENCE",j["shard"])
+          PY
+      - name: Upload numerical truth and uncertainty only; no media, no model blobs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r015-unseen-native-body-ood-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/r015-newshape/out/*.json
+          if-no-files-found: warn
+          retention-days: 7
