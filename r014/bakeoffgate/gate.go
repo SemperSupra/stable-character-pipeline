@@ -4,6 +4,7 @@ package bakeoffgate
 
 import (
  "bytes"
+ "crypto/sha256"
  "encoding/hex"
  "encoding/json"
  "errors"
@@ -40,9 +41,25 @@ type CrosswalkProof struct {
  Verified bool
  ProofSHA256 string
 }
+// SamplingWitness is a source-hash-bound index transcript obtained from a
+// distinct reviewer. Authenticity of source reading and reviewer identity
+// must be established OUTSIDE this package.
+type SamplingWitness struct {
+ ClipID string
+ MotionSHA256 string
+ PolicySHA256 string
+ SourceFrameCount int
+ SourceHz int
+ TargetHz int
+ Indices []int
+ ManifestSHA256 string
+ Verified bool
+ ReviewerProofSHA256 string
+}
 type Registry struct {
  Grants map[string]Grant
  Crosswalk CrosswalkProof
+ Samples map[string]SamplingWitness
 }
 
 type Clip struct {
@@ -64,6 +81,7 @@ type Clip struct {
  Stride int `json:"source_sample_stride"`
  FirstSourceIndex int `json:"first_source_index_zero_based"`
  LastSourceIndex int `json:"last_source_index_zero_based"`
+ SampleManifestSHA256 string `json:"sample_manifest_sha256"`
  SamplingMethod string `json:"sampling_method"`
  LOD int `json:"lod"`
 }
@@ -87,6 +105,7 @@ type Arm struct {
  Stride int `json:"source_sample_stride"`
  FirstSourceIndex int `json:"first_source_index_zero_based"`
  LastSourceIndex int `json:"last_source_index_zero_based"`
+ SampleManifestSHA256 string `json:"sample_manifest_sha256"`
  SamplingMethod string `json:"sampling_method"`
  LOD int `json:"lod"`
  ApplyCorrectives bool `json:"apply_correctives"`
@@ -131,6 +150,21 @@ func digest(s string) bool {
  if len(s)!=64{return false}
  b,e:=hex.DecodeString(s)
  return e==nil&&len(b)==32
+}
+// SampleManifestDigest commits the exact declared sample-index transcript
+// to the source and policy SHA. This does not authenticate source frames.
+func SampleManifestDigest(id,motion,policy string,count,sourceHz,targetHz int,indices []int) string {
+ b,_:=json.Marshal(struct {
+  ClipID string `json:"clip_id"`
+  MotionSHA256 string `json:"motion_sha256"`
+  PolicySHA256 string `json:"policy_sha256"`
+  SourceFrameCount int `json:"source_frame_count"`
+  SourceHz int `json:"source_hz"`
+  TargetHz int `json:"target_hz"`
+  Indices []int `json:"indices"`
+ }{id,motion,policy,count,sourceHz,targetHz,indices})
+ sum:=sha256.Sum256(b)
+ return hex.EncodeToString(sum[:])
 }
 func DecodeStrict(data []byte)(Plan,error){
  var p Plan
@@ -214,6 +248,26 @@ func Validate(p Plan, trusted Registry)(Verdict,error){
    c.SamplingPolicySHA256!=inputs["sampling_policy"].SHA256{
    return v,fmt.Errorf("unbound source/model/map/calibration/rest for %q",c.ID)
   }
+  witness,ok:=trusted.Samples[c.ID]
+  if !ok||!witness.Verified||!digest(witness.ReviewerProofSHA256)||
+   witness.ClipID!=c.ID||witness.MotionSHA256!=c.MotionSHA256||
+   witness.PolicySHA256!=c.SamplingPolicySHA256||
+   witness.SourceFrameCount!=c.SourceSampleCount||
+   witness.SourceHz!=c.SourceHz||witness.TargetHz!=c.TargetHz||
+   len(witness.Indices)!=c.Frames{
+   return v,fmt.Errorf("independent exact sample index witness missing for %q",c.ID)
+  }
+  for i,index:=range witness.Indices{
+   if index!=c.FirstSourceIndex+i*c.Stride||index>=c.SourceSampleCount{
+    return v,fmt.Errorf("missing, reordered or interpolated source index for %q at frame %d",c.ID,i)
+   }
+  }
+  expectedManifest:=SampleManifestDigest(c.ID,c.MotionSHA256,c.SamplingPolicySHA256,
+   c.SourceSampleCount,c.SourceHz,c.TargetHz,witness.Indices)
+  if !digest(c.SampleManifestSHA256)||c.SampleManifestSHA256!=expectedManifest||
+   witness.ManifestSHA256!=expectedManifest{
+   return v,fmt.Errorf("unbound or altered source index manifest for %q",c.ID)
+  }
   clipByID[c.ID]=c
  }
  wanted:=map[string]bool{"native_correctives_off":true,"native_correctives_on":true,
@@ -233,6 +287,7 @@ func Validate(p Plan, trusted Registry)(Verdict,error){
    a.CorrectiveActivationSHA256!=c.CorrectiveActivationSHA256||
    a.CorrectiveShapesSHA256!=c.CorrectiveShapesSHA256||
    a.SamplingPolicySHA256!=c.SamplingPolicySHA256||
+   a.SampleManifestSHA256!=c.SampleManifestSHA256||
    a.SourceSampleCount!=c.SourceSampleCount||a.SourceHz!=c.SourceHz||
    a.TargetHz!=c.TargetHz||a.Stride!=c.Stride||
    a.FirstSourceIndex!=c.FirstSourceIndex||a.LastSourceIndex!=c.LastSourceIndex||
