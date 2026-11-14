@@ -17,6 +17,8 @@ from pathlib import Path
 import bpy
 
 sys.path.insert(0,str(Path(__file__).resolve().parent))
+# Shared Blender render collector must write into the same R2 evidence directory.
+os.environ["BAKEOFF_OUT"]=os.environ.get("BAKEOFF_R2_OUT","out/gsplat53-r2")
 from rig_fixture import FIELDS, gaussian_rows, ply_bytes
 from virtual_rig_r1 import ROOT, reset_world, put_mesh, take_image, compare_pair, camera_record
 
