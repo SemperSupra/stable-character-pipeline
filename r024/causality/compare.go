@@ -79,11 +79,33 @@ func Compare(p Pair)(Comparison,error){
    return c,fmt.Errorf("stance labels or ground changed at tick %d",i)
   }
  }
+ // Aggregate maxima can conceal local damage: a pre-existing 80 mm hover
+ // can mask a new 25 mm hover at a previously grounded tick. Evaluate each
+ // time-aligned stance sample before considering aggregate non-regression.
+ localRegression:=false
+ for i:=range p.Before.Samples{
+  a,b:=p.Before.Samples[i],p.After.Samples[i]
+  if !a.Stance{continue}
+  ha:=a.EvaluatedSole[2]-a.GroundZ
+  hb:=b.EvaluatedSole[2]-b.GroundZ
+  if math.Max(0,hb)>math.Max(0,ha)+p.ToleranceM ||
+   math.Max(0,-hb)>math.Max(0,-ha)+p.ToleranceM ||
+   (math.Abs(ha)<=p.ContactBandM && math.Abs(hb)>p.ContactBandM){
+   localRegression=true
+  }
+  if i>0&&p.Before.Samples[i-1].Stance {
+   prevA:=p.Before.Samples[i-1].EvaluatedSole
+   prevB:=p.After.Samples[i-1].EvaluatedSole
+   slipA:=math.Hypot(a.EvaluatedSole[0]-prevA[0],a.EvaluatedSole[1]-prevA[1])*48
+   slipB:=math.Hypot(b.EvaluatedSole[0]-prevB[0],b.EvaluatedSole[1]-prevB[1])*48
+   if slipB>slipA+p.ToleranceSpeedMPS {localRegression=true}
+  }
+ }
  var e error
  c.Before,e=stats(p.Before,p.ContactBandM);if e!=nil{return c,e}
  c.After,e=stats(p.After,p.ContactBandM);if e!=nil{return c,e}
  // Do not allow coverage regressions hidden inside one coarse rounded number.
- if c.After.ContactCount<c.Before.ContactCount||
+ if localRegression||c.After.ContactCount<c.Before.ContactCount||
   c.After.PeakHoverM>c.Before.PeakHoverM+p.ToleranceM||
   c.After.PeakPenetrationM>c.Before.PeakPenetrationM+p.ToleranceM||
   c.After.PeakSoleSlipMPS>c.Before.PeakSoleSlipMPS+p.ToleranceSpeedMPS{
