@@ -23,3 +23,16 @@ func TestLargeSoleOffsetIsNotCausalProof(t *testing.T){
  p:=fixture();m,e:=Validate(p);if e!=nil{t.Fatal(e)}
  if m.MaxEvaluatedAnkleToSoleM<.06||!strings.Contains(m.Status,"CAUSE_UNPROVEN"){t.Fatal("mechanism prematurely inferred")}
 }
+
+func TestFiniteInputDerivedOverflowRejected(t *testing.T){
+ cases:=[]struct{name string;edit func(*Plan)}{
+  {"squared distance overflow",func(p *Plan){p.Samples[150].Target[0]=1e200}},
+  {"coordinate subtraction overflow",func(p *Plan){p.Samples[150].Target[0]=1e308;p.Samples[150].SolvedAnkle[0]=-1e308}},
+  {"signed ground clearance overflow",func(p *Plan){p.Samples[150].EvaluatedSole[2]=1e308;p.Samples[150].GroundZ=-1e308}},
+ }
+ for _,tc:=range cases{t.Run(tc.name,func(t *testing.T){
+  p:=fixture();tc.edit(&p)
+  m,e:=Validate(p)
+  if e==nil||m.Status=="PASS_SYNTHETIC_RESIDUAL_DECOMPOSITION_ONLY__CAUSE_UNPROVEN"{t.Fatalf("nonfinite derived metric accepted: %+v %v",m,e)}
+ })}
+}
