@@ -1,0 +1,27 @@
+name: R023 source-safe evaluated sole witness falsifier
+on:
+  pull_request:
+    paths:
+      - 'r023/solewitness/**'
+      - '.github/workflows/r023-sole-witness-synthetic.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r023-sole-witness-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Adversarial synthetic qualification
+        working-directory: r023/solewitness
+        run: |
+          go test -race -count=1 -v ./...
+          go vet ./...
