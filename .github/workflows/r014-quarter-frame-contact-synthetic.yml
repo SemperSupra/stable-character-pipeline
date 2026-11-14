@@ -1,10 +1,5 @@
 name: R014 source-safe quarter-frame stance contact negative controls
 on:
-  push:
-    branches: [research/r014-quarter-frame-contact-negative-controls-20261114]
-    paths:
-      - 'r014/contactgate/**'
-      - '.github/workflows/r014-quarter-frame-contact-synthetic.yml'
   pull_request:
     paths:
       - 'r014/contactgate/**'
