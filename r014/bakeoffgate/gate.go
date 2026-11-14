@@ -54,6 +54,18 @@ type Clip struct {
  TopologyMapSHA256 string `json:"topology_map_sha256"`
  CalibrationSHA256 string `json:"calibration_sha256"`
  RestPoseSHA256 string `json:"rest_pose_sha256"`
+ NativeFBXSHA256 string `json:"native_fbx_sha256"`
+ CorrectiveActivationSHA256 string `json:"corrective_activation_sha256"`
+ CorrectiveShapesSHA256 string `json:"corrective_shapes_sha256"`
+ SamplingPolicySHA256 string `json:"sampling_policy_sha256"`
+ SourceSampleCount int `json:"source_sample_count"`
+ SourceHz int `json:"source_hz"`
+ TargetHz int `json:"target_hz"`
+ Stride int `json:"source_sample_stride"`
+ FirstSourceIndex int `json:"first_source_index_zero_based"`
+ LastSourceIndex int `json:"last_source_index_zero_based"`
+ SamplingMethod string `json:"sampling_method"`
+ LOD int `json:"lod"`
 }
 type Arm struct {
  ClipID string `json:"clip_id"`
@@ -65,6 +77,19 @@ type Arm struct {
  TopologyMapSHA256 string `json:"topology_map_sha256"`
  CalibrationSHA256 string `json:"calibration_sha256"`
  RestPoseSHA256 string `json:"rest_pose_sha256"`
+ NativeFBXSHA256 string `json:"native_fbx_sha256"`
+ CorrectiveActivationSHA256 string `json:"corrective_activation_sha256"`
+ CorrectiveShapesSHA256 string `json:"corrective_shapes_sha256"`
+ SamplingPolicySHA256 string `json:"sampling_policy_sha256"`
+ SourceSampleCount int `json:"source_sample_count"`
+ SourceHz int `json:"source_hz"`
+ TargetHz int `json:"target_hz"`
+ Stride int `json:"source_sample_stride"`
+ FirstSourceIndex int `json:"first_source_index_zero_based"`
+ LastSourceIndex int `json:"last_source_index_zero_based"`
+ SamplingMethod string `json:"sampling_method"`
+ LOD int `json:"lod"`
+ ApplyCorrectives bool `json:"apply_correctives"`
  GroundSnap bool `json:"ground_snap"`
 }
 type Plan struct {
@@ -131,7 +156,9 @@ func Validate(p Plan, trusted Registry)(Verdict,error){
  }
  required:=map[string]string{"model":"model_weights","cmu07_01":"motion","cmu07_02":"motion",
   "joint_map":"joint_crosswalk","topology_map":"topology_crosswalk",
-  "calibration":"unit_calibration","rest_pose":"rest_pose"}
+  "calibration":"unit_calibration","rest_pose":"rest_pose",
+  "native_fbx":"native_fbx","corrective_activation":"corrective_activation_weights",
+  "corrective_shapes_lod1":"lod1_corrective_shapes","sampling_policy":"sampling_policy"}
  if len(p.Inputs)!=len(required){return v,errors.New("missing or excess source inputs")}
  inputs:=map[string]Input{}
  for _,in:=range p.Inputs{
@@ -169,9 +196,22 @@ func Validate(p Plan, trusted Registry)(Verdict,error){
   f,ok:=expectedFrames[c.ID];if !ok||c.Frames!=f{return v,fmt.Errorf("invalid clip identity/frames %q",c.ID)}
   if _,ok:=clipByID[c.ID];ok{return v,fmt.Errorf("duplicate clip %q",c.ID)}
   sourceID:=strings.ToLower(c.ID)
+  expectedSourceSamples:=map[string]int{"CMU07_01":316,"CMU07_02":329}
+  if c.SourceSampleCount!=expectedSourceSamples[c.ID]||c.SourceHz!=120||
+   c.TargetHz!=24||c.Stride!=5||c.FirstSourceIndex!=0||
+   c.LastSourceIndex!=((c.SourceSampleCount-1)/c.Stride)*c.Stride||
+   c.Frames!=(c.SourceSampleCount-1)/c.Stride+1||
+   c.SamplingMethod!="EXACT_INTEGER_STRIDE_NO_INTERPOLATION"||
+   c.LOD!=1{
+   return v,fmt.Errorf("unproven source timebase, LOD or sample-index schedule for %q",c.ID)
+  }
   if c.MotionSHA256!=inputs[sourceID].SHA256||c.ModelSHA256!=inputs["model"].SHA256||
    c.JointMapSHA256!=inputs["joint_map"].SHA256||c.TopologyMapSHA256!=inputs["topology_map"].SHA256||
-   c.CalibrationSHA256!=inputs["calibration"].SHA256||c.RestPoseSHA256!=inputs["rest_pose"].SHA256{
+   c.CalibrationSHA256!=inputs["calibration"].SHA256||c.RestPoseSHA256!=inputs["rest_pose"].SHA256||
+   c.NativeFBXSHA256!=inputs["native_fbx"].SHA256||
+   c.CorrectiveActivationSHA256!=inputs["corrective_activation"].SHA256||
+   c.CorrectiveShapesSHA256!=inputs["corrective_shapes_lod1"].SHA256||
+   c.SamplingPolicySHA256!=inputs["sampling_policy"].SHA256{
    return v,fmt.Errorf("unbound source/model/map/calibration/rest for %q",c.ID)
   }
   clipByID[c.ID]=c
@@ -188,10 +228,21 @@ func Validate(p Plan, trusted Registry)(Verdict,error){
   if a.Frames!=c.Frames||a.MotionSHA256!=c.MotionSHA256||
    a.ModelSHA256!=c.ModelSHA256||a.JointMapSHA256!=c.JointMapSHA256||
    a.TopologyMapSHA256!=c.TopologyMapSHA256||
-   a.CalibrationSHA256!=c.CalibrationSHA256||a.RestPoseSHA256!=c.RestPoseSHA256{
+   a.CalibrationSHA256!=c.CalibrationSHA256||a.RestPoseSHA256!=c.RestPoseSHA256||
+   a.NativeFBXSHA256!=c.NativeFBXSHA256||
+   a.CorrectiveActivationSHA256!=c.CorrectiveActivationSHA256||
+   a.CorrectiveShapesSHA256!=c.CorrectiveShapesSHA256||
+   a.SamplingPolicySHA256!=c.SamplingPolicySHA256||
+   a.SourceSampleCount!=c.SourceSampleCount||a.SourceHz!=c.SourceHz||
+   a.TargetHz!=c.TargetHz||a.Stride!=c.Stride||
+   a.FirstSourceIndex!=c.FirstSourceIndex||a.LastSourceIndex!=c.LastSourceIndex||
+   a.SamplingMethod!=c.SamplingMethod||a.LOD!=c.LOD{
    return v,fmt.Errorf("comparison mismatch for %q",key)
   }
   if a.GroundSnap{return v,fmt.Errorf("default ground snap confounds comparison %q",key)}
+  if a.ApplyCorrectives!=(a.Engine=="native_correctives_on"){
+   return v,fmt.Errorf("uncertified correctives switch for %q",key)
+  }
  }
  for id:=range clipByID{for name:=range wanted{if !seen[id+"/"+name]{return v,fmt.Errorf("missing %s/%s",id,name)}}}
  v.Status=Status
