@@ -11,12 +11,20 @@ Official upstream at inspected main blob pins:
 
 **Do not infer:** those two excluded native feature joints correspond to one missing Blender bone; any one specific global node has been dropped; a Blender unit is one metre; an original imported FBX bone tail represents the anatomical joint; or a proper rigid rotation is a skin foldover. No native model weights were loaded or native-to-imported match proven in this workcell.
 
+## Directly source-inspected native extraction route
+
+The official MHR viewer `web-viewer/server.py`, pinned Git blob `8ac3f34585278d2e0d0fc7412ae1542613439109`, loads the TorchScript model with `torch.jit.load(..., map_location="cpu")`; `MHREngine.__init__` reads `self.model.get_joint_names()` and `self.model.character_torch.skeleton.joint_parents`. Its configuration exposes `jointNames` and `jointParents`. It also reads `get_lbsw()`, so a validated source-native witness can distinguish nominal skeleton nodes from actual vertex influences rather than assuming any excluded joint is nondeforming.
+
+The same viewer divides `skeleton[:, :3]` by 100 for its visualization export. The inspected imported Blender R014 script records the FBX rig `matrix_world` scale of 0.01. Those are **two observed implementation conventions**, not an automatically proven physical centimeter↔metre or joint-space parity. The real W1 extractor must report exact model, LOD, native TorchScript, asset/license/version SHA, source and Blender object/world/rest transforms, joint names/parent IDs, and LBS per-joint influence. Suppress source-native full geometry or detailed protected identifiers from public artifacts pending operation/venue rights.
+
+Upstream `v1.0.1` GitHub release metadata lists a 198,943,157-byte `assets.zip` published 2025-11-19 and notes “Added LICENSE to assets.” That release note does not substitute for inspecting the actual archive-embedded license and any separately supplied terms. This workcell did **not** download it.
+
 ## Strict structural gate
 
 With source-byte SHA pins and a genuinely independently reviewed mapping/omission registry, the validator requires:
 - 127 unique native joints and 126 unique imported joints, exactly one explicit nondeforming omission with independent proof and a SHA-bound 126-pair bijection.
 - Acyclic one-root skeleton graphs; each imported parent edge matches the corresponding native ancestry after the explicit omission; matching left/right/center annotations.
-- Finite rest positions and a source-to-target 3D proper orthogonal rotation (no reflection or shear), positive scale, bounded residuals for all 126 matched joints.
+- Finite rest positions and a source-to-target 3D proper orthogonal rotation (no reflection or shear), positive scale, independently attested calibration SHA and rest residual tolerance, bounded residuals for all 126 matched joints.
 - Versioned native and Blender local-pose conventions and explicit source-rights UNKNOWN, regardless of structurally passing checks.
 - The outside trusted registry is **not** automatically authenticated by this package: machine receipts still require independently pinned source bytes, source terms and venue/operation grants. A mapping presented by a candidate cannot be its own independent proof.
 
