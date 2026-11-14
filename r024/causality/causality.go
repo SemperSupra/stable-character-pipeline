@@ -52,6 +52,9 @@ func Validate(p Plan)(Metrics,error){
   d2:=dist(s.SolvedAnkle,s.EvaluatedAnkle)
   d3:=dist(s.EvaluatedAnkle,s.EvaluatedSole)
   h:=s.EvaluatedSole[2]-s.GroundZ
+  // Finite inputs can still overflow subtraction and squared-distance math.
+  // Never emit a synthetic PASS with nonfinite derived measurements.
+  if !finite(d1)||!finite(d2)||!finite(d3)||!finite(h){return m,fmt.Errorf("nonfinite derived residual at tick %d",i)}
   if d1>m.MaxTargetToSolvedM{m.MaxTargetToSolvedM=d1}
   if d2>m.MaxSolvedToEvaluatedM{m.MaxSolvedToEvaluatedM=d2}
   if d3>m.MaxEvaluatedAnkleToSoleM{m.MaxEvaluatedAnkleToSoleM=d3}
