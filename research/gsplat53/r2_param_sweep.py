@@ -99,6 +99,56 @@ def compare_treatment(ref,alternative):
             "rgb_l1":metric["mean_abs_rgb"],
             "alpha_l1":metric["mean_abs_alpha"]}
 
+
+def read_rgba(path):
+    image=bpy.data.images.load(str(path),check_existing=False)
+    try:
+        w,h=image.size
+        if (w,h)!=(96,96):raise AssertionError("unexpected audit image dimensions")
+        px=image.pixels[:]
+        rgb=[(px[i],px[i+1],px[i+2]) for i in range(0,len(px),4)]
+        alpha=[px[i+3] for i in range(0,len(px),4)]
+        return w,h,rgb,alpha
+    finally:
+        bpy.data.images.remove(image)
+
+def visual_tradeoff_audit(role,treatment,selected):
+    """Independent interior quality check: silhouette IoU can hide pinholes."""
+    if treatment=="baseline":name=f"gs_{role}_s1_o4.png"
+    elif treatment=="selected":
+        name=f"gs_{role}_s{selected[0]:g}_o{selected[1]:g}.png"
+    elif treatment=="mesh":name=f"mesh_{role}.png"
+    else:raise ValueError(treatment)
+    w,h,rgb,alpha=read_rgba(OUT/name)
+    _,_,_,reference_alpha=read_rgba(OUT/f"mesh_{role}.png")
+    target=[v>.15 for v in reference_alpha]
+    interior=set()
+    for y in range(2,h-2):
+        for x in range(2,w-2):
+            if all(target[(y+dy)*w+x+dx] for dy in range(-2,3) for dx in range(-2,3)):
+                interior.add(y*w+x)
+    if not interior:raise AssertionError("reference silhouette has no 5x5-eroded interior")
+    a=[alpha[idx] for idx in interior]
+    total_variation=0.
+    num_edges=0
+    for idx in interior:
+        for adj in (idx+1,idx+w):
+            if adj in interior:
+                total_variation+=sum(abs(rgb[idx][j]-rgb[adj][j]) for j in range(3))/3.
+                num_edges+=1
+    if num_edges==0:raise AssertionError("no adjacent interior pixels")
+    fp=sum(1 for i,b in enumerate(target) if not b and alpha[i]>.15)
+    fn=sum(1 for i,b in enumerate(target) if b and alpha[i]<=.15)
+    result={"role":role,"treatment":treatment,"interior_pixels":len(interior),
+            "mean_interior_alpha":round(sum(a)/len(a),6),
+            "fraction_interior_alpha_below_0_9":round(sum(v<.9 for v in a)/len(a),6),
+            "mean_interior_rgb_neighbor_abs_gradient":round(total_variation/num_edges,6),
+            "source_silhouette_false_positive_pixels":fp,
+            "source_silhouette_false_negative_pixels":fn}
+    if not all(math.isfinite(v) for v in result.values() if isinstance(v,(float,int))):
+        raise AssertionError("nonfinite image QA data")
+    return result
+
 def main():
     if bpy.app.version[:2]!=(5,3): raise RuntimeError("requires Blender 5.3")
     source_controls()
@@ -130,19 +180,20 @@ def main():
                     "scale_factor":sf,"opacity_logit":logit,"source_ply_sha256":digest,
                     **m,**rendered})
                 all_results[(role,sf,logit)]=m
-        train=[(all_results[("train",sf,logit)]["iou"],
-                -all_results[("train",sf,logit)]["alpha_l1"],sf,logit)
-               for sf,logit in itertools.product(SCALES,OPACITY_LOGITS)]
-        train.sort(reverse=True)
-        _,_,chosen_scale,chosen_logit=train[0]
-        chosen=(chosen_scale,chosen_logit)
-        rec["selection"]={"selected_scale_factor":chosen_scale,
-                           "selected_opacity_logit":chosen_logit,
-                           "selected_on":"train only","baseline":BASELINE,
-                           "train_metrics_selected":all_results[("train",*chosen)],
-                           "train_metrics_baseline":all_results[("train",*BASELINE)]}
-        if rec["selection"]["train_metrics_selected"]["iou"] + 1e-6 < rec["selection"]["train_metrics_baseline"]["iou"]:
-            raise AssertionError("train-selected candidate has lower IoU than frozen baseline")
+            if role=="train":
+                train=[(all_results[("train",sf,logit)]["iou"],
+                        -all_results[("train",sf,logit)]["alpha_l1"],sf,logit)
+                       for sf,logit in itertools.product(SCALES,OPACITY_LOGITS)]
+                train.sort(reverse=True)
+                _,_,chosen_scale,chosen_logit=train[0]
+                chosen=(chosen_scale,chosen_logit)
+                rec["selection"]={"selected_scale_factor":chosen_scale,
+                                   "selected_opacity_logit":chosen_logit,
+                                   "selected_on":"train only","baseline":BASELINE,
+                                   "train_metrics_selected":all_results[("train",*chosen)],
+                                   "train_metrics_baseline":all_results[("train",*BASELINE)]}
+                if rec["selection"]["train_metrics_selected"]["iou"] + 1e-6 < rec["selection"]["train_metrics_baseline"]["iou"]:
+                    raise AssertionError("train-selected candidate has lower IoU than frozen baseline")
         rec["holdout_comparisons"]=[]
         for role,*_ in SCENES[1:]:
             x=all_results[(role,*chosen)]
@@ -150,6 +201,11 @@ def main():
             rec["holdout_comparisons"].append({"role":role,"selected":x,"baseline":b,
                 "delta_iou":round(x["iou"]-b["iou"],5),
                 "delta_alpha_l1":round(x["alpha_l1"]-b["alpha_l1"],6)})
+        rec["independent_visual_quality"]=[
+            visual_tradeoff_audit(role,treatment,chosen)
+            for role,_,_,_ in SCENES
+            for treatment in ("mesh","baseline","selected")
+        ]
         rec["summary"]={
             "actual_renders":len(rec["trials"]),"target_mesh_renders":len(SCENES),
             "gaussian_renders":len(rec["trials"])-len(SCENES),
