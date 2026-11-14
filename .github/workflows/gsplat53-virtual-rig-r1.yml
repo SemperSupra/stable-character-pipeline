@@ -1,0 +1,72 @@
+name: Research virtual native rig vs Gaussian surface R1
+on:
+  pull_request:
+    paths:
+      - "research/gsplat53/rig_fixture.py"
+      - "research/gsplat53/virtual_rig_r1.py"
+      - "research/gsplat53/R1-VIRTUAL-RIG.md"
+      - ".github/workflows/gsplat53-virtual-rig-r1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: virtual-rig-gsplat-r1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  calibrated-virtual-scene:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate exact original geometry, pose/paint matrix and bad-input controls
+        run: |
+          set -euo pipefail
+          python3 research/gsplat53/rig_fixture.py
+      - name: Acquire verified official Blender 5.3 binary with mirror failover
+        run: |
+          set -euo pipefail
+          mirrors=(
+            https://download.blender.org/release/Blender5.3
+            https://mirror.blender.org/release/Blender5.3
+            https://ftp.halifax.rwth-aachen.de/blender/release/Blender5.3
+          )
+          for base in "${mirrors[@]}"; do
+            if curl -fLsS --retry 2 --retry-all-errors --retry-delay 1 \
+              "$base/blender-5.3.0-linux-x64.tar.xz" -o blender-5.3.0-linux-x64.tar.xz; then
+              echo "Verified source candidate: $base"
+              break
+            fi
+          done
+          test -s blender-5.3.0-linux-x64.tar.xz
+          for base in "${mirrors[@]}"; do
+            if curl -fLsS --retry 2 --retry-all-errors --retry-delay 1 \
+              "$base/blender-5.3.0.sha256" -o blender-5.3.0.sha256; then
+              break
+            fi
+          done
+          test -s blender-5.3.0.sha256
+          grep 'blender-5.3.0-linux-x64.tar.xz' blender-5.3.0.sha256 | sha256sum --check
+          tar -xf blender-5.3.0-linux-x64.tar.xz -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/blender-5.3.0-linux-x64/blender" --version | head -n 3
+      - name: Render native mesh vs source-derived Gaussian across pose paint and camera controls
+        env:
+          BAKEOFF_OUT: ${{ github.workspace }}/out/gsplat53-r1
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/blender-5.3.0-linux-x64/blender" --background --factory-startup \
+            --threads 4 --python-exit-code 1 --python research/gsplat53/virtual_rig_r1.py
+      - name: Retain original synthetic renders, source Gaussian fields and machine-readable receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: virtual-rig-gsplat-r1-${{ github.run_id }}
+          path: |
+            out/gsplat53-r1/*.png
+            out/gsplat53-r1/*.ply
+            out/gsplat53-r1/*.json
+          retention-days: 3
+          if-no-files-found: warn
