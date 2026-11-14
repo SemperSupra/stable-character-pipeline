@@ -35,6 +35,9 @@ func Inspect(p Plan)(Finding,error){
     if !finite(k.Frame)||!finite(k.Value)||!finite(k.LeftHandleX)||!finite(k.RightHandleX){
      return r,errors.New("nonfinite keyframe or handle")
     }
+    if k.LeftHandleX>k.Frame || k.RightHandleX<k.Frame{return r,errors.New("Bezier handle reverses keyframe time direction")}
+    if i>0 && k.LeftHandleX<curve[i-1].Frame{return r,errors.New("left handle crosses preceding keyframe")}
+    if i+1<len(curve) && k.RightHandleX>curve[i+1].Frame{return r,errors.New("right handle crosses following keyframe")}
     if i>0{
      d:=k.Frame-curve[i-1].Frame
      if d<=0{return r,fmt.Errorf("non-increasing key at %d",i)}
