@@ -1,0 +1,37 @@
+name: R014 native MHR 127-to-126 jointmap structural synthetic gate
+on:
+  pull_request:
+    paths:
+      - 'r014/jointmap/**'
+      - '.github/workflows/r014-mhr-jointmap-structural.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r014-mhr-jointmap-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  synthetic-jointmap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Read only source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Go test race and vet synthetic graphs only
+        working-directory: r014/jointmap
+        run: |
+          go version
+          go test -race -count=1 -v ./...
+          go vet ./...
+      - name: Write source-only receipt
+        working-directory: r014/jointmap
+        run: go run ./cmd/receipt > "$GITHUB_WORKSPACE/r014_jointmap_structural_receipt.json"
+      - name: Upload JSON metadata only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-jointmap-synthetic-receipt
+          path: r014_jointmap_structural_receipt.json
+          retention-days: 7
+          if-no-files-found: error
