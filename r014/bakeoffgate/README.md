@@ -23,6 +23,8 @@ Source inputs require **independently reviewed, per-artifact/per-operation/per-v
 
 The synthetic-only fixture exercises the contract and adversarial failures. The resulting status READY_TO_EXECUTE_RESEARCH_ONLY__NO_QUALITY_OR_RELEASE_PASS is **plan-validity only**, not measured geometry PASS or permission from the model licensor. A separate independently signed execution/rights record is required for real donor tests.
 
+**Review-attested source-frame witness (new preflight):** In addition to the declared `120 Hz → 24 Hz` integer-stride schedule, the trusted registry must supply one separately reviewed `SamplingWitness` per exact clip, including original source-motion SHA, sampling-policy SHA, all **64/66 individual zero-based source indices**, observed original sample count, rates, and a reproducible SHA-256 over a canonical Go JSON transcript. Every clip and each of its four arms binds that same transcript digest. The gate rejects missing/duplicate/reordered/interpolated or wrong-clip frames even when endpoints and counts match. This is **not** independent cryptographic proof that measured source poses were actually decoded or that the registry's claimed reviewer is genuine; the source-native extractor, rights-specific venue, and reviewer signature/authority remain separate holds. It deliberately contains no original motion/pose or model data.
+
 ## Reproduce
 
 From r014/bakeoffgate run go test -race -count=1 -v ./..., go vet ./..., and go run ./cmd/receipt.
