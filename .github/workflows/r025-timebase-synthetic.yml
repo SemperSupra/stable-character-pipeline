@@ -1,0 +1,27 @@
+name: R025 synthetic action timebase qualification
+on:
+  pull_request:
+    paths:
+      - 'r025/timebase/**'
+      - '.github/workflows/r025-timebase-synthetic.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r025-timebase-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Falsify frame-time import and retime
+        working-directory: r025/timebase
+        run: |
+          go test -race -count=1 -v ./...
+          go vet ./...
