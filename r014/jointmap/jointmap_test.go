@@ -32,11 +32,21 @@ func fixture()Plan{
  }
  return p
 }
-func trusted(p Plan)Trust{return Trust{NativeSHA256:p.Native.SHA256,
+func trusted(p Plan)Trust{
+ witness:=LBSWitness{NativeSHA256:p.Native.SHA256,LOD:1,VertexCount:18439}
+ for _,j:=range p.Native.Joints {
+  inf:=Influence{JointID:j.ID}
+  if j.Deforming {inf.NonzeroVertices=3;inf.MaxAbsoluteWeight=.7;inf.SumAbsoluteWeight=1.2}
+  witness.Joints=append(witness.Joints,inf)
+ }
+ return Trust{NativeSHA256:p.Native.SHA256,
  BlenderSHA256:p.Blender.SHA256,PairMapSHA256:PairMapDigest(p),
  AlignmentSHA256:AlignmentDigest(p.Alignment),AlignmentReviewSHA256:h("d"),
  MaxTrustedRestError:p.Alignment.MaxError,
- OmittedID:p.Omission.Native,OmissionReviewSHA256:h("f"),MapReviewed:true}}
+ OmittedID:p.Omission.Native,OmissionReviewSHA256:h("f"),MapReviewed:true,
+ LBS:witness,LBSWitnessSHA256:InfluenceDigest(witness),LBSReviewSHA256:h("e"),
+ }
+}
 func checkReject(t *testing.T,p Plan,tr Trust){
  t.Helper();v,e:=Validate(p,tr)
  if e==nil{t.Fatalf("invalid mapping accepted: %+v",v)}
@@ -134,4 +144,64 @@ func TestRotation90DegreesAndTranslation(t *testing.T){
  }
  v,e:=Validate(p,trusted(p))
  if e!=nil||v.Matched!=126{t.Fatalf("proper rotated space was rejected: %v %+v",e,v)}
+}
+
+func TestNoIndependentLBSReview(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBSReviewSHA256="";checkReject(t,p,tr)
+}
+func TestNoNativeLOD1InfluenceCensus(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.Joints=nil;checkReject(t,p,tr)
+}
+func TestInfluenceMissingLastJoint(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.Joints=tr.LBS.Joints[:126]
+ tr.LBSWitnessSHA256=InfluenceDigest(tr.LBS);checkReject(t,p,tr)
+}
+func TestInfluenceDuplicatedJoint(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.Joints[2].JointID=tr.LBS.Joints[3].JointID
+ tr.LBSWitnessSHA256=InfluenceDigest(tr.LBS);checkReject(t,p,tr)
+}
+func TestOmittedJointActuallyHasNonzeroWeights(t *testing.T){
+ p:=fixture();tr:=trusted(p)
+ tr.LBS.Joints[0].NonzeroVertices=1
+ tr.LBS.Joints[0].MaxAbsoluteWeight=.001
+ tr.LBS.Joints[0].SumAbsoluteWeight=.001
+ tr.LBSWitnessSHA256=InfluenceDigest(tr.LBS)
+ checkReject(t,p,tr)
+}
+func TestZeroInfluenceWithPositiveWeightRejected(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.Joints[0].MaxAbsoluteWeight=.01
+ tr.LBSWitnessSHA256=InfluenceDigest(tr.LBS);checkReject(t,p,tr)
+}
+func TestDeformingFalseButLBSPositive(t *testing.T){
+ p:=fixture();p.Native.Joints[1].Deforming=false
+ tr:=trusted(p)
+ tr.LBS.Joints[1].NonzeroVertices=2
+ tr.LBS.Joints[1].MaxAbsoluteWeight=.8
+ tr.LBS.Joints[1].SumAbsoluteWeight=1.1
+ tr.LBSWitnessSHA256=InfluenceDigest(tr.LBS)
+ checkReject(t,p,tr)
+}
+func TestWrongLODInfluenceRejected(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.LOD=2
+ tr.LBSWitnessSHA256=InfluenceDigest(tr.LBS);checkReject(t,p,tr)
+}
+func TestWrongNativeSourceInfluenceRejected(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.NativeSHA256=h("c")
+ tr.LBSWitnessSHA256=InfluenceDigest(tr.LBS);checkReject(t,p,tr)
+}
+func TestUntrustedAlteredCensusDigestRejected(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.Joints[10].MaxAbsoluteWeight=.33
+ checkReject(t,p,tr)
+}
+func TestOverunitWeightRejected(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.Joints[12].MaxAbsoluteWeight=1.1
+ tr.LBSWitnessSHA256=InfluenceDigest(tr.LBS);checkReject(t,p,tr)
+}
+func TestNegativeVertexCountRejected(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.VertexCount=-1
+ tr.LBSWitnessSHA256=InfluenceDigest(tr.LBS);checkReject(t,p,tr)
+}
+func TestNonnumericWeightRejected(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.LBS.Joints[8].SumAbsoluteWeight=math.NaN()
+ checkReject(t,p,tr)
 }
