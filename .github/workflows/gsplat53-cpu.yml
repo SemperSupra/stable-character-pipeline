@@ -1,0 +1,51 @@
+name: Research GSplat 5.3 CPU (public synthetic)
+on:
+  pull_request:
+    paths:
+      - "research/gsplat53/**"
+      - ".github/workflows/gsplat53-cpu.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gsplat53-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpu-bakeoff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate original 3DGS fixture and run negative controls
+        run: |
+          set -euo pipefail
+          python3 research/gsplat53/fixture.py --self-test --output out/synthetic_gaussians.ply
+      - name: Retrieve official Blender 5.3.0 and verify published checksum
+        run: |
+          set -euo pipefail
+          base=https://download.blender.org/release/Blender5.3
+          curl --fail --location --silent --show-error --retry 2 "$base/blender-5.3.0-linux-x64.tar.xz" -o blender-5.3.0-linux-x64.tar.xz
+          curl --fail --location --silent --show-error --retry 2 "$base/blender-5.3.0.sha256" -o blender-5.3.0.sha256
+          grep 'blender-5.3.0-linux-x64.tar.xz' blender-5.3.0.sha256 | sha256sum --check
+          tar -xf blender-5.3.0-linux-x64.tar.xz -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/blender-5.3.0-linux-x64/blender" --version | head -n 3
+      - name: Run headless Cycles CPU mesh vs gaussian rigid-edit smoke
+        env:
+          BAKEOFF_OUT: ${{ github.workspace }}/out/gsplat53
+          BAKEOFF_PLY: ${{ github.workspace }}/out/synthetic_gaussians.ply
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/blender-5.3.0-linux-x64/blender" --background --factory-startup --threads 4 --python-exit-code 1 --python research/gsplat53/smoke.py
+      - name: Archive only public synthetic receipts and renders
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gsplat53-r0-${{ github.run_id }}
+          path: |
+            out/gsplat53/*.json
+            out/gsplat53/*.png
+          if-no-files-found: warn
+          retention-days: 3
