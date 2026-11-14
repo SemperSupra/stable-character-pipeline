@@ -22,18 +22,36 @@ func fixture() Plan {
    {"topology_map","topology_crosswalk",h("e")},
    {"calibration","unit_calibration",h("f")},
    {"rest_pose","rest_pose",h("1")},
+   {"native_fbx","native_fbx",h("2")},
+   {"corrective_activation","corrective_activation_weights",h("3")},
+   {"corrective_shapes_lod1","lod1_corrective_shapes",h("4")},
+   {"sampling_policy","sampling_policy",h("5")},
   },
  }
  engines:=[]string{"native_correctives_off","native_correctives_on","blender_linear_skinning","blender_preserve_volume"}
  for _,v:=range []struct{id string;frames int;motion string}{{"CMU07_01",64,h("b")},{"CMU07_02",66,h("c")}}{
   c:=Clip{ID:v.id,Frames:v.frames,MotionSHA256:v.motion,ModelSHA256:h("a"),
-   JointMapSHA256:h("d"),TopologyMapSHA256:h("e"),CalibrationSHA256:h("f"),RestPoseSHA256:h("1")}
+   JointMapSHA256:h("d"),TopologyMapSHA256:h("e"),CalibrationSHA256:h("f"),RestPoseSHA256:h("1"),
+   NativeFBXSHA256:h("2"),CorrectiveActivationSHA256:h("3"),
+   CorrectiveShapesSHA256:h("4"),SamplingPolicySHA256:h("5"),
+   SourceSampleCount:map[string]int{"CMU07_01":316,"CMU07_02":329}[v.id],
+   SourceHz:120,TargetHz:24,Stride:5,FirstSourceIndex:0,
+   LastSourceIndex:map[string]int{"CMU07_01":315,"CMU07_02":325}[v.id],
+   SamplingMethod:"EXACT_INTEGER_STRIDE_NO_INTERPOLATION",LOD:1}
   p.Clips=append(p.Clips,c)
   for _,engine:=range engines{
    p.Arms=append(p.Arms,Arm{ClipID:c.ID,Engine:engine,Frames:c.Frames,
     MotionSHA256:c.MotionSHA256,ModelSHA256:c.ModelSHA256,
     JointMapSHA256:c.JointMapSHA256,TopologyMapSHA256:c.TopologyMapSHA256,
-    CalibrationSHA256:c.CalibrationSHA256,RestPoseSHA256:c.RestPoseSHA256})
+    CalibrationSHA256:c.CalibrationSHA256,RestPoseSHA256:c.RestPoseSHA256,
+    NativeFBXSHA256:c.NativeFBXSHA256,
+    CorrectiveActivationSHA256:c.CorrectiveActivationSHA256,
+    CorrectiveShapesSHA256:c.CorrectiveShapesSHA256,
+    SamplingPolicySHA256:c.SamplingPolicySHA256,
+    SourceSampleCount:c.SourceSampleCount,SourceHz:c.SourceHz,TargetHz:c.TargetHz,
+    Stride:c.Stride,FirstSourceIndex:c.FirstSourceIndex,
+    LastSourceIndex:c.LastSourceIndex,SamplingMethod:c.SamplingMethod,
+    LOD:c.LOD,ApplyCorrectives:engine=="native_correctives_on"})
   }
  }
  return p
@@ -134,4 +152,46 @@ func TestPrivateRunnerCannotInheritLocalGrant(t *testing.T){
  p:=fixture();p.Venue="private_github_actions";r:=registry(p)
  for id,g:=range r.Grants {g.Venue=p.Venue;g.Scope="CONTROLLED_LOCAL";r.Grants[id]=g}
  reject(t,p,r)
+}
+
+func TestCorrectiveAssetMissingGrantRejected(t *testing.T){
+ p:=fixture();r:=registry(p);delete(r.Grants,"corrective_activation");reject(t,p,r)
+}
+func TestCorrectiveActivationReplacedRejected(t *testing.T){
+ p:=fixture();r:=registry(p);p.Arms[1].CorrectiveActivationSHA256=h("a");reject(t,p,r)
+}
+func TestCorrectiveShapesLODMismatchRejected(t *testing.T){
+ p:=fixture();r:=registry(p);p.Arms[3].CorrectiveShapesSHA256=h("a");reject(t,p,r)
+}
+func TestCorrectiveSwitchDisagreesWithArmRejected(t *testing.T){
+ p:=fixture();r:=registry(p);p.Arms[1].ApplyCorrectives=false;reject(t,p,r)
+}
+func TestBlenderCannotClaimNativeCorrectiveMode(t *testing.T){
+ p:=fixture();r:=registry(p);p.Arms[3].ApplyCorrectives=true;reject(t,p,r)
+}
+func TestNativeFBXDiffersFromPinnedSourceRejected(t *testing.T){
+ p:=fixture();r:=registry(p);p.Clips[0].NativeFBXSHA256=h("a");reject(t,p,r)
+}
+func TestWrongNativeLODRejected(t *testing.T){
+ p:=fixture();r:=registry(p);p.Clips[1].LOD=6;reject(t,p,r)
+}
+func TestWholeSourceSamplesRequired(t *testing.T){
+ p:=fixture();r:=registry(p);p.Clips[1].SourceSampleCount=316;reject(t,p,r)
+}
+func TestClockRate120to24MustNotDrift(t *testing.T){
+ p:=fixture();r:=registry(p);p.Arms[1].TargetHz=30;reject(t,p,r)
+}
+func TestNoInterpolatedOrDroppedSampleClaims(t *testing.T){
+ p:=fixture();r:=registry(p);p.Clips[0].SamplingMethod="INTERPOLATED_24HZ";reject(t,p,r)
+}
+func TestExactLastIndexMustBePinned(t *testing.T){
+ p:=fixture();r:=registry(p);p.Clips[1].LastSourceIndex=328;reject(t,p,r)
+}
+func TestClockPolicySHAChangeRejected(t *testing.T){
+ p:=fixture();r:=registry(p);p.Arms[5].SamplingPolicySHA256=h("b");reject(t,p,r)
+}
+func TestPrivateVenueStillRequiresCorrectiveAssetSpecificGrant(t *testing.T){
+ p:=fixture();p.Venue="private_github_actions";r:=registry(p)
+ for id,g:=range r.Grants {g.Venue=p.Venue;g.Scope="PRIVATE_CLOUD_ADMITTED";r.Grants[id]=g}
+ delete(r.Grants,"corrective_shapes_lod1");reject(t,p,r)
 }
