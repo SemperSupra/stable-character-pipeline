@@ -31,7 +31,19 @@ type Grant struct {
  Scope string // PUBLIC_ADMITTED, CONTROLLED_LOCAL or PRIVATE_CLOUD_ADMITTED
  ProofSHA256 string
 }
-type Registry struct { Grants map[string]Grant }
+// CrosswalkProof is independent of the candidate plan. It is still only
+// registry attestation, not a re-evaluation of the actual mapped skeleton.
+type CrosswalkProof struct {
+ SHA256 string
+ NativeJoints int
+ ImportedJoints int
+ Verified bool
+ ProofSHA256 string
+}
+type Registry struct {
+ Grants map[string]Grant
+ Crosswalk CrosswalkProof
+}
 
 type Clip struct {
  ID string `json:"id"`
@@ -142,6 +154,13 @@ func Validate(p Plan, trusted Registry)(Verdict,error){
   if p.Venue=="private_github_actions"&&grant.Scope!="PUBLIC_ADMITTED"&&grant.Scope!="PRIVATE_CLOUD_ADMITTED"{
    return v,fmt.Errorf("protected source %q lacks private-cloud admission",in.ID)
   }
+ }
+ crosswalk:=trusted.Crosswalk
+ if !crosswalk.Verified||crosswalk.SHA256!=inputs["joint_map"].SHA256||
+  crosswalk.NativeJoints!=p.NativeJointCount||
+  crosswalk.ImportedJoints!=p.ImportedJointCount||
+  !digest(crosswalk.ProofSHA256){
+  return v,errors.New("independent native-to-imported joint crosswalk admission missing")
  }
  if len(p.Clips)!=2||len(p.Arms)!=8{return v,errors.New("both complete clips and four arms per clip required")}
  expectedFrames:=map[string]int{"CMU07_01":64,"CMU07_02":66}
