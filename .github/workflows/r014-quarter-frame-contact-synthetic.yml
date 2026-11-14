@@ -1,0 +1,36 @@
+name: R014 source-safe quarter-frame stance contact negative controls
+on:
+  pull_request:
+    paths:
+      - 'r014/contactgate/**'
+      - '.github/workflows/r014-quarter-frame-contact-synthetic.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r014-quarter-contact-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  synthetic-contact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - name: Read-only checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Race/vet on fictional quarter-sampled source only
+        working-directory: r014/contactgate
+        run: |
+          go version
+          go test -race -count=1 -v ./...
+          go vet ./...
+      - name: Emit source-only receipt
+        working-directory: r014/contactgate
+        run: go run ./cmd/receipt > "$GITHUB_WORKSPACE/r014_contact_quarter_frame_synthetic_receipt.json"
+      - name: Upload short-lived numeric/source receipt only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r014-contact-quarter-frame-synthetic-receipt
+          path: r014_contact_quarter_frame_synthetic_receipt.json
+          retention-days: 7
+          if-no-files-found: error
