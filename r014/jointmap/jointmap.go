@@ -55,6 +55,9 @@ type Trust struct {
  NativeSHA256 string
  BlenderSHA256 string
  PairMapSHA256 string
+ AlignmentSHA256 string
+ AlignmentReviewSHA256 string
+ MaxTrustedRestError float64
  OmittedID string
  OmissionReviewSHA256 string
  MapReviewed bool
@@ -161,6 +164,13 @@ func PairMapDigest(p Plan)string{
  sum:=sha256.Sum256(b)
  return hex.EncodeToString(sum[:])
 }
+// AlignmentDigest binds the exact proposed coordinate calibration to the
+// independent review context; this is not an actual native rig proof.
+func AlignmentDigest(a Alignment)string{
+ b,_:=json.Marshal(a)
+ sum:=sha256.Sum256(b)
+ return hex.EncodeToString(sum[:])
+}
 func Validate(p Plan,t Trust)(Result,error){
  r:=status()
  if p.Schema!=Schema{return r,errors.New("unsupported schema")}
@@ -178,6 +188,11 @@ func Validate(p Plan,t Trust)(Result,error){
  if !t.MapReviewed||!digest(t.PairMapSHA256)||t.PairMapSHA256!=PairMapDigest(p)||!digest(t.OmissionReviewSHA256)||
   t.OmittedID!=p.Omission.Native||p.Omission.Explanation==""{
   return r,errors.New("independent mapping/omission review not admitted")
+ }
+ if !digest(t.AlignmentSHA256)||t.AlignmentSHA256!=AlignmentDigest(p.Alignment)||
+  !digest(t.AlignmentReviewSHA256)||!finite(t.MaxTrustedRestError)||
+  t.MaxTrustedRestError<=0||p.Alignment.MaxError>t.MaxTrustedRestError{
+  return r,errors.New("independently reviewed coordinate calibration or rest threshold missing")
  }
  if !rotationOK(p.Alignment.Rotation)||!finite(p.Alignment.Scale)||
   p.Alignment.Scale<=0||!finiteV(p.Alignment.Translation)||
