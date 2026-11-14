@@ -26,9 +26,28 @@ jobs:
       - name: Retrieve official Blender 5.3.0 and verify published checksum
         run: |
           set -euo pipefail
-          base=https://download.blender.org/release/Blender5.3
-          curl --fail --location --silent --show-error --retry 2 "$base/blender-5.3.0-linux-x64.tar.xz" -o blender-5.3.0-linux-x64.tar.xz
-          curl --fail --location --silent --show-error --retry 2 "$base/blender-5.3.0.sha256" -o blender-5.3.0.sha256
+          # Mirror failover is required: the official download endpoint intermittently returns HTTP 403 on GHA.
+          mirrors=(
+            https://download.blender.org/release/Blender5.3
+            https://mirror.blender.org/release/Blender5.3
+            https://ftp.halifax.rwth-aachen.de/blender/release/Blender5.3
+          )
+          for base in "${mirrors[@]}"; do
+            if curl -fLsS --retry 2 --retry-all-errors --retry-delay 1 \
+              "$base/blender-5.3.0-linux-x64.tar.xz" -o blender-5.3.0-linux-x64.tar.xz; then
+              echo "Blender source mirror: $base"
+              break
+            fi
+            echo "::warning::Source mirror unavailable: $base"
+          done
+          test -s blender-5.3.0-linux-x64.tar.xz
+          for base in "${mirrors[@]}"; do
+            if curl -fLsS --retry 2 --retry-all-errors --retry-delay 1 \
+              "$base/blender-5.3.0.sha256" -o blender-5.3.0.sha256; then
+              break
+            fi
+          done
+          test -s blender-5.3.0.sha256
           grep 'blender-5.3.0-linux-x64.tar.xz' blender-5.3.0.sha256 | sha256sum --check
           tar -xf blender-5.3.0-linux-x64.tar.xz -C "$RUNNER_TEMP"
           "$RUNNER_TEMP/blender-5.3.0-linux-x64/blender" --version | head -n 3
