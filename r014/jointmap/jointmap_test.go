@@ -34,6 +34,8 @@ func fixture()Plan{
 }
 func trusted(p Plan)Trust{return Trust{NativeSHA256:p.Native.SHA256,
  BlenderSHA256:p.Blender.SHA256,PairMapSHA256:PairMapDigest(p),
+ AlignmentSHA256:AlignmentDigest(p.Alignment),AlignmentReviewSHA256:h("d"),
+ MaxTrustedRestError:p.Alignment.MaxError,
  OmittedID:p.Omission.Native,OmissionReviewSHA256:h("f"),MapReviewed:true}}
 func checkReject(t *testing.T,p Plan,tr Trust){
  t.Helper();v,e:=Validate(p,tr)
@@ -113,4 +115,23 @@ func TestStrictDecoderRejectsUnknownAndConcatenation(t *testing.T){
  if _,e:=DecodeStrict(append(b,b...));e==nil{t.Fatal("concatenated JSON passed")}
  s:=strings.Replace(string(b),"\"schema\":","\"injected\":true,\"schema\":",1)
  if _,e:=DecodeStrict([]byte(s));e==nil{t.Fatal("unknown field passed")}
+}
+
+func TestMissingIndependentAlignmentReview(t *testing.T){
+ p:=fixture();tr:=trusted(p);tr.AlignmentReviewSHA256="";checkReject(t,p,tr)
+}
+func TestCandidateAlignmentChangedAfterReview(t *testing.T){
+ p:=fixture();tr:=trusted(p);p.Alignment.Translation[0]+=1;checkReject(t,p,tr)
+}
+func TestCandidateCannotExpandRestResidual(t *testing.T){
+ p:=fixture();tr:=trusted(p);p.Alignment.MaxError*=5;checkReject(t,p,tr)
+}
+func TestRotation90DegreesAndTranslation(t *testing.T){
+ p:=fixture();p.Alignment.Rotation=[9]float64{0,-1,0,1,0,0,0,0,1}
+ p.Alignment.Translation=V3{7,-4,2}
+ for i:=range p.Pairs {
+  p.Blender.Joints[i].RestWorld=transform(p.Native.Joints[i+1].RestWorld,p.Alignment)
+ }
+ v,e:=Validate(p,trusted(p))
+ if e!=nil||v.Matched!=126{t.Fatalf("proper rotated space was rejected: %v %+v",e,v)}
 }
