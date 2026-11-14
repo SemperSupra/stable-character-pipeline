@@ -1,0 +1,71 @@
+name: Research Gaussian radiance parameters vs native rig R2 DOE
+on:
+  pull_request:
+    paths:
+      - "research/gsplat53/r2_param_sweep.py"
+      - "research/gsplat53/R2-GAUSSIAN-SWEEP.md"
+      - ".github/workflows/gsplat53-r2-param-doe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-rig-splat-r2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parameter-doe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Independent source mathematical controls
+        run: |
+          set -euo pipefail
+          python3 research/gsplat53/rig_fixture.py
+      - name: Acquire source-verified Blender 5.3.0 and fail over legitimate mirrors
+        run: |
+          set -euo pipefail
+          mirrors=(
+            https://download.blender.org/release/Blender5.3
+            https://mirror.blender.org/release/Blender5.3
+            https://ftp.halifax.rwth-aachen.de/blender/release/Blender5.3
+          )
+          for base in "${mirrors[@]}"; do
+            if curl -fLsS --retry 2 --retry-all-errors --retry-delay 1 \
+              "$base/blender-5.3.0-linux-x64.tar.xz" -o blender-5.3.0-linux-x64.tar.xz; then
+              echo "Official Blender release mirror: $base"
+              break
+            fi
+          done
+          test -s blender-5.3.0-linux-x64.tar.xz
+          for base in "${mirrors[@]}"; do
+            if curl -fLsS --retry 2 --retry-all-errors --retry-delay 1 \
+              "$base/blender-5.3.0.sha256" -o blender-5.3.0.sha256; then
+              break
+            fi
+          done
+          test -s blender-5.3.0.sha256
+          grep 'blender-5.3.0-linux-x64.tar.xz' blender-5.3.0.sha256 | sha256sum --check
+          tar -xf blender-5.3.0-linux-x64.tar.xz -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/blender-5.3.0-linux-x64/blender" --version | head -n 3
+      - name: Cross 15 Gaussian parameter treatments against native source with frozen heldout cameras and poses
+        env:
+          BAKEOFF_R2_OUT: ${{ github.workspace }}/out/gsplat53-r2
+          PR_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/blender-5.3.0-linux-x64/blender" --background --factory-startup \
+            --threads 4 --python-exit-code 1 --python research/gsplat53/r2_param_sweep.py
+      - name: Retain original synthetic fixture treatments, images and source-controlled receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gaussian-rig-param-r2-${{ github.run_id }}
+          path: |
+            out/gsplat53-r2/*.png
+            out/gsplat53-r2/*.ply
+            out/gsplat53-r2/*.json
+          retention-days: 3
+          if-no-files-found: warn
