@@ -1,0 +1,54 @@
+name: r033-public-synthetic-observer-contract
+
+on:
+  pull_request:
+    paths:
+      - "research/r033-observer-contract/**"
+      - ".github/workflows/r033-observer-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r033-observer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-only-go-observer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: research/r033-observer-contract/go.mod
+          cache: false
+      - name: Offline Go validation, negative tests and structural receipt
+        working-directory: research/r033-observer-contract
+        env:
+          GOPROXY: "off"
+          GOTOOLCHAIN: "local"
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -count=1 ./...
+          go vet ./...
+          go build -trimpath -o "${RUNNER_TEMP}/r033-observer-check" ./cmd/check
+          "${RUNNER_TEMP}/r033-observer-check" < examples/public_synthetic_fixture.json > "${RUNNER_TEMP}/r033-observer-structural.json"
+          python3 - "${RUNNER_TEMP}/r033-observer-structural.json" <<'PY'
+          import json,sys
+          x=json.load(open(sys.argv[1],encoding="utf-8"))
+          assert x["status"] == "OBSERVATIONS_UNVERIFIED"
+          assert x["claim"] == "SOURCE_SAFE_STRUCTURAL_VALIDATION_ONLY_NOT_VISUAL_QA_PASS"
+          assert x["observation_count"] == 1
+          PY
+      - name: Retain bounded public synthetic receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r033-synthetic-observer-contract
+          path: ${{ runner.temp }}/r033-observer-structural.json
+          retention-days: 7
+          if-no-files-found: error
