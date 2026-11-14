@@ -5,6 +5,7 @@ package jointmap
 
 import (
  "bytes"
+ "crypto/sha256"
  "encoding/hex"
  "encoding/json"
  "errors"
@@ -148,6 +149,18 @@ func transform(v V3,a Alignment)V3{
 func distance(a,b V3)float64{
  return math.Sqrt(math.Pow(a[0]-b[0],2)+math.Pow(a[1]-b[1],2)+math.Pow(a[2]-b[2],2))
 }
+// PairMapDigest binds the exact candidate pairs, omitted-joint reason and
+// admitted source snapshot identifiers. It is NOT proof of human review.
+func PairMapDigest(p Plan)string{
+ b,_:=json.Marshal(struct{
+  NativeSHA string `json:"native_sha"`
+  BlenderSHA string `json:"blender_sha"`
+  Pairs []Pair `json:"pairs"`
+  Omission Omission `json:"omission"`
+ }{p.Native.SHA256,p.Blender.SHA256,p.Pairs,p.Omission})
+ sum:=sha256.Sum256(b)
+ return hex.EncodeToString(sum[:])
+}
 func Validate(p Plan,t Trust)(Result,error){
  r:=status()
  if p.Schema!=Schema{return r,errors.New("unsupported schema")}
@@ -162,7 +175,7 @@ func Validate(p Plan,t Trust)(Result,error){
  if p.SourceRights!="REVIEW_REQUIRED_NO_PERMISSION_INFERRED"{
   return r,errors.New("source rights cannot be granted by mapping plan")
  }
- if !t.MapReviewed||!digest(t.PairMapSHA256)||!digest(t.OmissionReviewSHA256)||
+ if !t.MapReviewed||!digest(t.PairMapSHA256)||t.PairMapSHA256!=PairMapDigest(p)||!digest(t.OmissionReviewSHA256)||
   t.OmittedID!=p.Omission.Native||p.Omission.Explanation==""{
   return r,errors.New("independent mapping/omission review not admitted")
  }
