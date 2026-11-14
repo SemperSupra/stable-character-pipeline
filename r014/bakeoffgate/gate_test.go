@@ -38,6 +38,10 @@ func fixture() Plan {
    SourceHz:120,TargetHz:24,Stride:5,FirstSourceIndex:0,
    LastSourceIndex:map[string]int{"CMU07_01":315,"CMU07_02":325}[v.id],
    SamplingMethod:"EXACT_INTEGER_STRIDE_NO_INTERPOLATION",LOD:1}
+  indices:=make([]int,c.Frames)
+  for i:=range indices{indices[i]=i*c.Stride}
+  c.SampleManifestSHA256=SampleManifestDigest(c.ID,c.MotionSHA256,
+   c.SamplingPolicySHA256,c.SourceSampleCount,c.SourceHz,c.TargetHz,indices)
   p.Clips=append(p.Clips,c)
   for _,engine:=range engines{
    p.Arms=append(p.Arms,Arm{ClipID:c.ID,Engine:engine,Frames:c.Frames,
@@ -51,15 +55,27 @@ func fixture() Plan {
     SourceSampleCount:c.SourceSampleCount,SourceHz:c.SourceHz,TargetHz:c.TargetHz,
     Stride:c.Stride,FirstSourceIndex:c.FirstSourceIndex,
     LastSourceIndex:c.LastSourceIndex,SamplingMethod:c.SamplingMethod,
+    SampleManifestSHA256:c.SampleManifestSHA256,
     LOD:c.LOD,ApplyCorrectives:engine=="native_correctives_on"})
   }
  }
  return p
 }
 func registry(p Plan)Registry{
- r:=Registry{Grants:map[string]Grant{},
+ r:=Registry{Grants:map[string]Grant{},Samples:map[string]SamplingWitness{},
   Crosswalk:CrosswalkProof{SHA256:h("d"),NativeJoints:127,ImportedJoints:126,
    Verified:true,ProofSHA256:h("8")}}
+ for _,c:=range p.Clips{
+  indices:=make([]int,c.Frames)
+  for i:=range indices{indices[i]=i*c.Stride}
+  r.Samples[c.ID]=SamplingWitness{
+   ClipID:c.ID,MotionSHA256:c.MotionSHA256,PolicySHA256:c.SamplingPolicySHA256,
+   SourceFrameCount:c.SourceSampleCount,SourceHz:c.SourceHz,TargetHz:c.TargetHz,
+   Indices:indices,ManifestSHA256:SampleManifestDigest(c.ID,c.MotionSHA256,
+   c.SamplingPolicySHA256,c.SourceSampleCount,c.SourceHz,c.TargetHz,indices),
+   Verified:true,ReviewerProofSHA256:h("9"),
+  }
+ }
  for _,in:=range p.Inputs{
   r.Grants[in.ID]=Grant{InputID:in.ID,Kind:in.Kind,SHA256:in.SHA256,
    Venue:p.Venue,Operation:p.Operation,Scope:"PUBLIC_ADMITTED",ProofSHA256:h("9")}
@@ -194,4 +210,44 @@ func TestPrivateVenueStillRequiresCorrectiveAssetSpecificGrant(t *testing.T){
  p:=fixture();p.Venue="private_github_actions";r:=registry(p)
  for id,g:=range r.Grants {g.Venue=p.Venue;g.Scope="PRIVATE_CLOUD_ADMITTED";r.Grants[id]=g}
  delete(r.Grants,"corrective_shapes_lod1");reject(t,p,r)
+}
+
+func TestIndependentSampleWitnessMissing(t *testing.T){
+ p:=fixture();r:=registry(p);delete(r.Samples,"CMU07_01");reject(t,p,r)
+}
+func TestSampleWitnessReviewerAbsent(t *testing.T){
+ p:=fixture();r:=registry(p);x:=r.Samples["CMU07_02"];x.Verified=false;r.Samples[x.ClipID]=x;reject(t,p,r)
+}
+func TestSampleWitnessWrongSourceSHA(t *testing.T){
+ p:=fixture();r:=registry(p);x:=r.Samples["CMU07_01"];x.MotionSHA256=h("f");r.Samples[x.ClipID]=x;reject(t,p,r)
+}
+func TestSampleWitnessWrongPolicySHA(t *testing.T){
+ p:=fixture();r:=registry(p);x:=r.Samples["CMU07_02"];x.PolicySHA256=h("f");r.Samples[x.ClipID]=x;reject(t,p,r)
+}
+func TestSampleWitnessMissingMiddleSourceTick(t *testing.T){
+ p:=fixture();r:=registry(p);x:=r.Samples["CMU07_01"];x.Indices[22]+=1;r.Samples[x.ClipID]=x;reject(t,p,r)
+}
+func TestSampleWitnessDuplicatedSourceTick(t *testing.T){
+ p:=fixture();r:=registry(p);x:=r.Samples["CMU07_02"];x.Indices[10]=x.Indices[9];r.Samples[x.ClipID]=x;reject(t,p,r)
+}
+func TestSampleWitnessIndexCountShort(t *testing.T){
+ p:=fixture();r:=registry(p);x:=r.Samples["CMU07_02"];x.Indices=x.Indices[:65];r.Samples[x.ClipID]=x;reject(t,p,r)
+}
+func TestSampleManifestDigestMutationRejected(t *testing.T){
+ p:=fixture();r:=registry(p);p.Clips[0].SampleManifestSHA256=h("e");reject(t,p,r)
+}
+func TestArmCannotReuseOtherClipSampleManifest(t *testing.T){
+ p:=fixture();r:=registry(p);p.Arms[0].SampleManifestSHA256=p.Clips[1].SampleManifestSHA256;reject(t,p,r)
+}
+func TestWitnessCannotSelfGrantReviewerProof(t *testing.T){
+ p:=fixture();r:=registry(p);x:=r.Samples["CMU07_02"];x.ReviewerProofSHA256="";r.Samples[x.ClipID]=x;reject(t,p,r)
+}
+func TestWitnessHashContentDisagrees(t *testing.T){
+ p:=fixture();r:=registry(p);x:=r.Samples["CMU07_02"];x.ManifestSHA256=h("e");r.Samples[x.ClipID]=x;reject(t,p,r)
+}
+func TestSampleDigestDeterministicAndClipSpecific(t *testing.T){
+ p:=fixture();r:=registry(p);a:=r.Samples["CMU07_01"];b:=r.Samples["CMU07_02"]
+ x:=SampleManifestDigest(a.ClipID,a.MotionSHA256,a.PolicySHA256,a.SourceFrameCount,a.SourceHz,a.TargetHz,a.Indices)
+ y:=SampleManifestDigest(a.ClipID,a.MotionSHA256,a.PolicySHA256,a.SourceFrameCount,a.SourceHz,a.TargetHz,a.Indices)
+ if x!=y||x==b.ManifestSHA256||x!=p.Clips[0].SampleManifestSHA256{t.Fatalf("index transcript digest not reproducible/isolated")}
 }
