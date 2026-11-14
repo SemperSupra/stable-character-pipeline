@@ -21,6 +21,8 @@ type Sole struct {
 	Heel Vec3 `json:"heel"`
 	Ball Vec3 `json:"ball"`
 	Toe  Vec3 `json:"toe"`
+ LowestShoeVertex Vec3 `json:"lowest_shoe_vertex_world"`
+ LowestVertexIndex int `json:"lowest_shoe_vertex_index"`
 }
 type Frame struct {
 	Tick  int  `json:"quarter_tick"`
@@ -44,6 +46,8 @@ type Policy struct {
 	MaxSupportHoverM        float64 `json:"max_support_hover_m"`
 	MaxStanceMarkerSpeedMPS float64 `json:"max_stance_marker_speed_mps"`
 	MinStanceSeconds        float64 `json:"min_stance_segment_s"`
+ ContactBandM float64 `json:"sole_contact_band_m"`
+ MinStanceCoverageFraction float64 `json:"minimum_stance_coverage_fraction"`
 }
 type Record struct {
 	Schema            string    `json:"schema"`
@@ -51,6 +55,7 @@ type Record struct {
 	Claim             string    `json:"claim"`
 	SceneSHA256       string    `json:"scene_sha256"`
 	MotionSHA256      string    `json:"motion_sha256"`
+ SoleMeshSHA256 string `json:"sole_mesh_sha256"`
 	CalibrationSHA256 string    `json:"calibration_sha256"`
 	StanceLabelSHA256 string    `json:"stance_label_sha256"`
 	PolicySHA256      string    `json:"policy_sha256"`
@@ -68,6 +73,7 @@ type Record struct {
 type Trust struct {
 	SceneSHA256         string
 	MotionSHA256        string
+ SoleMeshSHA256 string
 	CalibrationSHA256   string
 	StanceLabelSHA256   string
 	PolicySHA256        string
@@ -86,9 +92,11 @@ type Metrics struct {
 	StanceSpeeds            int               `json:"stance_velocity_samples"`
 	MaxStanceMarkerSpeedMPS float64           `json:"max_stance_marker_speed_mps"`
 	MaxSupportHoverM        float64           `json:"max_support_marker_clearance_m"`
+ MaxSoleHoverM float64 `json:"max_stance_lowest_shoe_vertex_hover_m"`
+ StanceContactCoverage map[string]float64 `json:"stance_lowest_shoe_coverage_fraction_by_foot"`
 	MaxPenetrationM         float64           `json:"max_marker_penetration_m"`
 	RootTravelM             float64           `json:"root_world_travel_m"`
-	MarkerExtents           map[string]Extent `json:"heel_ball_toe_extents_by_foot"`
+	MarkerExtents           map[string]Extent `json:"heel_ball_toe_and_sole_extents_by_foot"`
 	SourceRights            string            `json:"source_rights"`
 	PhysicalContact         string            `json:"physical_pressure_contact"`
 	Cinematic               string            `json:"cinematic_acceptance"`
@@ -158,7 +166,9 @@ func horizontalSpeed(a, b Vec3, g Ground, fps, substeps int) float64 {
 func allPoints(f Frame) map[string]Vec3 {
 	return map[string]Vec3{
 		"left/heel": f.Left.Heel, "left/ball": f.Left.Ball, "left/toe": f.Left.Toe,
+  "left/lowest_shoe_vertex":f.Left.LowestShoeVertex,
 		"right/heel": f.Right.Heel, "right/ball": f.Right.Ball, "right/toe": f.Right.Toe,
+  "right/lowest_shoe_vertex":f.Right.LowestShoeVertex,
 	}
 }
 func Evaluate(r Record, t Trust) (Metrics, error) {
@@ -168,8 +178,8 @@ func Evaluate(r Record, t Trust) (Metrics, error) {
 	}
 	if !t.Reviewed || !digest(t.ReviewerProofSHA256) ||
 		!digest(r.SceneSHA256) || !digest(r.MotionSHA256) ||
-		!digest(r.CalibrationSHA256) || !digest(r.StanceLabelSHA256) || !digest(r.PolicySHA256) ||
-		t.SceneSHA256 != r.SceneSHA256 || t.MotionSHA256 != r.MotionSHA256 ||
+		!digest(r.CalibrationSHA256) || !digest(r.StanceLabelSHA256) || !digest(r.PolicySHA256) || !digest(r.SoleMeshSHA256) ||
+		t.SceneSHA256 != r.SceneSHA256 || t.MotionSHA256 != r.MotionSHA256 || t.SoleMeshSHA256 != r.SoleMeshSHA256 ||
 		t.CalibrationSHA256 != r.CalibrationSHA256 || t.StanceLabelSHA256 != r.StanceLabelSHA256 ||
 		t.PolicySHA256 != r.PolicySHA256 || t.PolicySHA256 != policyDigest(r.Policy) {
 		return m, errors.New("independent source, labels, calibration or policy evidence not matched")
@@ -178,7 +188,9 @@ func Evaluate(r Record, t Trust) (Metrics, error) {
 	if !finite(p.MaxPenetrationM) || p.MaxPenetrationM < 0 ||
 		!finite(p.MaxSupportHoverM) || p.MaxSupportHoverM < 0 ||
 		!finite(p.MaxStanceMarkerSpeedMPS) || p.MaxStanceMarkerSpeedMPS < 0 ||
-		!finite(p.MinStanceSeconds) || p.MinStanceSeconds <= 0 {
+		!finite(p.MinStanceSeconds) || p.MinStanceSeconds <= 0 ||
+ !finite(p.ContactBandM)||p.ContactBandM<=0 ||
+ !finite(p.MinStanceCoverageFraction)||p.MinStanceCoverageFraction<=0||p.MinStanceCoverageFraction>1 {
 		return m, errors.New("unreviewable contact policy")
 	}
 	g := r.Ground
@@ -193,7 +205,7 @@ func Evaluate(r Record, t Trust) (Metrics, error) {
 		return m, errors.New("missing/altered 72-frame 12-Hz quarter-frame observation")
 	}
 	for i, f := range r.Frames {
-		if f.Tick != i || !vecOK(f.Root) {
+		if f.Tick != i || !vecOK(f.Root) || f.Left.LowestVertexIndex<0 || f.Right.LowestVertexIndex<0 {
 			return m, fmt.Errorf("missing/reordered/nonfinite quarter sample %d", i)
 		}
 		for key, point := range allPoints(f) {
@@ -250,8 +262,16 @@ func Evaluate(r Record, t Trust) (Metrics, error) {
 			}
 		}
 	}
-	for _, seg := range r.Stance {
-		for tick := seg.Start; tick <= seg.End; tick++ {
+	contactCount:=map[string]int{"left":0,"right":0}
+ supportCount:=map[string]int{"left":0,"right":0}
+ for _, seg := range r.Stance {
+  for tick := seg.Start; tick <= seg.End; tick++ {
+   supportCount[seg.Foot]++
+   low:=r.Frames[tick].Left.LowestShoeVertex
+   if seg.Foot=="right" {low=r.Frames[tick].Right.LowestShoeVertex}
+   soleHeight:=signedDistance(low,g)
+   if soleHeight>m.MaxSoleHoverM {m.MaxSoleHoverM=soleHeight}
+   if math.Abs(soleHeight)<=p.ContactBandM {contactCount[seg.Foot]++}
 			d := signedDistance(marker(r.Frames[tick], seg.Foot, seg.Support), g)
 			if d > m.MaxSupportHoverM {
 				m.MaxSupportHoverM = d
@@ -271,9 +291,16 @@ func Evaluate(r Record, t Trust) (Metrics, error) {
 		m.RootTravelM += norm(sub(r.Frames[i].Root, r.Frames[i-1].Root)) * g.MetresPerUnit
 	}
 	m.SampleCount = len(r.Frames)
-	m.StanceSegments = len(r.Stance)
+ m.StanceSegments = len(r.Stance)
+ m.StanceContactCoverage=map[string]float64{}
+ for _,side:=range []string{"left","right"} {
+   m.StanceContactCoverage[side]=float64(contactCount[side])/float64(supportCount[side])
+ }
 	if m.MaxPenetrationM > p.MaxPenetrationM || m.MaxSupportHoverM > p.MaxSupportHoverM ||
-		m.MaxStanceMarkerSpeedMPS > p.MaxStanceMarkerSpeedMPS {
+		m.MaxStanceMarkerSpeedMPS > p.MaxStanceMarkerSpeedMPS ||
+ m.MaxSoleHoverM>p.MaxSupportHoverM ||
+ m.StanceContactCoverage["left"]<p.MinStanceCoverageFraction ||
+ m.StanceContactCoverage["right"]<p.MinStanceCoverageFraction {
 		m.Status = "RED_DECLARED_CONTACT_POLICY"
 		return m, nil
 	}
