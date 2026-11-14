@@ -30,6 +30,12 @@ With source-byte SHA pins and a genuinely independently reviewed mapping/omissio
 
 The synthetic fixture uses a fictional 127-node chain; it intentionally does NOT enumerate MHR joints. Passing means only that the **structural contract works on synthetic controls**. The actual MHR joint-map result, animation and photoreal acceptance remain UNKNOWN/HOLD. Under the non-commercial RDTE policy, no model/weight, actor, CMU original media, private scene or facial asset enters public GHA.
 
+## Additional independent LOD1 LBS omission falsifier
+
+The earlier 127→126 hypothesis was vulnerable to **candidate-supplied `deforming=false`** on the one omitted native joint. It now requires a separate, reviewed, source-SHA-bound **127-entry sparse LBS influence census** from the native LOD1 weights: each native joint ID, number of source vertices with genuinely nonzero weights, maximum absolute weight and sum of absolute weights; the exact LOD, source-SHA and vertex count are bound into a reproducible JSON SHA-256 digest. The hypothesized omitted joint must have **zero nonzero-weight vertices, zero maximum and zero sum**, with no hidden epsilon tolerance. Duplicate/missing joints, invalid weights, source mismatches, wrong LOD or changed census digest are rejected.
+
+This is necessary **but not sufficient**: a zero-weight global/virtual native joint may still affect child joint world transforms or pose-dependent corrective features. The source-native runtime / imported Blender comparison must still prove full posed **kinematic transform parity**, even if this static LBS condition is met. An actual MHR rig may not fit a single-omission bijection at all. These tests use **invented synthetic influence values** and do not execute MHR; the supplied trusted LBS reviewer flag and digest are not independently cryptographically authenticated by the library.
+
 ## Follow-on real-source rep (not performed here)
 
 1. Admit and hash exact native MHR `compact_v6_1.model`, LOD FBX and neural corrective assets for an approved venue and operation. Establish valid native extraction of joint names, parents, rest-state transforms and deform status.
