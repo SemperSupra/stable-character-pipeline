@@ -30,6 +30,24 @@ The current public library explicitly allows **project-original synthetic RDTE**
 
 Public/free Actions executes only the fictional 72-frame trajectory in Go tests and archives JSON *source/test identity only*. It does not download or run Blender, CMU, native MHR, Renderpeople, Alison, Naomi, the R009 scene or real local actor pose tracks.
 
+## Three-audience local diagnostic command (human/automation/agent)
+
+The new `go run ./cmd/evaluate` command supports a **fully offline, explicit-input** evidence handoff on the source-authorized host. It does not fetch assets, open Blender, render, or infer rights. Example syntax (placeholders, not real admitted files):
+
+```sh
+cd r014/contactgate
+go run ./cmd/evaluate \
+  -record /private/admitted/quarter-samples.json \
+  -trust /private/independently-reviewed/reviewer-proof.json \
+  -output /private/receipts/contact-evaluation.json
+```
+
+The record must satisfy `r014.synthetic_contact_quarter_frame.v1`. The independent trust JSON has these exact snake-case fields: `scene_sha256`, `motion_sha256`, `sole_mesh_sha256`, `calibration_sha256`, `stance_label_sha256`, `policy_sha256`, `reviewer_proof_sha256`, `reviewed`. **These are declarations; the CLI cannot verify the author's cryptographic identity or supplier license.** The source actor/reviewer must be distinct as a governance operation, not merely two paths in a terminal.
+
+The CLI writes only SHA-bound numerical summary/status (no frame coordinates or protected media), creates private mode-0600 output, allows exact-byte repeat without changes, rejects a different existing result, and never overwrites records. Exit **0** means numerical results are within the externally supplied policy but physical-contact/character/release acceptance remain HOLD; **3** means RED_CONTACT (diagnostic receipt still written); **2** means malformed, untrusted or conflicting input/output (no new result). It will not overwrite a non-identical file. For repeated reruns with different evidence, choose a distinct, immutable receipt filename.
+
+A cold-replay actor must compute and submit complete world-space evaluated-mesh minima under a separately authenticated reviewer/source evidence protocol before interpreting any real result. No actual BigMac files or protected source data enter the public CI.
+
 ## Next local HIL link (separate approval)
 
 The BigMac actor should use its *admitted* project-original synthetic scene to produce a **private local numeric witness**, ideally at exact whole/quarter ticks with cold-reopen SHA and threshold/stance-label reviewer proof. Compare baseline vs a single reversible correction using identical timebase and input scene. Record before/after contact violation extent and preserve historical REDs. Do not silently export the per-sample trajectory to a public runner, Drive, or this PR without the specific derivative/source admission.
