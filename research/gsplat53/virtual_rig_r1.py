@@ -19,6 +19,8 @@ from pathlib import Path
 import bpy
 from mathutils import Vector
 
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+
 from rig_fixture import (LENGTH, WIDTH, HEIGHT, PAINTS, POSES,
                          colors, center, ground_truth, ply_bytes, vertices)
 
