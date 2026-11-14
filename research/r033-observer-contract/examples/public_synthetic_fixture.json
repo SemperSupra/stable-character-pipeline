@@ -1,0 +1,39 @@
+{
+  "schema": "scp.r033.visual-observation.v1",
+  "status": "OBSERVATIONS_UNVERIFIED",
+  "canonical": false,
+  "source_class": "public_synthetic",
+  "source_admission_id": "synthetic-metadata-only-no-image",
+  "source_media_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "media_kind": "image",
+  "frame_count": 1,
+  "timebase": {
+    "numerator": 0,
+    "denominator": 0
+  },
+  "view_id": "front-original-synthetic-test",
+  "camera_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "model": {
+    "id": "synthetic-not-a-model",
+    "weights_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "runtime": "none"
+  },
+  "prompt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "observations": [
+    {
+      "claim_kind": "pose",
+      "support": "direct",
+      "text": "Synthetic contract fixture: a single static frame; no actual model image was processed.",
+      "frame_indices": [
+        0
+      ],
+      "frame_sha256": [
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "region": {
+        "kind": "full_frame"
+      },
+      "concept_hypotheses": []
+    }
+  ]
+}
