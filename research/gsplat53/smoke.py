@@ -101,10 +101,15 @@ def exercise(kind):
     displacement = b["centroid_x"] - a["centroid_x"]
     if abs(obj.location.x-DELTA_M) > 1e-8:
         raise AssertionError("loss of geometric edit precision")
-    if not (displacement > 8.0 and displacement < 85.0):
-        raise AssertionError(f"{kind} visual translation did not match rightward edit: {displacement}")
+    expected_px = scene.render.resolution_x * DELTA_M / scene.camera.data.ortho_scale
+    if not (math.isfinite(displacement) and abs(displacement-expected_px) <= 1.0):
+        raise AssertionError(
+            f"{kind}: observed {displacement:.3f}px vs {expected_px:.3f}px projection truth"
+        )
     return {"kind":kind,"native_type":obj.type,"pointcloud_type":pc_type,
             "translation_m":DELTA_M,"pixel_shift_x":round(displacement,3),
+            "expected_pixel_shift_x":round(expected_px,3),
+            "pixel_shift_error_x":round(displacement-expected_px,3),
             "at_origin":a,"after_edit":b}
 
 def main():
