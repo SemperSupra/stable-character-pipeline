@@ -28,7 +28,7 @@ type Grant struct {
  SHA256 string
  Venue string
  Operation string
- Scope string // PUBLIC_ADMITTED or CONTROLLED_LOCAL
+ Scope string // PUBLIC_ADMITTED, CONTROLLED_LOCAL or PRIVATE_CLOUD_ADMITTED
  ProofSHA256 string
 }
 type Registry struct { Grants map[string]Grant }
@@ -136,8 +136,11 @@ func Validate(p Plan, trusted Registry)(Verdict,error){
   if p.Venue=="public_github_actions"&&grant.Scope!="PUBLIC_ADMITTED"{
    return v,fmt.Errorf("protected source %q cannot enter public runner",in.ID)
   }
-  if p.Venue!="public_github_actions"&&grant.Scope!="PUBLIC_ADMITTED"&&grant.Scope!="CONTROLLED_LOCAL"{
-   return v,fmt.Errorf("invalid scope %q",in.ID)
+  if p.Venue=="controlled_local"&&grant.Scope!="PUBLIC_ADMITTED"&&grant.Scope!="CONTROLLED_LOCAL"{
+   return v,fmt.Errorf("invalid local scope %q",in.ID)
+  }
+  if p.Venue=="private_github_actions"&&grant.Scope!="PUBLIC_ADMITTED"&&grant.Scope!="PRIVATE_CLOUD_ADMITTED"{
+   return v,fmt.Errorf("protected source %q lacks private-cloud admission",in.ID)
   }
  }
  if len(p.Clips)!=2||len(p.Arms)!=8{return v,errors.New("both complete clips and four arms per clip required")}
