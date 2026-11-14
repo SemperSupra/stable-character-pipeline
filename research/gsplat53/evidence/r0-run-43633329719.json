@@ -1,0 +1,78 @@
+{
+  "bakeoff": "gsplat53-CPU-R0",
+  "blender_version": "5.3.0",
+  "camera": "orthographic locked; origin (0,-4,0); scale 2.1",
+  "fixture_sha256": "4c61b98622ad09c9166b41150e402a06d6e7c9abfd8c7f178f3318a261cf6590",
+  "limit": "synthetic import and rendered rigid edit only, not trained reconstruction, rigging or realism",
+  "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+  "python_version": "3.13.13 (main, Apr 25 2025, 12:39:20) [GCC 14.2.1 20250110 (Red Hat 14.2.1-11)]",
+  "render_device": "CPU",
+  "render_engine": "CYCLES",
+  "source_commit": "bd5fb81672a149736035c3d7cb387513230268eb",
+  "status": "PASS",
+  "trials": [
+    {
+      "after_edit": {
+        "alpha_pixel_count": 2579,
+        "centroid_x": 125.952,
+        "centroid_y": 79.494,
+        "file": "mesh_translated.png",
+        "render_ms": 358,
+        "resolution": [
+          160,
+          160
+        ],
+        "sha256": "3f54516bad1fda0ff23567ebe2e037ba5ca5eaf77fb394c04c27da0ccb835a47"
+      },
+      "at_origin": {
+        "alpha_pixel_count": 2551,
+        "centroid_x": 79.489,
+        "centroid_y": 79.502,
+        "file": "mesh_origin.png",
+        "render_ms": 845,
+        "resolution": [
+          160,
+          160
+        ],
+        "sha256": "df66746523678c6ba560fd845c242f9f1bddbb9c1cdaa55acaa08a765e78cc27"
+      },
+      "kind": "mesh",
+      "native_type": "MESH",
+      "pixel_shift_x": 46.463,
+      "pointcloud_type": "MESH",
+      "translation_m": 0.6096
+    },
+    {
+      "after_edit": {
+        "alpha_pixel_count": 4978,
+        "centroid_x": 125.665,
+        "centroid_y": 79.49,
+        "file": "splat_translated.png",
+        "render_ms": 357,
+        "resolution": [
+          160,
+          160
+        ],
+        "sha256": "3c9850a122a6b60907d78f890675589f80cbd6976aaf44b01ecf33d4dadfeaef"
+      },
+      "at_origin": {
+        "alpha_pixel_count": 5113,
+        "centroid_x": 79.484,
+        "centroid_y": 79.573,
+        "file": "splat_origin.png",
+        "render_ms": 361,
+        "resolution": [
+          160,
+          160
+        ],
+        "sha256": "e5a1bf4efabbc99efe61159881aab68a144a25a6d2813af70ac41398ce98713d"
+      },
+      "kind": "splat",
+      "native_type": "POINTCLOUD",
+      "pixel_shift_x": 46.181,
+      "pointcloud_type": "GAUSSIAN_SPLAT",
+      "translation_m": 0.6096
+    }
+  ],
+  "units": "meter"
+}
