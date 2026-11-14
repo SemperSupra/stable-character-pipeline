@@ -39,6 +39,10 @@ func TestTamperControls(t *testing.T){
   {"wrong scene extent",func(p *Plan){p.SceneEnd=142}},
   {"bad provenance",func(p *Plan){p.SourceSHA="fake"}},
   {"nonfinite handle",func(p *Plan){p.Slots[1].Curves[17][18].LeftHandleX=math.NaN()}},
+  {"reversed left handle",func(p *Plan){p.Slots[0].Curves[2][10].LeftHandleX=21}},
+  {"reversed right handle",func(p *Plan){p.Slots[0].Curves[2][10].RightHandleX=19}},
+  {"left handle crosses preceding key",func(p *Plan){p.Slots[0].Curves[2][10].LeftHandleX=17}},
+  {"right handle crosses following key",func(p *Plan){p.Slots[0].Curves[2][10].RightHandleX=23}},
   {"unrecognized stride",func(p *Plan){for a:=range p.Slots{for b:=range p.Slots[a].Curves{for c:=range p.Slots[a].Curves[b]{p.Slots[a].Curves[b][c].Frame=float64(c)*3}}}}},
  }
  for _,tc:=range cases{t.Run(tc.name,func(t *testing.T){p:=fixture(2);tc.edit(&p);if _,e:=Inspect(p);e==nil{t.Fatal("adversarial timebase accepted")}})}
