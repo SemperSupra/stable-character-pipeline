@@ -39,7 +39,9 @@ func fixture() Plan {
  return p
 }
 func registry(p Plan)Registry{
- r:=Registry{Grants:map[string]Grant{}}
+ r:=Registry{Grants:map[string]Grant{},
+  Crosswalk:CrosswalkProof{SHA256:h("d"),NativeJoints:127,ImportedJoints:126,
+   Verified:true,ProofSHA256:h("8")}}
  for _,in:=range p.Inputs{
   r.Grants[in.ID]=Grant{InputID:in.ID,Kind:in.Kind,SHA256:in.SHA256,
    Venue:p.Venue,Operation:p.Operation,Scope:"PUBLIC_ADMITTED",ProofSHA256:h("9")}
@@ -117,4 +119,19 @@ func TestStrictJSONRejectsUnknownAndConcatenation(t *testing.T){
  bad:=bytes.Replace(b,[]byte(`"claim":`),[]byte(`"untrusted":"grant","claim":`),1)
  if _,e:=DecodeStrict(bad);e==nil{t.Fatal("unknown field accepted")}
  if _,e:=DecodeStrict(append(b,b...));e==nil{t.Fatal("concatenated JSON accepted")}
+}
+
+func TestSelfAssertedCrosswalkWithoutTrustedAttestationRejected(t *testing.T){
+ p:=fixture();r:=registry(p);r.Crosswalk.Verified=false;reject(t,p,r)
+}
+func TestTrustedCrosswalkWrongHashRejected(t *testing.T){
+ p:=fixture();r:=registry(p);r.Crosswalk.SHA256=h("7");reject(t,p,r)
+}
+func TestTrustedCrosswalkWrongArityRejected(t *testing.T){
+ p:=fixture();r:=registry(p);r.Crosswalk.ImportedJoints=127;reject(t,p,r)
+}
+func TestPrivateRunnerCannotInheritLocalGrant(t *testing.T){
+ p:=fixture();p.Venue="private_github_actions";r:=registry(p)
+ for id,g:=range r.Grants {g.Venue=p.Venue;g.Scope="CONTROLLED_LOCAL";r.Grants[id]=g}
+ reject(t,p,r)
 }
