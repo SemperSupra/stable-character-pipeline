@@ -51,6 +51,20 @@ type Plan struct {
  Alignment Alignment `json:"alignment"`
  SourceRights string `json:"source_rights"`
 }
+// Influence is a per-joint LBS metadata summary, never source vertices or weights.
+ // The independent extractor must count truly nonzero source weight entries.
+type Influence struct {
+ JointID string `json:"joint_id"`
+ NonzeroVertices int `json:"nonzero_vertices"`
+ MaxAbsoluteWeight float64 `json:"max_absolute_weight"`
+ SumAbsoluteWeight float64 `json:"sum_absolute_weight"`
+}
+type LBSWitness struct {
+ NativeSHA256 string `json:"native_sha256"`
+ LOD int `json:"lod"`
+ VertexCount int `json:"vertex_count"`
+ Joints []Influence `json:"joints"`
+}
 type Trust struct {
  NativeSHA256 string
  BlenderSHA256 string
@@ -61,6 +75,9 @@ type Trust struct {
  OmittedID string
  OmissionReviewSHA256 string
  MapReviewed bool
+ LBS LBSWitness
+ LBSWitnessSHA256 string
+ LBSReviewSHA256 string
 }
 type Result struct {
  Schema string `json:"schema"`
@@ -164,6 +181,48 @@ func PairMapDigest(p Plan)string{
  sum:=sha256.Sum256(b)
  return hex.EncodeToString(sum[:])
 }
+// InfluenceDigest canonically binds the LOD, native-source hash and all
+// per-joint source LBS weight summaries. This is a digest, NOT reviewer identity.
+func InfluenceDigest(w LBSWitness)string{
+ b,_:=json.Marshal(w)
+ sum:=sha256.Sum256(b)
+ return hex.EncodeToString(sum[:])
+}
+func validateInfluences(w LBSWitness,t Trust,n map[string]Joint,omittedID string)error{
+ if w.NativeSHA256!=t.NativeSHA256||w.LOD!=1||
+  w.VertexCount<=0||len(w.Joints)!=127||
+  !digest(t.LBSReviewSHA256)||!digest(t.LBSWitnessSHA256)||
+  t.LBSWitnessSHA256!=InfluenceDigest(w){
+  return errors.New("independent source LOD1 LBS influence proof missing")
+ }
+ seen:=map[string]bool{}
+ for _,entry:=range w.Joints{
+  joint,ok:=n[entry.JointID]
+  if !ok||seen[entry.JointID]{return fmt.Errorf("duplicate or unknown LBS joint %q",entry.JointID)}
+  seen[entry.JointID]=true
+  if entry.NonzeroVertices<0||entry.NonzeroVertices>w.VertexCount||
+   !finite(entry.MaxAbsoluteWeight)||!finite(entry.SumAbsoluteWeight)||
+   entry.MaxAbsoluteWeight<0||entry.MaxAbsoluteWeight>1||
+   entry.SumAbsoluteWeight<0||
+   entry.SumAbsoluteWeight>float64(entry.NonzeroVertices)+1e-9{
+   return fmt.Errorf("invalid LBS weight statistics for %q",entry.JointID)
+  }
+  if entry.NonzeroVertices==0 {
+   if entry.MaxAbsoluteWeight!=0||entry.SumAbsoluteWeight!=0{
+    return fmt.Errorf("zero-influence joint %q has nonzero LBS weights",entry.JointID)
+   }
+  } else if entry.MaxAbsoluteWeight<=0||
+    entry.SumAbsoluteWeight<entry.MaxAbsoluteWeight||
+    !joint.Deforming{
+   return fmt.Errorf("nonzero-LBS joint %q incorrectly classified or bounded",entry.JointID)
+  }
+  if entry.JointID==omittedID&&entry.NonzeroVertices!=0{
+   return errors.New("omitted native joint has positive LBS vertex influence")
+  }
+ }
+ if len(seen)!=len(n){return errors.New("incomplete LBS joint census")}
+ return nil
+}
 // AlignmentDigest binds the exact proposed coordinate calibration to the
 // independent review context; this is not an actual native rig proof.
 func AlignmentDigest(a Alignment)string{
@@ -204,6 +263,7 @@ func Validate(p Plan,t Trust)(Result,error){
  b,e:=indexed(p.Blender,126);if e!=nil{return r,e}
  omitted,ok:=n[p.Omission.Native]
  if !ok||omitted.Deforming{return r,errors.New("omitted source joint absent or flagged deforming")}
+ if e:=validateInfluences(t.LBS,t,n,p.Omission.Native);e!=nil{return r,e}
  if len(p.Pairs)!=126{return r,errors.New("not a 126-pair candidate bijection")}
  usedN,usedB:=map[string]bool{},map[string]bool{}
  pairMap:=map[string]string{}
