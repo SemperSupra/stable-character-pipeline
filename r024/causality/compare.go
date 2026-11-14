@@ -65,6 +65,13 @@ func Compare(p Pair)(Comparison,error){
   !finite(p.ToleranceSpeedMPS)||p.ToleranceSpeedMPS<0{
   return c,errors.New("missing source pin or invalid declared measurement tolerance")
  }
+ // The paired candidate is not itself an authority to relax regression policy.
+ // No independent policy signature/registry is implemented in this module.
+ // Until one exists, tolerances MUST be exactly zero. Floating noise should
+ // be resolved by a stable evaluation protocol, never a candidate override.
+ if p.ToleranceM!=0||p.ToleranceSpeedMPS!=0{
+  return c,errors.New("nonzero tolerances require an external trusted policy; not admitted in this synthetic gate")
+ }
  if _,e:=Validate(p.Before);e!=nil{return c,fmt.Errorf("baseline: %w",e)}
  if _,e:=Validate(p.After);e!=nil{return c,fmt.Errorf("candidate: %w",e)}
  if p.Before.Actor!=p.After.Actor||p.Before.Foot!=p.After.Foot{
