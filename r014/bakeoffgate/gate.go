@@ -166,8 +166,48 @@ func SampleManifestDigest(id,motion,policy string,count,sourceHz,targetHz int,in
  sum:=sha256.Sum256(b)
  return hex.EncodeToString(sum[:])
 }
+// rejectDuplicateKeys inspects every JSON object, including objects inside arrays.
+// encoding/json's ordinary struct decoder silently takes the last duplicate key.
+// A plan containing two "venue" or nested "sha256" fields must not be admitted.
+func rejectDuplicateKeys(data []byte) error {
+ dec:=json.NewDecoder(bytes.NewReader(data))
+ dec.UseNumber()
+ if err:=inspectJSONValue(dec);err!=nil{return err}
+ if _,err:=dec.Token();err!=io.EOF {
+  if err==nil{return errors.New("trailing JSON after complete value")}
+  return err
+ }
+ return nil
+}
+func inspectJSONValue(dec *json.Decoder) error {
+ token,err:=dec.Token()
+ if err!=nil{return err}
+ delim,ok:=token.(json.Delim)
+ if !ok{return nil}
+ switch delim {
+ case '{':
+  seen:=make(map[string]struct{})
+  for dec.More(){
+   kt,e:=dec.Token();if e!=nil{return e}
+   key,ok:=kt.(string);if !ok{return errors.New("nonstring JSON object key")}
+   if _,exists:=seen[key];exists{return fmt.Errorf("DUPLICATE_JSON_KEY:%s",key)}
+   seen[key]=struct{}{}
+   if e:=inspectJSONValue(dec);e!=nil{return e}
+  }
+ case '[':
+  for dec.More(){if e:=inspectJSONValue(dec);e!=nil{return e}}
+ default:
+  return errors.New("unexpected JSON delimiter")
+ }
+ end,e:=dec.Token();if e!=nil{return e}
+ if end!=json.Delim('}')&&end!=json.Delim(']'){return errors.New("unexpected JSON closing delimiter")}
+ return nil
+}
 func DecodeStrict(data []byte)(Plan,error){
  var p Plan
+ const maxBytes=1<<20
+ if len(data)>maxBytes{return p,errors.New("PLAN_JSON_TOO_LARGE")}
+ if e:=rejectDuplicateKeys(data);e!=nil{return p,e}
  dec:=json.NewDecoder(bytes.NewReader(data))
  dec.DisallowUnknownFields()
  if e:=dec.Decode(&p);e!=nil{return p,e}

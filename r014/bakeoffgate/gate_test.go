@@ -251,3 +251,30 @@ func TestSampleDigestDeterministicAndClipSpecific(t *testing.T){
  y:=SampleManifestDigest(a.ClipID,a.MotionSHA256,a.PolicySHA256,a.SourceFrameCount,a.SourceHz,a.TargetHz,a.Indices)
  if x!=y||x==b.ManifestSHA256||x!=p.Clips[0].SampleManifestSHA256{t.Fatalf("index transcript digest not reproducible/isolated")}
 }
+
+
+func TestDecodeStrictDuplicateKeyFalsifiers(t *testing.T) {
+ good,err:=json.Marshal(fixture());if err!=nil{t.Fatal(err)}
+ if _,err:=DecodeStrict(good);err!=nil{t.Fatalf("valid fixture rejected: %v",err)}
+ adversarial:=[]struct{name string;raw string}{
+  {"top_level_venue", `{"venue":"controlled_local","venue":"public_github_actions"}`},
+  {"nested_input_hash", `{"inputs":[{"sha256":"a","sha256":"b"}]}`},
+  {"nested_clip_motion", `{"clips":[{"id":"CMU07_01","motion_sha256":"x","motion_sha256":"y"}]}`},
+  {"array_embedded_object", `{"arms":[{"frames":64,"frames":66}]}`},
+  {"escaped_duplicate_key", `{"v\u0065nue":"controlled_local","venue":"public_github_actions"}`},
+ }
+ for _,tt:=range adversarial{
+  t.Run(tt.name,func(t *testing.T){
+   _,err:=DecodeStrict([]byte(tt.raw))
+   if err==nil||!strings.Contains(err.Error(),"DUPLICATE_JSON_KEY"){
+    t.Fatalf("expected duplicate fail-closed, got %v",err)
+   }
+  })
+ }
+ t.Run("oversized_input",func(t *testing.T){
+  _,err:=DecodeStrict(bytes.Repeat([]byte(" "), (1<<20)+1))
+  if err==nil||!strings.Contains(err.Error(),"PLAN_JSON_TOO_LARGE"){
+   t.Fatalf("oversized plan not rejected: %v",err)
+  }
+ })
+}
