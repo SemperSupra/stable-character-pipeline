@@ -1,0 +1,44 @@
+name: R033 exact output and abstention replay from public original VLM run
+on:
+  pull_request:
+    paths:
+      - 'research/r033-strict-replay/**'
+      - '.github/workflows/r033-strict-replay.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-critic-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Offline original public VLM evidence / strict response grammar
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/r033-strict-replay -p 'test_*.py' -v
+          mkdir -p "$RUNNER_TEMP/r033-score"
+          python3 research/r033-strict-replay/score.py \
+            --input research/r033-strict-replay/fixtures/real_public_cpu_r033_43745064137.json \
+            --output "$RUNNER_TEMP/r033-score/receipt.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])/'r033-score'/'receipt.json'
+          v=json.loads(p.read_text())
+          assert v['status']=='RESEARCH_REPLAY_NOT_CRITIC_QUALIFICATION'
+          assert (v['strict_correct'],v['count'],v['format_failures'])==(2,3,1)
+          assert v['critical_false_approvals']==0
+          assert v['occlusion_guesses_without_abstention']==0
+          assert v['independent_geometry_truth']=='NOT_TESTED'
+          print('R033_PUBLIC_REPLAY_STRICT_SCORE_OK')
+          PY
+      - name: Upload source-safe metadata receipt only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r033-public-strict-score-metadata
+          path: ${{ runner.temp }}/r033-score/receipt.json
+          if-no-files-found: ignore
+          retention-days: 3
