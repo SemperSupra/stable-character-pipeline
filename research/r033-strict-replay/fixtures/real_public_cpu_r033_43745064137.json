@@ -1,0 +1,32 @@
+{
+  "schema": "scp.r033.free-cpu-defect-r0",
+  "source_class": "public_synthetic_original",
+  "status": "RESEARCH_ONLY_NO_CRITIC_APPROVAL",
+  "model": "HuggingFaceTB/SmolVLM-256M-Instruct",
+  "model_revision": "d039ab0d4b9311b617e8ffec1d06c8464364aeb3",
+  "question_sha256": "02b02d339b2d9a02969529f9279193175a57d078852ccfcb24a0c347c41e994c",
+  "evidence_url": "https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43745064137",
+  "fixtures": [
+    {
+      "fixture": "full_two_arms",
+      "image_sha256": "c7fc7d8be08600c96849e09c97f6b204d38b6960ade2bd1cf11aa4e339fc56d8",
+      "expected": "YES",
+      "model_answer": "Y.",
+      "correct_on_source_known_fixture": false
+    },
+    {
+      "fixture": "missing_right_arm",
+      "image_sha256": "b32156d2229b60fe1591fda5cea23285da94928ee41155934bd60d22974f6006",
+      "expected": "NO",
+      "model_answer": "No.",
+      "correct_on_source_known_fixture": true
+    },
+    {
+      "fixture": "occluded_right_shoulder",
+      "image_sha256": "b2991a41df03f3957daa21447a06421f4f66e2ab964f6dff69ed9461917b61e3",
+      "expected": "UNKNOWN",
+      "model_answer": "UNKNOWN.",
+      "correct_on_source_known_fixture": true
+    }
+  ]
+}
