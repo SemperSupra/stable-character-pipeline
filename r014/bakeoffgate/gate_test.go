@@ -261,7 +261,7 @@ func TestDecodeStrictDuplicateKeyFalsifiers(t *testing.T) {
   {"nested_input_hash", `{"inputs":[{"sha256":"a","sha256":"b"}]}`},
   {"nested_clip_motion", `{"clips":[{"id":"CMU07_01","motion_sha256":"x","motion_sha256":"y"}]}`},
   {"array_embedded_object", `{"arms":[{"frames":64,"frames":66}]}`},
-  {"escaped_duplicate_key", `{"v\\u0065nue":"controlled_local","venue":"public_github_actions"}`},
+  {"escaped_duplicate_key", `{"v\u0065nue":"controlled_local","venue":"public_github_actions"}`},
  }
  for _,tt:=range adversarial{
   t.Run(tt.name,func(t *testing.T){
