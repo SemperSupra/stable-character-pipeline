@@ -1,0 +1,59 @@
+name: R63 actual OpenCV segmentation reliability and inverse-fit effects
+on:
+  pull_request:
+    paths:
+      - research/inverse-scene-r0/opencv_masks.py
+      - research/inverse-scene-r0/R1-OPENCV-MASKS.md
+      - .github/workflows/r63-opencv-mask-cpu.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r63-opencv-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpu-segmentation-masks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actual pinned OpenCV and numerical dependencies
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-input --no-cache-dir \
+            numpy==2.1.3 pillow==11.1.0 opencv-python-headless==4.11.0.86
+          python3 - <<'PY'
+          import cv2
+          assert cv2.__version__.startswith('4.11.0')
+          print('ACTUAL_UPSTREAM_OPENCV='+cv2.__version__)
+          PY
+      - name: Execute weak semantic mask color-stress and heldout scene fitting
+        env:
+          R63_MASK_OUT: ${{ github.workspace }}/out/r63-opencv-masks
+          OPENBLAS_NUM_THREADS: "2"
+          OMP_NUM_THREADS: "2"
+        run: |
+          set -euo pipefail
+          mkdir -p out/r63-opencv-masks
+          python3 research/inverse-scene-r0/opencv_masks.py 2>&1 | tee out/r63-opencv-masks/job.log
+          python3 - <<'PY'
+          import json,pathlib
+          x=json.loads(pathlib.Path('out/r63-opencv-masks/receipt.json').read_text())
+          assert x['status']=='PASS' and len(x['cases'])==2
+          assert all(len(c['methods'])==3 for c in x['cases'])
+          print('CV2_DOWNSTREAM_SOURCE_RECEIPTS=PASS')
+          PY
+      - name: Retain only original public synthetic RGB/masks and immutable receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r63-opencv-masks-${{ github.run_id }}
+          path: |
+            out/r63-opencv-masks/*.json
+            out/r63-opencv-masks/*.log
+            out/r63-opencv-masks/*.png
+          retention-days: 3
+          if-no-files-found: warn
