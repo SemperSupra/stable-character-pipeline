@@ -1,0 +1,48 @@
+name: R033 original synthetic image tiny VLM CPU bake-off
+on:
+  pull_request:
+    paths:
+      - 'research/r033-free-cpu-vision/**'
+      - '.github/workflows/r033-free-cpu-vision.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smolvlm-original-synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: System and source boundary
+        run: |
+          set -euo pipefail
+          python3 --version
+          free -h
+          test -f research/r033-free-cpu-vision/run.py
+      - name: Install CPU-only pinned inference dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check \
+            torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install --disable-pip-version-check \
+            transformers==4.57.1 accelerate==1.12.0 \
+            pillow==12.0.0 huggingface_hub==0.36.0
+      - name: Run original synthetic-only VLM CPU inference
+        shell: bash
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          HF_HUB_ENABLE_HF_TRANSFER: '0'
+          TOKENIZERS_PARALLELISM: 'false'
+          OMP_NUM_THREADS: '2'
+        run: |
+          set -euo pipefail
+          python3 research/r033-free-cpu-vision/run.py
+      - name: Evidence only; never upload downloaded model weights
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r033-public-synthetic-small-vlm-observations
+          path: ${{ runner.temp }}/sc-r033-smolvlm/public-result.json
+          retention-days: 3
+          if-no-files-found: ignore
