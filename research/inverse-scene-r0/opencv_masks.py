@@ -84,7 +84,7 @@ def label_metrics(pred,gt):
 
 def validate():
     # Honest, deterministic result; not perfect segmentation asserted.
-    perfect=np.zeros((HEIGHT,WIDTH),dtype=np.int8)
+    perfect=np.full((HEIGHT,WIDTH),-1,dtype=np.int8)  # explicit background is not sofa
     perfect[5:10,4:9]=1
     perfect[15:20,4:9]=2
     perfect[25:30,4:9]=0
