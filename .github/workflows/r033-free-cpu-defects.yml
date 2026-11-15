@@ -1,0 +1,36 @@
+name: R033 tiny vision CPU source-known defect-negative controls
+on:
+  pull_request:
+    paths:
+      - 'research/r033-free-cpu-defects/**'
+      - '.github/workflows/r033-free-cpu-defects.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-known-defect-critic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: CPU-only original fixture and pinned VLM
+        shell: bash
+        env:
+          HF_HUB_DISABLE_TELEMETRY: '1'
+          OMP_NUM_THREADS: '2'
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check \
+            torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          python3 -m pip install --disable-pip-version-check \
+            transformers==4.57.1 accelerate==1.12.0 \
+            pillow==12.0.0 huggingface_hub==0.36.0
+          python3 research/r033-free-cpu-defects/run.py
+      - name: Metadata-only red/green receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r033-original-defect-cpu-vlm-receipt
+          path: ${{ runner.temp }}/r033-smolvlm-defects/receipt.json
+          if-no-files-found: ignore
+          retention-days: 3
