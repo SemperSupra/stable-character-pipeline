@@ -1,0 +1,56 @@
+name: R63 inverse scene fitting free CPU controlled bakeoff
+on:
+  pull_request:
+    paths:
+      - research/inverse-scene-r0/**
+      - .github/workflows/r63-inverse-scene-cpu.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r63-inverse-scene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  numerical-inverse-scene:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Interpreter / free runner census
+        run: |
+          set -euo pipefail
+          python3 --version
+          uname -a
+          free -m
+      - name: Install bounded CPU numerical and image dependencies
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-input --no-cache-dir numpy==2.1.3 pillow==11.1.0
+      - name: Actual original source-grounded inverse-fit comparison
+        run: |
+          set -euo pipefail
+          mkdir -p out/inverse-scene-r0
+          python3 research/inverse-scene-r0/bakeoff.py --out out/inverse-scene-r0 2>&1 | tee out/inverse-scene-r0/job.log
+          python3 - <<'PY'
+          import json, pathlib
+          x=json.loads(pathlib.Path("out/inverse-scene-r0/receipt.json").read_text())
+          assert x["status"]=="PASS"
+          assert len(x["cases"])==2
+          assert all(len(c["methods"])==5 for c in x["cases"])
+          assert all(all(v["runtime"]["elapsed_seconds"]>0 for v in c["methods"].values()) for c in x["cases"])
+          print("RESULT_SCHEMA_AND_OBJECTIVE_RECEIPTS=PASS")
+          PY
+      - name: Publish original synthetic artifacts (no protected source)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r63-inverse-scene-cpu-${{ github.run_id }}
+          path: |
+            out/inverse-scene-r0/*.json
+            out/inverse-scene-r0/*.log
+            out/inverse-scene-r0/*.png
+          if-no-files-found: warn
+          retention-days: 3
