@@ -1,0 +1,61 @@
+name: R63 real upstream Open3D TSDF free CPU geometry reconstruction
+on:
+  pull_request:
+    paths:
+      - research/inverse-scene-r0/open3d_tsdf.py
+      - research/inverse-scene-r0/R1-OPEN3D-TSDF.md
+      - .github/workflows/r63-open3d-tsdf-cpu.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r63-tsdf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-upstream-open3d-cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Acquire pinned upstream CPU-only Open3D 0.19, original numeric deps
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m pip install --disable-pip-version-check --no-input --no-cache-dir \
+            numpy==2.1.3 pillow==11.1.0 open3d-cpu==0.19.0
+          python3 - <<'PY'
+          import open3d as o3d
+          assert o3d.__version__ == '0.19.0'
+          print('UPSTREAM_NATIVE_OPEN3D_CPU='+o3d.__version__)
+          PY
+      - name: Execute original RGB-D fusion and independent triangle-mesh ray tests
+        env:
+          R63_TSDF_OUT: ${{ github.workspace }}/out/r63-open3d-tsdf
+          OPENBLAS_NUM_THREADS: "2"
+          OMP_NUM_THREADS: "2"
+        run: |
+          set -euo pipefail
+          mkdir -p out/r63-open3d-tsdf
+          python3 research/inverse-scene-r0/open3d_tsdf.py 2>&1 | tee out/r63-open3d-tsdf/job.log
+          python3 - <<'PY'
+          import json,pathlib
+          x=json.loads(pathlib.Path('out/r63-open3d-tsdf/receipt.json').read_text())
+          assert x['status']=='PASS' and x['open3d_version']=='0.19.0'
+          assert len(x['cases'])==2
+          assert all(len(c['outcomes'])==3 for c in x['cases'])
+          print('TSDF_UPSTREAM_BAKEOFF_RECEIPTS=PASS')
+          PY
+      - name: Archive original synthetic triangle meshes, source-safe receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r63-open3d-tsdf-${{ github.run_id }}
+          path: |
+            out/r63-open3d-tsdf/*.json
+            out/r63-open3d-tsdf/*.ply
+            out/r63-open3d-tsdf/*.log
+          if-no-files-found: warn
+          retention-days: 3
