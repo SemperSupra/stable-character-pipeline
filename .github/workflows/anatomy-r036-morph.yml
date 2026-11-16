@@ -1,0 +1,60 @@
+name: R036 MPFB Morph and Internal Binding
+on:
+  push:
+    branches:
+      - research/r036-morph-binding-20261116
+    paths:
+      - 'research/anatomy-morph/**'
+      - '.github/workflows/anatomy-r036-morph.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-morph/**'
+      - '.github/workflows/anatomy-r036-morph.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-morph-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-morph-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Disposable CPU Blender preflight
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy
+          blender --version | head -2
+      - name: Pin and enable official upstream MPFB extension
+        env:
+          SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" fetch -q --depth 1 origin "$SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = 'd26635e9326e3cca30778fd7b9c00062b03cce09'
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+      - name: Build the real official native MPFB skin and bone fixture
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036"
+          blender -b -t 2 --python-exit-code 12 --python research/anatomy-native-mpfb/official_mpfb_native.py -- --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r036"
+      - name: Apply actual MPFB macro morphs and quantify attachment drift
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 --python research/anatomy-morph/mpfb_morph_binding.py -- --stage probe --out "$RUNNER_TEMP/r036"
+      - name: Reopen exact saved refitted character in fresh Blender process
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036/mpfb-morphed-anatomy.blend" -t 2 --python-exit-code 12 --python research/anatomy-morph/mpfb_morph_binding.py -- --stage verify --out "$RUNNER_TEMP/r036"
+          echo "Only text receipts in logs; media and upstream code remain runner-local"
