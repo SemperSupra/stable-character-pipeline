@@ -49,12 +49,8 @@ def summarize(root):
                         x,y=transform(r["x"],r["y"])
                         z=float(d[y,x])
                         idx=float(ob[y,x])
-                        expected=r["depth_from_camera_plane"]
-                        if depth_mode=="camera_axis":
-                            nx=((r["x"]+.5)/256-.5)*36.0/lens
-                            ny=(.5-(r["y"]+.5)/256)*36.0/lens
-                            cos=1/math.sqrt(1+nx*nx+ny*ny)
-                            expected*=cos
+                        expected=(r["camera_axis_depth"] if depth_mode=="camera_axis"
+                                  else r["ray_distance"])
                         delta=z-expected
                         idx_bad=not math.isfinite(idx) or abs(idx-r["pass_index"])>0.01
                         z_bad=not math.isfinite(delta) or abs(delta)>0.05
