@@ -45,6 +45,17 @@ jobs:
           test -f "$RUNNER_TEMP/mpfb2/src/mpfb/data/3dobjs/base.obj"
           echo "Pinned MPFB source: $SOURCE"
           git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj
+      - name: Install source-pinned MPFB via native Blender extension commands
+        run: |
+          set -euo pipefail
+          blender --command extension repo-list
+          blender --command extension build \
+            --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" \
+            --output-filepath "$RUNNER_TEMP/mpfb-pinned-extension.zip"
+          test -s "$RUNNER_TEMP/mpfb-pinned-extension.zip"
+          sha256sum "$RUNNER_TEMP/mpfb-pinned-extension.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned-extension.zip"
+          blender --command extension list
       - name: Build native official MPFB character and moving anatomy
         run: |
           set -euo pipefail
