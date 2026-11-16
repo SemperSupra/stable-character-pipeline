@@ -1,0 +1,61 @@
+name: R036 Diaphragm Exact Same-Winding Source Face Derived Candidate
+on:
+  push:
+    branches:
+      - research/r036-diaphragm-face-candidate-20261116
+    paths:
+      - 'research/anatomy-bp3d-elements/face_candidate.go'
+      - 'research/anatomy-bp3d-elements/face_candidate_test.go'
+      - 'research/anatomy-bp3d-elements/main.go'
+      - '.github/workflows/anatomy-r036-diaphragm-face.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-bp3d-elements/face_candidate.go'
+      - 'research/anatomy-bp3d-elements/face_candidate_test.go'
+      - 'research/anatomy-bp3d-elements/main.go'
+      - '.github/workflows/anatomy-r036-diaphragm-face.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-face-dedup-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  exact-only-derived:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    defaults:
+      run:
+        working-directory: research/anatomy-bp3d-elements
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Offline Go exact-face dedup unit/race/vet
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go version
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Immutable primary BP3D4 v4 PART-OF source bytes check
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036-bp3d"
+          ROOT=https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20130619
+          curl -fsSL --retry 1 --connect-timeout 12 --max-time 60 --max-filesize 1600000 "$ROOT/partof_element_parts.txt" -o "$RUNNER_TEMP/r036-bp3d/partof_element_parts.txt"
+          curl -fsSL --retry 1 --connect-timeout 12 --max-time 360 --max-filesize 80000000 "$ROOT/partof_BP3D_4.0_obj_99.zip" -o "$RUNNER_TEMP/r036-bp3d/partof_BP3D_4.0_obj_99.zip"
+          (cd "$RUNNER_TEMP/r036-bp3d" && printf '%s\n' \
+            '3f5f6df1028eb122b30de77c711597b6bb8e5541658e5985859fd228adbf88ea  partof_element_parts.txt' \
+            '9fbc713fffeee924a5a657d9813d84d7eb957bded63adb854931dd5e3eb61c97  partof_BP3D_4.0_obj_99.zip' | sha256sum --check --status)
+      - name: Compare original diaphragm vs non-destructive face-derived topology only
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go run . --face-candidate --elements "$RUNNER_TEMP/r036-bp3d/partof_element_parts.txt" --archive "$RUNNER_TEMP/r036-bp3d/partof_BP3D_4.0_obj_99.zip"
+          echo "No original donor source faces deleted; no derived mesh binaries exported"
