@@ -86,7 +86,7 @@ func _initialize() -> void:
         "schema":"r048.godot.rendered-morph-skin.v1",
         "status":"PASS_NARROW_RENDERER_BAKED_BODY_MORPH_AND_SKELETAL_DEFORMATION",
         "engine":Engine.get_version_info().get("string","UNKNOWN"),
-        "rendering_method":RenderingServer.get_rendering_method(),
+        "rendering_method":String(ProjectSettings.get_setting("rendering/renderer/rendering_method","unknown")),
         "baked_vertices":base.size(),
         "original_shape_value":original,
         "perturbed_shape_value":change,
