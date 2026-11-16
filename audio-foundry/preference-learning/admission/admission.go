@@ -50,7 +50,9 @@ func getString(obj map[string]json.RawMessage,key string)(string,error){
 func AdmitPublicIntent(buf []byte, manifest Manifest) (string,error){
  sum:=fmt.Sprintf("%x",sha256.Sum256(buf))
  if !manifest.AllowedPayloadSHA256[sum]{return "",errors.New("payload not authorized for public synthetic runner")}
+ if e:=rejectNestedDuplicates(buf);e!=nil{return "",e}
  obj,e:=parseUniqueObject(buf);if e!=nil{return "",e}
+ if e:=validateIntentShape(obj);e!=nil{return "",e}
  schema,e:=getString(obj,"schema");if e!=nil||schema!="audio.intent.v0"{return "",errors.New("only reviewed audio.intent.v0 is eligible")}
  c,e:=getString(obj,"classification");if e!=nil||c!=Public{return "",errors.New("protected or unknown intent class")}
  if _,e=getString(obj,"description");e!=nil{return "",e}
