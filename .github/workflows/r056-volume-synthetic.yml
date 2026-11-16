@@ -1,0 +1,23 @@
+name: R056 synthetic signed-volume qualification
+on:
+  pull_request:
+    paths:
+      - 'research/r056/volume/**'
+      - '.github/workflows/r056-volume-synthetic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+      - name: Test signed volume adversarial fixtures
+        env:
+          GO111MODULE: 'off'
+        run: go test -count=1 -v ./research/r056/volume
