@@ -46,6 +46,9 @@ jobs:
           curl -fsSL --retry 1 --connect-timeout 12 --max-time 360 --max-filesize 80000000 \
             "$ROOT/partof_BP3D_4.0_obj_99.zip" -o "$RUNNER_TEMP/r036-bp3d-elements/partof_BP3D_4.0_obj_99.zip"
           test "$(wc -c < "$RUNNER_TEMP/r036-bp3d-elements/partof_BP3D_4.0_obj_99.zip")" -gt 1000000
+          (cd "$RUNNER_TEMP/r036-bp3d-elements" && printf '%s\n' \
+            '3f5f6df1028eb122b30de77c711597b6bb8e5541658e5985859fd228adbf88ea  partof_element_parts.txt' \
+            '9fbc713fffeee924a5a657d9813d84d7eb957bded63adb854931dd5e3eb61c97  partof_BP3D_4.0_obj_99.zip' | sha256sum --check --status)
           sha256sum "$RUNNER_TEMP/r036-bp3d-elements/partof_element_parts.txt" "$RUNNER_TEMP/r036-bp3d-elements/partof_BP3D_4.0_obj_99.zip"
       - name: Inspect zip central directory and at most 12 source OBJ components without extraction
         env:
