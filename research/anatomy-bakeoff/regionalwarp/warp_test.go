@@ -23,7 +23,7 @@ func testPack()(landmarks.Pack,[]landmarks.Pair){
    SourceEvidence:h,TargetEvidence:h})
  }
  extra:=[]landmarks.Pair{}
- for i,p:=range []P{{.07,-.03,1.35},{-.09,.04,1.13}}{
+ for i,p:=range []P{{X:.07,Y:-.03,Z:1.35},{X:-.09,Y:.04,Z:1.13}}{
   extra=append(extra,landmarks.Pair{ID:"independent-holdout-"+string(rune('0'+i)),
    Source:p,Target:deform(p),SourceUncertaintyM:.003,TargetUncertaintyM:.004,SourceEvidence:h,TargetEvidence:h})
  }
