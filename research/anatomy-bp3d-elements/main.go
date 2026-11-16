@@ -115,7 +115,7 @@ func parseOBJ(reader io.Reader,maxBytes int64)(int,int,[6]float64,string,error){
    for _,token:=range v[1:]{
     indexStr:=strings.Split(token,"/")[0]
     index,e:=strconv.Atoi(indexStr)
-    if e!=nil||index==0||index>vertices||index<-(vertices){return 0,0,bounds,"",errors.New("OBJ invalid face index")}
+    if e!=nil||index==0||index>vertices||index < -vertices{return 0,0,bounds,"",errors.New("OBJ invalid face index")}
    }
    faces++
   }
