@@ -21,14 +21,14 @@ def main():
     p.add_argument("--source",required=True)
     p.add_argument("--glb",required=True)
     p.add_argument("--out",required=True)
-    a=p.parse_args()
-    source=json.loads(Path(a.source).read_text(encoding="utf-8"))
+    args=p.parse_args()
+    source=json.loads(Path(args.source).read_text(encoding="utf-8"))
     if source.get("schema")!="r051.native-mpfb.source-morph-effectiveness.v1":
         hold("native source morph audit receipt missing")
     src=source["source_relative_keys"]
-    base,arrays=expected_morph_arrays(a.glb)
+    base,arrays=expected_morph_arrays(args.glb)
     if len(src)!=8 or len(arrays)!=8:hold("eight source and eight glTF morph targets required")
-    m,blob=parse_glb(a.glb)
+    m,blob=parse_glb(args.glb)
     meshes=[m["meshes"][n["mesh"]] for n in m["nodes"]
             if "R043_EditableMask_MPFB_Body" in n.get("name","") and "mesh" in n]
     if len(meshes)!=1:hold("unambiguous body GLB source missing")
@@ -58,7 +58,7 @@ def main():
        "glb_effective":sum(r["actual_glb_effective"] for r in rows),
        "mismatch_indices":mismatches,"rows":rows,
        "limits":"Only actual original MPFB raw relative shape vs actual glTF target effectiveness on visible source; not pose-time expressions, anatomy or game acceptance"}
-    Path(a.out).write_text(json.dumps(result,sort_keys=True,indent=2),encoding="utf-8")
+    Path(args.out).write_text(json.dumps(result,sort_keys=True,indent=2),encoding="utf-8")
     print("R051_MORPH_LINEAGE_RECEIPT "+json.dumps(result,sort_keys=True))
     if mismatches:hold("source-visible and target effectiveness differ at "+str(mismatches))
 if __name__=="__main__":main()
