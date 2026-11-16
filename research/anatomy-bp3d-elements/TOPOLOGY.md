@@ -1,0 +1,9 @@
+# R036 actual source FJ topology + composite-organ overlap audit
+
+Independent source-only stacked workcell based on draft #571 head `f6d7a56c06cc356539c809a8717accc25536405e`. Reuse source-pinned original BodyParts3D v4.0 PART-OF element map and exactly 1,258 atomic FJ source mesh members from the official 99%-reduced OBJ ZIP. Separate anatomical concept (FMA), dataset/view BP representation (ISA/PART-OF), and atomic FJ mesh file identity.
+
+This tests 2 real source components each for heart, left/right lung, diaphragm, and liver (≤10 total), bounded to 6MiB per uncompressed FJ, while retaining donor binaries only in disposable public GitHub Actions scratch. Determines edge incidence, inconsistent paired face orientation, isolated vertices and vertex connected components; a closed correctly edge-paired triangle soup is only a **surface-topology candidate**, not a proven closed oriented medical organ volume, actual organ completeness, self-intersection-free surface, signed tissue volume or human anatomy accuracy. Reports actual shared atomic FJ IDs across compound FMA concepts (including any zero overlap) to test whether different named organs can legally reference the same original atomic mesh.
+
+Source file SHA256s are pinned and checked before use; no dynamic downloads, external identity, authenticated secrets, 3D media artifact upload, merge, deployment or release. Geometry's raw source units and frame remain UNKNOWN. This is one step before ensemble assembly; a single FJ submesh does not equal the true assembled organ.
+
+Next: source coordinate-unit and official reference-frame qualification, *full* FMA→FJ geometry assembly in ephemeral local scratch with bounded resource checks, composite seam/manifold/self-intersection oracles, preservation of source part identity, then cross-atlas HRA/MakeHuman registration and controlled biomechanics.
