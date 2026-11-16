@@ -1,0 +1,63 @@
+name: "Research · Respiratory-vocal 17-mode synthetic audio previews"
+on:
+  pull_request:
+    paths:
+      - "research/respiratory-vocal/**"
+      - ".github/workflows/research-respiratory-vocal-audio.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  source-repro-and-independent-wav-critic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Exact public source checkout without credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Pin independent original public PCM WAV critic revision
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 5aad9415cabb30f14931494a3a843ac3539aee28
+          path: critic-pinned
+          persist-credentials: false
+      - name: Native Go tests, original synthetic audio output, independent critic
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/respiratory-vocal
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/performance-preview -out "$RUNNER_TEMP/original-respiratory-wavs" | tee "$RUNNER_TEMP/public-synthetic-receipts.json"
+          cd "$GITHUB_WORKSPACE/critic-pinned/research/audio-critic-cpu"
+          go test -race -count=1 ./...
+          go vet ./...
+          go build -o "$RUNNER_TEMP/independent-wavcheck" ./cmd/wavcheck
+          count=0
+          for f in "$RUNNER_TEMP/original-respiratory-wavs"/*.wav; do
+            if [[ "${f##*/}" == "no_flow_silence.wav" ]]; then continue; fi
+            "$RUNNER_TEMP/independent-wavcheck" -wav "$f" > "$RUNNER_TEMP/last-wav-metrics.json"
+            count=$((count+1))
+          done
+          [[ "$count" -eq 16 ]]
+          python3 - "$RUNNER_TEMP/public-synthetic-receipts.json" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as fh:
+              result=json.load(fh)
+          assert result["schema"]=="respiratory.preview_batch.v0"
+          assert len(result["cases"])==17
+          assert sum(x["peak_fraction_full_scale"]==0 for x in result["cases"])==1
+          assert all(x["sample_rate_hz"]==48000 for x in result["cases"])
+          print("PASS 17 original synthetic modes, 16 independent PCM admissions, 1 intended silence; NOT human physiology")
+          PY
