@@ -1,0 +1,63 @@
+name: R058 original-synthetic pair evidence and scope-collision negative qualification
+
+on:
+  push:
+    branches:
+      - research/r058-pairwise-evidence-public-20261116
+    paths:
+      - 'prefprobe/**'
+      - '.github/workflows/r058-pair-evidence.yml'
+  pull_request:
+    paths:
+      - 'prefprobe/**'
+      - '.github/workflows/r058-pair-evidence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r058-public-pair-evidence
+  cancel-in-progress: true
+
+jobs:
+  pair-specific-abstention:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: prefprobe/go.mod
+          cache: false
+      - name: Actual Go unit, race and negative controls
+        working-directory: prefprobe
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          go vet ./...
+          go test -race -count=1 -v ./... | tee r058_pair_evidence_tests.txt
+          grep -F '--- PASS: TestOnePairVoteCannotBorrowFourOtherPairVotes' r058_pair_evidence_tests.txt
+          grep -F '--- PASS: TestDelimitedCharacterAndShotIDsCannotAliasSourceScope' r058_pair_evidence_tests.txt
+      - name: Original synthetic numerical receipt remains non-owner
+        working-directory: prefprobe
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run . -synthetic | tee r058_synthetic_report.json
+          grep -F 'NOT_OWNER_FEEDBACK_OR_REAL_PHOTOREALISM_EVIDENCE' r058_synthetic_report.json
+          sha256sum r058_pair_evidence_tests.txt r058_synthetic_report.json > r058_manifest.sha256
+          sha256sum -c r058_manifest.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r058-public-synthetic-pair-scope-NOT-OWNER
+          path: |
+            prefprobe/r058_pair_evidence_tests.txt
+            prefprobe/r058_synthetic_report.json
+            prefprobe/r058_manifest.sha256
+          retention-days: 3
+          if-no-files-found: warn
