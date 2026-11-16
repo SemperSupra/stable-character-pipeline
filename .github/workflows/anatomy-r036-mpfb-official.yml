@@ -112,3 +112,12 @@ jobs:
           timeout 90 "$GODOT" --headless --path "$RUNNER_TEMP/r045-godot" --editor --import
           timeout 45 "$GODOT" --headless --path "$RUNNER_TEMP/r045-godot" --script probe.gd
           echo "R045 source-safe Godot results retained in logs; all character bytes ephemeral"
+
+      - name: R046 independent Godot 8-influence weighted buffer and animated skeleton runtime controls
+        run: |
+          set -euo pipefail
+          GODOT="$RUNNER_TEMP/r045-godot/Godot_v4.5.2-stable_linux.x86_64"
+          test -x "$GODOT"
+          cp research/anatomy-native-mpfb/godot_hil/runtime_probe.gd "$RUNNER_TEMP/r045-godot/runtime_probe.gd"
+          timeout 45 "$GODOT" --headless --path "$RUNNER_TEMP/r045-godot" --script runtime_probe.gd
+          echo "Godot pose/skin runtime diagnostic only; no photoreal/game performance acceptance"
