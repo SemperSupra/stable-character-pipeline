@@ -18,7 +18,7 @@ func TestMalformedOrPrivateEventsFailClosed(t *testing.T){
   replace(`"classification":"PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL"`,`"classification":"PRIVATE_FINAL_CHARACTER_VOICE"`),
   replace(`"schema":"respiratory.performance.v0"`,`"schema":"other"`),
   replace(`"sample_rate_hz":48000`,`"sample_rate_hz":"48000"`),
-  replace(`"oral_free_flow_m3_s":0.0001`,`"oral_free_flow_m3_s":-0.0001"`),
+  replace(`"oral_free_flow_m3_s":0.0001`,`"oral_free_flow_m3_s":-0.0001`),
   replace(`"sample_rate_hz":48000`,`"sample_rate_hz":48000,"sample_rate_hz":96000`),
   replace(`"phase":"expiration"`,`"phase":"expiration","phase":"inspiration"`),
   replace(`"kind":"airflow_turbulence"`,`"kind":"airflow_turbulence","kind":"glottal_voiced"`),
