@@ -1,0 +1,35 @@
+name: "Research · Public synthetic intent admission"
+on:
+  pull_request:
+    paths:
+      - "audio-foundry/preference-learning/admission/**"
+      - ".github/workflows/research-audio-admission-cpu.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  offline-admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout isolated public-safe source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Offline Go race tests and vet
+        shell: bash
+        env:
+          GOPROXY: "off"
+          GOSUMDB: "off"
+          GOTOOLCHAIN: "local"
+        run: |
+          set -euo pipefail
+          go version
+          cd "audio-foundry/preference-learning/admission"
+          go test -race -count=1 ./...
+          go vet ./...
