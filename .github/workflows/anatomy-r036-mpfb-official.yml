@@ -134,3 +134,43 @@ jobs:
             env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
             "$GODOT" --rendering-driver opengl3 --path "$RUNNER_TEMP/r045-godot" --script bake_probe.gd
           echo "Godot software GPU render-bake diagnostic complete; no images or human assets uploaded"
+
+      - name: R050 independent raw glTF POSITION morph vs Godot renderer per-vertex delta qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT="$RUNNER_TEMP/r045-godot/Godot_v4.5.2-stable_linux.x86_64"
+          test -x "$GODOT"
+          cp research/anatomy-native-mpfb/godot_hil/glb_morph_delta_probe.gd "$RUNNER_TEMP/r045-godot/glb_morph_delta_probe.gd"
+          timeout 100 xvfb-run -a -s "-screen 0 1280x720x24" \
+            env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
+            "$GODOT" --rendering-driver opengl3 --path "$RUNNER_TEMP/r045-godot" --script glb_morph_delta_probe.gd
+          GLB="$RUNNER_TEMP/r036-official/r044-morph-organ-allweights.glb"
+          DELTA="$RUNNER_TEMP/r045-godot/r050-godot-morph-delta.bin"
+          test -s "$GLB"
+          test -s "$DELTA"
+          python3 research/anatomy-native-mpfb/gltf_godot_morph_compare.py \
+            --glb "$GLB" --godot "$DELTA" --out "$RUNNER_TEMP/r050-actual.json"
+          grep -F '"status": "PASS_NARROW_EIGHT_GLTF_MORPH_VERTEX_DELTA_PARITY"' "$RUNNER_TEMP/r050-actual.json"
+          python3 - "$DELTA" "$RUNNER_TEMP/r050-corrupted.bin" <<'PY'
+          import struct,sys
+          payload=bytearray(open(sys.argv[1],"rb").read())
+          assert len(payload)>100
+          n=struct.unpack_from("<I",payload,4)[0]
+          assert n>=13000
+          # Header + actual Godot baseline vertices; corrupt first true
+          # morph delta to exercise post-correspondence numerical QA.
+          struct.pack_into("<f",payload,8+n*12,42.0)
+          open(sys.argv[2],"wb").write(payload)
+          PY
+          if python3 research/anatomy-native-mpfb/gltf_godot_morph_compare.py \
+               --glb "$GLB" --godot "$RUNNER_TEMP/r050-corrupted.bin" \
+               --out "$RUNNER_TEMP/r050-rejected.json" \
+               > "$RUNNER_TEMP/r050-expected-reject.log" 2>&1; then
+            echo "R050_HOLD injected vertex corruption passed unexpectedly" >&2
+            exit 12
+          fi
+          grep -F 'R050_GLTF_GODOT_MORPH_HOLD actual glTF morph deltas' \
+            "$RUNNER_TEMP/r050-expected-reject.log"
+          echo "R050_MORPH_NEGATIVE_CONTROL source=true_gpu_readback=YES corrupt_vertex_rejected=YES"
+          echo "Raw GLB and numeric vertex arrays remain in public disposable scratch only"
