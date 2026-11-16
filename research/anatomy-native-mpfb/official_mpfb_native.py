@@ -43,10 +43,14 @@ def mat(name,rgb):
 
 def build(n):
  if not os.path.isdir(os.path.join(n.source,"src","mpfb","data")):fail("missing pinned upstream MPFB source")
- sys.path.insert(0,os.path.join(n.source,"src"))
- mpfb=importlib.import_module("mpfb")
- mpfb.register()
- humanmod=importlib.import_module("mpfb.services.humanservice")
+ # Blender 4.2+ extensions must be loaded as bl_ext.<repo>.<package>, not
+ # a plain sys.path import; LocationService uses extension_path_user(__package__).
+ import addon_utils
+ module_name="bl_ext.user_default.mpfb"
+ if not addon_utils.check(module_name)[1]:
+  addon_utils.enable(module_name,default_set=False,persistent=False)
+ if not addon_utils.check(module_name)[1]:fail("MPFB extension not enabled via Blender official extension repository")
+ humanmod=importlib.import_module(module_name+".services.humanservice")
  hs=humanmod.HumanService
  bpy.ops.object.select_all(action="SELECT")
  bpy.ops.object.delete(use_global=False)
