@@ -37,12 +37,13 @@ type Feedback struct {
 
 type Model struct {
  Scores map[string]map[string]float64
+ Votes map[string]int
  Ingested map[string]string
  Accepted int
  Abstained int
 }
 
-func NewModel() *Model {return &Model{Scores:make(map[string]map[string]float64),Ingested:make(map[string]string)}}
+func NewModel() *Model {return &Model{Scores:make(map[string]map[string]float64),Votes:make(map[string]int),Ingested:make(map[string]string)}}
 
 func validate(f Feedback) error {
  if f.Schema!=version || !f.SyntheticOnly || f.Authority!="SYNTHETIC_FIXTURE_NOT_OWNER" {
@@ -92,14 +93,18 @@ func (m *Model) Ingest(f Feedback) error {
  update:=0.22*(target-predicted)
  m.Scores[k][f.LeftID]=math.Max(-6,math.Min(6,left+update-0.003*left))
  m.Scores[k][f.RightID]=math.Max(-6,math.Min(6,right-update-0.003*right))
+ m.Votes[k]++
  m.Accepted++
  return nil
 }
 
 func (m *Model) Rank(f Feedback) (string,string) {
  if err:=validate(f);err!=nil {return "ABSTAIN_INVALID_CONTEXT",""}
- s,ok:=m.Scores[scopeKey(f)]
+ k:=scopeKey(f)
+ s,ok:=m.Scores[k]
  if !ok{return "ABSTAIN_NO_TRAINING",""}
+ // Five is a predeclared synthetic safety gate, not a statistical confidence claim.
+ if m.Votes[k]<5{return "ABSTAIN_INSUFFICIENT_EVIDENCE",""}
  a,hasA:=s[f.LeftID];b,hasB:=s[f.RightID]
  if !hasA || !hasB || math.Abs(a-b)<0.1 {return "ABSTAIN_UNCERTAIN",""}
  if a>b{return "SYNTHETIC_RANK_ONLY",f.LeftID}
