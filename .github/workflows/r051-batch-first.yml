@@ -49,3 +49,13 @@ jobs:
           export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
           go test -count=1 -race -v -run '^TestR060Lane' .
           echo "R060_REP_RECEIPT_VALIDATOR source_fixture_only=YES rights_ungranted=YES local_actor_executed=NOT_OBSERVED independent_issuer=NOT_VERIFIED"
+
+      - name: R061 local-only manifest-plus-rep CLI strict JSON and compatibility bakeoff
+        working-directory: research/r051-batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          go vet ./...
+          go test -count=1 -race -v -run '^TestR061' .
+          echo "R061_LOCAL_CLI_SOURCE_ONLY duplicate_json_rejected=YES local_private_manifest_uploaded=NO agent_execution_unverified=YES"
