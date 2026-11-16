@@ -152,12 +152,34 @@ def geometry_digest():
         items.append({"name":obj.name,"vertices":vertices,"faces":faces})
     return canonical_hash(items)
 
-def run(arm,out_dir):
+def apply_material_treatment():
+    """Change only shader parameters on an already built scene. Never regenerate meshes."""
+    for m in bpy.data.materials:
+        if m.name == "matte-floor" or not m.use_nodes:
+            continue
+        bsdf=next((n for n in m.node_tree.nodes if n.type=='BSDF_PRINCIPLED'),None)
+        if bsdf is None:
+            raise RuntimeError("Missing Principled shader: "+m.name)
+        bsdf.inputs["Roughness"].default_value=0.43
+        if m.name in ("original-synthetic-skin","synthetic-lips"):
+            sub=bsdf.inputs.get("Subsurface Weight") or bsdf.inputs.get("Subsurface")
+            if sub is not None:
+                sub.default_value=0.16
+            noise=m.node_tree.nodes.new("ShaderNodeTexNoise")
+            noise.inputs["Scale"].default_value=105.0
+            noise.inputs["Detail"].default_value=3.0
+            bump=m.node_tree.nodes.new("ShaderNodeBump")
+            bump.inputs["Strength"].default_value=0.12
+            bump.inputs["Distance"].default_value=0.003
+            m.node_tree.links.new(noise.outputs["Fac"],bump.inputs["Height"])
+            m.node_tree.links.new(bump.outputs["Normal"],bsdf.inputs["Normal"])
+
+def run(arm,out_dir,scene=None):
     if arm not in ("baseline","physical_material"):
         raise ValueError("Unknown arm")
     out=Path(out_dir)
     out.mkdir(parents=True,exist_ok=True)
-    scene=make_scene(arm)
+    scene=scene if scene is not None else make_scene(arm)
     camera=scene.camera
     geom=geometry_digest()
     cam=canonical_hash({
@@ -200,10 +222,20 @@ def run(arm,out_dir):
 def main():
     argv=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
     parser=argparse.ArgumentParser()
-    parser.add_argument("--arm",required=True,choices=["baseline","physical_material"])
+    parser.add_argument("--arm",required=True,choices=["baseline","physical_material","both"])
     parser.add_argument("--output",required=True)
     opts=parser.parse_args(argv)
-    run(opts.arm,opts.output)
+    if opts.arm=="both":
+        # A/B are different material states of the SAME mesh, camera, pose and Blender process.
+        scene=make_scene("baseline")
+        before=geometry_digest()
+        run("baseline",str(Path(opts.output)/"baseline"),scene)
+        apply_material_treatment()
+        if before!=geometry_digest():
+            raise RuntimeError("material treatment mutated mesh geometry")
+        run("physical_material",str(Path(opts.output)/"physical_material"),scene)
+    else:
+        run(opts.arm,opts.output)
 
 if __name__=="__main__":
     main()
