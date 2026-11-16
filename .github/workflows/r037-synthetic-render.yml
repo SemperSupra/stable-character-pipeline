@@ -1,0 +1,92 @@
+name: R037 source-safe synthetic material rendering and contract qualification
+
+on:
+  push:
+    branches:
+      - research/r037-photorealism-synthetic-v01-20261116
+    paths:
+      - 'renderlab/**'
+      - '.github/workflows/r037-synthetic-render.yml'
+  pull_request:
+    paths:
+      - 'renderlab/**'
+      - '.github/workflows/r037-synthetic-render.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r037-source-safe-public
+  cancel-in-progress: true
+
+jobs:
+  contract-negative-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: renderlab/go.mod
+          cache: false
+      - name: Qualify Go-only typed receipt gates
+        working-directory: renderlab
+        run: |
+          set -euo pipefail
+          go version
+          go vet ./...
+          go test -count=1 -race -v ./...
+
+  real-synthetic-cycles:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: contract-negative-controls
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: renderlab/go.mod
+          cache: false
+      - name: Install open-source Blender CPU renderer in disposable public runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+          blender --version | head -n 3
+      - name: Render original synthetic fixture with two materials on unchanged geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/baseline out/physical_material
+          blender -b -t 2 --python renderlab/synthetic_scene.py -- \
+            --arm baseline --output out/baseline
+          blender -b -t 2 --python renderlab/synthetic_scene.py -- \
+            --arm physical_material --output out/physical_material
+          test -s out/baseline/beauty.png
+          test -s out/physical_material/beauty.png
+          test -s out/baseline/render_passes.exr
+          test -s out/physical_material/render_passes.exr
+      - name: Independent Go cross-arm receipt/image/digest qualification
+        working-directory: renderlab
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run . \
+            -baseline ../out/baseline/receipt.json \
+            -material ../out/physical_material/receipt.json \
+            -out ../out/comparison.json
+          grep -F '"status": "PASS_STRUCTURAL_RENDER_DIFFERENCE_ONLY"' ../out/comparison.json
+          grep -F '"qualification": "NOT_PHOTOREALISM_OR_HUMAN_PREFERENCE_EVIDENCE"' ../out/comparison.json
+          (cd ../out && find . -type f -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r037-original-synthetic-cycles-structural-HOLD
+          path: out/
+          retention-days: 3
+          if-no-files-found: warn
