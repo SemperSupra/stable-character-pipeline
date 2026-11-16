@@ -81,7 +81,7 @@ func TestReplayedSingleVoteCannotMeetMinimum(t *testing.T) {
   if err:=m.Ingest(e);err!=nil {t.Fatal(err)}
  }
  status,selected:=m.Rank(e)
- if status!="ABSTAIN_INSUFFICIENT_EVIDENCE" || selected!="" || m.Votes[scopeKey(e)]!=1 {
+ if status!="ABSTAIN_INSUFFICIENT_PAIR_EVIDENCE" || selected!="" || m.Votes[scopeKey(e)]!=1 {
   t.Fatalf("single repeated event counted as independent authority: %s %s",status,selected)
  }
 }
@@ -109,7 +109,7 @@ func TestFourVotesStillAbstainAndFifthCanBeMeasured(t *testing.T) {
  }
  probe:=makeFixture("minimum-evidence",100,true)
  status,selected:=m.Rank(probe)
- if status!="ABSTAIN_INSUFFICIENT_EVIDENCE" || selected!="" {
+ if status!="ABSTAIN_INSUFFICIENT_PAIR_EVIDENCE" || selected!="" {
   t.Fatalf("four votes improperly sufficient: %s %s",status,selected)
  }
  if err:=m.Ingest(makeFixture("minimum-evidence",4,true));err!=nil {t.Fatal(err)}
