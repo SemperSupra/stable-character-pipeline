@@ -102,7 +102,7 @@ def unit_controls():
  error=float(np.max(np.linalg.norm(p@no_reflect.T+tt-mirror,axis=1)))
  if error<.05 or np.linalg.det(no_reflect)<.999999:fail("mirror adversary incorrectly admitted")
  return {"proper_transform_error_m":residual,"reflected_shape_proper_fit_max_residual_m":error}
-def solve(out,source,target,start):
+def solve(source,target,start):
  lookup=tree(target)
  baseline=score(apply(source,start),target)
  best=start.copy()
