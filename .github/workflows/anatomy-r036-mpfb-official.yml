@@ -90,3 +90,12 @@ jobs:
           test -s "$RUNNER_TEMP/r036-official/r040-imported-motion-diagnostic.json"
           grep -F '"status": "DIAGNOSTIC_ONLY_EXPORT_HOLD"' "$RUNNER_TEMP/r036-official/r040-imported-motion-diagnostic.json"
           echo "Derived diagnostic retained in job logs only; no original source media artifact uploaded"
+
+      - name: R041 distinguish imported-only GLB vertices from native raw/evaluated source
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/glb_extra_geometry.py -- \
+            --out "$RUNNER_TEMP/r036-official"
+          test -s "$RUNNER_TEMP/r036-official/r041-extra-geometry.json"
+          grep -F '"status": "PASS_MEASURE_ONLY_EXPORT_FIDELITY_HOLD"' "$RUNNER_TEMP/r036-official/r041-extra-geometry.json"
