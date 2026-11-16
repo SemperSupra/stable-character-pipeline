@@ -27,7 +27,7 @@ jobs:
       matrix:
         lane: [image, video, audio]
     env:
-      HF_HOME: ${{ runner.temp }}/hf-r063
+      HF_HOME: ${{ github.workspace }}/.hf-r063
       HF_HUB_DISABLE_TELEMETRY: "1"
       TOKENIZERS_PARALLELISM: "false"
       PYTHONUNBUFFERED: "1"
