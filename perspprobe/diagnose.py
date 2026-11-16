@@ -67,8 +67,10 @@ def summarize(root):
                         if len(samples)<5:
                             samples.append({"source_pixel":[r["x"],r["y"]],
                                             "sample_pixel":[x,y],"source_object":r["pass_index"],
-                                            "actual_index":idx,"source_depth":expected,
-                                            "actual_exr_depth":z,"signed_error":delta})
+                                            "actual_index":idx if math.isfinite(idx) else None,
+                                            "source_depth":expected,
+                                            "actual_exr_depth":z if math.isfinite(z) else None,
+                                            "signed_error":delta if math.isfinite(delta) else None})
                         total+=1
                     candidates.append({
                         "mapping":name,
