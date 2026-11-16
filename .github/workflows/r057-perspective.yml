@@ -68,6 +68,16 @@ jobs:
           grep -F '"status": "PASS_NARROW_PERSPECTIVE_SOURCE_RAYS_VS_REAL_CYCLES_EXR"' out/r057_report.json
           (cd out && find . -type f ! -name artifact_manifest.sha256 -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
           (cd out && sha256sum -c artifact_manifest.sha256)
+      - name: Independently diagnose real numeric mismatch without changing gates
+        if: failure()
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -s out/r057_source_manifest.json ] && [ -x "$RUNNER_TEMP/r057-exr/bin/python" ]; then
+            "$RUNNER_TEMP/r057-exr/bin/python" perspprobe/diagnose.py --root out --out out/r057_diagnostic.json
+          else
+            echo "R057_DIAG_NOT_RUN_MISSING_SCENE_OR_DECODER"
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
