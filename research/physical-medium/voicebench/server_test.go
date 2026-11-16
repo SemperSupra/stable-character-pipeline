@@ -102,3 +102,30 @@ func TestAccessibleMultilingualPageBoundaries(t *testing.T){
   if !strings.Contains(page,lang){t.Fatalf("missing translation dictionary %s",lang)}
  }
 }
+
+func TestDefaultNoviceABEqualsUnchangedReference(t *testing.T){
+ // This explicitly catches the first source-review discrepancy where a
+ // 343.2m/s slider default was contrasted against a 343.222180868m/s
+ // reference and thereby created a false audible change at rest.
+ cap:=CurrentCapabilities()
+ if len(cap.Controls)!=3||
+  cap.Controls[0].Default!=170||cap.Controls[1].Default!=160||
+  cap.Controls[2].Default!=343.222{
+  t.Fatal("control defaults unexpectedly changed")
+ }
+ html:=request(t,"GET","http://127.0.0.1/",nil).Body.String()
+ for _,fragment:=range []string{
+  "id=\"length\" type=\"range\" min=\"80\" max=\"400\" step=\"1\" value=\"170\"",
+  "id=\"pitch\" type=\"range\" min=\"70\" max=\"600\" step=\"1\" value=\"160\"",
+  "id=\"speed\" type=\"range\" min=\"100\" max=\"2000\" step=\".001\" value=\"343.222\"",
+  "sound_speed:343.222",
+ }{
+  if !strings.Contains(html,fragment){t.Fatalf("UI default/reference mismatch: %s",fragment)}
+ }
+ url:="http://127.0.0.1/api/v1/preview?length_mm=170&pitch_hz=160&sound_speed=343.222"
+ a:=request(t,"GET",url,nil)
+ b:=request(t,"GET",url,nil)
+ if a.Code!=200||b.Code!=200||!bytes.Equal(a.Body.Bytes(),b.Body.Bytes()){
+  t.Fatal("default UI A/B should be bit-identical until a control changes")
+ }
+}
