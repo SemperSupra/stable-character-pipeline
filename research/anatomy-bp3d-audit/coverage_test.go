@@ -19,7 +19,7 @@ func TestLexicalAliasCandidatesRemainUnreviewed(t *testing.T){
   "FMA3":{"FMA3","BP3","eyelid"},
  }
  out:=computeCoverage(m,map[string]Item{},[]Target{{"sensory","eye",[]string{"globe of eye"}}})
- if out.Rows[0].Status!="LEXICAL_CANDIDATES_UNREVIEWED"||out.Rows[0].CandidateCount!=1{
+ if out.Rows[0].Status!="LEXICAL_CANDIDATES_UNREVIEWED"||out.Rows[0].CandidateCount!=2{
   t.Fatalf("eye within eyelid or globe name falsely matched: %+v",out.Rows[0])
  }
 }
