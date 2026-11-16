@@ -75,6 +75,7 @@ func _initialize() -> void:
     if body.skin == null or body.get_skin_reference() == null:
         hold("actual renderer scene has no registered skin after two frames")
         return
+    RenderingServer.force_draw()
     var base_skin: PackedVector3Array = vertices(body.bake_mesh_from_current_skeleton_pose())
     if base_skin.size() != base.size():
         hold("GPU bake skeleton/base morph vertex cardinality differs")
@@ -88,8 +89,32 @@ func _initialize() -> void:
     if String(clip).is_empty():
         hold("imported skeletal motion clip missing")
         return
+    var rig: Skeleton3D = body.get_parent() as Skeleton3D
+    if rig == null:
+        hold("source body has no actual Godot skeleton parent")
+        return
+    var rotations: Array[Quaternion] = []
+    for j in range(rig.get_bone_count()):
+        rotations.append(rig.get_bone_pose_rotation(j))
     player.play(clip)
     player.advance(0.50)
+    var animated: int = 0
+    var max_bone_change: float = 0.0
+    for j in range(rig.get_bone_count()):
+        var change_angle: float = rig.get_bone_pose_rotation(j).angle_to(rotations[j])
+        if change_angle > 0.000001:
+            animated += 1
+        max_bone_change = maxf(max_bone_change,change_angle)
+    print("R048_GODOT_BONE_POSE_DEBUG ",JSON.stringify({
+        "animated_bones_rotational":animated,
+        "largest_rotation_radians":max_bone_change
+    }))
+    if animated < 1:
+        hold("imported Godot skeleton clip did not actually rotate any bone")
+        return
+    await process_frame
+    await process_frame
+    RenderingServer.force_draw()
     var skinned: PackedVector3Array = vertices(body.bake_mesh_from_current_skeleton_pose())
     var skin_delta: float = max_delta(base_skin,skinned)
     if skin_delta <= 0.00001:
