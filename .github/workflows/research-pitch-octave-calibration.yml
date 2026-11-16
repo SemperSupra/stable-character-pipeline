@@ -1,0 +1,35 @@
+name: "Research · F0 octave ambiguity and abstention CPU"
+on:
+  pull_request:
+    paths:
+      - "research/audio-critic-cpu/**"
+      - ".github/workflows/research-pitch-octave-calibration.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  original-pitch-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Pinned read-only source checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: CPU pitch ambiguity, false octave, missing-fundamental and WAV integrity tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/audio-critic-cpu
+          go test -race -count=1 ./...
+          go vet ./...
+          go test -run '^TestPitchAudit' -v -count=1 .
