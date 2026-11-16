@@ -1,0 +1,91 @@
+name: R044 independent two-light x two-material synthetic Cycles stress qualification
+
+on:
+  push:
+    branches: [research/r044-lighting-stress-public-20261116]
+    paths:
+      - 'lightingprobe/**'
+      - '.github/workflows/r044-lighting-stress.yml'
+  pull_request:
+    paths:
+      - 'lightingprobe/**'
+      - '.github/workflows/r044-lighting-stress.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r044-independent-lighting-public-cpu
+  cancel-in-progress: true
+
+jobs:
+  controlled-lighting-experiment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: renderlab/go.mod
+          cache: false
+      - name: Frozen Go source, manifest and negative fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd renderlab && go vet ./... && go test -race -count=1 ./...)
+          python3 -m unittest discover -s lightingprobe -p test_verify.py -v
+      - name: Install Blender CPU only inside disposable hosted runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+          blender --version | head -3
+      - name: Actual original synthetic 2 lighting conditions x 2 material treatments
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          blender -b -t 2 --python lightingprobe/stress.py -- --out out
+          for lighting in diffuse_soft directional_hard; do
+            for arm in baseline physical_material; do
+              test -s "out/$lighting/$arm/beauty.png"
+              test -s "out/$lighting/$arm/render_passes.exr"
+            done
+            (cd renderlab && go run . \
+              -baseline "../out/$lighting/baseline/receipt.json" \
+              -material "../out/$lighting/physical_material/receipt.json" \
+              -out "../out/$lighting/comparison.json")
+            (cd renderlab && go run ./exraudit \
+              -baseline "../out/$lighting/baseline/render_passes.exr" \
+              -material "../out/$lighting/physical_material/render_passes.exr" \
+              -out "../out/$lighting/exr_audit.json")
+          done
+      - name: Independent pinned official OpenEXR pixel readback and 2x2 evidence gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r044-exr"
+          "$RUNNER_TEMP/r044-exr/bin/pip" install --disable-pip-version-check --only-binary=:all: --no-cache-dir \
+            numpy==1.26.4 OpenEXR==3.3.3
+          for lighting in diffuse_soft directional_hard; do
+            "$RUNNER_TEMP/r044-exr/bin/python" renderlab/exraudit/pixel_decode.py \
+              --baseline "out/$lighting/baseline/render_passes.exr" \
+              --material "out/$lighting/physical_material/render_passes.exr" \
+              --out "out/$lighting/exr_pixel_audit.json"
+          done
+          python3 lightingprobe/verify.py \
+            --root out --source-script renderlab/synthetic_scene.py \
+            --out out/r044_report.json
+          grep -F '"status": "PASS_NARROW_2X2_LIGHT_MATERIAL_RENDER_AND_EXR_GATES"' out/r044_report.json
+          (cd out && find . -type f -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r044-original-synthetic-lighting-2x2-RESEARCH
+          path: out/
+          retention-days: 3
+          if-no-files-found: warn
