@@ -130,7 +130,8 @@ def expected_morph_arrays(path):
     primitive=parts[0]
     if len(primitive.get("targets",[]))!=8:
         hold("actual MPFB source has not eight glTF morph target arrays")
-    count=len(accessor_xyz(manifest,blob,primitive["attributes"]["POSITION"]))
+    base=accessor_xyz(manifest,blob,primitive["attributes"]["POSITION"])
+    count=len(base)
     if count<13000:
         hold("glTF source shape unusually small")
     all_morph=[]
@@ -139,7 +140,7 @@ def expected_morph_arrays(path):
         points=accessor_xyz(manifest,blob,target["POSITION"])
         if len(points)!=count:hold("morph target source count differs from body")
         all_morph.append(points)
-    return count,all_morph
+    return base,all_morph
 
 def godot_morph_arrays(path):
     raw=Path(path).read_bytes()
@@ -147,10 +148,13 @@ def godot_morph_arrays(path):
     channels,vertices=struct.unpack_from("<II",raw,0)
     if channels!=8 or not (13000<=vertices<=1000000):
         hold("unexpected runtime morph binary cardinality")
-    expected=8+channels*vertices*12
+    expected=8+(channels+1)*vertices*12
     if len(raw)!=expected:
-        hold("runtime morph binary actual length does not match declared arrays")
-    off=8
+        hold("runtime baseline/morph binary actual length does not match declared arrays")
+    baseline=[struct.unpack_from("<fff",raw,8+i*12) for i in range(vertices)]
+    if any(not all(math.isfinite(v) for v in xyz) for xyz in baseline):
+        hold("runtime baseline has nonfinite vertices")
+    off=8+vertices*12
     data=[]
     for _ in range(channels):
         arr=[struct.unpack_from("<fff",raw,off+i*12) for i in range(vertices)]
@@ -158,7 +162,7 @@ def godot_morph_arrays(path):
             hold("runtime morph binary contains nonfinite numeric data")
         data.append(arr)
         off+=vertices*12
-    return vertices,data
+    return baseline,data
 
 def main():
     p=argparse.ArgumentParser()
@@ -169,9 +173,11 @@ def main():
     a=p.parse_args()
     if not(0<a.stimulus<=1):
         hold("invalid stimulus")
-    count,source=expected_morph_arrays(a.glb)
-    got_count,observed=godot_morph_arrays(a.godot)
-    if got_count!=count:hold("Godot and source raw glTF vertex cardinality mismatch")
+    source_baseline,source=expected_morph_arrays(a.glb)
+    observed_baseline,observed=godot_morph_arrays(a.godot)
+    count=len(source_baseline)
+    if len(observed_baseline)!=count:hold("Godot and source raw glTF vertex cardinality mismatch")
+    mapping,transform,base_residual=source_to_godot(source_baseline,observed_baseline)
     metrics=[]
     failures=[]
     for channel in range(8):
@@ -180,7 +186,8 @@ def main():
         max_expected=0
         max_observed=0
         for i in range(count):
-            expected=[v*a.stimulus for v in source[channel][i]]
+            original=source[channel][mapping[i]]
+            expected=[v*a.stimulus for v in apply_axis(original,transform)]
             got=observed[channel][i]
             err=math.sqrt(sum((got[k]-expected[k])**2 for k in range(3)))
             if not math.isfinite(err):hold("nonfinite reference displacement error")
@@ -205,6 +212,9 @@ def main():
             "source_glb_sha256":sha(a.glb),
             "godot_delta_sha256":sha(a.godot),
             "source_gltf_vertices":count,
+            "source_to_engine_axis":transform,
+            "max_source_to_engine_baseline_error_m":base_residual,
+            "source_to_engine_position_mapping":"INDEPENDENT_ONE_TO_ONE_NEAREST_BASELINE_POSITION",
             "eight_channels":len(metrics),
             "stimulus":a.stimulus,
             "per_vertex_error_threshold_m":THRESHOLD_METERS,
