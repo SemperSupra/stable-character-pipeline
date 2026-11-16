@@ -1,0 +1,95 @@
+name: R045 independent real EXR native-ray depth and object semantic QA
+
+on:
+  push:
+    branches: [research/r045-depth-raycast-oracle-20261116]
+    paths:
+      - 'depthprobe/**'
+      - '.github/workflows/r045-ray-depth.yml'
+  pull_request:
+    paths:
+      - 'depthprobe/**'
+      - '.github/workflows/r045-ray-depth.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r045-depth-ortho-public
+  cancel-in-progress: true
+
+jobs:
+  native-rays-versus-exr:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: renderlab/go.mod
+          cache: false
+      - name: Previous source-verified image and immutable receipt gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd renderlab && go vet ./... && go test -race -count=1 ./...)
+          python3 -m unittest discover -s lightingprobe -p test_verify.py -v
+      - name: Install CPU Blender in disposable public runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+          blender --version | head -3
+      - name: Render four original synthetic images and source-known native ray samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          blender -b -t 2 --python depthprobe/trace_scene.py -- --out out
+          test -s out/raycast_oracle.json
+          for lighting in diffuse_soft directional_hard; do
+            (cd renderlab && go run . \
+              -baseline "../out/$lighting/baseline/receipt.json" \
+              -material "../out/$lighting/physical_material/receipt.json" \
+              -out "../out/$lighting/comparison.json")
+            (cd renderlab && go run ./exraudit \
+              -baseline "../out/$lighting/baseline/render_passes.exr" \
+              -material "../out/$lighting/physical_material/render_passes.exr" \
+              -out "../out/$lighting/exr_audit.json")
+          done
+      - name: Independent OpenEXR 3.3.3 decoded Z-object/native ray QA, adverse probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r045-exr"
+          "$RUNNER_TEMP/r045-exr/bin/pip" install --disable-pip-version-check \
+            --only-binary=:all: --no-cache-dir numpy==1.26.4 OpenEXR==3.3.3
+          "$RUNNER_TEMP/r045-exr/bin/python" -m unittest discover \
+            -s depthprobe -p test_audit.py -v
+          for lighting in diffuse_soft directional_hard; do
+            "$RUNNER_TEMP/r045-exr/bin/python" renderlab/exraudit/pixel_decode.py \
+              --baseline "out/$lighting/baseline/render_passes.exr" \
+              --material "out/$lighting/physical_material/render_passes.exr" \
+              --out "out/$lighting/exr_pixel_audit.json"
+          done
+          python3 lightingprobe/verify.py \
+            --root out --source-script renderlab/synthetic_scene.py \
+            --out out/r044_report.json
+          "$RUNNER_TEMP/r045-exr/bin/python" depthprobe/audit.py \
+            --root out --out out/r045_report.json
+          grep -F '"status": "PASS_NARROW_REAL_EXR_VS_SOURCE_NATIVE_RAYCAST"' out/r045_report.json
+          # Exclude the manifest itself: shell redirection creates it before find.
+          # A self-entry would be stale by construction and fail byte custody.
+          (cd out && find . -type f ! -name artifact_manifest.sha256 -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
+          (cd out && sha256sum -c artifact_manifest.sha256)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r045-original-synthetic-raycast-exr-HOLD
+          path: out/
+          retention-days: 3
+          if-no-files-found: warn
