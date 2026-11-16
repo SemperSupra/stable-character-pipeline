@@ -32,7 +32,8 @@ def fixture():
                 "y":8+16*(i//8),
                 "stable":True,
                 "pass_index":1,
-                "depth_from_camera_plane":5.0,
+                "ray_distance":5.5,
+                "camera_axis_depth":5.0,
                 "geometric_normal":[0.0,0.0,1.0],
                 "object_name":"fixture-original-head",
             })
@@ -93,7 +94,8 @@ class TestPerspectiveNativeCameraIdentity(unittest.TestCase):
 
     def test_rays_fail_closed_on_nan_duplicate_and_id_swap(self):
         for mutate in [
-            lambda m:m["lenses"]["lens_35"]["rays"][0].update(depth_from_camera_plane=float("nan")),
+            lambda m:m["lenses"]["lens_35"]["rays"][0].update(camera_axis_depth=float("nan")),
+            lambda m:m["lenses"]["lens_35"]["rays"][0].update(ray_distance=4.5),
             lambda m:m["lenses"]["lens_35"]["rays"][0].update(pass_index=99),
             lambda m:m["lenses"]["lens_35"]["rays"][0].update(stable="false"),
             lambda m:m["lenses"]["lens_35"]["rays"][1].update(x=8,y=8),
@@ -102,6 +104,14 @@ class TestPerspectiveNativeCameraIdentity(unittest.TestCase):
             m=fixture()
             mutate(m)
             with self.assertRaises(ValueError):audit.validate_manifest(m)
+
+    def test_perspective_axes_must_differ_from_ray_distance(self):
+        m=fixture()
+        for lens in ("lens_35","lens_65"):
+            for r in m["lenses"][lens]["rays"]:
+                r["ray_distance"]=r["camera_axis_depth"]
+        with self.assertRaisesRegex(ValueError,"UNTESTED_PERSPECTIVE_RAY_VS_AXIS"):
+            audit.validate_manifest(m)
 
     def test_incomplete_material_matrix_rejected(self):
         m=fixture()
