@@ -156,7 +156,11 @@ jobs:
           import struct,sys
           payload=bytearray(open(sys.argv[1],"rb").read())
           assert len(payload)>100
-          struct.pack_into("<f",payload,8,42.0)
+          n=struct.unpack_from("<I",payload,4)[0]
+          assert n>=13000
+          # Header + actual Godot baseline vertices; corrupt first true
+          # morph delta to exercise post-correspondence numerical QA.
+          struct.pack_into("<f",payload,8+n*12,42.0)
           open(sys.argv[2],"wb").write(payload)
           PY
           if python3 research/anatomy-native-mpfb/gltf_godot_morph_compare.py \
