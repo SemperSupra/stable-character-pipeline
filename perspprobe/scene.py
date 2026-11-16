@@ -67,11 +67,17 @@ def intersect(scene,dg,px,py):
     hit,point,normal,face,obj,_=scene.ray_cast(dg,origin,direction,distance=80.0)
     if not hit or obj is None:return None
     distance=float((point-origin).dot(direction))
-    if distance<=0 or distance>=80:
-        raise RuntimeError("R057_BAD_CAMERA_RAY_DISTANCE")
+    # Perspective Cycles ViewLayer Z is linear camera-space axial distance
+    # (-camera-local Z), not Euclidean camera-to-hit ray length.
+    # Retain BOTH independent measurements to prevent mode confusion.
+    local_hit=scene.camera.matrix_world.inverted() @ point
+    axis_depth=-float(local_hit.z)
+    if distance<=0 or distance>=80 or axis_depth<=0 or axis_depth>distance+1e-4:
+        raise RuntimeError("R057_BAD_CAMERA_RAY_OR_AXIS_DISTANCE")
     return {
         "pass_index":int(obj.pass_index),
-        "depth_from_camera_plane":round(distance,9),
+        "ray_distance":round(distance,9),
+        "camera_axis_depth":round(axis_depth,9),
         "geometric_normal":[round(float(z),9) for z in normal.normalized()],
         "object_name":obj.name
     }
@@ -89,7 +95,7 @@ def rays_for(scene):
             stable=all(q is not None and
                        q["pass_index"]==center["pass_index"] and
                        q["object_name"]==center["object_name"] and
-                       abs(q["depth_from_camera_plane"]-center["depth_from_camera_plane"])<1.0
+                       abs(q["camera_axis_depth"]-center["camera_axis_depth"])<1.0
                        for q in near)
             records.append({"x":px,"y":py,"stable":stable,**center})
     num=sum(bool(r["stable"]) for r in records)
@@ -163,6 +169,8 @@ def render_pair(out):
         "qualification":"NOT_PHOTOREALISM_OR_PRIVATE_HUMAN_EVIDENCE",
         "source_scene_id":base.SCENE_ID,
         "source_script_sha256":original_script_sha,
+        "exr_z_interpretation":"PERSPECTIVE_CAMERA_AXIS_MINUS_LOCAL_Z",
+        "native_ray_metric":"EUCLIDEAN_CAMERA_TO_HIT_RAY_LENGTH",
         "geometry_sha256":original_geometry,
         "resolution":RES,
         "lenses":per_lens
