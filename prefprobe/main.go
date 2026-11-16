@@ -168,15 +168,19 @@ func demo() (Report,error) {
   if i%2==1 {f.LeftID,f.RightID=f.RightID,f.LeftID;f.Choice="right"}
   if err:=m.Ingest(f);err!=nil{return Report{},err}
  }
- correct:=0;abstain:=0
+ correct:=0;fixedCorrect:=0;abstain:=0
  for i:=12;i<16;i++ {
   f:=makeFixture("original-shot",i,true)
   if i%2==1 {f.LeftID,f.RightID=f.RightID,f.LeftID;f.Choice="right"}
+  // The fixed baseline always predicts glossy; measure rather than invent its score.
+  syntheticChoice:="matte"
+  if f.Choice=="left" && f.LeftID=="glossy" || f.Choice=="right" && f.RightID=="glossy" {syntheticChoice="glossy"}
+  if syntheticChoice=="glossy" {fixedCorrect++}
   status,best:=m.Rank(f)
   if status!="SYNTHETIC_RANK_ONLY" {abstain++} else if best=="matte" {correct++}
  }
  return Report{Status:"PASS_SYNTHETIC_RANKING_CONTRACT_ONLY",Schema:version,
-  TrainEvents:m.Accepted,HeldoutExamples:4,FixedCorrect:0,LearnedCorrect:correct,
+  TrainEvents:m.Accepted,HeldoutExamples:4,FixedCorrect:fixedCorrect,LearnedCorrect:correct,
   Abstentions:abstain,Qualifier:"NOT_OWNER_FEEDBACK_OR_REAL_PHOTOREALISM_EVIDENCE"},nil
 }
 func main() {
