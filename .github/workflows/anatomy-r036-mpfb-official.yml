@@ -121,3 +121,16 @@ jobs:
           cp research/anatomy-native-mpfb/godot_hil/runtime_probe.gd "$RUNNER_TEMP/r045-godot/runtime_probe.gd"
           timeout 45 "$GODOT" --headless --path "$RUNNER_TEMP/r045-godot" --script runtime_probe.gd
           echo "Godot pose/skin runtime diagnostic only; no photoreal/game performance acceptance"
+
+      - name: R048 Godot real Mesa llvmpipe renderer morph and skinned vertex readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -y install xvfb libgl1-mesa-dri mesa-utils
+          GODOT="$RUNNER_TEMP/r045-godot/Godot_v4.5.2-stable_linux.x86_64"
+          test -x "$GODOT"
+          cp research/anatomy-native-mpfb/godot_hil/bake_probe.gd "$RUNNER_TEMP/r045-godot/bake_probe.gd"
+          timeout 100 xvfb-run -a -s "-screen 0 1280x720x24" \
+            env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
+            "$GODOT" --rendering-driver opengl3 --path "$RUNNER_TEMP/r045-godot" --script bake_probe.gd
+          echo "Godot software GPU render-bake diagnostic complete; no images or human assets uploaded"
