@@ -1,0 +1,47 @@
+name: "Research · Synthetic atmospheric audio A/B"
+on:
+  pull_request:
+    paths:
+      - "research/physical-medium/**"
+      - ".github/workflows/research-gas-audio-ab.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  bounded-synthetic-audition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Checkout gas-audio source without persisted credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Checkout exact independent public WAV critic commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: "5aad9415cabb30f14931494a3a843ac3539aee28"
+          path: critic-pinned
+          persist-credentials: false
+      - name: Native Go tests, source generation, independent measurement
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/physical-medium
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/gas-audition -out "$RUNNER_TEMP/gas-audio-original" | tee "$RUNNER_TEMP/synthesis-receipts.json"
+          cd "$GITHUB_WORKSPACE/critic-pinned/research/audio-critic-cpu"
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/wavcheck -wav "$RUNNER_TEMP/gas-audio-original/earthlike_proxy.wav"
+          go run ./cmd/wavcheck -wav "$RUNNER_TEMP/gas-audio-original/argon_shift_proxy_not_breathing_certified.wav"
