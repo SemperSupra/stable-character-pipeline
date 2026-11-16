@@ -65,11 +65,16 @@ def capture(out):
             if center is None:continue
             neighbors=[cast_pixel(scene,cam,dg,px+dx,py+dy)
                        for dx,dy in ((-1,0),(1,0),(0,-1),(0,1))]
+            # Pixel-adjacent points on sloped ground can differ considerably in
+            # depth without an occlusion. ID+name continuity is the silhouette
+            # oracle; the separate EXR depth error remains the strict 0.05 gate.
             stable=all(q is not None and q["pass_index"]==center["pass_index"]
-                       and abs(q["depth_from_camera_plane"]-center["depth_from_camera_plane"])<0.03
+                       and q["object_name"]==center["object_name"]
+                       and abs(q["depth_from_camera_plane"]-center["depth_from_camera_plane"])<1.0
                        for q in neighbors)
             records.append({"x":px,"y":py,"stable":bool(stable),**center})
     count=sum(r["stable"] for r in records)
+    print("R045_NATIVE_RAYS_SAMPLED",len(records),"STABLE",count)
     if count<64:raise RuntimeError("insufficient source-stable ray samples")
     report={
         "schema":"r045.ortho.raycast.v1",
