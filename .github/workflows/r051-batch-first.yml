@@ -1,0 +1,42 @@
+name: R051 batch-first independent 2+1 qualification
+
+on:
+  pull_request:
+    paths:
+      - 'research/r051-batch/**'
+      - '.github/workflows/r051-batch-first.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-packets:
+    name: R051 / independent / ${{ matrix.packet }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        packet: [Structure, Adversarial, Throughput]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r051-batch/go.mod
+          cache: false
+      - name: Run one independently owned packet including its falsifier
+        working-directory: research/r051-batch
+        shell: bash
+        env:
+          PACKET: ${{ matrix.packet }}
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          go version
+          go vet ./...
+          go test -count=1 -race -v -run "^TestLane${PACKET}$" .
+          echo "R051_BATCH_SHARD_RECEIPT packet=${PACKET} status=PASS_SOURCE_ONLY bounded_oracle=YES source_private_media=NONE"
