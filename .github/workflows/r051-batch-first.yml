@@ -40,3 +40,12 @@ jobs:
           go vet ./...
           go test -count=1 -race -v -run "^TestLane${PACKET}$" .
           echo "R051_BATCH_SHARD_RECEIPT packet=${PACKET} status=PASS_SOURCE_ONLY bounded_oracle=YES source_private_media=NONE"
+
+      - name: R060 bounded actual-rep self-report lineage and falsifier validation
+        working-directory: research/r051-batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          go test -count=1 -race -v -run '^TestR060Lane' .
+          echo "R060_REP_RECEIPT_VALIDATOR source_fixture_only=YES rights_ungranted=YES local_actor_executed=NOT_OBSERVED independent_issuer=NOT_VERIFIED"
