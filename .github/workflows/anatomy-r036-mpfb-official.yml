@@ -100,3 +100,23 @@ jobs:
           test -s "$RUNNER_TEMP/r036-official/r045-organ-morph-anchor.json"
           grep -F '"status": "PASS_NARROW_ALGORITHMIC_ANCHOR_DIAGNOSTIC"' "$RUNNER_TEMP/r036-official/r045-organ-morph-anchor.json"
           echo "Synthetic morphology anchor study only: no source/real organ GLB published"
+
+      - name: R047 actual Godot runtime synchronizes eight body and synthetic organ morphology channels
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLSs --retry 2 --max-time 90 \
+            https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip \
+            -o "$RUNNER_TEMP/r047-godot.zip"
+          echo "87f6e6be292929e363d15ed9052f277b2ba4e95ed994e1e099048097be2dfd03  $RUNNER_TEMP/r047-godot.zip" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/r047-godot"
+          unzip -q "$RUNNER_TEMP/r047-godot.zip" -d "$RUNNER_TEMP/r047-godot"
+          GODOT="$RUNNER_TEMP/r047-godot/Godot_v4.5.2-stable_linux.x86_64"
+          chmod +x "$GODOT"
+          "$GODOT" --version
+          cp research/anatomy-native-mpfb/godot_anchor_hil/project.godot "$RUNNER_TEMP/r047-godot/project.godot"
+          cp research/anatomy-native-mpfb/godot_anchor_hil/probe.gd "$RUNNER_TEMP/r047-godot/probe.gd"
+          cp "$RUNNER_TEMP/r036-official/r045-morph-anchored-proxies.glb" "$RUNNER_TEMP/r047-godot/anchored.glb"
+          timeout 90 "$GODOT" --headless --editor --path "$RUNNER_TEMP/r047-godot" --import
+          timeout 45 "$GODOT" --headless --path "$RUNNER_TEMP/r047-godot" --script probe.gd
+          echo "All physical model and derived GLB assets remain ephemeral; DLE only accepts numeric receipt"
