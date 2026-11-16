@@ -82,7 +82,10 @@ jobs:
           "$RUNNER_TEMP/r045-exr/bin/python" depthprobe/audit.py \
             --root out --out out/r045_report.json
           grep -F '"status": "PASS_NARROW_REAL_EXR_VS_SOURCE_NATIVE_RAYCAST"' out/r045_report.json
-          (cd out && find . -type f -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
+          # Exclude the manifest itself: shell redirection creates it before find.
+          # A self-entry would be stale by construction and fail byte custody.
+          (cd out && find . -type f ! -name artifact_manifest.sha256 -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
+          (cd out && sha256sum -c artifact_manifest.sha256)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
