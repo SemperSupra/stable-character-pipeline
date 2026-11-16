@@ -103,3 +103,14 @@ jobs:
           grep -F '"status": "PASS_NARROW_BOUNDARY_HASHES"' "$RUNNER_TEMP/r054-buffer-views.json"
           grep -F '"mutation_detected": true' "$RUNNER_TEMP/r054-buffer-views.json"
           echo "R054 source-safe per-bufferView SHA receipt; model bytes remain on ephemeral runner"
+
+      - name: R055 independent indexed-triangle connectivity and winding SHA-only oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 research/anatomy-native-mpfb/r055_triangle_topology.py \
+            --glb "$RUNNER_TEMP/r053/r044-morph-organ-allweights.glb" \
+            --out "$RUNNER_TEMP/r055-triangle-topology.json"
+          grep -F '"status": "PASS_NARROW_ORIGINAL_TRIANGLE_TOPOLOGY_FINGERPRINT"' "$RUNNER_TEMP/r055-triangle-topology.json"
+          grep -F '"topology_mutation_detected": true' "$RUNNER_TEMP/r055-triangle-topology.json"
+          echo "R055 order-independent oriented and unoriented glTF triangle signatures only; original asset bytes stay in scratch"
