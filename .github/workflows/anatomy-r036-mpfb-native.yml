@@ -29,8 +29,9 @@ jobs:
           git rev-parse HEAD
           uname -a
           sudo apt-get -qq update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy
           blender --version | head -3
+          blender --background --python-exit-code 12 --python-expr 'import numpy; print("NUMPY_READY",numpy.__version__)'
       - name: Fetch one pinned source-licensed MPFB core base OBJ
         env:
           SOURCE_SHA: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
@@ -48,12 +49,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/r036"
-          blender --background --threads 2 --python research/anatomy-native-rig/native_vertical_slice.py -- \
+          blender --background --threads 2 --python-exit-code 12 --python research/anatomy-native-rig/native_vertical_slice.py -- \
             --phase build --base "$RUNNER_TEMP/mpfb-base.obj" --output "$RUNNER_TEMP/r036"
       - name: Reopen native scene and validate exported skin
         run: |
           set -euo pipefail
-          blender --background "$RUNNER_TEMP/r036/mpfb-anatomy-diagnostic.blend" --threads 2 \
+          blender --background "$RUNNER_TEMP/r036/mpfb-anatomy-diagnostic.blend" --threads 2 --python-exit-code 12 \
             --python research/anatomy-native-rig/native_vertical_slice.py -- \
             --phase verify --output "$RUNNER_TEMP/r036"
           ls -lh "$RUNNER_TEMP/r036" | sed -e 's|/home/runner/work/_temp/||g'
