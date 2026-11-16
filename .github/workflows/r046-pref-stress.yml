@@ -1,0 +1,54 @@
+name: R046 synthetic human intent evidence sufficiency and contextual robustness
+
+on:
+  push:
+    branches: [research/r046-pref-robustness-doe-20261116]
+    paths:
+      - 'prefprobe/**'
+      - '.github/workflows/r046-pref-stress.yml'
+  pull_request:
+    paths:
+      - 'prefprobe/**'
+      - '.github/workflows/r046-pref-stress.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r046-synthetic-preference-public
+  cancel-in-progress: true
+
+jobs:
+  adversarial-context-preference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: prefprobe/go.mod
+          cache: false
+      - name: Go typed ranker and synthetic adverse-context controls
+        working-directory: prefprobe
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          go vet ./...
+          go test -race -count=1 -v ./... | tee synthetic_stress_log.txt
+          go run . -synthetic | tee synthetic_report.json
+          grep -F '"qualifier": "NOT_OWNER_FEEDBACK_OR_REAL_PHOTOREALISM_EVIDENCE"' synthetic_report.json
+          sha256sum synthetic_report.json synthetic_stress_log.txt > synthetic_stress.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r046-original-synthetic-preference-stress-HOLD
+          path: |
+            prefprobe/synthetic_report.json
+            prefprobe/synthetic_stress_log.txt
+            prefprobe/synthetic_stress.sha256
+          retention-days: 3
+          if-no-files-found: warn
