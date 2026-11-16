@@ -94,5 +94,13 @@ func TestRankingUncertaintyAndNoCanonicalizer(t *testing.T) {
  if status!="ABSTAIN_NO_TRAINING" || winner!="" {t.Fatal("untrained synthetic preference promoted")}
  if err:=m.Ingest(f);err!=nil{t.Fatal(err)}
  status,winner=m.Rank(f)
+ if status!="ABSTAIN_INSUFFICIENT_EVIDENCE" || winner!="" {
+  t.Fatalf("unsafe one-vote synthetic promotion %s %s",status,winner)
+ }
+ for i:=0;i<4;i++ {
+  f.EventID="evidence-"+string(rune('A'+i))
+  if err:=m.Ingest(f);err!=nil{t.Fatal(err)}
+ }
+ status,winner=m.Rank(f)
  if status!="SYNTHETIC_RANK_ONLY" || winner!="matte" {t.Fatalf("invalid narrow ranking %s %s",status,winner)}
 }
