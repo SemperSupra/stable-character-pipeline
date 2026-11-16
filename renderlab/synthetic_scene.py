@@ -126,6 +126,12 @@ def make_scene(arm):
     scene.render.film_transparent=False
     scene.render.image_settings.color_mode='RGBA'
     view=scene.view_layers[0]
+    # Ubuntu's open-source Blender CPU build may be compiled without OIDN.
+    # Explicitly disable denoising for a portable, unbiased low-sample fixture.
+    if hasattr(view, 'cycles') and hasattr(view.cycles, 'use_denoising'):
+        view.cycles.use_denoising=False
+    if hasattr(scene.cycles, 'use_denoising'):
+        scene.cycles.use_denoising=False
     view.use_pass_z=True
     view.use_pass_normal=True
     view.use_pass_object_index=True
