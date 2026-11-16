@@ -88,6 +88,23 @@ jobs:
             -out ../out/exr_audit.json
           grep -F '"status": "EXR_HEADER_CHANNELS_VERIFIED"' ../out/exr_audit.json
           (cd ../out && find . -type f -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
+      - name: Decode genuine EXR pixels using pinned independent Academy Software Foundation OpenEXR binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r040-exr-venv"
+          "$RUNNER_TEMP/r040-exr-venv/bin/pip" install --disable-pip-version-check --only-binary=:all: --no-cache-dir \
+            numpy==1.26.4 OpenEXR==3.3.3
+          "$RUNNER_TEMP/r040-exr-venv/bin/python" - <<'PY'
+          import OpenEXR,numpy
+          print("R040_PINNED_DECODER",OpenEXR.__version__,numpy.__version__)
+          PY
+          "$RUNNER_TEMP/r040-exr-venv/bin/python" renderlab/exraudit/pixel_decode.py \
+            --baseline out/baseline/render_passes.exr \
+            --material out/physical_material/render_passes.exr \
+            --out out/exr_pixel_audit.json
+          grep -F '"status": "PASS_NARROW_DECODED_RENDER_PASS_SEMANTICS"' out/exr_pixel_audit.json
+          (cd out && find . -type f -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
