@@ -1,0 +1,36 @@
+name: R1 temporal motion and critic grounding independent source-safe CPU
+on:
+  pull_request:
+    paths:
+      - 'research/motion-temporal-critic-r1/**'
+      - '.github/workflows/motion-temporal-critic-r1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-temporal-reps:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        lane: [motion, resample, critic]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: research/motion-temporal-critic-r1/go.mod
+          cache: false
+      - name: Independent no-network synthetic temporal gate
+        shell: bash
+        working-directory: research/motion-temporal-critic-r1
+        run: |
+          set -euo pipefail
+          case '${{ matrix.lane }}' in
+            motion) go test -count=1 -v -run '^TestClockAndMotionMutants$' ./... ;;
+            resample) go test -count=1 -v -run '^TestResampleLostInformation$' ./... ;;
+            critic) go test -count=1 -v -run '^TestCriticNoOverrideAndSourceBinding$' ./...; go vet ./... ;;
+          esac
