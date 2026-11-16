@@ -39,7 +39,10 @@ def nearest_distances(a,b):
     tree.balance()
     ds=sorted(tree.find(p)[2] for p in a)
     n=len(ds)
-    return {"n":n,"mean_m":sum(ds)/n,"p95_m":ds[min(n-1,math.ceil(.95*n)-1)],"max_m":ds[-1]}
+    return {"n":n,"mean_m":sum(ds)/n,"p95_m":ds[min(n-1,math.ceil(.95*n)-1)],
+      "p99_m":ds[min(n-1,math.ceil(.99*n)-1)],"max_m":ds[-1],
+      "count_over_0p1mm":sum(d>.0001 for d in ds),
+      "count_over_1mm":sum(d>.001 for d in ds),"count_over_5mm":sum(d>.005 for d in ds)}
 
 def compare(a,b):
     direct=nearest_distances(a,b)
@@ -62,10 +65,29 @@ def run(out):
     if not orig or orig.type!="MESH" or not rig or rig.type!="ARMATURE":
         fail("source native MPFB body/rig unavailable")
     shifts=negative_control()
+    bpy.context.scene.frame_set(1)
     result={"schema":"scp.anatomy.gltf_roundtrip.v1","stage":"NARROW_MEASUREMENT_NOT_PRODUCTION_ACCEPTANCE",
-      "negative_shift_control_max_m":shifts,"native_body_vertices":len(orig.data.vertices),
+      "negative_shift_control_max_m":shifts,"native_body_raw_vertices":len(orig.data.vertices),
+      "native_body_evaluated_vertices":len(points(orig)),
       "profiles":{},"blender":bpy.app.version_string}
-    for label,filename in [("four_influence","mpfb-official-anatomy.glb"),("all_influences","mpfb-official-anatomy-allweights.glb")]:
+    # A/B against the first two valid GLBs: now explicitly test Blender's
+    # apply-modifiers export to discover helper-mask leakage. This is a
+    # separate game interchange profile, NOT a filmmaking master substitute:
+    # export_apply can destroy/misrepresent shape keys.
+    bpy.ops.object.select_all(action="DESELECT")
+    selected=[orig,rig]+[bpy.data.objects[n] for n in ("R036_AnatomyProxy_Left","R036_AnatomyProxy_Right")]
+    for o in selected:o.select_set(True)
+    bpy.context.view_layer.objects.active=rig
+    challenger=[("masked_four","mpfb-anatomy-masked-four.glb",False),
+                ("masked_all","mpfb-anatomy-masked-all.glb",True)]
+    for label,filename,allw in challenger:
+        bpy.ops.export_scene.gltf(filepath=os.path.join(out,filename),export_format="GLB",
+              use_selection=True,export_apply=True,export_all_influences=allw)
+        if not os.path.isfile(os.path.join(out,filename)):
+            fail("mask-applied GLB export missing for "+label)
+    cases=[("four_influence","mpfb-official-anatomy.glb"),
+      ("all_influences","mpfb-official-anatomy-allweights.glb")]+[(a,b) for a,b,_ in challenger]
+    for label,filename in cases:
         path=os.path.join(out,filename)
         if not os.path.isfile(path):fail("missing source-pinned GLB "+filename)
         before=set(bpy.context.scene.objects)
@@ -98,7 +120,10 @@ def run(out):
     p=result["profiles"]
     def error(label,frame):return p[label]["per_frame"][str(frame)]["symmetric_p95_m"]
     result["difference_p95_four_minus_all_m"]={str(frame):error("four_influence",frame)-error("all_influences",frame) for frame in [1,12,24]}
-    result["semantic_assessment"]="MEASURED_NO_ENGINE_OR_ANATOMY_ACCEPTANCE"
+    result["masked_vs_unmasked_reverse_p95_m"]={
+      name:{str(frame):p[name]["per_frame"][str(frame)]["b_to_a"]["p95_m"] for frame in [1,12,24]}
+      for name in ["all_influences","masked_all"]}
+    result["semantic_assessment"]="MEASURED_HELPER_GEOMETRY_AND_SKIN_INFLUENCE_NOT_TARGET_ENGINE_ACCEPTANCE"
     print("R036_GLTF_REIMPORT_RECEIPT "+json.dumps(result,sort_keys=True,separators=(",",":")))
 
 if __name__=="__main__":
