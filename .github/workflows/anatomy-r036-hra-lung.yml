@@ -51,6 +51,7 @@ jobs:
             https://cdn.humanatlas.io/hra-releases/v1.2/models/VH_M_Lung.glb \
             -o "$RUNNER_TEMP/HRA-v1.2-VH_M_Lung.glb"
           test "$(wc -c < "$RUNNER_TEMP/HRA-v1.2-VH_M_Lung.glb")" -gt 1024
+          echo "e64351b72b0bc5289a4dc32ba2b402b9c974f9ec0b1972bf06b436864f917913  $RUNNER_TEMP/HRA-v1.2-VH_M_Lung.glb" | sha256sum --check --status || { echo "HRA_LUNG_SOURCE_SHA256_MISMATCH"; exit 4; }
           sha256sum "$RUNNER_TEMP/HRA-v1.2-VH_M_Lung.glb"
       - name: Build MakeHuman original base rig and source donor lung scene
         run: |
