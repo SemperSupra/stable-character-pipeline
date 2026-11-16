@@ -200,8 +200,13 @@ func inspect(table,archive string)(Receipt,error){
 func main(){
  table:=flag.String("elements","","official partof_element_parts.txt in scratch")
  archive:=flag.String("archive","","official partof_BP3D_4.0_obj_99.zip in scratch")
+ topology:=flag.Bool("topology",false,"inspect original bounded FJ atomic mesh surface topology and FMA composite overlap")
  flag.Parse()
  if *table==""||*archive==""{fmt.Fprintln(os.Stderr,"R036_ELEMENT_FAIL missing source paths");os.Exit(2)}
+ if *topology{
+  if e:=emitTopology(*table,*archive);e!=nil{fmt.Fprintln(os.Stderr,"R036_COMPOSITE_TOPOLOGY_FAIL",e);os.Exit(5)}
+  return
+ }
  r,e:=inspect(*table,*archive)
  if e!=nil{fmt.Fprintln(os.Stderr,"R036_ELEMENT_FAIL",e);os.Exit(3)}
  jsonBytes,e:=json.Marshal(r);if e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(3)}
