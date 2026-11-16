@@ -90,3 +90,25 @@ jobs:
           test -s "$RUNNER_TEMP/r036-official/r044-morph-organ-doe.json"
           grep -F '"status": "PASS_NARROW_MULTIMORPH_AND_SYNTHETIC_ORGAN_COEXPORT"' "$RUNNER_TEMP/r036-official/r044-morph-organ-doe.json"
           echo "Synthetic anatomical proxy GLB remains scratch-only; durable numeric receipts in CI logs and private DLE"
+
+      - name: R045 independent Godot 4.5.2 headless glTF skeletal morph and synthetic-organ import
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLSs --retry 2 --max-time 90 \
+            https://github.com/godotengine/godot/releases/download/4.5.2-stable/Godot_v4.5.2-stable_linux.x86_64.zip \
+            -o "$RUNNER_TEMP/r045-godot.zip"
+          sha256sum "$RUNNER_TEMP/r045-godot.zip"
+          mkdir -p "$RUNNER_TEMP/r045-godot"
+          unzip -q "$RUNNER_TEMP/r045-godot.zip" -d "$RUNNER_TEMP/r045-godot"
+          GODOT="$RUNNER_TEMP/r045-godot/Godot_v4.5.2-stable_linux.x86_64"
+          test -s "$GODOT"
+          chmod +x "$GODOT"
+          "$GODOT" --version
+          cp research/anatomy-native-mpfb/godot_hil/project.godot "$RUNNER_TEMP/r045-godot/project.godot"
+          cp research/anatomy-native-mpfb/godot_hil/probe.gd "$RUNNER_TEMP/r045-godot/probe.gd"
+          cp "$RUNNER_TEMP/r036-official/r044-morph-organ-allweights.glb" "$RUNNER_TEMP/r045-godot/fixture.glb"
+          # Godot's independent editor import and skeletal resource rebuild.
+          timeout 90 "$GODOT" --headless --path "$RUNNER_TEMP/r045-godot" --editor --import
+          timeout 45 "$GODOT" --headless --path "$RUNNER_TEMP/r045-godot" --script probe.gd
+          echo "R045 source-safe Godot results retained in logs; all character bytes ephemeral"
