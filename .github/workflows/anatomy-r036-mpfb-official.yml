@@ -120,3 +120,35 @@ jobs:
           timeout 90 "$GODOT" --headless --editor --path "$RUNNER_TEMP/r047-godot" --import
           timeout 45 "$GODOT" --headless --path "$RUNNER_TEMP/r047-godot" --script probe.gd
           echo "All physical model and derived GLB assets remain ephemeral; DLE only accepts numeric receipt"
+
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/anatomy-native-mpfb/morphcontrol/go.mod
+          cache: false
+      - name: R049 actual Go canonical plan to Godot runtime adapter, with tampering negative control
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT="$RUNNER_TEMP/r047-godot/Godot_v4.5.2-stable_linux.x86_64"
+          test -x "$GODOT"
+          mkdir -p "$RUNNER_TEMP/r049-godot"
+          cp research/anatomy-native-mpfb/godot_bridge_hil/project.godot "$RUNNER_TEMP/r049-godot/project.godot"
+          cp research/anatomy-native-mpfb/godot_bridge_hil/probe.gd "$RUNNER_TEMP/r049-godot/probe.gd"
+          cp "$RUNNER_TEMP/r036-official/r045-morph-anchored-proxies.glb" "$RUNNER_TEMP/r049-godot/anchored.glb"
+          (
+            cd research/anatomy-native-mpfb/morphcontrol
+            export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+            go run ./cmd/emitfixture --out "$RUNNER_TEMP/r049-godot"
+          )
+          timeout 90 "$GODOT" --headless --editor --path "$RUNNER_TEMP/r049-godot" --import
+          timeout 45 "$GODOT" --headless --path "$RUNNER_TEMP/r049-godot" --script probe.gd
+          if R049_SOURCE="res://tampered.json" timeout 45 "$GODOT" --headless \
+             --path "$RUNNER_TEMP/r049-godot" --script probe.gd \
+             > "$RUNNER_TEMP/r049-intentional-fail-closed.log" 2>&1; then
+            echo "R049_HOLD tampered Go plan was improperly accepted by Godot" >&2
+            exit 12
+          fi
+          grep -F 'R049_GODOT_BRIDGE_HOLD canonical payload digest mismatch' \
+            "$RUNNER_TEMP/r049-intentional-fail-closed.log"
+          echo "R049_GO_GODOT_NEGATIVE_CONTROL accepted_original=YES rejected_tamper=YES"
+          echo "All source-safe GLB and JSON payloads remain ephemeral, receipts in CI logs only"
