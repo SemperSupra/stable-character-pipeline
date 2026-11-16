@@ -7,10 +7,6 @@ on:
     paths:
       - 'perspprobe/**'
       - '.github/workflows/r057-perspective.yml'
-  pull_request:
-    paths:
-      - 'perspprobe/**'
-      - '.github/workflows/r057-perspective.yml'
   workflow_dispatch:
 
 permissions:
@@ -18,7 +14,7 @@ permissions:
 
 concurrency:
   group: r057-public-perspective-ray-depth
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   native-perspective-z:
