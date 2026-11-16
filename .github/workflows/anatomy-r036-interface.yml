@@ -1,0 +1,42 @@
+name: R036 Shared Anatomy Interfaces Go CPU
+on:
+  push:
+    branches:
+      - research/r036-anatomy-interface-20261116
+    paths:
+      - 'research/anatomy-bakeoff/service/**'
+      - 'research/anatomy-bakeoff/cmd/anatomyweb/**'
+      - '.github/workflows/anatomy-r036-interface.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-bakeoff/service/**'
+      - 'research/anatomy-bakeoff/cmd/anatomyweb/**'
+      - '.github/workflows/anatomy-r036-interface.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-interface-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synthetic-three-audience:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: research/anatomy-bakeoff
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Offline Go test, vet, exact source only
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go version
+          git rev-parse HEAD
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/anatomyprobe describe
