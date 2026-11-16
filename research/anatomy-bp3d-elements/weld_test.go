@@ -27,7 +27,7 @@ func TestWeldCollapseAndUnsafeToleranceReported(t *testing.T){
  source:="v 0 0 0\nv 0.0001 0 0\nv 0 1 0\nv 0 0 1\nf 1 3 4\nf 2 3 4\n"
  m,e:=originalMesh(strings.NewReader(source),4096);if e!=nil{t.Fatal(e)}
  a,e:=checkMeshAfterWeld(m,.001)
- if e!=nil||a.VerticesMerged==0||a.BoundaryEdges==0{
+ if e!=nil||a.VerticesMerged==0||a.OrientedConflicts==0||a.Status!="HOLD_OPEN_OR_NONMANIFOLD_AFTER_PROPOSED_WELD"{
   t.Fatalf("collapsed source not properly held: %+v %v",a,e)
  }
  for _,tol:=range []float64{0,-.1,.1}{
