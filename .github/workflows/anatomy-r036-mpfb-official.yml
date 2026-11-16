@@ -80,3 +80,13 @@ jobs:
           test -s "$RUNNER_TEMP/r036-official/glb-import-differential.json"
           grep -F '"status": "MEASUREMENT_ONLY_NO_FIDELITY_ACCEPTANCE"' "$RUNNER_TEMP/r036-official/glb-import-differential.json"
           echo "Measured import/differential receipt remains ephemeral; no release, asset, or video claims"
+
+      - name: R040 independent rest-correspondence and regional export failure localization
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/glb_mapped_motion.py -- \
+            --out "$RUNNER_TEMP/r036-official"
+          test -s "$RUNNER_TEMP/r036-official/r040-imported-motion-diagnostic.json"
+          grep -F '"status": "DIAGNOSTIC_ONLY_EXPORT_HOLD"' "$RUNNER_TEMP/r036-official/r040-imported-motion-diagnostic.json"
+          echo "Derived diagnostic retained in job logs only; no original source media artifact uploaded"
