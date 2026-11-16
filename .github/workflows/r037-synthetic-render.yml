@@ -105,6 +105,13 @@ jobs:
             --out out/exr_pixel_audit.json
           grep -F '"status": "PASS_NARROW_DECODED_RENDER_PASS_SEMANTICS"' out/exr_pixel_audit.json
           (cd out && find . -type f -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
+      - name: R043 independent decoded EXR adversarial negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/r040-exr-venv/bin/python" -m unittest discover \
+            --start-directory renderlab/exraudit --pattern 'test_pixel_decode.py' -v
+          echo "R043 synthetic EXR adversarial controls passed; requires real Cycles render independent job"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
