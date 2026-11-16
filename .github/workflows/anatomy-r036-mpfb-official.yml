@@ -174,3 +174,17 @@ jobs:
             "$RUNNER_TEMP/r050-expected-reject.log"
           echo "R050_MORPH_NEGATIVE_CONTROL source=true_gpu_readback=YES corrupt_vertex_rejected=YES"
           echo "Raw GLB and numeric vertex arrays remain in public disposable scratch only"
+
+      - name: R051 original source MPFB eight-key morph effectiveness and exported glTF channel lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/r051_native_morph_effectiveness.py -- \
+            --out "$RUNNER_TEMP/r036-official"
+          python3 research/anatomy-native-mpfb/r051_native_to_gltf_morph.py \
+            --source "$RUNNER_TEMP/r036-official/r051-native-morph-effectiveness.json" \
+            --glb "$RUNNER_TEMP/r036-official/r044-morph-organ-allweights.glb" \
+            --out "$RUNNER_TEMP/r051-morph-lineage.json"
+          grep -F '"status": "PASS_NARROW_MORPH_EFFECTIVENESS_PROVENANCE"' "$RUNNER_TEMP/r051-morph-lineage.json"
+          echo "R051_MORPH_ZERO_SOURCE original_native_relative_keys=INSPECTED actual_glb_target_names=VERIFIED public_assets_ephemeral=YES"
