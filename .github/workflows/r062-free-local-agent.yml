@@ -34,6 +34,11 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Setup Go toolchain pinned by current draft module
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r051-batch/go.mod
+          cache: false
       - name: Baseline deterministic Go tests (offline)
         shell: bash
         working-directory: research/r051-batch
