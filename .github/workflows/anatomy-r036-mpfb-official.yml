@@ -70,3 +70,13 @@ jobs:
             --stage verify --out "$RUNNER_TEMP/r036-official"
           ls -lh "$RUNNER_TEMP/r036-official"
           echo "Original generated images, scene and source retained only in ephemeral runner scratch; no public artifact upload"
+
+      - name: Independent reimport and measured pose-time GLB skin deviation (no film/game acceptance)
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/glb_fidelity.py -- \
+            --out "$RUNNER_TEMP/r036-official"
+          test -s "$RUNNER_TEMP/r036-official/glb-import-differential.json"
+          grep -F '"status": "MEASUREMENT_ONLY_NO_FIDELITY_ACCEPTANCE"' "$RUNNER_TEMP/r036-official/glb-import-differential.json"
+          echo "Measured import/differential receipt remains ephemeral; no release, asset, or video claims"
