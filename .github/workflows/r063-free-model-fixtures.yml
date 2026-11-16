@@ -1,0 +1,127 @@
+name: R063 public free-model typed adversarial fixture bake-off
+
+on:
+  pull_request:
+    paths:
+      - 'research/r063-typed-agent/**'
+      - '.github/workflows/r063-free-model-fixtures.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r063-fixtures-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  independently-bounded-fixtures:
+    name: "R063 / ${{ matrix.tag }} / ${{ matrix.lane }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - {tag: m15, model: "qwen2.5-coder:1.5b", lane: path}
+          - {tag: m15, model: "qwen2.5-coder:1.5b", lane: json}
+          - {tag: m3, model: "qwen2.5-coder:3b", lane: path}
+          - {tag: m3, model: "qwen2.5-coder:3b", lane: json}
+    steps:
+      - name: Checkout read-only public source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Setup Go toolchain from module
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r063-typed-agent/go.mod
+          cache: false
+      - name: Offline synthetic Go baseline and agent negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r063"
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          (cd research/r051-batch && go test -count=1 ./...)
+          (cd research/r063-typed-agent && go test -count=1 -race ./... && go vet ./...)
+          printf 'sha=%s model=%s lane=%s\n' "$GITHUB_SHA" "${{ matrix.model }}" "${{ matrix.lane }}" \
+            | tee "$RUNNER_TEMP/r063/baseline.txt"
+      - name: Start loopback CPU model service
+        shell: bash
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name r063-ollama \
+            -p 127.0.0.1:11434:11434 \
+            -e OLLAMA_CONTEXT_LENGTH=2048 \
+            -e OLLAMA_NUM_PARALLEL=1 \
+            ollama/ollama:0.13.2
+          for i in $(seq 1 35); do
+            if curl -fsS --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS --max-time 3 http://127.0.0.1:11434/api/tags >/dev/null
+          docker exec r063-ollama ollama pull "$MODEL" > "$RUNNER_TEMP/r063/pull.log" 2>&1
+          docker exec r063-ollama ollama list | tee "$RUNNER_TEMP/r063/model-inventory.txt"
+      - name: Model proposes typed fixtures, deterministic Go renderer writes candidate
+        working-directory: research/r063-typed-agent
+        shell: bash
+        env:
+          MODEL: ${{ matrix.model }}
+          LANE: ${{ matrix.lane }}
+        run: |
+          set -euo pipefail
+          set +e
+          timeout --signal=INT --kill-after=10s 210s env GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off \
+            go run . --model "$MODEL" --lane "$LANE" > "$RUNNER_TEMP/r063/agent.log" 2>&1
+          exit_code=$?
+          set -e
+          echo "AGENT_EXIT_CODE=$exit_code" >> "$GITHUB_ENV"
+          echo "R063_AGENT_EXIT_CODE=$exit_code"
+          tail -c 8000 "$RUNNER_TEMP/r063/agent.log" || true
+      - name: Independently verify exact candidate ownership, Go race and vet
+        shell: bash
+        env:
+          LANE: ${{ matrix.lane }}
+          TAG: ${{ matrix.tag }}
+          MODEL: ${{ matrix.model }}
+        run: |
+          set -euo pipefail
+          target="research/r051-batch/r063_${TAG}_${LANE}_test.go"
+          status=FAIL
+          reason=UNKNOWN
+          git status --porcelain | tee "$RUNNER_TEMP/r063/git-status.txt"
+          if [ "${AGENT_EXIT_CODE:-99}" != 0 ]; then
+            reason=MODEL_OR_FIXTURE_CONTRACT
+          elif [ ! -s "$target" ]; then
+            reason=NO_CANDIDATE
+          else
+            git add -N "$target"
+            git diff -- "$target" > "$RUNNER_TEMP/r063/candidate.diff"
+            changed=$(git status --porcelain | awk '{print $2}' | sort -u)
+            if [ "$changed" != "$target" ]; then
+              reason=OUT_OF_SCOPE_EDIT
+            elif [ ! -s "$RUNNER_TEMP/r063/candidate.diff" ]; then
+              reason=EMPTY_DIFF
+            elif (cd research/r051-batch && GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -count=1 -race ./... && GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go vet ./...) > "$RUNNER_TEMP/r063/tests.log" 2>&1; then
+              status=PASS_NARROW
+              reason=MODEL_PROPOSED_FIXTURES_PASSED_INDEPENDENT_GO
+            else
+              reason=TEST_FAILURE
+            fi
+          fi
+          printf '{"schema":"scp.r063.typed-fixture.v1","model":"%s","lane":"%s","tag":"%s","source_checkout_sha":"%s","status":"%s","reason":"%s","agent_exit":%s,"model_authored_source":false,"model_proposed_fixture_data":true,"private_inputs":false,"repo_writeback":false,"product_accepted":false}\n' \
+            "$MODEL" "$LANE" "$TAG" "$GITHUB_SHA" "$status" "$reason" "${AGENT_EXIT_CODE:-99}" \
+            | tee "$RUNNER_TEMP/r063/receipt.json"
+          test "$status" = PASS_NARROW
+      - name: Preserve bounded public evidence including failed trials
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: "r063-${{ matrix.tag }}-${{ matrix.lane }}-${{ github.run_id }}"
+          path: ${{ runner.temp }}/r063/
+          retention-days: 3
+          if-no-files-found: warn
