@@ -1,0 +1,57 @@
+name: R036 MPFB GLB Pose Reimport Differential
+on:
+  push:
+    branches:
+      - research/r036-glb-roundtrip-20261116
+    paths:
+      - 'research/anatomy-fidelity/**'
+      - '.github/workflows/anatomy-r036-glb-diff.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-fidelity/**'
+      - '.github/workflows/anatomy-r036-glb-diff.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-glb-reimport-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-source-reimport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install free CPU Blender/NumPy in disposable runner
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy
+          blender --version | head -2
+      - name: Acquire source-pinned official MPFB addon
+        env:
+          SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" fetch -q --depth 1 origin "$SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = "d26635e9326e3cca30778fd7b9c00062b03cce09"
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+      - name: Produce original rig and both GLB profiles
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036"
+          blender -b -t 2 --python-exit-code 12 --python research/anatomy-native-mpfb/official_mpfb_native.py -- --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r036"
+          blender -b "$RUNNER_TEMP/r036/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 --python research/anatomy-native-mpfb/official_mpfb_native.py -- --stage verify --out "$RUNNER_TEMP/r036"
+      - name: Independently reimport source-pinned GLBs and compare posed geometry
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 --python research/anatomy-fidelity/compare_glb_pose.py -- --out "$RUNNER_TEMP/r036"
+          echo "Results in logs only; no third-party or generated binary artifacts published"
