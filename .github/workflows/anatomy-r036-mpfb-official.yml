@@ -70,3 +70,13 @@ jobs:
             --stage verify --out "$RUNNER_TEMP/r036-official"
           ls -lh "$RUNNER_TEMP/r036-official"
           echo "Original generated images, scene and source retained only in ephemeral runner scratch; no public artifact upload"
+
+      - name: R043 independent helper-mask deletion with original morphs and indexed weights preserved
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/morph_mask_preserving.py -- \
+            --out "$RUNNER_TEMP/r036-official"
+          test -s "$RUNNER_TEMP/r036-official/r043-editable-morph-mask-diagnostic.json"
+          grep -F '"status": "PASS_NARROW_EDITABLE_MASKED_DERIVATIVE"' "$RUNNER_TEMP/r036-official/r043-editable-morph-mask-diagnostic.json"
+          echo "All official source scene, native meshes, GLBs and morph output stay ephemeral; JSON receipt in logs only"
