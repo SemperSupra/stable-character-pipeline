@@ -71,7 +71,7 @@ def run(out):
             "frame_index":frame,
             "head_x_delta_source_units":delta,
             "pose_sha256":base.canonical_hash({
-                name:[round(float(v),9) for v in source_objects[name].matrix_world]
+                name:[round(float(v),9) for row in source_objects[name].matrix_world for v in row]
                 for name in sorted(source_objects)
             }),
             "geometry_sha256":geom,
