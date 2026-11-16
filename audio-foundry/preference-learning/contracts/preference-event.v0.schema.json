@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/stable-character/audio/preference-event.v0.schema.json",
+  "title": "Audio PreferenceEvent v0; human consent-based feedback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "event_id",
+    "target_id",
+    "intent_revision",
+    "classification",
+    "mode",
+    "shown",
+    "choice",
+    "reason_codes",
+    "locale"
+  ],
+  "properties": {
+    "schema": {
+      "const": "audio.preference_event.v0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "target_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "intent_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "classification": {
+      "enum": [
+        "PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL",
+        "PRIVATE_FINAL_CHARACTER_VOICE"
+      ]
+    },
+    "mode": {
+      "enum": [
+        "blind_randomized",
+        "educational_labeled"
+      ]
+    },
+    "shown": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "required": [
+          "position",
+          "candidate_sha256"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "position": {
+            "enum": [
+              "a",
+              "b"
+            ]
+          },
+          "candidate_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "choice": {
+      "enum": [
+        "a",
+        "b",
+        "tie",
+        "neither",
+        "unsure"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "free_text": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "locale": {
+      "enum": [
+        "en",
+        "de",
+        "th",
+        "und"
+      ]
+    },
+    "consent_receipt_ref": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "audition_session_ref": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "playback_device": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "presented_normalization": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "policy_revision": {
+      "type": "string",
+      "maxLength": 128
+    }
+  }
+}

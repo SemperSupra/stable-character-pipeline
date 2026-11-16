@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/stable-character/audio/critic-receipt.v0.schema.json",
+  "title": "Audio CriticReceipt v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "candidate_sha256",
+    "critic_id",
+    "critic_revision",
+    "task",
+    "status",
+    "model_or_tool_sha256",
+    "metrics",
+    "reason_codes",
+    "evaluation_cost"
+  ],
+  "properties": {
+    "schema": {
+      "const": "audio.critic_receipt.v0"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "critic_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "critic_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail",
+        "abstain",
+        "not_applicable",
+        "error"
+      ]
+    },
+    "model_or_tool_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "metrics": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "value",
+          "unit",
+          "direction"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "higher",
+              "lower",
+              "target_range",
+              "diagnostic"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "lower": {
+            "type": "number"
+          },
+          "upper": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "evidence_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "artifact_rights_ref": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "classification": {
+      "enum": [
+        "PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL",
+        "PRIVATE_FINAL_CHARACTER_VOICE"
+      ]
+    },
+    "evaluation_cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpu_seconds",
+        "gpu_seconds",
+        "usd_estimate"
+      ],
+      "properties": {
+        "cpu_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gpu_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "usd_estimate": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "calibration_set_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "uncertainty_note": {
+      "type": "string",
+      "maxLength": 1024
+    }
+  }
+}
