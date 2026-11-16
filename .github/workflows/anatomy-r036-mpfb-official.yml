@@ -152,3 +152,74 @@ jobs:
             "$RUNNER_TEMP/r049-intentional-fail-closed.log"
           echo "R049_GO_GODOT_NEGATIVE_CONTROL accepted_original=YES rejected_tamper=YES"
           echo "All source-safe GLB and JSON payloads remain ephemeral, receipts in CI logs only"
+
+      - name: R050 authenticated Go-Godot local acknowledgement, restart, corrupted-ack and bad-plan controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT="$RUNNER_TEMP/r047-godot/Godot_v4.5.2-stable_linux.x86_64"
+          test -x "$GODOT"
+          ROOT="$RUNNER_TEMP/r050-godot"
+          mkdir -p "$ROOT"
+          cp research/anatomy-native-mpfb/godot_bridge_hil/project.godot "$ROOT/project.godot"
+          cp research/anatomy-native-mpfb/godot_bridge_hil/signed_ack_probe.gd "$ROOT/signed_ack_probe.gd"
+          cp "$RUNNER_TEMP/r036-official/r045-morph-anchored-proxies.glb" "$ROOT/anchored.glb"
+          export R050_HMAC_HEX_KEY="$(openssl rand -hex 32)"
+          test "$(printf %s "$R050_HMAC_HEX_KEY" | wc -c)" -eq 64
+          (
+            cd research/anatomy-native-mpfb/morphcontrol
+            GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go run ./cmd/emitfixture --out "$ROOT"
+          )
+          timeout 90 "$GODOT" --headless --editor --path "$ROOT" --import
+          timeout 45 "$GODOT" --headless --path "$ROOT" --script signed_ack_probe.gd
+          (
+            cd research/anatomy-native-mpfb/morphcontrol
+            GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go run ./cmd/verifyack --root "$ROOT"
+          )
+          timeout 45 "$GODOT" --headless --path "$ROOT" --script signed_ack_probe.gd
+          (
+            cd research/anatomy-native-mpfb/morphcontrol
+            GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go run ./cmd/verifyack --root "$ROOT" --restart
+          )
+          cp "$ROOT/engine-ack.json" "$ROOT/engine-ack.original.json"
+          python3 - "$ROOT/engine-ack.json" <<'PY'
+          import sys
+          p=sys.argv[1]
+          b=bytearray(open(p,'rb').read())
+          assert len(b)>30
+          b[30]^=1
+          open(p,'wb').write(b)
+          PY
+          if timeout 45 "$GODOT" --headless --path "$ROOT" \
+              --script signed_ack_probe.gd > "$ROOT/expected-ack-red.log" 2>&1; then
+            echo "R050_HOLD falsified engine checkpoint wrongly accepted" >&2
+            exit 12
+          fi
+          grep -F 'R050_BAD_ACK_HMAC' "$ROOT/expected-ack-red.log"
+          if (
+            cd research/anatomy-native-mpfb/morphcontrol
+            GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go run ./cmd/verifyack --root "$ROOT" --restart
+          ) > "$ROOT/expected-go-red.log" 2>&1; then
+            echo "R050_HOLD Go verifier accepted tampered Godot checkpoint" >&2
+            exit 12
+          fi
+          grep -F 'R050_GO_ACK_HOLD HMAC mismatch' "$ROOT/expected-go-red.log"
+          cp "$ROOT/engine-ack.original.json" "$ROOT/engine-ack.json"
+          cp "$ROOT/payload.hmac" "$ROOT/payload.hmac.good"
+          python3 - "$ROOT/payload.hmac" <<'PY'
+          import sys
+          open(sys.argv[1],"w").write("0"*64)
+          PY
+          if timeout 45 "$GODOT" --headless --path "$ROOT" \
+              --script signed_ack_probe.gd > "$ROOT/expected-plan-red.log" 2>&1; then
+            echo "R050_HOLD false authenticated Go plan accepted" >&2
+            exit 12
+          fi
+          grep -F 'R050_BAD_PLAN_HMAC' "$ROOT/expected-plan-red.log"
+          cp "$ROOT/payload.hmac.good" "$ROOT/payload.hmac"
+          (
+            cd research/anatomy-native-mpfb/morphcontrol
+            GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go run ./cmd/verifyack --root "$ROOT" --restart
+          )
+          echo "R050_GODOT_HMAC_NEGATIVE_CONTROL first=PASS restart_rehydration=PASS forged_ack=REJECTED forged_plan=REJECTED"
+          echo "Ephemeral key and source-safe model never leave public runner; receipt retained only in CI/DLE"
