@@ -1,0 +1,48 @@
+name: "Research · Continuous length/gas acoustic proxy and independent critic"
+on:
+  pull_request:
+    paths:
+      - "research/physical-medium/**"
+      - ".github/workflows/research-continuous-delay-audition.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  fractional-delay-cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Pinned original research source checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Independent public PCM WAV critic at reviewed exact SHA
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: SemperSupra/stable-character-pipeline
+          ref: 5aad9415cabb30f14931494a3a843ac3539aee28
+          path: critic-pinned
+          persist-credentials: false
+      - name: Go race and static analysis, fractional allpass and tiny-control effect
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/physical-medium
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/continuous-audition -out "$RUNNER_TEMP/original-continuous-examples" | tee "$RUNNER_TEMP/continuous-receipts.json"
+          cd "$GITHUB_WORKSPACE/critic-pinned/research/audio-critic-cpu"
+          go test -race -count=1 ./...
+          go vet ./...
+          for filename in reference_170mm_earthlike length_171mm_earthlike reference_170mm_altered_gas; do
+            go run ./cmd/wavcheck -wav "$RUNNER_TEMP/original-continuous-examples/$filename.wav"
+          done
