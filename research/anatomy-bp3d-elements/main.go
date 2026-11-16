@@ -43,6 +43,7 @@ type TargetReport struct{
  SourceLabel string `json:"source_label"`
  ListedElementCount int `json:"listed_element_count"`
  ArchivePresentCount int `json:"archive_present_count"`
+ SkippedOversizeParts int `json:"skipped_oversize_parts"`
  SampledOBJ []OBJResult `json:"sampled_obj"`
  Status string `json:"status"`
 }
@@ -59,6 +60,7 @@ type Receipt struct{
  ElementRows int `json:"element_rows"`
  UniqueListedElements int `json:"unique_listed_elements"`
  SelectedSamples int `json:"selected_samples"`
+ SkippedOversizeParts int `json:"skipped_oversize_parts"`
  Rows []TargetReport `json:"rows"`
  Warnings []string `json:"warnings"`
 }
@@ -168,7 +170,10 @@ func inspect(table,archive string)(Receipt,error){
    if member==nil{continue}
    row.ArchivePresentCount++
    if len(row.SampledOBJ)>=maxSamples||totalSamples>=12{continue}
-   if member.UncompressedSize64>6*1024*1024{return r,errors.New("sample larger than 6MiB individual cap")}
+   if member.UncompressedSize64>6*1024*1024{
+    row.SkippedOversizeParts++;r.SkippedOversizeParts++
+    continue
+   }
    reader,e:=member.Open();if e!=nil{return r,e}
    verts,faces,bounds,digest,parseErr:=parseOBJ(reader,6*1024*1024)
    closeErr:=reader.Close()
@@ -179,8 +184,10 @@ func inspect(table,archive string)(Receipt,error){
     UncompressedBytes:member.UncompressedSize64,Vertices:verts,Faces:faces,Bounds:bounds})
    totalSamples++
   }
-  if row.ArchivePresentCount>0{
+  if len(row.SampledOBJ)>0{
    row.Status="SOURCE_ELEMENT_ARCHIVE_PRESENT_NOT_ANATOMY_QUALIFIED"
+  }else if row.ArchivePresentCount>0{
+   row.Status="HOLD_PRESENT_BUT_NO_BOUNDED_MESH_SAMPLE"
   }else if len(known)>0{
    row.Status="HOLD_ELEMENT_REFERENCES_NOT_FOUND_IN_ARCHIVE"
   }
