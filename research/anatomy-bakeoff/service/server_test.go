@@ -20,7 +20,7 @@ func request(t *testing.T,s *Server,method,path string,body any,contentType stri
 func TestHumanDiscoveryAndAccessibleMarkup(t *testing.T){
  s:=New();r:=request(t,s,"GET","/",nil,"")
  if r.Code!=200{t.Fatal(r.Code)}
- for _,needle:=range []string{"<main>","<h1>","<fieldset>","<legend>","for=\"locale\"","for=\"search\"","role=\"status\"","aria-live=\"polite\"","type=\"checkbox\"","/api/scene","/api/describe"}{
+ for _,needle:=range []string{"<main>","<h1>","<fieldset>","<legend>","for=\"locale\"","for=\"search\"","role=\"status\"","aria-live=\"polite\"","box.type=\"checkbox\"","/api/scene","/api/describe"}{
   if !strings.Contains(r.Body.String(),needle){t.Errorf("not discoverable: %q",needle)}
  }
  // This checks source markup only, NOT actual browser/screen-reader behavior.
