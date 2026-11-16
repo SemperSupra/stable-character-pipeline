@@ -70,3 +70,13 @@ jobs:
             --stage verify --out "$RUNNER_TEMP/r036-official"
           ls -lh "$RUNNER_TEMP/r036-official"
           echo "Original generated images, scene and source retained only in ephemeral runner scratch; no public artifact upload"
+
+      - name: R042 disposable mask-resolved clone export and independent import differential
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/mask_export_challenger.py -- \
+            --out "$RUNNER_TEMP/r036-official"
+          test -s "$RUNNER_TEMP/r036-official/r042-mask-clone-diagnostic.json"
+          grep -F '"status": "DIAGNOSTIC_CLONE_ONLY_NO_CANONICAL_EXPORT_ACCEPTANCE"' "$RUNNER_TEMP/r036-official/r042-mask-clone-diagnostic.json"
+          echo "Source .blend is immutable; derived clone and GLB outputs are ephemeral and NOT released"
