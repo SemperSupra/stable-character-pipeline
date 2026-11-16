@@ -1,0 +1,61 @@
+name: R036 MPFB Native Rigging/Anatomy CPU
+on:
+  push:
+    branches:
+      - research/anatomy-r036-mpfb-native-20261116
+    paths:
+      - 'research/anatomy-native-rig/**'
+      - '.github/workflows/anatomy-r036-mpfb-native.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-native-rig/**'
+      - '.github/workflows/anatomy-r036-mpfb-native.yml'
+permissions:
+  contents: read
+concurrency:
+  group: anatomy-r036-native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-mpfb-rig-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Runtime preflight and Blender install
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          uname -a
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy
+          blender --version | head -3
+          blender --background --python-exit-code 12 --python-expr 'import numpy; print("NUMPY_READY",numpy.__version__)'
+      - name: Fetch one pinned source-licensed MPFB core base OBJ
+        env:
+          SOURCE_SHA: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          BLOB_SHA: d26635e9326e3cca30778fd7b9c00062b03cce09
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 2 --connect-timeout 10 --max-time 100 \
+            "https://raw.githubusercontent.com/makehumancommunity/mpfb2/${SOURCE_SHA}/src/mpfb/data/3dobjs/base.obj" \
+            -o "$RUNNER_TEMP/mpfb-base.obj"
+          echo "$BLOB_SHA" > "$RUNNER_TEMP/expected-blob-sha.txt"
+          actual="$(git hash-object "$RUNNER_TEMP/mpfb-base.obj")"
+          test "$actual" = "$BLOB_SHA" || { echo "MPFB BASE SOURCE HASH MISMATCH"; exit 4; }
+          sha256sum "$RUNNER_TEMP/mpfb-base.obj"
+      - name: Build original animated anatomical demonstration
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036"
+          blender --background --threads 2 --python-exit-code 12 --python research/anatomy-native-rig/native_vertical_slice.py -- \
+            --phase build --base "$RUNNER_TEMP/mpfb-base.obj" --output "$RUNNER_TEMP/r036"
+      - name: Reopen native scene and validate exported skin
+        run: |
+          set -euo pipefail
+          blender --background "$RUNNER_TEMP/r036/mpfb-anatomy-diagnostic.blend" --threads 2 --python-exit-code 12 \
+            --python research/anatomy-native-rig/native_vertical_slice.py -- \
+            --phase verify --output "$RUNNER_TEMP/r036"
+          ls -lh "$RUNNER_TEMP/r036" | sed -e 's|/home/runner/work/_temp/||g'
+          echo "Public artifacts intentionally NOT uploaded: source/asset review and separate visual QA pending"
