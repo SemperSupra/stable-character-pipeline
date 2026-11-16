@@ -57,9 +57,20 @@ func sourceSHA(ctx context.Context,s Source)(string,error){
  target:="https://github.com/"+s.Repo+".git"
  cmd:=exec.CommandContext(ctx,"git","ls-remote",target,"refs/heads/"+s.Branch)
  data,err:=cmd.Output();if err!=nil{return "",fmt.Errorf("ls-remote: %w",err)}
- parts:=strings.Fields(strings.TrimSpace(string(data)))
- if len(parts)!=2||!shaRE.MatchString(parts[0])||parts[1]!="refs/heads/"+s.Branch{sample:=strings.TrimSpace(string(data));if len(sample)>180{sample=sample[:180]};return "",fmt.Errorf("ambiguous or invalid Git ref: fields=%d observed=%q",len(parts),sample)}
- return parts[0],nil
+ return parseGitRefs(string(data),s.Branch)
+}
+func parseGitRefs(raw,branch string)(string,error){
+ var sha string
+ for _,line:=range strings.Split(strings.TrimSpace(raw),"\n"){
+  fields:=strings.Fields(line)
+  if len(fields)!=2{continue}
+  if fields[1]!="refs/heads/"+branch{continue}
+  if !shaRE.MatchString(fields[0]){return "",errors.New("invalid exact branch SHA")}
+  if sha!=""{return "",errors.New("duplicate exact branch ref")}
+  sha=fields[0]
+ }
+ if sha==""{return "",errors.New("missing exact refs/heads/"+branch)}
+ return sha,nil
 }
 func fetchDigest(ctx context.Context,client *http.Client,s Source,sha,path string)(Digest,error){
  url:="https://raw.githubusercontent.com/"+s.Repo+"/"+sha+"/"+path
