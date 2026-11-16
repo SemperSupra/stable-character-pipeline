@@ -114,3 +114,15 @@ jobs:
           grep -F '"status": "PASS_NARROW_ORIGINAL_TRIANGLE_TOPOLOGY_FINGERPRINT"' "$RUNNER_TEMP/r055-triangle-topology.json"
           grep -F '"topology_mutation_detected": true' "$RUNNER_TEMP/r055-triangle-topology.json"
           echo "R055 order-independent oriented and unoriented glTF triangle signatures only; original asset bytes stay in scratch"
+
+      - name: R060 derived-only deterministic proxy index order and adversarial native-source check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 research/anatomy-native-mpfb/r060_proxy_index_canonical.py \
+            --source "$RUNNER_TEMP/r053/r044-morph-organ-allweights.glb" \
+            --derived "$RUNNER_TEMP/r060-derived.glb" \
+            --out "$RUNNER_TEMP/r060-canonical-receipt.json"
+          grep -F '"status": "PASS_NARROW_DERIVED_PROXY_TRIANGLE_ORDER"' "$RUNNER_TEMP/r060-canonical-receipt.json"
+          grep -F '"reversed_winding_rejected": true' "$RUNNER_TEMP/r060-canonical-receipt.json"
+          echo "R060 no upload and no source overwrite: derived candidate in disposable scratch only"
