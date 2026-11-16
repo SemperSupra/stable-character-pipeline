@@ -1,0 +1,44 @@
+name: R0 motion learned translation and critic arbitration synthetic CPU
+on:
+  pull_request:
+    paths:
+      - 'research/motion-learning-critic-r0/**'
+      - '.github/workflows/motion-learning-critic-r0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-independent-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        lane: [geometry, learning, critic]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: research/motion-learning-critic-r0/go.mod
+          cache: false
+      - name: Independent original synthetic lane
+        shell: bash
+        working-directory: research/motion-learning-critic-r0
+        run: |
+          set -euo pipefail
+          case '${{ matrix.lane }}' in
+            geometry) go test -count=1 -v -run 'TestGeometry|TestInvalidInputs' ./... ;;
+            learning) go test -count=1 -v -run TestLearnedHoldout ./...; go run ./cmd/bakeoff > "$RUNNER_TEMP/r0-receipt.json"; cat "$RUNNER_TEMP/r0-receipt.json" ;;
+            critic) go test -count=1 -v -run TestCriticNeverOverridesGeometry ./...; go vet ./... ;;
+          esac
+      - name: Retain short-lived synthetic numeric evidence
+        if: matrix.lane == 'learning'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: motion-r0-synthetic-learning-receipt
+          path: ${{ runner.temp }}/r0-receipt.json
+          retention-days: 3
+          if-no-files-found: error
