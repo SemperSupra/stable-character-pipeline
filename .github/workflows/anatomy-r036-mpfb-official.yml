@@ -189,3 +189,16 @@ jobs:
             --out "$RUNNER_TEMP/r051-repeatability-receipt.json"
           grep -F '"status": "PASS_NARROW_BODY_SOURCE_SEMANTIC_REPEATABILITY"' "$RUNNER_TEMP/r051-repeatability-receipt.json"
           echo "R051_REPRO_PROBE source_safe_two_exports=YES binary_assets_ephemeral=YES whole_gltf_determinism_not_implied"
+
+      - name: R052 original synthetic GLB packaging and chunk drift classification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/anatomy-native-mpfb -p 'test_r052_glb_diff.py' -v
+          python3 research/anatomy-native-mpfb/r052_glb_diff.py \
+            --first "$RUNNER_TEMP/r051-first.glb" \
+            --second "$RUNNER_TEMP/r036-official/r044-morph-organ-allweights.glb" \
+            --require-body \
+            --out "$RUNNER_TEMP/r052-glb-packaging.json"
+          grep -F '"status": "PASS_NARROW_PACKAGING_CLASSIFIED"' "$RUNNER_TEMP/r052-glb-packaging.json"
+          echo "R052 source-safe packaging classification only; cross-run hash nondeterminism still HOLD until independent hosted samples"
