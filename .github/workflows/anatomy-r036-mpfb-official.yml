@@ -90,3 +90,13 @@ jobs:
           test -s "$RUNNER_TEMP/r036-official/r044-morph-organ-doe.json"
           grep -F '"status": "PASS_NARROW_MULTIMORPH_AND_SYNTHETIC_ORGAN_COEXPORT"' "$RUNNER_TEMP/r036-official/r044-morph-organ-doe.json"
           echo "Synthetic anatomical proxy GLB remains scratch-only; durable numeric receipts in CI logs and private DLE"
+
+      - name: R045 approximate outer-body morph neighborhood to original synthetic organ proxy anchors
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/organ_morph_anchor.py -- \
+            --out "$RUNNER_TEMP/r036-official"
+          test -s "$RUNNER_TEMP/r036-official/r045-organ-morph-anchor.json"
+          grep -F '"status": "PASS_NARROW_ALGORITHMIC_ANCHOR_DIAGNOSTIC"' "$RUNNER_TEMP/r036-official/r045-organ-morph-anchor.json"
+          echo "Synthetic morphology anchor study only: no source/real organ GLB published"
