@@ -53,8 +53,7 @@ func main() {
 	if err := os.WriteFile(filepath.Join(*out, "payload.json"), payload, 0600); err != nil {
 		panic(err)
 	}
-	if err := os.WriteFile(filepath.Join(*out, "sha256.txt"), []byte(sha+"
-"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(*out, "sha256.txt"), []byte(sha+string(rune(10))), 0600); err != nil {
 		panic(err)
 	}
 	// Negative control is an integrity-only mutation with UNCHANGED digest.
@@ -71,6 +70,5 @@ func main() {
 	if err := os.WriteFile(filepath.Join(*out, "tampered.json"), altered, 0600); err != nil {
 		panic(err)
 	}
-	fmt.Printf("R049_GO_PREPARED_RECEIPT status=PASS_CANONICAL_PLAN_FOR_ENGINE_ADAPTER commands=%d sha256=%s nonce=NONE expected_revision=%d godot_applied=NO
-", len(plan.Sequence), sha, plan.ExpectedRevision)
+	fmt.Println(fmt.Sprintf("R049_GO_PREPARED_RECEIPT status=PASS_CANONICAL_PLAN_FOR_ENGINE_ADAPTER commands=%d sha256=%s nonce=NONE expected_revision=%d godot_applied=NO", len(plan.Sequence), sha, plan.ExpectedRevision))
 }
