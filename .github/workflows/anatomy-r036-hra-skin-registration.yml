@@ -53,8 +53,9 @@ jobs:
           curl -fsSL --retry 2 --connect-timeout 10 --max-time 120 --max-filesize 65000000 \
             https://cdn.humanatlas.io/hra-releases/v1.2/models/VH_M_Skin.glb -o "$RUNNER_TEMP/VH_M_Skin.glb"
           test "$(wc -c < "$RUNNER_TEMP/VH_M_Skin.glb")" -gt 1024
+          echo "8cab299d04323e6364938a271647df5671138a2177f412e741a0d6bd4536ee1c  $RUNNER_TEMP/VH_M_Skin.glb" | sha256sum --check --status || { echo "HRA_SKIN_SOURCE_SHA256_MISMATCH"; exit 4; }
           sha256sum "$RUNNER_TEMP/VH_M_Skin.glb"
-          echo "First run discovers skin SHA; later SHA lock is required before source-custody qualification"
+          echo "HRA skin and lung both source SHA256 pinned and verified"
       - name: Build actual MPFB/HRA real-organ refitted native Blender scene
         run: |
           set -euo pipefail
