@@ -80,3 +80,13 @@ jobs:
           test -s "$RUNNER_TEMP/r036-official/r043-editable-morph-mask-diagnostic.json"
           grep -F '"status": "PASS_NARROW_EDITABLE_MASKED_DERIVATIVE"' "$RUNNER_TEMP/r036-official/r043-editable-morph-mask-diagnostic.json"
           echo "All official source scene, native meshes, GLBs and morph output stay ephemeral; JSON receipt in logs only"
+
+      - name: R044 all-eight morph variation DOE and synthetic organ co-export/import
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/morph_organ_coexport.py -- \
+            --out "$RUNNER_TEMP/r036-official"
+          test -s "$RUNNER_TEMP/r036-official/r044-morph-organ-doe.json"
+          grep -F '"status": "PASS_NARROW_MULTIMORPH_AND_SYNTHETIC_ORGAN_COEXPORT"' "$RUNNER_TEMP/r036-official/r044-morph-organ-doe.json"
+          echo "Synthetic anatomical proxy GLB remains scratch-only; durable numeric receipts in CI logs and private DLE"
