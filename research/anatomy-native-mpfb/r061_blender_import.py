@@ -50,6 +50,8 @@ def semantic(obj):
         weights=sorted((obj.vertex_groups[g.group].name,quant(g.weight)) for g in v.groups)
         groups[v.index]=weights
     faces=[]
+    partition={"position_uv":[],"position_uv_weights":[],"position_uv_normals":[],"normal_only":[]}
+    normal_diagnostic=[]
     for poly in mesh.polygons:
         if len(poly.loop_indices)!=3:hold("native glTF import did not keep triangles")
         corners=[]
@@ -61,8 +63,22 @@ def semantic(obj):
             norm=vector(corner[li].vector if use_corner else v.normal)
             # Per-corner UV/normals and per-vertex weights remain bound to the face.
             corners.append((xyz,tex,norm,tuple(groups[vi])))
-        faces.append((int(poly.material_index),rotations(corners)))
+        material=int(poly.material_index)
+        faces.append((material,rotations(corners)))
+        partition["position_uv"].append((material,rotations([(c[0],c[1]) for c in corners])))
+        partition["position_uv_weights"].append((material,rotations([(c[0],c[1],c[3]) for c in corners])))
+        partition["position_uv_normals"].append((material,rotations([(c[0],c[1],c[2]) for c in corners])))
+        partition["normal_only"].append((material,rotations([c[2] for c in corners])))
+        if obj.name in MESH_NAMES[:2]:
+            ids=[(c[0],c[1],c[3]) for c in corners]
+            shift=min(range(3),key=lambda i:tuple(ids[i:]+ids[:i]))
+            rid=ids[shift:]+ids[:shift]
+            rn=[c[2] for c in corners][shift:]+[c[2] for c in corners][:shift]
+            normal_diagnostic.append({"face_key_sha256":hashed((material,rid)),
+                                      "corner_normals":rn})
     faces.sort()
+    for values in partition.values():values.sort()
+    normal_diagnostic.sort(key=lambda x:x["face_key_sha256"])
     morph=[]
     if mesh.shape_keys:
         keys=mesh.shape_keys.key_blocks
@@ -95,6 +111,8 @@ def semantic(obj):
         "world_transform_sha256":hashed([vector(row) for row in obj.matrix_world]),
         "vertex_and_skin_weights_sha256":hashed(vertex_attrs),
         "face_position_uv_normal_skin_weight_oriented_sha256":hashed(faces),
+        "face_component_sha256":{key:hashed(items) for key,items in sorted(partition.items())},
+        "diagnostic_corner_normals":normal_diagnostic,
         "morph_relative_sha256":hashed(morph),
         "morph_names":[m["name"] for m in morph],
         "evaluated_frame_position_sha256":pose,
@@ -127,6 +145,10 @@ def main():
         "limits":"Native importer geometry/UV/normals/skin/morph and posed evaluated samples at 1/12/24 only, not pixel render, full material nodes, real anatomical organ or H.264/film acceptance",
     }
     Path(args.out).write_text(json.dumps(receipt,sort_keys=True)+"\n",encoding="utf-8")
-    print("R061_NATIVE_BLENDER_GLTF_IMPORT "+json.dumps(receipt,sort_keys=True))
+    # Raw corner vectors stay in ephemeral runner scratch, never CI logs.
+    public=dict(receipt)
+    public["records"]=[{k:v for k,v in row.items() if k!="diagnostic_corner_normals"}
+                       for row in records]
+    print("R061_NATIVE_BLENDER_GLTF_IMPORT "+json.dumps(public,sort_keys=True))
 
 if __name__=="__main__":main()
