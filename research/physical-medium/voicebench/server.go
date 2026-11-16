@@ -47,7 +47,7 @@ func CurrentCapabilities()Capabilities{
   Controls:[]Control{
    {ID:"length_mm",Unit:"mm",Min:80,Max:400,Default:170,Novice:true,Description:"toy acoustic resonator length; not an anatomical measurement"},
    {ID:"pitch_hz",Unit:"Hz",Min:70,Max:600,Default:160,Novice:true,Description:"prescribed sinusoidal source frequency, not automatically validated perceived pitch"},
-   {ID:"sound_speed",Unit:"m/s",Min:100,Max:2000,Default:343.22218086816235,Novice:false,Description:"interior acoustic medium proxy; not a breathing-safety or gas-composition model"},
+   {ID:"sound_speed",Unit:"m/s",Min:100,Max:2000,Default:343.222,Novice:false,Description:"interior acoustic medium proxy; not a breathing-safety or gas-composition model"},
   },
   DurationMS:250,SampleRate:continuous.Rate,
   Unsupported:[]string{"real_tract_anatomy","real_speech","real_voice_identity","continuous_mid_stream_geometry_switch","live_full_body_deformation","gas_breathability","true_environment_propagation","microphone_or_private_reference_input"},
