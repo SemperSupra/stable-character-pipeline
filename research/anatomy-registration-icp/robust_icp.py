@@ -38,7 +38,7 @@ def evaluated(obj,limit=3000):
  mesh=ob.to_mesh()
  try:
   step=max(1,math.ceil(len(mesh.vertices)/limit))
-  return np.array([tuple(ob.matrix_world@v.co) for v in mesh.vertices[::step][:limit]],dtype=np.float64)
+  return np.array([tuple(ob.matrix_world@v.co) for i,v in enumerate(mesh.vertices) if i%step==0][:limit],dtype=np.float64)
  finally:ob.to_mesh_clear()
 def imported_skin(path):
  if not os.path.isfile(path) or sha(path)!=SKIN_SHA:fail("wrong or missing HRA exact-source skin GLB")
@@ -50,7 +50,7 @@ def imported_skin(path):
   fail("HRA skin topology/mesh inventory changed")
  ob=meshes[0]
  step=max(1,math.ceil(len(ob.data.vertices)/3000))
- samples=np.array([tuple(ob.matrix_world@v.co) for v in ob.data.vertices[::step]],dtype=np.float64)
+ samples=np.array([tuple(ob.matrix_world@v.co) for i,v in enumerate(ob.data.vertices) if i%step==0],dtype=np.float64)
  return objects,samples
 def to_array(mat):
  return np.array([list(row) for row in mat],dtype=np.float64)
