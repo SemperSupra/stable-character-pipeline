@@ -63,10 +63,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out/baseline out/physical_material
+          # Reuse EXACT same mesh/camera/pose in one process, alter shaders only.
           blender -b -t 2 --python renderlab/synthetic_scene.py -- \
-            --arm baseline --output out/baseline
-          blender -b -t 2 --python renderlab/synthetic_scene.py -- \
-            --arm physical_material --output out/physical_material
+            --arm both --output out
           test -s out/baseline/beauty.png
           test -s out/physical_material/beauty.png
           test -s out/baseline/render_passes.exr
