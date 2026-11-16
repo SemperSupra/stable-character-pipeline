@@ -1,0 +1,66 @@
+name: R037 synthetic-only human preference and pairwise DOE controls
+
+on:
+  push:
+    branches: [research/r037-prefprobe-public-v01-20261116]
+    paths:
+      - 'prefprobe/**'
+      - '.github/workflows/r037-prefprobe.yml'
+  pull_request:
+    paths:
+      - 'prefprobe/**'
+      - '.github/workflows/r037-prefprobe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r037-prefprobe-public-cpu
+  cancel-in-progress: true
+
+jobs:
+  synthetic-preference-doe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: prefprobe/go.mod
+          cache: false
+      - name: Validate original-only preference ranking and negative controls
+        working-directory: prefprobe
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          go vet ./...
+          go test -race -count=1 -v ./...
+      - name: Produce bounded machine-readable synthetic DOE receipt
+        working-directory: prefprobe
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run . -synthetic | tee synthetic_report.json
+          python3 - <<'PY'
+          import json
+          with open('synthetic_report.json', encoding='utf-8') as f:
+              r = json.load(f)
+          assert r['status'] == 'PASS_SYNTHETIC_RANKING_CONTRACT_ONLY'
+          assert r['qualifier'] == 'NOT_OWNER_FEEDBACK_OR_REAL_PHOTOREALISM_EVIDENCE'
+          assert (r['train_events'],r['heldout_examples'],r['fixed_correct'],r['learned_correct'],r['abstentions']) == (12,4,0,4,0)
+          print('PUBLIC_SOURCE_SAFE_SYNTHETIC_PREFERENCE_NARROW_PASS')
+          PY
+          sha256sum synthetic_report.json > synthetic_report.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r037-original-synthetic-preference-NOT-OWNER
+          path: |
+            prefprobe/synthetic_report.json
+            prefprobe/synthetic_report.sha256
+          retention-days: 3
+          if-no-files-found: warn
