@@ -1,0 +1,46 @@
+name: R036 Anatomy Synthetic Contract CPU
+on:
+  push:
+    branches:
+      - research/anatomy-r036-synthetic-contract-20261116
+    paths:
+      - 'research/anatomy-bakeoff/**'
+      - '.github/workflows/anatomy-r036-synthetic.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-bakeoff/**'
+      - '.github/workflows/anatomy-r036-synthetic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: anatomy-r036-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synthetic-source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: research/anatomy-bakeoff
+    steps:
+      - name: Checkout code (read only)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Inspect environment
+        run: |
+          go version
+          uname -a
+          git rev-parse HEAD
+      - name: Offline Go tests and vet
+        env:
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+          GOTOOLCHAIN: 'local'
+        run: |
+          go test -count=1 ./...
+          go vet ./...
+          go run ./cmd/anatomyprobe describe
+          go run ./cmd/anatomyprobe inspect
+          go run ./cmd/anatomyprobe toggle --system circulatory --visible=false
