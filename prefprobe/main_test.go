@@ -38,12 +38,9 @@ func TestScopeAndCharacterIsolation(t *testing.T) {
   func(v *Feedback){v.ScopeID="another-shot"},
   func(v *Feedback){v.CharacterID="synthetic-other"},
   func(v *Feedback){v.ScopeKind="project"},
-  func(v *Feedback){v.SourceSHA256=makeFixture("another",1,true).SourceSHA256 /* same hash; change below */},
+  func(v *Feedback){v.SourceSHA256="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
  } {
   probe:=e;modify(&probe)
-  if probe.ScopeID==e.ScopeID && probe.CharacterID==e.CharacterID && probe.ScopeKind==e.ScopeKind {
-   continue
-  }
   status,_:=m.Rank(probe);if status!="ABSTAIN_NO_TRAINING"{t.Fatalf("scope leakage: %s",status)}
  }
 }
