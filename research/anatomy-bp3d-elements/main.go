@@ -203,6 +203,7 @@ func main(){
  topology:=flag.Bool("topology",false,"inspect original bounded FJ atomic mesh surface topology and FMA composite overlap")
  weld:=flag.Bool("weld",false,"inspect source-seam duplicate vertices at bounded raw-coordinate tolerances")
  diaphragm:=flag.Bool("diaphragm",false,"diagnose exact-source FJ3131 face incidence and connected components")
+ faceCandidate:=flag.Bool("face-candidate",false,"compare exact cyclic same-winding diaphragm face deduplication in derived in-memory topology")
  flag.Parse()
  if *table==""||*archive==""{fmt.Fprintln(os.Stderr,"R036_ELEMENT_FAIL missing source paths");os.Exit(2)}
  if *topology{
@@ -215,6 +216,10 @@ func main(){
  }
  if *diaphragm{
   if e:=emitDiaphragm(*table,*archive);e!=nil{fmt.Fprintln(os.Stderr,"R036_DIAPHRAGM_FAIL",e);os.Exit(7)}
+  return
+ }
+ if *faceCandidate{
+  if e:=emitDiaphragmFaceCandidate(*table,*archive);e!=nil{fmt.Fprintln(os.Stderr,"R036_DIAPHRAGM_FACE_FAIL",e);os.Exit(8)}
   return
  }
  r,e:=inspect(*table,*archive)
