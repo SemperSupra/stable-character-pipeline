@@ -224,8 +224,7 @@ func run(args []string) error {
 	if err!=nil{return err}
 	b,err:=json.MarshalIndent(c,"","  ")
 	if err!=nil{return err}
-	b=append(b,'
-')
+	b=append(b, byte(10))
 	if err:=os.WriteFile(*output,b,0644);err!=nil{return err}
 	fmt.Print(string(b))
 	return nil
