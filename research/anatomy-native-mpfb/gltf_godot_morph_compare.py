@@ -6,10 +6,12 @@ game-frame appearance, skin pose, muscle/tissue or human anatomy acceptance.
 """
 import argparse
 import hashlib
+import itertools
 import json
 import math
 import os
 import statistics
+from collections import defaultdict
 import struct
 from pathlib import Path
 
@@ -163,6 +165,73 @@ def godot_morph_arrays(path):
         data.append(arr)
         off+=vertices*12
     return baseline,data
+
+
+def apply_axis(point,transform):
+    return tuple(transform["sign"][k]*point[transform["axis"][k]] for k in range(3))
+
+def source_to_godot(source,observed):
+    """Find a one-to-one GLB-to-Godot vertex correspondence based on
+    independently measured actual rest/baked GPU positions, not morph deltas."""
+    if len(source)!=len(observed) or len(source)<13000:
+        hold("source-engine baseline count mismatch")
+    lo=[min(p[d] for p in source) for d in range(3)]
+    hi=[max(p[d] for p in source) for d in range(3)]
+    go_lo=[min(p[d] for p in observed) for d in range(3)]
+    go_hi=[max(p[d] for p in observed) for d in range(3)]
+    candidates=[]
+    for axis in itertools.permutations(range(3)):
+        for sign in itertools.product((-1,1),repeat=3):
+            low=[lo[axis[k]] if sign[k]>0 else -hi[axis[k]] for k in range(3)]
+            high=[hi[axis[k]] if sign[k]>0 else -lo[axis[k]] for k in range(3)]
+            score=sum(abs(low[k]-go_lo[k])+abs(high[k]-go_hi[k]) for k in range(3))
+            candidates.append((score,{"axis":list(axis),"sign":list(sign)}))
+    candidates.sort(key=lambda x:(x[0],x[1]["axis"],x[1]["sign"]))
+    best={"examined":0,"matched":0}
+    cell=0.0001
+    limit=0.0002
+    for score,transform in candidates[:16]:
+        buckets=defaultdict(list)
+        for i,p in enumerate(source):
+            q=apply_axis(p,transform)
+            key=tuple(math.floor(v/cell) for v in q)
+            buckets[key].append((i,q))
+        options=[]
+        matched=0
+        for j,p in enumerate(observed):
+            key=tuple(math.floor(v/cell) for v in p)
+            choices=[]
+            for dx,dy,dz in itertools.product((-1,0,1),repeat=3):
+                for si,q in buckets.get((key[0]+dx,key[1]+dy,key[2]+dz),()):
+                    distance=math.dist(p,q)
+                    if distance<=limit:
+                        choices.append((distance,si))
+            choices.sort()
+            if choices:matched+=1
+            options.append(choices)
+        if matched>best["matched"]:
+            best={"examined":len(observed),"matched":matched,"axis":transform,
+                  "bbox_score_m":score}
+        if matched!=len(observed):
+            continue
+        assignment=[None]*len(observed)
+        used=set()
+        for j in sorted(range(len(observed)),key=lambda i:(len(options[i]),i)):
+            for distance,si in options[j]:
+                if si not in used:
+                    assignment[j]=(si,distance)
+                    used.add(si)
+                    break
+        if len(used)!=len(observed):
+            continue
+        maxerr=max(x[1] for x in assignment)
+        mapping=[x[0] for x in assignment]
+        print("R050_GLTF_GODOT_BASELINE_MAPPING "+json.dumps(
+            {"axis":transform,"bbox_score_m":score,"max_residual_m":maxerr,
+             "vertices":len(mapping),"index_order_unchanged":all(i==j for i,j in enumerate(mapping))},
+            sort_keys=True))
+        return mapping,transform,maxerr
+    hold("no unique source glTF to Godot GPU baseline vertex mapping at 0.2mm: "+json.dumps(best,sort_keys=True))
 
 def main():
     p=argparse.ArgumentParser()
