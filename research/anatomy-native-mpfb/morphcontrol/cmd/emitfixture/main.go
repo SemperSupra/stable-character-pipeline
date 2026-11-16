@@ -5,6 +5,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"crypto/hmac"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
@@ -50,12 +51,19 @@ func main() {
 	if len(plan.Sequence) != 24 {
 		panic("R049_HOLD incorrect command count")
 	}
+	keyHex:=os.Getenv("R050_HMAC_HEX_KEY")
+	key,err:=hex.DecodeString(keyHex)
+	if err!=nil||len(key)!=32{panic("R050_HOLD ephemeral 256-bit key missing")}
+	signer:=hmac.New(sha256.New,key)
+	_,_=signer.Write(payload)
+	mac:=hex.EncodeToString(signer.Sum(nil))
 	if err := os.WriteFile(filepath.Join(*out, "payload.json"), payload, 0600); err != nil {
 		panic(err)
 	}
 	if err := os.WriteFile(filepath.Join(*out, "sha256.txt"), []byte(sha+string(rune(10))), 0600); err != nil {
 		panic(err)
 	}
+	if err := os.WriteFile(filepath.Join(*out, "payload.hmac"), []byte(mac), 0600); err != nil {panic(err)}
 	// Negative control is an integrity-only mutation with UNCHANGED digest.
 	altered := append([]byte(nil), payload...)
 	for i := range altered {
