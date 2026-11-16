@@ -14,7 +14,6 @@ import (
  "math"
  "os"
  "regexp"
- "sort"
 )
 
 const version = "prefprobe.synthetic.v1"
@@ -191,4 +190,3 @@ func main() {
  fmt.Println(string(out))
  if r.LearnedCorrect!=4 || r.Abstentions!=0 {os.Exit(1)}
 }
-var _ = sort.Strings // Keep standard import explicit for deterministic sort future adapters.
