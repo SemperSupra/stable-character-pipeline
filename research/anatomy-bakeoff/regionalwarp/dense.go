@@ -102,7 +102,7 @@ func AuditDenseGrid(c Candidate,d GridDomain)(DenseReceipt,error){
  return out,nil
 }
 func DomainFromLandmarks(p landmarks.Pack,heldout []landmarks.Pair,margin float64,steps int)(GridDomain,error){
- d:=GridDomain{Steps:steps,Low:P{math.Inf(1),math.Inf(1),math.Inf(1)},High:P{math.Inf(-1),math.Inf(-1),math.Inf(-1)}}
+ d:=GridDomain{Steps:steps,Low:P{X:math.Inf(1),Y:math.Inf(1),Z:math.Inf(1)},High:P{X:math.Inf(-1),Y:math.Inf(-1),Z:math.Inf(-1)}}
  if !good(margin)||margin<.02||margin>.3{return d,errors.New("INVALID_MARGIN")}
  positions:=[]P{}
  for _,p0:=range p.Pairs{positions=append(positions,transform(p.Transform,p0.Source))}
@@ -114,7 +114,7 @@ func DomainFromLandmarks(p landmarks.Pack,heldout []landmarks.Pair,margin float6
   if x.Y<d.Low.Y{d.Low.Y=x.Y};if x.Y>d.High.Y{d.High.Y=x.Y}
   if x.Z<d.Low.Z{d.Low.Z=x.Z};if x.Z>d.High.Z{d.High.Z=x.Z}
  }
- d.Low=sub(d.Low,P{margin,margin,margin});d.High=add(d.High,P{margin,margin,margin})
+ d.Low=sub(d.Low,P{X:margin,Y:margin,Z:margin});d.High=add(d.High,P{X:margin,Y:margin,Z:margin})
  return d,rangeCheck(d)
 }
 func FitDenseGuard(fit landmarks.Pack,heldout []landmarks.Pair,params Parameters)(Candidate,Outcome,DenseReceipt,error){
