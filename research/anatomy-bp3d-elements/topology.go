@@ -14,6 +14,7 @@ import (
  "io"
  "math"
  "os"
+ "path"
  "sort"
  "strconv"
  "strings"
@@ -186,7 +187,7 @@ func inspectComposites(table,archive string)(CompositeReport,error){
   if strings.Contains(f.Name,"..")||strings.Contains(f.Name,"\\")||strings.HasPrefix(f.Name,"/"){
    return r,errors.New("INVALID_ZIP_MEMBER_NAME")
   }
-  name:=strings.TrimSuffix(strings.ToUpper(f.Name),".OBJ")
+  name:=strings.TrimSuffix(strings.ToUpper(path.Base(f.Name)),".OBJ")
   if fj.MatchString(name){if byID[name]!=nil{return r,errors.New("DUPLICATE_ATOMIC_MESH")};byID[name]=f}
  }
  if len(byID)!=1258{return r,fmt.Errorf("expected exactly 1258 atomic source OBJ members, saw %d",len(byID))}
