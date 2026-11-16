@@ -7,14 +7,14 @@ on:
     paths:
       - 'research/r063-critic-interview/**'
       - '.github/workflows/r063-critic-interview.yml'
-  pull_request:
-    paths:
-      - 'research/r063-critic-interview/**'
-      - '.github/workflows/r063-critic-interview.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: r063-public-critic-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   critic-interview:
@@ -45,13 +45,15 @@ jobs:
           set -euo pipefail
           python3 --version
           python3 -m py_compile research/r063-critic-interview/interview.py
-          command -v ffmpeg
           mkdir -p "$RUNNER_TEMP/r063"
           echo "R063 source_sha=$GITHUB_SHA lane=$LANE venue=public standard CPU; assets=original-only; private=NONE"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
           if [ "$LANE" = audio ]; then
-            sudo apt-get update -qq
             sudo apt-get install -y -qq --no-install-recommends espeak-ng
           fi
+          command -v ffmpeg
+          if [ "$LANE" = audio ]; then command -v espeak-ng; fi
       - name: Install pinned CPU inference dependencies
         shell: bash
         run: |
