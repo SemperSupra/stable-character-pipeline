@@ -162,9 +162,10 @@ def remap_editable(body,rig):
     # Polygon UV loop fidelity can be verified with stable mapped corner
     # identities + ordered original polygon vertex sequence.
     origpoly={}
+    keep_set=set(keep)
     for p in body.data.polygons:
         raw=tuple(p.vertices)
-        if all(j in set(keep) for j in raw):
+        if all(j in keep_set for j in raw):
             if raw in origpoly: fail("ambiguous original polygon ordering")
             origpoly[raw]=p
     if len(origpoly)!=len(clone.data.polygons):
