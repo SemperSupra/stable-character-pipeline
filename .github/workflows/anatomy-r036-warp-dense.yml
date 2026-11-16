@@ -1,0 +1,40 @@
+name: R036 Dense Jacobian and Independent Deformation Derivative
+on:
+  push:
+    branches:
+      - research/r036-warp-denseguard-20261116
+    paths:
+      - 'research/anatomy-bakeoff/regionalwarp/dense.go'
+      - 'research/anatomy-bakeoff/regionalwarp/dense_test.go'
+      - '.github/workflows/anatomy-r036-warp-dense.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-bakeoff/regionalwarp/dense.go'
+      - 'research/anatomy-bakeoff/regionalwarp/dense_test.go'
+      - '.github/workflows/anatomy-r036-warp-dense.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-warp-dense-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synthetic-interior-fold:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: research/anatomy-bakeoff
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Offline original Go race/vet and real negative fold control
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go version
+          go test -race -count=1 ./...
+          go vet ./...
