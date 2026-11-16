@@ -38,12 +38,13 @@ type Feedback struct {
 type Model struct {
  Scores map[string]map[string]float64
  Votes map[string]int
+ PairVotes map[string]int
  Ingested map[string]string
  Accepted int
  Abstained int
 }
 
-func NewModel() *Model {return &Model{Scores:make(map[string]map[string]float64),Votes:make(map[string]int),Ingested:make(map[string]string)}}
+func NewModel() *Model {return &Model{Scores:make(map[string]map[string]float64),Votes:make(map[string]int),PairVotes:make(map[string]int),Ingested:make(map[string]string)}}
 
 func validate(f Feedback) error {
  if f.Schema!=version || !f.SyntheticOnly || f.Authority!="SYNTHETIC_FIXTURE_NOT_OWNER" {
@@ -67,7 +68,16 @@ func validate(f Feedback) error {
 }
 
 func scopeKey(f Feedback) string {
- return f.ScopeKind+"/"+f.ScopeID+"/character/"+f.CharacterID+"/source/"+f.SourceSHA256
+ // A JSON tuple avoids cross-scope aliases when IDs contain '/', 'source',
+ // or other delimiter text. The key is internal, never a grant of authority.
+ b,_:=json.Marshal([4]string{f.ScopeKind,f.ScopeID,f.CharacterID,f.SourceSHA256})
+ return string(b)
+}
+func pairKey(f Feedback) string {
+ a,b:=f.LeftID,f.RightID
+ if b<a {a,b=b,a}
+ encoded,_:=json.Marshal([6]string{f.ScopeKind,f.ScopeID,f.CharacterID,f.SourceSHA256,a,b})
+ return string(encoded)
 }
 func (m *Model) Ingest(f Feedback) error {
  if err:=validate(f);err!=nil{return err}
@@ -94,6 +104,7 @@ func (m *Model) Ingest(f Feedback) error {
  m.Scores[k][f.LeftID]=math.Max(-6,math.Min(6,left+update-0.003*left))
  m.Scores[k][f.RightID]=math.Max(-6,math.Min(6,right-update-0.003*right))
  m.Votes[k]++
+ m.PairVotes[pairKey(f)]++
  m.Accepted++
  return nil
 }
@@ -104,7 +115,9 @@ func (m *Model) Rank(f Feedback) (string,string) {
  s,ok:=m.Scores[k]
  if !ok{return "ABSTAIN_NO_TRAINING",""}
  // Five is a predeclared synthetic safety gate, not a statistical confidence claim.
- if m.Votes[k]<5{return "ABSTAIN_INSUFFICIENT_EVIDENCE",""}
+ if m.Votes[k]<5 || m.PairVotes[pairKey(f)]<5 {
+  return "ABSTAIN_INSUFFICIENT_PAIR_EVIDENCE",""
+ }
  a,hasA:=s[f.LeftID];b,hasB:=s[f.RightID]
  if !hasA || !hasB || math.Abs(a-b)<0.1 {return "ABSTAIN_UNCERTAIN",""}
  if a>b{return "SYNTHETIC_RANK_ONLY",f.LeftID}
