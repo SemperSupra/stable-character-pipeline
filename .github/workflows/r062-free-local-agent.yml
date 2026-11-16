@@ -1,0 +1,122 @@
+name: R062 public $0 bounded local-model agent qualification
+
+on:
+  pull_request:
+    paths:
+      - 'research/r062-free-agent/**'
+      - '.github/workflows/r062-free-local-agent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r062-free-agent-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-model-workcells:
+    name: "R062 / bounded Ollama agent / ${{ matrix.lane }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        lane: [path-boundaries, strict-json]
+    steps:
+      - name: Checkout exact public source without writable Git credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Setup Go version pinned by agent module
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r062-free-agent/go.mod
+          cache: false
+      - name: Baseline source checks and constrained Go agent preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          (cd research/r051-batch && go test -count=1 ./...)
+          (cd research/r062-free-agent && go vet ./... && go test -count=1 ./...)
+          mkdir -p "$RUNNER_TEMP/r062"
+          printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/r062/checked-out-merge-sha.txt"
+      - name: Launch original source-safe CPU-local Qwen model
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name r062-ollama \
+            -p 127.0.0.1:11434:11434 \
+            -e OLLAMA_CONTEXT_LENGTH=3072 \
+            -e OLLAMA_NUM_PARALLEL=1 \
+            ollama/ollama:0.13.2
+          for n in $(seq 1 30); do
+            if curl -fsS --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS --max-time 5 http://127.0.0.1:11434/api/tags >/dev/null
+          docker exec r062-ollama ollama pull qwen2.5-coder:1.5b >/dev/null
+          docker exec r062-ollama ollama list | tee "$RUNNER_TEMP/r062/model-inventory.txt"
+      - name: Run one bounded source-only Go test-generation agent rep
+        shell: bash
+        working-directory: research/r062-free-agent
+        env:
+          LANE: ${{ matrix.lane }}
+        run: |
+          set -euo pipefail
+          echo "lane=$LANE model=qwen2.5-coder:1.5b agent=stdlib-Go-one-shot venue=PUBLIC_CPU private_inputs=NONE"
+          set +e
+          timeout --signal=INT --kill-after=10s 205s env GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off \
+            go run . --lane "$LANE" > "$RUNNER_TEMP/r062/agent.log" 2>&1
+          status=$?
+          set -e
+          echo "AGENT_EXIT_CODE=$status" >> "$GITHUB_ENV"
+          echo "R062_AGENT_EXIT_CODE=$status"
+          tail -c 4000 "$RUNNER_TEMP/r062/agent.log" || true
+      - name: Verify independent source ownership, Go race and vet
+        shell: bash
+        env:
+          LANE: ${{ matrix.lane }}
+        run: |
+          set -euo pipefail
+          case "$LANE" in
+            path-boundaries) TARGET=research/r051-batch/r062_paths_test.go ;;
+            strict-json) TARGET=research/r051-batch/r062_json_test.go ;;
+            *) exit 4 ;;
+          esac
+          result=FAIL
+          reason=UNKNOWN
+          git status --porcelain | tee "$RUNNER_TEMP/r062/git-status.txt"
+          if [ "${AGENT_EXIT_CODE:-99}" != 0 ]; then
+            reason=MODEL_OR_SOURCE_CONTRACT
+          elif [ ! -s "$TARGET" ]; then
+            reason=NO_CANDIDATE
+          else
+            git add -N "$TARGET"
+            git diff -- "$TARGET" > "$RUNNER_TEMP/r062/candidate.diff"
+            changed=$(git status --porcelain | awk '{print $2}' | sort -u)
+            if [ "$changed" != "$TARGET" ]; then
+              reason=OUT_OF_SCOPE_EDIT
+            elif [ ! -s "$RUNNER_TEMP/r062/candidate.diff" ]; then
+              reason=EMPTY_DIFF
+            elif (cd research/r051-batch && GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -count=1 -race ./... && GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go vet ./...) > "$RUNNER_TEMP/r062/tests.log" 2>&1; then
+              result=PASS_NARROW
+              reason=SOURCE_ONLY_TESTS
+            else
+              reason=TEST_FAILURE
+            fi
+          fi
+          printf '{"schema":"scp.r062.free-local-agent.v2","lane":"%s","model":"qwen2.5-coder:1.5b","agent":"stdlib-Go-bounded-adapter","source_sha":"%s","status":"%s","reason":"%s","agent_exit":%s,"private_inputs":false,"push":false,"merge":false,"product_accepted":false}\n' \
+            "$LANE" "$GITHUB_SHA" "$result" "$reason" "${AGENT_EXIT_CODE:-99}" \
+            | tee "$RUNNER_TEMP/r062/receipt.json"
+          test "$result" = PASS_NARROW
+      - name: Upload bounded public-source evidence, including RED
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: "r062-bounded-${{ matrix.lane }}-${{ github.run_id }}"
+          path: ${{ runner.temp }}/r062/
+          retention-days: 3
+          if-no-files-found: warn

@@ -1,0 +1,19 @@
+# R062 — public $0 local-model coding-agent qualification
+
+**Authority:** [R009 private product DLE #23](https://github.com/SemperSupra/stable-character-pipeline-private/issues/23), private batch candidate [#177](https://github.com/SemperSupra/stable-character-pipeline-private/pull/177), stacked public [R060 #602](https://github.com/SemperSupra/stable-character-pipeline/pull/602) / [R061 #605](https://github.com/SemperSupra/stable-character-pipeline/pull/605), canonical [Way of Working v0.0.4](https://github.com/SemperSupra/engineering-governance-private/blob/main/WAY_OF_WORKING.md). This is a disposable source-safe research workcell, not a new DLE/authority or a production agent.
+
+## Actual initial RED: full Qwen Code agent + local 1.5B CPU
+
+First hosted [GHA #43963205720](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43963205720), at R062 draft #606 head `14d0419b963901b4d9b0ccc7dc978c95055f0c1c`, ran two independent standard **public** Ubuntu 24.04 jobs. Both completed original Go tests, started Ollama 0.13.2, pulled model `qwen2.5-coder:1.5b` digest `d7372fd82851` (986 MB), installed Qwen Code v0.27.4, and **both failed** the headless model-edit step with exit `55` after its 240-second wall budget. Qwen Code reported a ~1,473-token always-on context warning (15%+ of 8,192-token window). No code-change acceptance; no source-private work or local actor execution. Source GHA receipts and failed task logs were uploaded. This failed observation must not be overwritten or called a PASS.
+
+## One bounded corrective qualification rep
+
+The [workflow](../../.github/workflows/r062-free-local-agent.yml) now uses a **single-task, standard-library Go Ollama adapter** [`main.go`](main.go) instead of the heavyweight Qwen Code tool context. This *does not* prove Qwen Code works on 1.5B; it tests whether the same free CPU open-weight model can create usable Go regression tests under an isolated structured one-turn agent harness. The adapter accepts only two typed lanes, calls only loopback Ollama `/api/generate` with bounded input/output/time, validates the generated JSON, Go package, syntax, test name, imports, size and exclusive owned file creation. The deterministic GHA harness independently checks source paths, candidate diff, `go test -race` and `go vet` before a `PASS_NARROW` source-only receipt; candidate patches remain artifacts, not Git commits.
+
+Two independent per-runner lanes: `path-boundaries` owns only `research/r051-batch/r062_paths_test.go`; `strict-json` owns only `research/r051-batch/r062_json_test.go`. Other edits fail. Public runner job timeout ≤10 minutes and inference timeout ≤180 seconds. Ollama 0.13.2 version-tagged; Qwen 1.5B model actual digest recorded in run logs. No paid inference, secrets, private Actions minutes, protected assets, Git credentials, automatic writeback, owner acceptance, merge/release, or publication of third-party model/scene inputs. Use small retained text/patch evidence for human, automation and agent inspection.
+
+## Verify and continue
+
+Observe provider job and run status; do not infer execution from YAML. Verify exact SHA for PR source *and* GHA checkout merge SHA, model version/digest, CLI exit, file ownership and independent Go tests. `PASS_NARROW` qualifies only a newly generated public Go test at this exact source; `FAIL/UNKNOWN` includes model serialization failures, incomplete code, bad path, timeout, Go RED, or runtime failure. Reconcile the observed result and next bounded action to [R009 DLE #23](https://github.com/SemperSupra/stable-character-pipeline-private/issues/23). Private R009 native film release, identity, rights, accessibility, and product acceptance remain **HOLD**.
+
+The current PR is **DRAFT / STACKED / UNMERGED**. No merge, release, source promotion or new scheduler is authorized by a passing research test.
