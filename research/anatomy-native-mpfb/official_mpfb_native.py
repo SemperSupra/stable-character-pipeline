@@ -160,14 +160,18 @@ def build(n):
  for o in [rig,body]+organs:o.select_set(True)
  bpy.context.view_layer.objects.active=rig
  glb=os.path.join(n.out,"mpfb-official-anatomy.glb")
- bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
- if not os.path.exists(glb):fail("official MPFB GLB missing")
+ bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True,export_all_influences=False)
+ if not os.path.exists(glb):fail("official MPFB four-influence GLB missing")
+ allweights_glb=os.path.join(n.out,"mpfb-official-anatomy-allweights.glb")
+ bpy.ops.export_scene.gltf(filepath=allweights_glb,export_format="GLB",use_selection=True,export_all_influences=True)
+ if not os.path.exists(allweights_glb):fail("official MPFB all-influences GLB missing")
  r={"status":"PASS_OFFICIAL_MPFB_NATIVE_SMOKE","blender":bpy.app.version_string,
    "real_mpfb_rig_bones":len(rig.data.bones),"selected_torso_bone":target.name,
    "body_vertices":num,"skin_rest_sha":rest_body,"skin_pose_sha":posed_body,
    "organ_rest_sha":rest_organ,"organ_pose_sha":posed_organ,
    "visibility_render_only":before==after,"source_skin_influence_audit":skin_fidelity,"blend_sha256":checksum(blend),
-   "glb_sha256":checksum(glb),"source":"makehumancommunity/mpfb2 pinned Git commit",
+   "glb_sha256":checksum(glb),"allweights_glb_sha256":checksum(allweights_glb),
+   "allweights_export":"STRUCTURAL_EXPERIMENT_NOT_ENGINE_COMPATIBLE","source":"makehumancommunity/mpfb2 pinned Git commit",
    "limits":"generic MPFB official rig; unregistered synthetic proxy organs; no soft tissue physics, photorealism or human anatomy accepted"}
  with open(os.path.join(n.out,"receipt.json"),"w") as f:json.dump(r,f,sort_keys=True,indent=2)
  print("R036_NATIVE_MPFB_RECEIPT "+json.dumps(r,sort_keys=True))
@@ -194,7 +198,19 @@ def verify(n):
   if kind!=0x4e4f534a:fail("missing GLB JSON")
   manifest=json.loads(f.read(length))
  if not manifest.get("skins") or len(manifest.get("meshes",[]))<3:fail("lost skin or anatomy meshes in GLB")
- print("R036_NATIVE_MPFB_VERIFY "+json.dumps({"status":"PASS_REOPEN_INTERCHANGE_NARROW","gltf_skins":len(manifest["skins"]),"gltf_meshes":len(manifest["meshes"]),"bone_count":len(rig.data.bones),"animation_survived":True},sort_keys=True))
+ allpath=os.path.join(n.out,"mpfb-official-anatomy-allweights.glb")
+ with open(allpath,"rb") as f:
+  header=f.read(12)
+  if header[:4]!=b"glTF":fail("invalid all-influences GLB")
+  length,kind=struct.unpack("<II",f.read(8))
+  if kind!=0x4e4f534a:fail("all-influences GLB JSON missing")
+  full=json.loads(f.read(length))
+ additional_weight_sets=sum(1 for mesh in full.get("meshes",[]) for primitive in mesh.get("primitives",[]) if "WEIGHTS_1" in primitive.get("attributes",{}))
+ if additional_weight_sets==0:fail("all-influences glTF did not preserve any WEIGHTS_1 set")
+ print("R036_NATIVE_MPFB_VERIFY "+json.dumps({"status":"PASS_REOPEN_INTERCHANGE_NARROW","gltf_skins":len(manifest["skins"]),"gltf_meshes":len(manifest["meshes"]),
+    "allweights_additional_primitives":additional_weight_sets,"allweights_glb_sha256":checksum(allpath),
+    "allweights_engine_compatibility":"UNVERIFIED","fourweight_positional_fidelity":"HOLD",
+    "bone_count":len(rig.data.bones),"animation_survived":True},sort_keys=True))
 
 if __name__=="__main__":
  n=parse()
