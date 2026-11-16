@@ -67,7 +67,7 @@ func (s State) Evaluate() (Properties, error) {
 // It is an independent illustrative check, NOT a human vocal tract model.
 func QuarterWave(n int, lengthMeters, soundSpeed float64) (float64, error) {
     if n < 1 || n > 100 || !finite(lengthMeters) || lengthMeters <= 0 || !finite(soundSpeed) || soundSpeed <= 0 { return 0, errors.New("invalid quarter-wave arguments") }
-    return float64(2*n-1)*soundSpeed/(4*lengthMeters), nil
+    f:=float64(2*n-1)*soundSpeed/(4*lengthMeters);if !finite(f)||f<=0 {return 0,errors.New("invalid or overflowing quarter-wave resonance")};return f,nil
 }
 
 func Earthlike() State {
