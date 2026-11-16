@@ -1,0 +1,36 @@
+name: "Research · Synthetic inverse parameter fit CPU"
+on:
+  pull_request:
+    paths:
+      - "research/physical-medium/**"
+      - ".github/workflows/research-inverse-bakeoff-cpu.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  offline-inverse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Checkout source with no persistent credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Go race tests, vet, four-seed bounded comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/physical-medium
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/inverse-bakeoff
