@@ -59,6 +59,8 @@ def fixture():
         "qualification":"NOT_PHOTOREALISM_OR_PRIVATE_HUMAN_EVIDENCE",
         "source_scene_id":"original-synthetic-head-v1",
         "source_script_sha256":source_sha,
+        "exr_z_interpretation":"PERSPECTIVE_CAMERA_AXIS_MINUS_LOCAL_Z",
+        "native_ray_metric":"EUCLIDEAN_CAMERA_TO_HIT_RAY_LENGTH",
         "geometry_sha256":original_geom,
         "resolution":256,
         "lenses":cases,
