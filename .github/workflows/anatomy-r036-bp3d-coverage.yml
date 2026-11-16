@@ -1,0 +1,63 @@
+name: R036 BodyParts3D 12-System Coverage Matrix
+on:
+  push:
+    branches:
+      - research/r036-bp3d-coverage-20261116
+    paths:
+      - 'research/anatomy-bp3d-audit/coverage.go'
+      - 'research/anatomy-bp3d-audit/coverage_test.go'
+      - 'research/anatomy-bp3d-audit/main.go'
+      - '.github/workflows/anatomy-r036-bp3d-coverage.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-bp3d-audit/coverage.go'
+      - 'research/anatomy-bp3d-audit/coverage_test.go'
+      - 'research/anatomy-bp3d-audit/main.go'
+      - '.github/workflows/anatomy-r036-bp3d-coverage.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-bp3d-coverage-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    defaults:
+      run:
+        working-directory: research/anatomy-bp3d-audit
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Test only original Go source offline
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Fetch and pin only four source metadata text files
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036-bp3d"
+          ROOT=https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST
+          for n in isa_parts_list_e.txt partof_parts_list_e.txt isa_inclusion_relation_list.txt partof_inclusion_relation_list.txt; do
+            curl -fsSL --retry 1 --connect-timeout 8 --max-time 25 --max-filesize 2500000 "$ROOT/$n" -o "$RUNNER_TEMP/r036-bp3d/$n"
+          done
+          (cd "$RUNNER_TEMP/r036-bp3d" && printf '%s\n' \
+            'ab7796deedd49205e77f3609a1cb8c53e2bbee14ecb5c9a6ca05227469780513  isa_parts_list_e.txt' \
+            '9224080557053e6f1322f1e13ab27f0ecde0db19bb3b505f0631afad230eeebd  partof_parts_list_e.txt' \
+            '26e7d818e03a8c909fe09c561f38d0d513423c87681f9450a803bc38f5b07564  isa_inclusion_relation_list.txt' \
+            '1b40738270931e3c1d955ce34e0fce0d8d10d8c5ad543463e40b4b4c0243007c  partof_inclusion_relation_list.txt' | sha256sum --check --status)
+      - name: Emit twelve-system named coverage and ambiguity ledger
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go run . --coverage --dir "$RUNNER_TEMP/r036-bp3d"
+          echo "Only metadata lexical coverage; no mesh, phenotype, physiology or real anatomy qualified"
