@@ -126,3 +126,20 @@ jobs:
           grep -F '"status": "PASS_NARROW_DERIVED_PROXY_TRIANGLE_ORDER"' "$RUNNER_TEMP/r060-canonical-receipt.json"
           grep -F '"reversed_winding_rejected": true' "$RUNNER_TEMP/r060-canonical-receipt.json"
           echo "R060 no upload and no source overwrite: derived candidate in disposable scratch only"
+
+      - name: R061 actual fresh-process Blender glTF importer source-vs-derived semantic readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b --factory-startup -t 2 --python research/anatomy-native-mpfb/r061_blender_import.py -- \
+            --glb "$RUNNER_TEMP/r053/r044-morph-organ-allweights.glb" \
+            --out "$RUNNER_TEMP/r061-original-native.json"
+          blender -b --factory-startup -t 2 --python research/anatomy-native-mpfb/r061_blender_import.py -- \
+            --glb "$RUNNER_TEMP/r060-derived.glb" \
+            --out "$RUNNER_TEMP/r061-derived-native.json"
+          python3 research/anatomy-native-mpfb/r061_compare_blender_import.py \
+            --original "$RUNNER_TEMP/r061-original-native.json" \
+            --derived "$RUNNER_TEMP/r061-derived-native.json" \
+            --out "$RUNNER_TEMP/r061-native-parity.json"
+          grep -F '"status": "PASS_NARROW_ACTUAL_NATIVE_IMPORT_SEMANTIC_EQUALITY"' "$RUNNER_TEMP/r061-native-parity.json"
+          echo "R061 independent native Blender importer parity evidence only; GLB and BLEND binary bytes stay on disposable runners"
