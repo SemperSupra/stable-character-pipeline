@@ -72,12 +72,30 @@ def clone_and_apply_mask(body, rig):
         k.name for k in body.data.shape_keys.key_blocks
         if k.name != "Basis" and abs(k.value) > 1e-8
     ] if body.data.shape_keys else []
-    if active_source_keys:
-        fail("source shape keys are active; scratch clone cannot isolate mask impact: " + str(len(active_source_keys)))
-    # Science-only negative/control: never mutate original source or silently
-    # claim morph-preserving delivery from a topology-changing mask.
-    # Drop *cloned* inactive source keys to isolate mask/export topology.
-    # This explicitly DISQUALIFIES the derivative as a CharacterPack.
+    # Research-only frozen shape-state bake: preserve the current *appearance*
+    # when deleting the scratch clone's future morph controls. Never touch
+    # original shape keys, rig weights, source mesh or saved .blend.
+    baked_current_shape = None
+    if source_shape_count:
+        shape_keys = clone.data.shape_keys
+        if not shape_keys.use_relative:
+            fail("nonrelative shape keys require a separately qualified bake")
+        keys = list(shape_keys.key_blocks)
+        if len(keys[0].data) != len(clone.data.vertices):
+            fail("shape-key base/mesh cardinality mismatch")
+        baked_current_shape = [v.co.copy() for v in keys[0].data]
+        for key in keys[1:]:
+            if key.mute or abs(key.value) <= 1e-8:
+                continue
+            if key.vertex_group:
+                fail("active vertex-group-constrained shape key requires per-vertex mask bake: " + key.name)
+            relative = key.relative_key
+            if relative is None or len(key.data) != len(baked_current_shape):
+                fail("shape key has invalid relative-reference topology")
+            for i in range(len(baked_current_shape)):
+                baked_current_shape[i] += key.value * (key.data[i].co - relative.data[i].co)
+    # This is NOT a morph-preserving technique: explicitly record that the
+    # derivative has no future shape sliders. Source master retains them.
     bpy.ops.object.select_all(action="DESELECT")
     clone.select_set(True)
     bpy.context.view_layer.objects.active = clone
@@ -85,6 +103,12 @@ def clone_and_apply_mask(body, rig):
         bpy.ops.object.shape_key_remove(all=True)
     if clone.data.shape_keys is not None:
         fail("diagnostic clone shape keys still present")
+    if baked_current_shape is not None:
+        if len(baked_current_shape) != len(clone.data.vertices):
+            fail("baked shape and post-removal vertex count differ")
+        for i, pos in enumerate(baked_current_shape):
+            clone.data.vertices[i].co = pos
+        clone.data.update()
     masks = [m for m in clone.modifiers if m.type == "MASK"]
     if len(masks) != 1 or masks[0].name != "Hide helpers":
         fail("unexpected native modifier stack; do not guess which mask to apply")
@@ -111,6 +135,7 @@ def clone_and_apply_mask(body, rig):
         fail("immutable source body mask was unexpectedly altered")
     return clone, {"original_source_shape_keys_preserved": source_shape_count,
                    "diagnostic_clone_shape_keys_deliberately_omitted": source_shape_count,
+                   "active_source_shape_keys_baked_into_frozen_geometry": len(active_source_keys),
                    "diagnostic_derivative_morph_fidelity": "FAIL_NOT_PRODUCTION_ADMISSIBLE",
                    "clone_vertices_after_mask": len(clone.data.vertices)}
 
