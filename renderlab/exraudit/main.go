@@ -135,8 +135,7 @@ func run(args []string) error {
  if fs.NArg()!=0 || *a==""||*b==""||*out=="" {return errors.New("usage: exraudit -baseline file -material file -out report.json")}
  report,err:=audit(*a,*b);if err!=nil{return err}
  body,err:=json.MarshalIndent(report,"","  ");if err!=nil{return err}
- body=append(body,'
-')
+ body=append(body,byte(10))
  if err:=os.WriteFile(*out,body,0644);err!=nil{return err}
  fmt.Print(string(body));return nil
 }
