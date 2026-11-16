@@ -2,6 +2,7 @@ import copy
 import json
 import tempfile
 import unittest
+import numpy as np
 from pathlib import Path
 
 import audit
@@ -117,6 +118,34 @@ class TestPerspectiveNativeCameraIdentity(unittest.TestCase):
         m=fixture()
         del m["lenses"]["lens_65"]["arms"]["physical_material"]
         with self.assertRaises(ValueError):audit.validate_manifest(m)
+
+    def test_numeric_axial_source_positive_and_reject_wrong_depth(self):
+        m=fixture()
+        rays=m["lenses"]["lens_35"]["rays"]
+        pix={"depth":{"Z":np.full((256,256),5.0,dtype=np.float32)},
+             "object":{"X":np.full((256,256),1.0,dtype=np.float32)}}
+        result=audit.compare_axial_depth(rays,pix)
+        self.assertEqual(result["joint_correct"],64)
+        self.assertEqual(result["max_abs_axial_depth_error_among_correct"],0)
+        for r in rays[:3]:
+            pix["depth"]["Z"][r["y"],r["x"]]=5.2
+        with self.assertRaisesRegex(ValueError,"REAL_EXR_AXIAL_DEPTH"):
+            audit.compare_axial_depth(rays,pix)
+
+    def test_numeric_axial_index_swap_and_nan_fail_closed(self):
+        m=fixture()
+        rays=m["lenses"]["lens_65"]["rays"]
+        for mutation in ("index_swap","nonfinite_depth"):
+            pix={"depth":{"Z":np.full((256,256),5.0,dtype=np.float32)},
+                 "object":{"X":np.full((256,256),1.0,dtype=np.float32)}}
+            for r in rays[:3]:
+                if mutation=="index_swap":
+                    pix["object"]["X"][r["y"],r["x"]]=2.0
+                else:
+                    pix["depth"]["Z"][r["y"],r["x"]]=np.nan
+            with self.subTest(mutation=mutation):
+                with self.assertRaisesRegex(ValueError,"REAL_EXR_AXIAL_DEPTH"):
+                    audit.compare_axial_depth(rays,pix)
 
     def test_strict_json_dupes_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
