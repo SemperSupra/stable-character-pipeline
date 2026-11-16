@@ -40,8 +40,8 @@ jobs:
           go version
           go vet ./...
           go test -race -count=1 -v ./... | tee r058_pair_evidence_tests.txt
-          grep -F '--- PASS: TestOnePairVoteCannotBorrowFourOtherPairVotes' r058_pair_evidence_tests.txt
-          grep -F '--- PASS: TestDelimitedCharacterAndShotIDsCannotAliasSourceScope' r058_pair_evidence_tests.txt
+          grep -F -- '--- PASS: TestOnePairVoteCannotBorrowFourOtherPairVotes' r058_pair_evidence_tests.txt
+          grep -F -- '--- PASS: TestDelimitedCharacterAndShotIDsCannotAliasSourceScope' r058_pair_evidence_tests.txt
       - name: Original synthetic numerical receipt remains non-owner
         working-directory: prefprobe
         shell: bash
