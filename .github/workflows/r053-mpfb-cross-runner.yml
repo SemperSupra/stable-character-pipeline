@@ -1,0 +1,94 @@
+name: R053 MPFB independent public runner GLB hash receipts
+on:
+  pull_request:
+    paths:
+      - 'research/anatomy-native-mpfb/**'
+      - '.github/workflows/r053-mpfb-cross-runner.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r053-source-safe-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-export:
+    name: R053 / independent / ${{ matrix.rep }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        rep: [a, b]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Source-safe CPU Blender and original source preflight
+        shell: bash
+        env:
+          SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy
+          blender --version | head -3
+          mkdir -p "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin "$SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
+          test -f "$RUNNER_TEMP/mpfb2/src/mpfb/data/3dobjs/base.obj"
+          blender --command extension build \
+            --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" \
+            --output-filepath "$RUNNER_TEMP/mpfb-pinned-extension.zip"
+          test -s "$RUNNER_TEMP/mpfb-pinned-extension.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned-extension.zip"
+      - name: Independent fresh native model and exported GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r053"
+          blender -b -t 2 --python-exit-code 12 --python research/anatomy-native-mpfb/official_mpfb_native.py -- \
+            --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r053"
+          blender -b "$RUNNER_TEMP/r053/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/morph_organ_coexport.py -- \
+            --out "$RUNNER_TEMP/r053"
+          test -s "$RUNNER_TEMP/r053/r044-morph-organ-allweights.glb"
+          test -s "$RUNNER_TEMP/r053/r044-morph-organ-doe.json"
+      - name: Source and GLB JSON/BIN SHA-only readback
+        shell: bash
+        env:
+          REP: ${{ matrix.rep }}
+        run: |
+          set -euo pipefail
+          python3 research/anatomy-native-mpfb/r053_cross_runner_receipt.py \
+            --rep "$REP" \
+            --blend "$RUNNER_TEMP/r053/mpfb-official-anatomy.blend" \
+            --glb "$RUNNER_TEMP/r053/r044-morph-organ-allweights.glb" \
+            --out "$RUNNER_TEMP/r053-receipt-$REP.json"
+          grep -F '"status": "PASS_NARROW_INDEPENDENT_RUNNER_SHA_RECEIPT"' "$RUNNER_TEMP/r053-receipt-$REP.json"
+          echo "R053 runner $REP produced only SHA/count receipt; no GLB or BLEND upload"
+      - name: Deliberately corrupted binary chunk must be detected
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/r053/r044-morph-organ-allweights.glb" "$RUNNER_TEMP/r053-bad.glb" <<'PY'
+          from pathlib import Path
+          import struct,sys
+          data=bytearray(Path(sys.argv[1]).read_bytes())
+          length,kind=struct.unpack_from("<II",data,12)
+          offset=20+length
+          size,kind=struct.unpack_from("<II",data,offset)
+          assert kind==0x004e4942 and size>256
+          data[offset+8+128]^=0x01
+          Path(sys.argv[2]).write_bytes(data)
+          PY
+          python3 research/anatomy-native-mpfb/r052_glb_diff.py \
+            --first "$RUNNER_TEMP/r053/r044-morph-organ-allweights.glb" \
+            --second "$RUNNER_TEMP/r053-bad.glb" \
+            --out "$RUNNER_TEMP/r053-negative.json"
+          grep -F '"classification": "BINARY_PAYLOAD_DRIFT"' "$RUNNER_TEMP/r053-negative.json"
+          echo "R053_NEGATIVE_SOURCE_SAFE injected_payload_mutation_detected=YES"
+          echo "No model bytes persisted outside disposable runner"
