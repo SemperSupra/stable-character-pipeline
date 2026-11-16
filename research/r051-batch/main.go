@@ -7,7 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"slices"
@@ -140,18 +139,32 @@ func Validate(batch Batch) (Receipt,error) {
 }
 
 func main() {
-	file:=flag.String("manifest","","JSON batch manifest, private bytes stay local")
-	flag.Parse()
-	if *file==""{fmt.Fprintln(os.Stderr,"R051_BATCH_HOLD --manifest required");os.Exit(12)}
-	f,err:=os.Open(*file)
-	if err!=nil{fmt.Fprintln(os.Stderr,"R051_BATCH_HOLD",err);os.Exit(12)}
-	defer f.Close()
-	raw,err:=io.ReadAll(io.LimitReader(f,1<<20))
-	if err!=nil||len(raw)>=(1<<20){fmt.Fprintln(os.Stderr,"R051_BATCH_HOLD invalid bounded JSON length");os.Exit(12)}
-	var b Batch
-	if err:=json.Unmarshal(raw,&b);err!=nil{fmt.Fprintln(os.Stderr,"R051_BATCH_HOLD",err);os.Exit(12)}
-	r,err:=Validate(b)
-	if err!=nil {fmt.Fprintln(os.Stderr,err);os.Exit(12)}
-	data,_:=json.Marshal(r)
-	fmt.Println("R051_BATCH_CONTRACT_RECEIPT",string(data))
+    manifest:=flag.String("manifest","","JSON batch manifest, private bytes stay local")
+    repFile:=flag.String("rep","","optional local actor rep JSON, never uploaded")
+    flag.Parse()
+    if *manifest=="" {
+        fmt.Fprintln(os.Stderr,"R051_BATCH_HOLD --manifest required")
+        os.Exit(12)
+    }
+    var batch Batch
+    if err:=decodeLocalBounded(*manifest,&batch);err!=nil {
+        fmt.Fprintln(os.Stderr,"R051_BATCH_HOLD invalid local manifest:",err)
+        os.Exit(12)
+    }
+    base,err:=Validate(batch)
+    if err!=nil {fmt.Fprintln(os.Stderr,err);os.Exit(12)}
+    if *repFile==""{
+        data,_:=json.Marshal(base)
+        fmt.Println("R051_BATCH_CONTRACT_RECEIPT",string(data))
+        return
+    }
+    var rep ActorRep
+    if err:=decodeLocalBounded(*repFile,&rep);err!=nil{
+        fmt.Fprintln(os.Stderr,"R060_REP_HOLD invalid local rep:",err)
+        os.Exit(12)
+    }
+    review,err:=ValidateActorRep(batch,rep)
+    if err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(12)}
+    data,_:=json.Marshal(review)
+    fmt.Println("R061_OFFLINE_ACTOR_REP_REVIEW",string(data))
 }
