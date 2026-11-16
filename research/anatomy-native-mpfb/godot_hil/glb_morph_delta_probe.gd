@@ -45,6 +45,12 @@ func _initialize() -> void:
         return
     outfile.store_32(8)
     outfile.store_32(baseline.size())
+    # Record actual engine baseline local-space coordinates for independent
+    # source POSITION vertex correspondence and axis-frame calibration.
+    for p: Vector3 in baseline:
+        outfile.store_float(p.x)
+        outfile.store_float(p.y)
+        outfile.store_float(p.z)
     var max_movement: float = 0.0
     var nonzero_channels: int = 0
     for channel_idx in range(8):
