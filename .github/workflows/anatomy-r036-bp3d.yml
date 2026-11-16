@@ -1,0 +1,57 @@
+name: R036 BodyParts3D 4.0 Metadata Coverage CPU
+on:
+  push:
+    branches:
+      - research/r036-bp3d-metadata-20261116
+    paths:
+      - 'research/anatomy-bp3d-audit/**'
+      - '.github/workflows/anatomy-r036-bp3d.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-bp3d-audit/**'
+      - '.github/workflows/anatomy-r036-bp3d.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-bp3d-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    defaults:
+      run:
+        working-directory: research/anatomy-bp3d-audit
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Offline pure-Go unit, red-team and vet
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go version
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Fetch only four official source TSV files within size limits
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036-bp3d"
+          ROOT=https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST
+          for part in isa_parts_list_e.txt partof_parts_list_e.txt isa_inclusion_relation_list.txt partof_inclusion_relation_list.txt; do
+            curl -fsSL --retry 1 --connect-timeout 8 --max-time 25 --max-filesize 2500000 "$ROOT/$part" -o "$RUNNER_TEMP/r036-bp3d/$part"
+            test "$(wc -c < "$RUNNER_TEMP/r036-bp3d/$part")" -gt 50
+            sha256sum "$RUNNER_TEMP/r036-bp3d/$part"
+          done
+      - name: Independent source identity and semantic hierarchy audit
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go run . --dir "$RUNNER_TEMP/r036-bp3d"
+          echo "Coverage is source mapping only; no geometry or private assets admitted"
