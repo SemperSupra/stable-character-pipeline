@@ -57,7 +57,7 @@ def audio_guard_lane(m, output):
                     "TRANSCRIPT_" + raw_text)
         intended = "NO_SPEECH" if r["fixture"] == "silence" else "TRANSCRIPT_LEFT"
         passed = (decision == "NO_SPEECH" if r["fixture"] == "silence"
-                  else "left" in raw_text.lower().split())
+                  else "left" in raw_text.lower().replace(".", " ").replace("!", " ").replace("?", " ").split())
         composed.append({
             "fixture": r["fixture"], "fixture_sha256": r["sha256"],
             "raw_whisper_text": raw_text, "raw_whisper_passed": r["passed"],
