@@ -1,0 +1,61 @@
+name: R036 Official MPFB HumanService and Native Rig
+on:
+  push:
+    branches:
+      - research/anatomy-r036-mpfb-official-rig-20261116
+    paths:
+      - 'research/anatomy-native-mpfb/**'
+      - '.github/workflows/anatomy-r036-mpfb-official.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-native-mpfb/**'
+      - '.github/workflows/anatomy-r036-mpfb-official.yml'
+permissions:
+  contents: read
+concurrency:
+  group: anatomy-r036-official-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  official-human-rig:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install CPU Blender and required NumPy
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy
+          blender --version | head -3
+          blender -b --python-exit-code 12 --python-expr 'import numpy;print("NUMPY_READY", numpy.__version__)'
+      - name: Fetch exact upstream MPFB official addon and assets into temporary isolation
+        env:
+          SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin "$SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
+          test -f "$RUNNER_TEMP/mpfb2/src/mpfb/data/3dobjs/base.obj"
+          echo "Pinned MPFB source: $SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj
+      - name: Build native official MPFB character and moving anatomy
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036-official"
+          blender -b -t 2 --python-exit-code 12 --python research/anatomy-native-mpfb/official_mpfb_native.py -- \
+            --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r036-official"
+      - name: Fresh-process reopen and exported rig verification
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/official_mpfb_native.py -- \
+            --stage verify --out "$RUNNER_TEMP/r036-official"
+          ls -lh "$RUNNER_TEMP/r036-official"
+          echo "Original generated images, scene and source retained only in ephemeral runner scratch; no public artifact upload"
