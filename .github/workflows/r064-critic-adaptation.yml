@@ -1,0 +1,89 @@
+name: R064 public CPU model critic adaptation pilot
+
+on:
+  push:
+    branches:
+      - 'research/r064-critic-interview-adaptation-20261116'
+    paths:
+      - '.github/workflows/r064-critic-adaptation.yml'
+      - 'research/r064-critic-adaptation/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r064-critic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  independent-interviews:
+    name: "R064 / ${{ matrix.lane }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        lane: [video-500m, audio-guard]
+    env:
+      LANE: ${{ matrix.lane }}
+      HF_HOME: ${{ github.workspace }}/.hf-r064
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+    steps:
+      - name: Checkout public source only and no persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Preflight exact-source program and public codec
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/r063-critic-interview/interview.py research/r064-critic-adaptation/run.py
+          mkdir -p "$RUNNER_TEMP/r064"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          if [ "$LANE" = audio-guard ]; then
+            sudo apt-get install -y -qq --no-install-recommends espeak-ng
+            command -v espeak-ng
+          fi
+          command -v ffmpeg
+          echo "R064 source=$GITHUB_SHA lane=$LANE original_synthetic=YES protected_media=NO"
+      - name: Install pinned source-safe CPU model runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r064-venv"
+          . "$RUNNER_TEMP/r064-venv/bin/activate"
+          python -m pip install --disable-pip-version-check --no-input --index-url https://download.pytorch.org/whl/cpu torch==2.6.0 torchvision==0.21.0
+          python -m pip install --disable-pip-version-check --no-input transformers==4.57.1 accelerate==1.11.0 pillow==11.3.0 numpy==2.2.6 sentencepiece==0.2.1 num2words==0.5.14
+          python - <<'PY'
+          import torch, transformers
+          print("R064_CPU", torch.__version__, transformers.__version__)
+          assert not torch.cuda.is_available()
+          PY
+      - name: Actual model/independent energy-oracle interview
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$RUNNER_TEMP/r064-venv/bin/activate"
+          set +e
+          timeout --signal=INT --kill-after=15s 570s python research/r064-critic-adaptation/run.py --lane "$LANE" --out "$RUNNER_TEMP/r064" > "$RUNNER_TEMP/r064/interview.log" 2>&1
+          status=$?
+          set -e
+          echo "R064_JOB_EXIT=$status"
+          tail -c 16000 "$RUNNER_TEMP/r064/interview.log" || true
+          test "$status" -eq 0
+      - name: Upload narrow evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: "r064-${{ matrix.lane }}-${{ github.run_id }}"
+          path: |
+            ${{ runner.temp }}/r064/r064-receipt.json
+            ${{ runner.temp }}/r064/interview.log
+          retention-days: 3
+          if-no-files-found: warn
