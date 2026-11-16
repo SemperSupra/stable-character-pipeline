@@ -47,22 +47,75 @@ def parse_glb(path):
     return manifest,chunks[1][1]
 
 def accessor_xyz(manifest,buf,index):
+    """Decode an actual float32 glTF VEC3, including spec sparse overrides."""
     acc=manifest["accessors"][index]
     if acc["componentType"]!=5126 or acc["type"]!="VEC3":
         hold("requires actual float32 VEC3 morph source accessor")
-    if acc.get("sparse"):
-        hold("sparse glTF accessors unsupported; do not silently discard")
-    view=manifest["bufferViews"][acc["bufferView"]]
-    if "extensions" in view or view.get("byteStride",12)<12:
-        hold("unsupported compressed/strided source buffer view")
-    stride=view.get("byteStride",12)
-    start=view.get("byteOffset",0)+acc.get("byteOffset",0)
     count=acc["count"]
-    if start<0 or count<=0 or count>1000000:
+    if count<=0 or count>1000000:
         hold("invalid source accessor cardinality")
-    if start+(count-1)*stride+12>len(buf):
-        hold("source accessor leaves binary buffer")
-    return [struct.unpack_from("<fff",buf,start+j*stride) for j in range(count)]
+    result=[(0.0,0.0,0.0)]*count
+    views=manifest["bufferViews"]
+    def bounded_view(view_id,offset,length):
+        if not (0<=view_id<len(views)):
+            hold("invalid glTF sparse/dense bufferView ID")
+        view=views[view_id]
+        if "extensions" in view:
+            hold("compressed glTF source view unsupported without independent decoder")
+        size=view["byteLength"]
+        if offset<0 or length<0 or offset+length>size:
+            hold("sparse/dense glTF accessor escaped declared bufferView bounds")
+        pos=view.get("byteOffset",0)+offset
+        if pos<0 or pos+length>len(buf):
+            hold("glTF accessor escaped actual GLB binary chunk")
+        return pos,view
+    if "bufferView" in acc:
+        view_id=acc["bufferView"]
+        view=views[view_id]
+        stride=view.get("byteStride",12)
+        if stride<12 or stride>4096:
+            hold("unexpected glTF VEC3 stride")
+        pos,_=bounded_view(view_id,acc.get("byteOffset",0),(count-1)*stride+12)
+        result=[struct.unpack_from("<fff",buf,pos+j*stride) for j in range(count)]
+    elif not acc.get("sparse"):
+        hold("glTF accessor missing both dense and sparse source data")
+    elif acc.get("byteOffset",0)!=0:
+        hold("accessor with no bufferView has an unsupported byteOffset")
+    sparse=acc.get("sparse")
+    if sparse:
+        sn=sparse["count"]
+        if not (0<sn<=count):
+            hold("invalid glTF sparse count")
+        ids=sparse["indices"]
+        dtype=ids["componentType"]
+        format_by_dtype={5121:("<B",1),5123:("<H",2),5125:("<I",4)}
+        if dtype not in format_by_dtype:
+            hold("unsupported glTF sparse index component type")
+        fmt,bytes_per_idx=format_by_dtype[dtype]
+        iview=views[ids["bufferView"]]
+        istride=iview.get("byteStride",bytes_per_idx)
+        if istride<bytes_per_idx:
+            hold("invalid sparse index stride")
+        ipos,_=bounded_view(ids["bufferView"],ids.get("byteOffset",0),(sn-1)*istride+bytes_per_idx)
+        sv=sparse["values"]
+        vview=views[sv["bufferView"]]
+        vstride=vview.get("byteStride",12)
+        if vstride<12:
+            hold("invalid sparse VEC3 stride")
+        vpos,_=bounded_view(sv["bufferView"],sv.get("byteOffset",0),(sn-1)*vstride+12)
+        last=-1
+        for j in range(sn):
+            at=struct.unpack_from(fmt,buf,ipos+j*istride)[0]
+            if at>=count or at<=last:
+                hold("sparse glTF morph indices out of range, duplicate or unsorted")
+            last=at
+            value=struct.unpack_from("<fff",buf,vpos+j*vstride)
+            if not all(math.isfinite(k) for k in value):
+                hold("nonfinite glTF sparse morph displacement")
+            result[at]=value
+    if any(not all(math.isfinite(k) for k in v) for v in result):
+        hold("nonfinite glTF POSITION or morph displacement source")
+    return result
 
 def expected_morph_arrays(path):
     manifest,blob=parse_glb(path)
