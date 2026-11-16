@@ -62,7 +62,7 @@ type Receipt struct {
 }
 
 func cleanPath(s string) error {
-	if s==""||strings.HasPrefix(s,"/")||strings.Contains(s,"\")||strings.Contains(s,":") {return errors.New("invalid owned path")}
+	if s==""||strings.HasPrefix(s,"/")||strings.Contains(s,"\\")||strings.Contains(s,":") {return errors.New("invalid owned path")}
 	t:=strings.TrimSuffix(s,"/**")
 	if t==""||t=="."||path.Clean(t)!=t {
 		return fmt.Errorf("unsafe path %q",s)
