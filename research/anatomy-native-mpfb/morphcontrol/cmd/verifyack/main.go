@@ -9,7 +9,6 @@ import (
     "crypto/subtle"
     "encoding/hex"
     "encoding/json"
-    "errors"
     "flag"
     "fmt"
     "math"
@@ -107,5 +106,4 @@ func main(){
     digest:=sha256.Sum256(ackBytes)
     fmt.Printf("R050_GO_DURABLE_ACK_RECEIPT status=PASS_NARROW_ENGINE_HMAC_ACK_AND_PROCESS_REHYDRATION commands=24 godot_restart=%v plan_sha=%s ack_sha=%s auth_scope=EPHEMERAL_SHARED_KEY\n",
         resumed,planHash,hex.EncodeToString(digest[:]))
-    if !errors.Is(nil,nil) {panic("unreachable")}
 }
