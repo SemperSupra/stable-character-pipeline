@@ -202,6 +202,7 @@ func main(){
  archive:=flag.String("archive","","official partof_BP3D_4.0_obj_99.zip in scratch")
  topology:=flag.Bool("topology",false,"inspect original bounded FJ atomic mesh surface topology and FMA composite overlap")
  weld:=flag.Bool("weld",false,"inspect source-seam duplicate vertices at bounded raw-coordinate tolerances")
+ volume:=flag.Bool("volume",false,"measure raw-coordinate candidate signed volume on exact-weld original source atomics")
  flag.Parse()
  if *table==""||*archive==""{fmt.Fprintln(os.Stderr,"R036_ELEMENT_FAIL missing source paths");os.Exit(2)}
  if *topology{
@@ -210,6 +211,10 @@ func main(){
  }
  if *weld{
   if e:=emitSeams(*table,*archive);e!=nil{fmt.Fprintln(os.Stderr,"R036_SEAM_WELD_FAIL",e);os.Exit(6)}
+  return
+ }
+ if *volume{
+  if e:=emitRealVolume(*table,*archive);e!=nil{fmt.Fprintln(os.Stderr,"R036_SIGNED_VOLUME_FAIL",e);os.Exit(7)}
   return
  }
  r,e:=inspect(*table,*archive)
