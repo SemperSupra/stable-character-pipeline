@@ -1,0 +1,58 @@
+name: R036 Actual BodyParts3D 4.0 Element Mesh Admission
+on:
+  push:
+    branches:
+      - research/r036-bp3d-elements-20261116
+    paths:
+      - 'research/anatomy-bp3d-elements/**'
+      - '.github/workflows/anatomy-r036-bp3d-elements.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-bp3d-elements/**'
+      - '.github/workflows/anatomy-r036-bp3d-elements.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-bp3d-elements-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  bounded-real-obj:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: research/anatomy-bp3d-elements
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Go source-only unit/vet/race controls
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go version
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Fetch ONLY official PART-OF v4.0 element map and one ~62MB mesh archive to ephemeral scratch
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036-bp3d-elements"
+          ROOT=https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20130619
+          curl -fsSL --retry 1 --connect-timeout 12 --max-time 60 --max-filesize 1600000 \
+            "$ROOT/partof_element_parts.txt" -o "$RUNNER_TEMP/r036-bp3d-elements/partof_element_parts.txt"
+          curl -fsSL --retry 1 --connect-timeout 12 --max-time 360 --max-filesize 80000000 \
+            "$ROOT/partof_BP3D_4.0_obj_99.zip" -o "$RUNNER_TEMP/r036-bp3d-elements/partof_BP3D_4.0_obj_99.zip"
+          test "$(wc -c < "$RUNNER_TEMP/r036-bp3d-elements/partof_BP3D_4.0_obj_99.zip")" -gt 1000000
+          sha256sum "$RUNNER_TEMP/r036-bp3d-elements/partof_element_parts.txt" "$RUNNER_TEMP/r036-bp3d-elements/partof_BP3D_4.0_obj_99.zip"
+      - name: Inspect zip central directory and at most 12 source OBJ components without extraction
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go run . --elements "$RUNNER_TEMP/r036-bp3d-elements/partof_element_parts.txt" --archive "$RUNNER_TEMP/r036-bp3d-elements/partof_BP3D_4.0_obj_99.zip"
+          echo "Actual source mesh bytes inspected. No source donor model or generated output uploaded."
