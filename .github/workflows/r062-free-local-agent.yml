@@ -1,0 +1,168 @@
+name: R062 public $0 local-model agent qualification
+
+on:
+  pull_request:
+    paths:
+      - 'research/r062-free-agent/**'
+      - '.github/workflows/r062-free-local-agent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r062-free-agent-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  local-model-workcells:
+    name: "R062 / Qwen-Code-Ollama / ${{ matrix.lane }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        lane: [path-boundaries, strict-json]
+    env:
+      OLLAMA_API_KEY: ollama
+      OLLAMA_CONTEXT_LENGTH: "8192"
+      QWEN_CODE_TELEMETRY_ENABLED: "false"
+      QWEN_CODE_SAFE_MODE: "false"
+    steps:
+      - name: Checkout exact public source without writable Git credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Baseline deterministic Go tests (offline)
+        shell: bash
+        working-directory: research/r051-batch
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          go version
+          go test -count=1 ./...
+      - name: Start isolated open-weight inference runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r062"
+          echo "R062 source_sha=$GITHUB_SHA lane=${{ matrix.lane }} venue=PUBLIC_GHA source_class=PUBLIC_SYNTHETIC"
+          docker run -d --rm --name r062-ollama \
+            -p 127.0.0.1:11434:11434 \
+            -e OLLAMA_CONTEXT_LENGTH=8192 \
+            -e OLLAMA_NUM_PARALLEL=1 \
+            ollama/ollama:0.13.2
+          for n in $(seq 1 30); do
+            if curl -fsS --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS --max-time 5 http://127.0.0.1:11434/api/tags >/dev/null
+          docker exec r062-ollama ollama pull qwen2.5-coder:1.5b
+          docker exec r062-ollama ollama list | tee "$RUNNER_TEMP/r062/model-inventory.txt"
+      - name: Install existing Qwen Code headless agent and local-only provider config
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          npm install -g --ignore-scripts @qwen-code/qwen-code@latest
+          qwen --version | tee "$RUNNER_TEMP/r062/agent-version.txt"
+          mkdir -p "$HOME/.qwen"
+          cat > "$HOME/.qwen/settings.json" <<'JSON'
+          {
+            "security": {"auth": {"selectedType": "openai"}},
+            "model": {"name": "qwen2.5-coder:1.5b"},
+            "modelProviders": {
+              "openai": [{
+                "id": "qwen2.5-coder:1.5b",
+                "name": "Qwen2.5-Coder 1.5B local CPU",
+                "envKey": "OLLAMA_API_KEY",
+                "baseUrl": "http://127.0.0.1:11434/v1",
+                "generationConfig": {
+                  "timeout": 90000,
+                  "maxRetries": 0,
+                  "contextWindowSize": 8192,
+                  "samplingParams": {"temperature": 0.1, "max_tokens": 1200}
+                }
+              }]
+            }
+          }
+          JSON
+      - name: Execute one independently scoped model-agent task
+        shell: bash
+        env:
+          LANE: ${{ matrix.lane }}
+        run: |
+          set -euo pipefail
+          case "$LANE" in
+            path-boundaries)
+              TARGET=research/r051-batch/r062_paths_test.go
+              TASK='Using only the public source in research/r051-batch, add a new standalone Go test file r062_paths_test.go in that directory. Test Validate and cleanPath against independent path-boundary/traversal/overlap cases, including at least three rejection mutants and one valid non-overlap case. Reuse syntheticBatch(). Do not modify ANY existing file or use external data. Make tests deterministic. No production behavior changes.'
+              ;;
+            strict-json)
+              TARGET=research/r051-batch/r062_json_test.go
+              TASK='Using only the public source in research/r051-batch, add a new standalone Go test file r062_json_test.go in that directory. Exercise decodeLocalBounded using temp JSON files: nested duplicate keys rejected, trailing token rejected, and one valid JSON accepted. Reuse existing schemas/fixtures. Do not modify ANY existing file or use external data. Make tests deterministic. No production behavior changes.'
+              ;;
+            *) exit 4 ;;
+          esac
+          echo "R062 target=$TARGET" | tee "$RUNNER_TEMP/r062/task.txt"
+          printf '%s\n' "$TASK" >> "$RUNNER_TEMP/r062/task.txt"
+          set +e
+          timeout --signal=INT --kill-after=15s 270s qwen \
+            --model qwen2.5-coder:1.5b \
+            --prompt "$TASK" \
+            --approval-mode auto-edit \
+            --max-session-turns 8 \
+            --max-tool-calls 16 \
+            --max-wall-time 4m >"$RUNNER_TEMP/r062/agent.log" 2>&1
+          status=$?
+          set -e
+          echo "AGENT_EXIT_CODE=$status" >> "$GITHUB_ENV"
+          echo "R062_AGENT_EXIT_CODE=$status"
+          tail -c 12000 "$RUNNER_TEMP/r062/agent.log" || true
+      - name: Verify diff ownership, test results, and preserve negative outcomes
+        shell: bash
+        env:
+          LANE: ${{ matrix.lane }}
+        run: |
+          set -euo pipefail
+          case "$LANE" in
+            path-boundaries) TARGET=research/r051-batch/r062_paths_test.go ;;
+            strict-json) TARGET=research/r051-batch/r062_json_test.go ;;
+            *) exit 4 ;;
+          esac
+          result=FAIL
+          reason=UNKNOWN
+          git status --porcelain | tee "$RUNNER_TEMP/r062/git-status.txt"
+          if [ "${AGENT_EXIT_CODE:-99}" != 0 ]; then
+            reason=AGENT_EXIT
+          elif [ ! -s "$TARGET" ]; then
+            reason=NO_CANDIDATE
+          else
+            git add -N "$TARGET"
+            git diff -- "$TARGET" > "$RUNNER_TEMP/r062/candidate.diff"
+            changed=$(git status --porcelain | awk '{print $2}' | sort -u)
+            if [ "$changed" != "$TARGET" ]; then
+              reason=OUT_OF_SCOPE_EDIT
+            elif [ ! -s "$RUNNER_TEMP/r062/candidate.diff" ]; then
+              reason=EMPTY_DIFF
+            elif (cd research/r051-batch && GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test -count=1 -race ./... && GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go vet ./...) > "$RUNNER_TEMP/r062/tests.log" 2>&1; then
+              result=PASS_NARROW
+              reason=SOURCE_ONLY_TESTS
+            else
+              reason=TEST_FAILURE
+            fi
+          fi
+          printf '{"schema":"scp.r062.free-local-agent.v1","lane":"%s","model":"qwen2.5-coder:1.5b","agent":"qwen-code","source_sha":"%s","status":"%s","reason":"%s","agent_exit":%s,"private_inputs":false,"push":false,"merge":false,"product_accepted":false}\n' \
+            "$LANE" "$GITHUB_SHA" "$result" "$reason" "${AGENT_EXIT_CODE:-99}" \
+            | tee "$RUNNER_TEMP/r062/receipt.json"
+          test "$result" = PASS_NARROW
+      - name: Upload bounded public-source evidence (not source acceptance)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: "r062-${{ matrix.lane }}-${{ github.run_id }}"
+          path: ${{ runner.temp }}/r062/
+          retention-days: 3
+          if-no-files-found: warn
