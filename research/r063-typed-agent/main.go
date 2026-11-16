@@ -46,7 +46,7 @@ func taskPrompt(lane string) (string,error) {
  case "path":
   return head+`Go cleanPath accepts relative normalized forward-slash paths such as "src/good" and "src/good/**". It rejects absolute paths beginning with "/", backslashes, paths with ".." segments, "." components, embedded ":" and empty paths. Provide two rejected path strings and two valid paths, each unique. Do not use newline in paths.`,nil
  case "json":
-  return head+`Go decodeLocalBounded loads a file as a Batch struct, rejects duplicated JSON object keys at any depth, trailing multiple JSON documents, unknown top-level fields, malformed JSON, and inputs >1MiB. It accepts "{}" and "{\\"schema\\":\\"scp.r051.batch-rep.v1\\"}". Each input string must be the CONTENTS of a JSON document (escape embedded quotes for outer response JSON). Supply two rejected inputs (like "{\\"schema\\":1,\\"schema\\":2}" and "{} {}") and two accepted inputs ("{}" and a valid JSON object with a known field). Use no private data.`,nil
+  return head+`Go decodeLocalBounded loads a file as a Batch struct, rejects duplicated JSON object keys at any depth, trailing multiple JSON documents, unknown top-level fields, malformed JSON, and inputs >1MiB. It accepts "{}" and "{\"schema\":\"scp.r051.batch-rep.v1\"}". Each input string must be the CONTENTS of a JSON document (escape embedded quotes for outer response JSON). Supply two rejected inputs (like "{\"schema\":1,\"schema\":2}" and "{} {}") and two accepted inputs ("{}" and a valid JSON object with a known field). Use no private data.`,nil
  default:return "",fmt.Errorf("unknown lane %q",lane)
  }
 }
@@ -99,22 +99,22 @@ func renderTest(lane,tag string, b proposedCases) ([]byte,error) {
  if err:=validateCases(b);err!=nil{return nil,err}
  var out bytes.Buffer
  out.WriteString("// Model-proposed public synthetic fixture cases; deterministic source renderer.\npackage main\n\n")
- if lane=="json" {out.WriteString("import (\\"fmt\\"; \\"os\\"; \\"testing\\")\n\n")} else {out.WriteString("import (\\"fmt\\"; \\"testing\\")\n\n")}
+ if lane=="json" {out.WriteString("import (\"fmt\"; \"os\"; \"testing\")\n\n")} else {out.WriteString("import (\"fmt\"; \"testing\")\n\n")}
  name:="TestR063"+strings.ToUpper(tag[:1])+tag[1:]+strings.ToUpper(lane[:1])+lane[1:]
  fmt.Fprintf(&out,"func %s(t *testing.T) {\n",name)
  out.WriteString("cases := []struct{Input string; Reject bool}{\n")
  for _,v:=range b.Cases {fmt.Fprintf(&out,"{%q, %v},\n",v.Input,v.Reject)}
  out.WriteString("}\nfor i, tc := range cases {\n")
- out.WriteString("t.Run(fmt.Sprintf(\\"case-%d\\",i),func(t *testing.T){\n")
+ out.WriteString("t.Run(fmt.Sprintf(\"case-%d\",i),func(t *testing.T){\n")
  if lane=="path"{
   out.WriteString("err := cleanPath(tc.Input)\n")
  }else if lane=="json"{
-  out.WriteString("p:=t.TempDir()+\\"/fixture.json\\"\n")
+  out.WriteString("p:=t.TempDir()+\"/fixture.json\"\n")
   out.WriteString("if err:=os.WriteFile(p,[]byte(tc.Input),0600); err!=nil{t.Fatal(err)}\n")
   out.WriteString("var parsed Batch\nerr:=decodeLocalBounded(p,&parsed)\n")
  }else{return nil,errors.New("bad lane")}
- out.WriteString("if tc.Reject && err==nil {t.Errorf(\\"input %q must be rejected\\",tc.Input)}\n")
- out.WriteString("if !tc.Reject && err!=nil {t.Errorf(\\"input %q unexpectedly rejected: %v\\",tc.Input,err)}\n")
+ out.WriteString("if tc.Reject && err==nil {t.Errorf(\"input %q must be rejected\",tc.Input)}\n")
+ out.WriteString("if !tc.Reject && err!=nil {t.Errorf(\"input %q unexpectedly rejected: %v\",tc.Input,err)}\n")
  out.WriteString("})\n}\n}\n")
  formatted,err:=format.Source(out.Bytes())
  if err!=nil{return nil,fmt.Errorf("deterministic source format failure: %w",err)}
