@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Workbench — synthetic source-filter learning</title>
+<style>
+:root{color-scheme:light dark;font-family:system-ui,-apple-system,sans-serif;line-height:1.5}
+body{max-width:62rem;margin:0 auto;padding:1rem}
+h1,h2,h3{line-height:1.2}
+header{display:flex;gap:1rem;justify-content:space-between;align-items:center;flex-wrap:wrap}
+fieldset{border:1px solid GrayText;border-radius:.75rem;margin:1rem 0;padding:1rem}
+.control{display:grid;grid-template-columns:minmax(10rem,1fr) minmax(8rem,2fr) 7rem;gap:1rem;align-items:center;margin:1rem 0}
+input[type=range]{width:100%;min-height:2.5rem}
+label{font-weight:600}
+output{font-variant-numeric:tabular-nums;text-align:end}
+button,select{font:inherit;padding:.65rem .9rem;min-height:2.75rem}
+button{font-weight:700;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:.2rem solid Highlight;outline-offset:.2rem}
+audio{width:100%;min-height:3.5rem}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:1rem}
+.panel{border:1px solid GrayText;border-radius:.75rem;padding:1rem}
+.notice{border-inline-start:.3rem solid GrayText;padding:.7rem 1rem}
+.small{font-size:.9rem}
+[role=status]{min-height:1.5rem;font-weight:600}
+@media(max-width:40rem){.control{grid-template-columns:1fr 6rem}.control label{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+<h1 data-i18n="title">Voice Workbench — learning preview</h1>
+<div><label for="language" data-i18n="language">Language</label>
+<select id="language" aria-label="Interface language">
+<option value="en">English</option><option value="de">Deutsch</option><option value="th">ไทย</option>
+</select></div>
+</header>
+<p class="notice" data-i18n="warning">This produces synthetic tones, not human speech or a medically accurate vocal tract. No microphone, voice cloning, recording, or private data is used.</p>
+<p data-i18n="how">Move one control, select Preview, and compare the reference with your edited sound. Adjusting a slider alone never plays audio.</p>
+<main>
+<fieldset>
+<legend><h2 data-i18n="novice">Start here — voice controls</h2></legend>
+<div class="control">
+<label for="length" data-i18n="length">Acoustic tube length</label>
+<input id="length" type="range" min="80" max="400" step="1" value="170" aria-describedby="lengthhelp">
+<output id="lengthval" for="length">170 mm</output>
+</div>
+<p id="lengthhelp" class="small" data-i18n="lengthhelp">A simplified tube length. This is not an anatomical measurement. Shorter or longer tubes can alter resonance.</p>
+<div class="control">
+<label for="pitch" data-i18n="pitch">Source pulse rate</label>
+<input id="pitch" type="range" min="70" max="600" step="1" value="160" aria-describedby="pitchhelp">
+<output id="pitchval" for="pitch">160 Hz</output>
+</div>
+<p id="pitchhelp" class="small" data-i18n="pitchhelp">Controls the artificial source oscillator. The audible fundamental of a physical voice requires separate measurement.</p>
+<details>
+<summary data-i18n="technical">Advanced: environment and physical units</summary>
+<div class="control">
+<label for="speed" data-i18n="speed">Sound speed inside tube</label>
+<input id="speed" type="range" min="100" max="2000" step=".1" value="343.2" aria-describedby="speedhelp">
+<output id="speedval" for="speed">343.2 m/s</output>
+</div>
+<p id="speedhelp" class="small" data-i18n="speedhelp">A gas acoustics parameter, not the identity of a gas or evidence that an atmosphere is safe to breathe.</p>
+</details>
+<button type="button" id="preview" data-i18n="preview">Set up my audio preview</button>
+<p id="status" role="status" aria-live="polite" aria-atomic="true" data-i18n="ready">Ready. Choose a setting, then preview it.</p>
+</fieldset>
+<h2 data-i18n="compare">Compare sounds (A/B)</h2>
+<div class="pair">
+<section class="panel" aria-labelledby="reference-title">
+<h3 id="reference-title" data-i18n="reference">A · Unchanged reference</h3>
+<audio id="reference" controls preload="none" aria-label="Synthetic reference sound"></audio>
+<p class="small" data-i18n="referencehelp">Reference: 170 mm, 160 Hz source, Earthlike acoustic speed.</p>
+</section>
+<section class="panel" aria-labelledby="modified-title">
+<h3 id="modified-title" data-i18n="modified">B · Your current settings</h3>
+<audio id="modified" controls preload="none" aria-label="Synthetic adjusted sound"></audio>
+<p class="small" data-i18n="modifiedhelp">Choose Preview after moving the controls. Playback is always voluntary.</p>
+</section>
+</div>
+<p class="small" data-i18n="limits">This is a 250 ms offline-rendered sound preview, not zero-latency live morphing. The separate physical engine, 2D/3D anatomy and real-voice modeling are not connected.</p>
+<p class="small"><a href="/api/v1/controls" data-i18n="automation">Read the typed controls contract for automation and agents</a></p>
+<noscript><p>This interactive preview needs JavaScript. The typed automation API remains available at /api/v1/controls.</p></noscript>
+</main>
+<script>
+"use strict";
+const words={
+en:{title:"Voice Workbench — learning preview",language:"Language",warning:"Synthetic tones only — not human speech, an accurate vocal tract, or a breathing-safety model. No microphone, voice cloning, recording or private data.",how:"Move a control, choose Preview, and compare the original and adjusted sound. Sliders never trigger playback by themselves.",novice:"Start here — voice controls",length:"Acoustic tube length",lengthhelp:"A simplified tube length, not a human anatomical measurement. Changing it can affect resonance.",pitch:"Source pulse rate",pitchhelp:"Frequency of a synthetic oscillator, not verified human perceived pitch.",technical:"Advanced: environment and physical units",speed:"Speed of sound inside tube",speedhelp:"A sound-propagation parameter. This does not identify a gas or show it is safe to breathe.",preview:"Set up my audio preview",ready:"Ready. Change a setting, then preview.",stale:"Settings changed. Select Preview to compare.",updated:"New sound selected. Choose Play in the audio controls.",compare:"Compare sounds (A/B)",reference:"A · Unchanged reference",referencehelp:"Reference: 170 mm tube, 160 Hz source, Earthlike acoustic speed.",modified:"B · Your settings",modifiedhelp:"Select Preview after changing a control. Playback remains voluntary.",limits:"This is a 250 ms offline-rendered example, not live morphing. Full anatomy and private vocal models are not connected.",automation:"Typed controls API for automation and agents"},
+de:{title:"Stimm-Werkbank — Lernvorschau",language:"Sprache",warning:"Nur synthetische Töne, keine menschliche Sprache, kein anatomisch genaues Modell und keine Aussage zur Atemsicherheit. Kein Mikrofon und keine Aufzeichnung.",how:"Einen Regler ändern, Vorschau wählen und Referenz mit Änderung vergleichen. Regler spielen nicht automatisch ab.",novice:"Einstieg — Stimmregler",length:"Länge des akustischen Rohrs",lengthhelp:"Vereinfachte Rohrlänge, kein anatomisches Maß. Sie kann die Resonanz beeinflussen.",pitch:"Anregungsfrequenz",pitchhelp:"Frequenz eines künstlichen Oszillators, keine geprüfte wahrgenommene Stimmhöhe.",technical:"Erweitert: Umgebung und physikalische Einheiten",speed:"Schallgeschwindigkeit im Rohr",speedhelp:"Akustischer Parameter; kein Nachweis für eine atembare Atmosphäre.",preview:"Audiovorschau vorbereiten",ready:"Bereit. Regler ändern und Vorschau wählen.",stale:"Werte geändert. Vorschau auswählen.",updated:"Neuer Ton ausgewählt. Über die Audiosteuerung abspielen.",compare:"Klänge vergleichen (A/B)",reference:"A · Unveränderte Referenz",referencehelp:"Referenz: 170 mm, 160 Hz, erdähnliche Schallgeschwindigkeit.",modified:"B · Ihre Einstellungen",modifiedhelp:"Nach jeder Änderung Vorschau wählen. Keine automatische Wiedergabe.",limits:"250-ms-Vorschau, kein Echtzeit-Morphing. Anatomie und privates Stimmmodell sind nicht verbunden.",automation:"Typisierte API für Automatisierung und Agenten"},
+th:{title:"เวิร์กเบนช์เสียง — ตัวอย่างเพื่อการเรียนรู้",language:"ภาษา",warning:"เป็นเพียงเสียงสังเคราะห์ ไม่ใช่คำพูดมนุษย์หรือแบบจำลองทางกายวิภาคที่รับรอง ไม่มีไมโครโฟนหรือการบันทึกเสียง",how:"ปรับตัวเลื่อน กดปุ่มตัวอย่าง แล้วเปรียบเทียบเสียงเดิมกับเสียงที่เปลี่ยน ไม่มีการเล่นอัตโนมัติ",novice:"เริ่มต้น — ตัวควบคุมเสียง",length:"ความยาวท่อเสียงจำลอง",lengthhelp:"เป็นความยาวท่อจำลอง ไม่ใช่การวัดทางกายวิภาค การเปลี่ยนค่าอาจมีผลต่อการสั่นพ้อง",pitch:"ความถี่แหล่งกำเนิดเสียง",pitchhelp:"ความถี่ของตัวกำเนิดเสียงสังเคราะห์ ไม่ใช่ค่าระดับเสียงมนุษย์ที่ตรวจสอบแล้ว",technical:"ขั้นสูง: สภาพแวดล้อมและหน่วยทางฟิสิกส์",speed:"ความเร็วเสียงภายในท่อ",speedhelp:"พารามิเตอร์ทางเสียง ไม่ได้ยืนยันว่าก๊าซนั้นปลอดภัยต่อการหายใจ",preview:"เตรียมเสียงตัวอย่าง",ready:"พร้อมแล้ว ปรับค่าและกดดูตัวอย่าง",stale:"เปลี่ยนค่าแล้ว โปรดกดดูตัวอย่าง",updated:"เลือกเสียงใหม่แล้ว กดเล่นในตัวควบคุมเสียง",compare:"เปรียบเทียบเสียง (A/B)",reference:"A · เสียงอ้างอิง",referencehelp:"ค่าอ้างอิง: 170 มม., 160 เฮิรตซ์ และความเร็วเสียงคล้ายโลก",modified:"B · ค่าที่คุณเลือก",modifiedhelp:"กดดูตัวอย่างหลังปรับค่า การเล่นเสียงต้องกดเอง",limits:"ตัวอย่างเสียง 250 มิลลิวินาที ไม่ใช่การปรับแบบเรียลไทม์ ยังไม่เชื่อมกับกายวิภาคหรือแบบจำลองเสียงส่วนตัว",automation:"API พารามิเตอร์สำหรับระบบอัตโนมัติและเอเจนต์"}};
+const el=id=>document.getElementById(id);
+const locale=()=>words[el("language").value]||words.en;
+function localize(){
+ const d=locale();document.documentElement.lang=el("language").value;
+ for(const n of document.querySelectorAll("[data-i18n]")){
+  const key=n.dataset.i18n;if(d[key])n.textContent=d[key];
+ }
+}
+function values(){
+ return {length_mm:Number(el("length").value),pitch_hz:Number(el("pitch").value),sound_speed:Number(el("speed").value)};
+}
+function updateValues(){
+ el("lengthval").textContent=el("length").value+" mm";
+ el("pitchval").textContent=el("pitch").value+" Hz";
+ el("speedval").textContent=Number(el("speed").value).toFixed(1)+" m/s";
+ el("status").textContent=locale().stale;
+}
+function urlFor(p){return "/api/v1/preview?"+new URLSearchParams(p).toString();}
+function preview(){
+ // Only the explicit button updates the browser's media URLs. No autoplay,
+ // background recording, microphone access, API mutation or upload.
+ el("reference").pause();el("modified").pause();
+ el("reference").src=urlFor({length_mm:170,pitch_hz:160,sound_speed:343.22218086816235});
+ el("modified").src=urlFor(values());
+ el("reference").load();el("modified").load();
+ el("status").textContent=locale().updated;
+}
+el("language").addEventListener("change",()=>{localize();updateValues();});
+for(const id of ["length","pitch","speed"]){el(id).addEventListener("input",updateValues);}
+el("preview").addEventListener("click",preview);
+localize();updateValues();el("status").textContent=locale().ready;
+</script>
+</body></html>
