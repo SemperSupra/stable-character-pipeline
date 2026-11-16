@@ -29,3 +29,7 @@ func TestRejectedStates(t *testing.T) {
     for i,c:=range cases {if _,err:=c.Evaluate();err==nil{t.Fatalf("invalid case %d accepted",i)}}
     for _,l:=range []float64{0,-1,math.NaN(),math.Inf(1)} {if _,err:=QuarterWave(1,l,343);err==nil{t.Fatalf("invalid length %v",l)}}
 }
+
+func TestQuarterWaveOverflowRejected(t *testing.T) {
+ if _,err:=QuarterWave(100,1e-300,math.MaxFloat64);err==nil{t.Fatal("overflow to infinity was accepted")}
+}
