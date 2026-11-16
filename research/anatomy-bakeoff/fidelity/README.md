@@ -1,0 +1,12 @@
+# R036 portable L0/L1/L2 fidelity evidence gates
+
+This original Go stdlib contract is an **independent child** of R036 initial synthetic anatomy base PR #519. It is specifically a guard against conflating anatomical reference metadata, real imported meshes, rigged visual animation and physiologically meaningful tissue dynamics. This is a typed **evidence completeness** validator, not an authority promoting medical accuracy, photorealism or selected CharacterPack into a production release.
+
+- **L0 anatomical reference geometry:** an actual source representation with known frame, version, SHA, per-asset rights admitted and imported nonzero mesh vertex count. A name/ontology ID with no geometry does not qualify. Geometry candidate may still lack anatomical registration.
+- **L1 articulated cinematic/game:** L0 plus stable native rig/attachment, observed pose+body-refit receipts and independent rendered visual QA, saved native scene and target interchange receipts. Actual fidelity remains to be examined by an independent human/oracle.
+- **L2 specialized physics:** L1 plus an explicit solver/material and signed-volume noninversion, collision/contact, and multi-rate-timebase receipts. Full physiology requires additional independent biological truth/model calibration.
+- **Never automatically accept:** all three tiers return `EVIDENCE_CONTRACT_COMPLETE_REVIEW_REQUIRED`, not production accepted, even if all fields are present. Cryptographic hashes of test records are source integrity, not external authentication/measurement truth.
+- A BodyParts3D *FMA concept* can have independent *ISA* and *PART-OF* geometry representation IDs even when their names are identical. This is a tested valid noncollision. No implicit mapping of FMA to HRA UBERON by names: explicit reviewed, source-digested mapping required.
+- `Visible` is excluded from the physics-state hash; collision and simulation flags remain independent. Hide never disables a collision solver by accident.
+
+Run in disposable public-safe environment with `GOTOOLCHAIN=local GOPROXY=off go test -race -count=1 ./...` and `go vet ./...`, from `research/anatomy-bakeoff`. No protected actors/assets, model weights, human consent data, private GHA or high-cost service. Future adapters can attach verified source-specific receipts from BP3D #559, HRA #555/#560, external R014 #138, tissue R011 #30 and render R037 #176 after review. This does not duplicate upstream rig, reference mesh, renderer or physics engine code.
