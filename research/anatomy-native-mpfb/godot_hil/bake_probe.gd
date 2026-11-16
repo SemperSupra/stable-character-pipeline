@@ -30,6 +30,10 @@ func _initialize() -> void:
         return
     var scene: Node = packed.instantiate()
     get_root().add_child(scene)
+    # Allow Skeleton3D skin registration and real renderer mesh instances
+    # to finish binding before GPU readback; still fail if no valid skin.
+    await process_frame
+    await process_frame
     var body: MeshInstance3D = null
     for candidate: Node in scene.find_children("*","MeshInstance3D",true,false):
         var m: MeshInstance3D = candidate as MeshInstance3D
@@ -62,6 +66,15 @@ func _initialize() -> void:
         hold("GPU baked morph failed reversible control: "+str(restore_delta))
         return
 
+    print("R048_GODOT_SKIN_DEBUG ",JSON.stringify({
+        "body_skin":body.skin != null,
+        "skin_reference":body.get_skin_reference() != null,
+        "skeleton_path":String(body.skeleton),
+        "body_parent":body.get_parent().name
+    }))
+    if body.skin == null or body.get_skin_reference() == null:
+        hold("actual renderer scene has no registered skin after two frames")
+        return
     var base_skin: PackedVector3Array = vertices(body.bake_mesh_from_current_skeleton_pose())
     if base_skin.size() != base.size():
         hold("GPU bake skeleton/base morph vertex cardinality differs")
