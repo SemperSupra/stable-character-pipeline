@@ -200,6 +200,7 @@ func audit(paths []string)(Report,error){
 }
 func main(){
  d:=flag.String("dir",".","directory with only 4 source TSVs")
+ coverage:=flag.Bool("coverage",false,"emit lexical 12-system anatomy candidate coverage (NOT geometry or semantic admission)")
  flag.Parse()
  names:=[]string{"isa_parts_list_e.txt","partof_parts_list_e.txt","isa_inclusion_relation_list.txt","partof_inclusion_relation_list.txt"}
  paths:=[]string{}
@@ -209,4 +210,9 @@ func main(){
  output,e:=json.Marshal(r);if e!=nil{fmt.Fprintln(os.Stderr,e);os.Exit(2)}
  fmt.Println("R036_BP3D_RECEIPT",string(output))
  if r.Status!="SOURCE_METADATA_INSPECTED_NOT_GEOMETRY_QUALIFIED"{os.Exit(3)}
+ if *coverage {
+  if err:=emitCoverage(paths[0],paths[1]);err!=nil{
+   fmt.Fprintln(os.Stderr,"R036_BP3D_COVERAGE_FAIL",err);os.Exit(4)
+  }
+ }
 }
