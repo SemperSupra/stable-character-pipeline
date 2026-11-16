@@ -1,0 +1,11 @@
+# R1 geometry-conditioned learned motion bridge — bounded synthetic research
+
+This separate draft is stacked **only** on R0 #586 (exact base `1e1d954a5cd4b8487c179d120d971c14644d8065`), not on the independent R1 OOD falsifier #593 or temporal critic #596. It uses an original 21-feature polynomial **regression** with explicit target upper/lower length inputs, trained from analytic IK teacher pairs on 30 original synthetic target rigs × 16 source phase families × 40 poses. Test targets (0.63,0.56m) and (0.58,0.53m) are unseen exact rig proportions, and test source families 16–20 are excluded from training. This is **not** a neural network, not a different topology, not independent measured capture, not MMD/MPFB, and not tested on humans.
+
+The comparison against the original unconditioned model uses identical heldout sample frames and source-space foot endpoint error. The source and exact IK remain unchanged; analytic IK is the known-geometry reference, not a learned achievement. Expected result from local numerical prototype: geometry-conditioning can improve synthetic unseen-rig error from about 168mm to a few mm. Hosted CI is the authority for the committed implementation and must be observed before claiming any measured pass.
+
+The model **rejects** target lengths outside the bounds of its synthetic training rigs, invalid rig dimensions, and nonfinite pose inputs. In-range prediction is still approximate and is not guaranteed to satisfy contact, joint ROM, 3D biomechanics, source-instance fidelity or skin deformation. Future work must include larger independent heldout *skeleton topologies*, full 3D and true source motion, alongside time-based VMD/MMD semantics and real VLM critics.
+
+Two separate standard public GHA Ubuntu CPU jobs test withheld rigs and fail-closed domain guards. No outside assets, weights, copyrighted motion, GPU, protected humans, private billable Actions, deployment, merge or film acceptance.
+
+Owner/source: public motion DLE #29 and original R0 #586; public MMD #19, Visual QA #150, private R014 #138, R009 #23, R033 #168 retain their authorities. DLE = Durable, Legible, Executable. Exact source and hosted receipts return to public motion #29.
