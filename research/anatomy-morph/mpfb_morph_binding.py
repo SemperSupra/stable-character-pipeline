@@ -97,6 +97,41 @@ def state(body,rig,organs,tag):
    "vertex_count":g["vertex_count"]})
  return out
 
+def binding_frame(rig):
+    bone=rig.data.bones[rig.get("r036_test_bone")]
+    start=rig.matrix_world@bone.head_local
+    end=rig.matrix_world@bone.tail_local
+    direction=end-start
+    length=direction.length
+    if length<1e-6:fail("cannot register to a degenerate native bone")
+    rot=Vector((0,0,1)).rotation_difference(direction.normalized())
+    return start,rot,length
+
+def bind_norm_offsets(rig,organs):
+    start,rot,length=binding_frame(rig)
+    result=[]
+    for organ in organs:
+        center=Vector(mesh(organ)["centroid_m"])
+        result.append(rot.inverted()@(center-start)/length)
+    return result,length
+
+def rebind_anatomy_to_refitted_bone(rig,organs,normalized_offsets,source_bone_length):
+    # A deterministic, strictly synthetic rest-space alignment rule.
+    # This fits a canonical local attachment relative to current native bone
+    # orientation/length; it does not fit a real organ to surrounding tissues.
+    start,rot,length=binding_frame(rig)
+    for organ,offset in zip(organs,normalized_offsets):
+        scale=length/source_bone_length
+        organ.scale=(scale,scale,scale)
+        bpy.context.view_layer.update()
+        expected=start+rot@(offset*length)
+        actual=Vector(mesh(organ)["centroid_m"])
+        correction=expected-actual
+        organ.location+=rig.matrix_world.inverted().to_3x3()@correction
+        bpy.context.view_layer.update()
+        residual=(Vector(mesh(organ)["centroid_m"])-expected).length
+        if residual>1e-4:fail("synthetic organ/bone rebind did not converge: "+str(residual))
+
 def probe(out):
  body,rig,organs=scene()
  hs,ts,props=install_mpfb_services()
@@ -108,20 +143,32 @@ def probe(out):
  ]
  states=[]
  source_vertices=len(body.data.vertices)
+ bpy.context.scene.frame_set(1)
+ normalized_offsets,source_bone_length=bind_norm_offsets(rig,organs)
  for label,profile in scenarios:
+  raw=None
   if profile is not None:
    for prop,value in profile.items():
     props.set_value(prop,value,entity_reference=body)
    ts.reapply_macro_details(body)
    hs.refit(body)
+   raw=state(body,rig,organs,label+"_before_anatomy_rebind")
+   rebind_anatomy_to_refitted_bone(rig,organs,normalized_offsets,source_bone_length)
   value=state(body,rig,organs,label)
   if len(body.data.vertices)!=source_vertices:
    fail("MPFB morph changed canonical surface topology")
   if profile:
    value["profile_inputs"]=profile
+   value["before_rebinding_normalized_distances"]=[item["distance_in_bone_lengths"] for item in raw["organ_anchors"]]
+   value["after_rebinding_normalized_distances"]=[item["distance_in_bone_lengths"] for item in value["organ_anchors"]]
   states.append(value)
  if len({s["body"]["sha256"] for s in states})!=len(states):
   fail("distinct macro morph values did not change actual evaluated body geometry")
+ for item in states[1:]:
+  for d in item["organ_anchors"]:
+   expected=states[0]["organ_anchors"][0]["distance_in_bone_lengths"]
+   if abs(d["distance_in_bone_lengths"]-expected)>1e-4:
+    fail("normalized proxy/bone rest attachment drift after rebind")
  if len({tuple(s["body"]["bounds_m"]) for s in states})<2:
   fail("macro morph did not change measurable geometry bounds")
  for item in states:
@@ -152,11 +199,13 @@ def probe(out):
 def verify(out):
  body,rig,organs=scene()
  m=mesh(body)
- if len(rig.data.bones)<100 or len(body.data.vertices)!=13380:
-  fail("saved refit scene lost expected exact MPFB rig/topology")
  if not os.path.isfile(os.path.join(out,"morph-receipt.json")):
   fail("missing independent original recorded receipt")
  with open(os.path.join(out,"morph-receipt.json")) as f:original=json.load(f)
+ # MPFB raw canonical topology includes helper vertices. The evaluated
+ # mesh is smaller because MPFB mask modifiers intentionally hide helpers.
+ if len(rig.data.bones)<100 or len(body.data.vertices)!=original["canonical_skin_topology_vertices"]:
+  fail("saved refit scene lost expected exact MPFB rig/topology")
  target=original["profiles"][-1]["body"]["sha256"]
  bpy.context.scene.frame_set(1)
  if m["sha256"]!=target:fail("reopened morph geometry does not match exact source receipt")
