@@ -24,50 +24,45 @@ def read_receipt(path):
 
 def run(out):
     out.mkdir(parents=True,exist_ok=True)
+    # Build EXACTLY one scene, then change only lights and shader nodes.
+    # Never rebuild any geometry between either lighting or material treatment.
+    scene=base.make_scene("baseline")
+    source_geometry=base.geometry_digest()
+    camera=base.canonical_hash({
+        "matrix":[round(float(v),7) for row in scene.camera.matrix_world for v in row],
+        "projection":"ORTHO","scale":scene.camera.data.ortho_scale,
+        "resolution":base.RESOLUTION
+    })
     records={}
-    geometry_reference=None
-    camera_reference=None
     for name,config in sorted(CONDITIONS.items()):
-        scene=base.make_scene("baseline")
-        for light_name,value in [("key","key_power"),("fill","fill_power"),("rim","rim_power")]:
-            light=bpy.data.objects.get(light_name)
-            assert light is not None and light.type=="LIGHT"
-            light.data.energy=config[value]
-        bpy.data.objects["key"].data.size=config["key_size"]
-        bpy.context.view_layer.update()
-
-        source_geometry=base.geometry_digest()
-        camera=base.canonical_hash({
-            "matrix":[round(float(v),7) for row in scene.camera.matrix_world for v in row],
-            "projection":"ORTHO","scale":scene.camera.data.ortho_scale,
-            "resolution":base.RESOLUTION
-        })
-        if geometry_reference is not None and source_geometry!=geometry_reference:
-            raise RuntimeError("R044 geometry drift between lighting scenes")
-        if camera_reference is not None and camera!=camera_reference:
-            raise RuntimeError("R044 camera drift between lighting scenes")
-        geometry_reference=source_geometry
-        camera_reference=camera
-        before=base.geometry_digest()
-        base.run("baseline",str(out/name/"baseline"),scene)
-        base.apply_material_treatment()
-        if base.geometry_digest()!=before:
-            raise RuntimeError("R044 mesh changed under material treatment")
-        base.run("physical_material",str(out/name/"physical_material"),scene)
-        baseline=read_receipt(out/name/"baseline"/"receipt.json")
-        treatment=read_receipt(out/name/"physical_material"/"receipt.json")
-        if baseline["geometry_sha256"]!=treatment["geometry_sha256"]:
-            raise RuntimeError("R044 receipt geometry drift")
-        if baseline["camera_sha256"]!=treatment["camera_sha256"]:
-            raise RuntimeError("R044 receipt camera drift")
         records[name]={
             "config":config,
             "lighting_sha256":base.canonical_hash(config),
             "geometry_sha256":source_geometry,
             "camera_sha256":camera,
-            "baseline_receipt_sha256":hashlib.sha256((out/name/"baseline"/"receipt.json").read_bytes()).hexdigest(),
-            "material_receipt_sha256":hashlib.sha256((out/name/"physical_material"/"receipt.json").read_bytes()).hexdigest(),
         }
+    for arm in ("baseline","physical_material"):
+        if arm=="physical_material":
+            base.apply_material_treatment()
+            if base.geometry_digest()!=source_geometry:
+                raise RuntimeError("R044 mesh drift under material treatment")
+        for name,config in sorted(CONDITIONS.items()):
+            for light_name,value in [("key","key_power"),("fill","fill_power"),("rim","rim_power")]:
+                light=bpy.data.objects.get(light_name)
+                if light is None or light.type!="LIGHT":
+                    raise RuntimeError("R044 missing expected light "+light_name)
+                light.data.energy=config[value]
+            bpy.data.objects["key"].data.size=config["key_size"]
+            bpy.context.view_layer.update()
+            if base.geometry_digest()!=source_geometry:
+                raise RuntimeError("R044 mesh drift under lighting intervention")
+            render_dir=out/name/arm
+            base.run(arm,str(render_dir),scene)
+            receipt=read_receipt(render_dir/"receipt.json")
+            if receipt["geometry_sha256"]!=source_geometry or receipt["camera_sha256"]!=camera:
+                raise RuntimeError("R044 source or camera drift in emitted receipt")
+            key="baseline_receipt_sha256" if arm=="baseline" else "material_receipt_sha256"
+            records[name][key]=hashlib.sha256((render_dir/"receipt.json").read_bytes()).hexdigest()
     report={
         "schema":"r044.original.lighting.v1",
         "status":"RENDERED_FOR_INDEPENDENT_EVALUATION",
