@@ -1,0 +1,66 @@
+name: R036 HuBMAP Real Lung Geometry/MPFB Binding
+on:
+  push:
+    branches:
+      - research/r036-hra-real-organ-20261116
+    paths:
+      - 'research/anatomy-hra/**'
+      - '.github/workflows/anatomy-r036-hra-lung.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-hra/**'
+      - '.github/workflows/anatomy-r036-hra-lung.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-hra-lung-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-atlas-mesh-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Blender CPU source-safe preflight
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy
+          blender --version | head -2
+      - name: Acquire exact upstream MPFB 163-bone character authoring version
+        env:
+          SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" fetch -q --depth 1 origin "$SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = 'd26635e9326e3cca30778fd7b9c00062b03cce09'
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+      - name: Import only openly licensed HuBMAP CCF male lung v1.2 GLB
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 2 --connect-timeout 10 --max-time 100 --max-filesize 20000000 \
+            https://cdn.humanatlas.io/hra-releases/v1.2/models/VH_M_Lung.glb \
+            -o "$RUNNER_TEMP/HRA-v1.2-VH_M_Lung.glb"
+          test "$(wc -c < "$RUNNER_TEMP/HRA-v1.2-VH_M_Lung.glb")" -gt 1024
+          echo "e64351b72b0bc5289a4dc32ba2b402b9c974f9ec0b1972bf06b436864f917913  $RUNNER_TEMP/HRA-v1.2-VH_M_Lung.glb" | sha256sum --check --status || { echo "HRA_LUNG_SOURCE_SHA256_MISMATCH"; exit 4; }
+          sha256sum "$RUNNER_TEMP/HRA-v1.2-VH_M_Lung.glb"
+      - name: Build MakeHuman original base rig and source donor lung scene
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036"
+          blender -b -t 2 --python-exit-code 12 --python research/anatomy-native-mpfb/official_mpfb_native.py -- --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r036"
+          blender -b "$RUNNER_TEMP/r036/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 --python research/anatomy-hra/hra_lung_bind.py -- --stage build --organ "$RUNNER_TEMP/HRA-v1.2-VH_M_Lung.glb" --out "$RUNNER_TEMP/r036"
+      - name: Independent saved-scene replay and donor provenance
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036/mpfb-with-hra-lung-provisional.blend" -t 2 --python-exit-code 12 --python research/anatomy-hra/hra_lung_bind.py -- --stage verify --out "$RUNNER_TEMP/r036"
+          echo "HuBMAP mesh and generated media retained in ephemeral runner only; no artifact upload"
