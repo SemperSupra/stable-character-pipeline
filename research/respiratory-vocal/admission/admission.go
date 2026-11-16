@@ -52,6 +52,7 @@ func CheckJSON(data []byte)error{
 func Decode(data []byte)(behavior.Performance,error){
  var p behavior.Performance
  if e:=CheckJSON(data);e!=nil{return p,e}
+ if e:=checkCanonicalFields(data);e!=nil{return behavior.Performance{},e}
  d:=json.NewDecoder(bytes.NewReader(data));d.DisallowUnknownFields()
  if e:=d.Decode(&p);e!=nil{return behavior.Performance{},fmt.Errorf("typed JSON: %w",e)}
  if e:=p.Validate();e!=nil{return behavior.Performance{},fmt.Errorf("source event: %w",e)}
