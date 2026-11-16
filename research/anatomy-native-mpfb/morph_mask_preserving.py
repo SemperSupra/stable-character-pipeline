@@ -70,9 +70,13 @@ def mask_members(body,mask):
         weight=next((x.weight for x in v.groups if x.group==group.index),0.0)
         # Matches Blender Mask vertex-group threshold semantics; independently
         # verify cardinality against real evaluated source before acceptance.
-        selected=weight>=mask.threshold
+        selected=weight>mask.threshold
         if mask.invert_vertex_group: selected=not selected
         (keep if selected else excluded).append(v.index)
+    print("R043_MASK_SOURCE_PARTITION", json.dumps({
+        "group": mask.vertex_group, "threshold": float(mask.threshold),
+        "invert": bool(mask.invert_vertex_group), "kept": len(keep),
+        "deleted": len(excluded), "total": len(body.data.vertices)}, sort_keys=True))
     if not keep or not excluded: fail("empty mask keep/delete partition")
     return keep,excluded
 
