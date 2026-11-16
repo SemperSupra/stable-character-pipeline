@@ -1,0 +1,36 @@
+name: R1 rig-conditioned learned retarget surrogate on public CPU
+on:
+  pull_request:
+    paths:
+      - 'research/motion-learning-critic-r0/conditioned.go'
+      - 'research/motion-learning-critic-r0/r1_conditioned_test.go'
+      - '.github/workflows/motion-r1-conditioned.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-conditioned-reps:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        lane: [heldout-rigs, domain-guard]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: research/motion-learning-critic-r0/go.mod
+          cache: false
+      - name: Match original synthetic source and heldout target envelopes
+        shell: bash
+        working-directory: research/motion-learning-critic-r0
+        run: |
+          set -euo pipefail
+          case '${{ matrix.lane }}' in
+            heldout-rigs) go test -count=1 -v -run '^TestR1ConditionedGeneralizesUnseenTargetGeometry$' ./... ;;
+            domain-guard) go test -count=1 -v -run '^TestR1ConditionedRejectsUnsupportedTargets$' ./...; go vet ./... ;;
+          esac
