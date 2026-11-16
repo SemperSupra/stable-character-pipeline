@@ -25,7 +25,30 @@ def compare(a,b):
     for i,(left,right) in enumerate(zip(x,y)):
         if left!=right:
             changed=[k for k in sorted(set(left)|set(right)) if left.get(k)!=right.get(k)]
-            hold("native import semantic mismatch mesh "+str(i)+" fields="+",".join(changed[:16]))
+            if "diagnostic_corner_normals" in changed:
+                la=left.get("diagnostic_corner_normals",[])
+                lb=right.get("diagnostic_corner_normals",[])
+                if len(la)!=len(lb):
+                    hold("native face-corner diagnostic cardinality mismatch")
+                if [z["face_key_sha256"] for z in la]!=[z["face_key_sha256"] for z in lb]:
+                    hold("native face position/UV/weights identity changed, cannot match normals")
+                differences=[]
+                for oa,ob in zip(la,lb):
+                    for na,nb in zip(oa["corner_normals"],ob["corner_normals"]):
+                        if len(na)!=3 or len(nb)!=3:hold("invalid normal vector")
+                        differences.append(sum((na[k]-nb[k])**2 for k in range(3))**0.5)
+                differences.sort()
+                diag={
+                  "mesh_index":i,"paired_faces":len(la),
+                  "corners":len(differences),
+                  "nonzero_corner_deltas":sum(x>0 for x in differences),
+                  "max_normal_delta":differences[-1] if differences else 0,
+                  "p95_normal_delta":differences[int((len(differences)-1)*.95)] if differences else 0,
+                  "mean_normal_delta":sum(differences)/len(differences) if differences else 0,
+                  "changed_fields":[k for k in changed if k!="diagnostic_corner_normals"],
+                }
+                print("R061_CORNER_COMPONENT_DIAGNOSTIC "+json.dumps(diag,sort_keys=True))
+            hold("native import semantic mismatch mesh "+str(i)+" fields="+",".join(k for k in changed[:16] if k!="diagnostic_corner_normals"))
     return {
       "schema":"r061.original-vs-derived-native-blender.v1",
       "status":"PASS_NARROW_ACTUAL_NATIVE_IMPORT_SEMANTIC_EQUALITY",
