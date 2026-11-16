@@ -26,8 +26,7 @@ Install Go 1.23+ and Blender with Cycles.
     go test -race ./...
     cd ..
     mkdir -p out/baseline out/physical_material
-    blender -b -t 2 --python renderlab/synthetic_scene.py -- --arm baseline --output out/baseline
-    blender -b -t 2 --python renderlab/synthetic_scene.py -- --arm physical_material --output out/physical_material
+    blender -b -t 2 --python renderlab/synthetic_scene.py -- --arm both --output out
     (cd renderlab && go run . -baseline ../out/baseline/receipt.json -material ../out/physical_material/receipt.json -out ../out/comparison.json)
 
 Public GHA workflow: .github/workflows/r037-synthetic-render.yml. It uses only standard public Ubuntu runners, read-only checkout, pinned Actions, bounded timeout and 3-day artifacts. Missing Blender package or runtime failure is FAIL, never disguised as PASS. Git DLE receipts must cite exact commit, workflow run, step and output SHA.
@@ -49,3 +48,5 @@ Current Go EXR test checks valid magic + SHA and size but does NOT decode EXR pa
 - Introduce admitted mesh-embedded Gaussian, constrained diffusion and temporal video arms; use frozen paired settings and blinded human comparisons.
 - Make real depth/normal/segmentation and temporal outputs independently testable, with anatomical and identity gates before model scoring.
 - Crossfeed every PASS_NARROW / FAIL / HOLD / QUOTA_BLOCKED and exact source SHA into private DLE #176. Keep public original synthetic artifacts separate from protected character data.
+
+Initial actual public free-CPU structural PASS: https://github.com/SemperSupra/stable-character-pipeline/actions/runs/43806174419 at exact source SHA 676d332b6da3005cd874a1ada47706f2b4ec97b6. Real artifacts contain beauty PNG, multilayer EXR, receipts and an independent Go comparison; the result is not human photorealism acceptance.
