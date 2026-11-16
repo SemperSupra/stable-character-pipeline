@@ -58,7 +58,7 @@ func sourceSHA(ctx context.Context,s Source)(string,error){
  cmd:=exec.CommandContext(ctx,"git","ls-remote",target,"refs/heads/"+s.Branch)
  data,err:=cmd.Output();if err!=nil{return "",fmt.Errorf("ls-remote: %w",err)}
  parts:=strings.Fields(strings.TrimSpace(string(data)))
- if len(parts)!=2||!shaRE.MatchString(parts[0])||parts[1]!="refs/heads/"+s.Branch{return "",errors.New("ambiguous or invalid Git ref")}
+ if len(parts)!=2||!shaRE.MatchString(parts[0])||parts[1]!="refs/heads/"+s.Branch{sample:=strings.TrimSpace(string(data));if len(sample)>180{sample=sample[:180]};return "",fmt.Errorf("ambiguous or invalid Git ref: fields=%d observed=%q",len(parts),sample)}
  return parts[0],nil
 }
 func fetchDigest(ctx context.Context,client *http.Client,s Source,sha,path string)(Digest,error){
