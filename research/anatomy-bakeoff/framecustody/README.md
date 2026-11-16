@@ -1,0 +1,13 @@
+# R036 coordinate frame custody and source-specific unit/axis conversions
+
+Independent source-clean Go contract stacked on original lateralized fiducial PR #570, not modifying the source models, real donor registration PRs, or private character content. It closes a critical representation gap revealed by the BodyParts3D original source vertices (e.g. raw Z around 1000–1250), the HuBMAP HRA v1.2 GLB source, and native MakeHuman/MPFB Blender metres: **we must never infer coordinate units, axis order, handedness, or left/right from bounding boxes or conveniently close sizes**.
+
+Actual prior art: original open source [human-atlas attribution](https://mostischmidbauer.github.io/human-atlas/public/ATTRIBUTION.html) states it converts BodyParts3D 4.0 from **millimetres/Z-up to metres/Y-up**. This is a useful candidate conversion, but an independent downstream adaptation statement is not by itself authoritative source-geometry proof for every BodyParts3D source view/asset. The provenance contract therefore requires exact versioned source asset SHA, explicitly verified unit and axis declarations and citation/evidence digests before even applying that conversion to actual data.
+
+- Source/target frame IDs and SHA, dataset/version, units (`m` or `mm`), up axis, lateral convention, and evidence hashes are explicit. Missing or UNKNOWN source units/axes block conversion.
+- Source-specific homogeneous 4x4 transforms must be finite, rigid+uniform scale, proper det>0, no silent reflection or shear; pure unit/axis conversions must have exact 1000/0.001 unit ratios and recorded source review.
+- A pair of HRA and MPFB frames is **not** considered the same atlas merely because they have similar names or surfaces. Cross-atlas registration requires its own reviewed and SHA-identified anatomical landmark receipt, not the existing nearest-point-only ICP source.
+- A named SOURCE_VERIFIED matrix can yield a numeric coordinate transformation `PROVENANCE_GATED_COORDINATE_TRANSFORM_ONLY`; the returned state is *not* medical/anatomical correctness or organ containment.
+- Multiple distinct source-to-target graph paths fail as AMBIGUOUS until reconciled, even if one has a lower numerical cost; never pick a path silently and contaminate source state.
+
+Original synthetic known mm Z-up → m Y-up proper-rotation fixture, adversarial ambiguous path, mirror, wrong scale, missing evidence and cross-atlas name laundering all tested in free public CPU. This Go system intentionally contains no real HRA/MPFB fiducial coordinates, no asset binaries, protected identity, paid service, private GHA minutes or releases. It is a necessary operational source and 3-audience automation/agent provenance contract, not production geometry.
