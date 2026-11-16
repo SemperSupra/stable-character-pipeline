@@ -1,0 +1,91 @@
+name: R063 public CPU candidate critic interviews (synthetic only)
+
+on:
+  push:
+    branches:
+      - 'research/r063-critic-interview-pilot-20261116'
+    paths:
+      - 'research/r063-critic-interview/**'
+      - '.github/workflows/r063-critic-interview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r063-public-critic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  critic-interview:
+    name: "R063 / ${{ matrix.lane }} / actual model inference"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        lane: [image, video, audio]
+    env:
+      HF_HOME: ${{ github.workspace }}/.hf-r063
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      PYTHONUNBUFFERED: "1"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+      LANE: ${{ matrix.lane }}
+    steps:
+      - name: Checkout public source without persisted credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check original source and required CPU tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile research/r063-critic-interview/interview.py
+          mkdir -p "$RUNNER_TEMP/r063"
+          echo "R063 source_sha=$GITHUB_SHA lane=$LANE venue=public standard CPU; assets=original-only; private=NONE"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          if [ "$LANE" = audio ]; then
+            sudo apt-get install -y -qq --no-install-recommends espeak-ng
+          fi
+          command -v ffmpeg
+          if [ "$LANE" = audio ]; then command -v espeak-ng; fi
+      - name: Install pinned CPU inference dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r063-venv"
+          . "$RUNNER_TEMP/r063-venv/bin/activate"
+          python -m pip install --disable-pip-version-check --no-input --index-url https://download.pytorch.org/whl/cpu             torch==2.6.0 torchvision==0.21.0
+          python -m pip install --disable-pip-version-check --no-input             transformers==4.57.1 accelerate==1.11.0 pillow==11.3.0 numpy==2.2.6 sentencepiece==0.2.1 num2words==0.5.14
+          python - <<'PY'
+          import torch, transformers
+          print("R063_CPU_PACKAGES torch=", torch.__version__, "transformers=", transformers.__version__)
+          assert not torch.cuda.is_available()
+          PY
+      - name: Run one pinned-checkpoint model interview with withheld controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          . "$RUNNER_TEMP/r063-venv/bin/activate"
+          set +e
+          timeout --signal=INT --kill-after=15s 570s             python research/r063-critic-interview/interview.py             --lane "$LANE" --out "$RUNNER_TEMP/r063"             > "$RUNNER_TEMP/r063/interview.log" 2>&1
+          status=$?
+          set -e
+          echo "R063_PILOT_EXIT=$status"
+          tail -c 12000 "$RUNNER_TEMP/r063/interview.log" || true
+          test "$status" -eq 0
+      - name: Preserve narrow receipts and failure diagnostics (no media)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: "r063-${{ matrix.lane }}-${{ github.run_id }}"
+          path: |
+            ${{ runner.temp }}/r063/receipt.json
+            ${{ runner.temp }}/r063/interview.log
+          retention-days: 3
+          if-no-files-found: warn
