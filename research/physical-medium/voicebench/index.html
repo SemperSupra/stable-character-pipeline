@@ -56,8 +56,8 @@ audio{width:100%;min-height:3.5rem}
 <summary data-i18n="technical">Advanced: environment and physical units</summary>
 <div class="control">
 <label for="speed" data-i18n="speed">Sound speed inside tube</label>
-<input id="speed" type="range" min="100" max="2000" step=".1" value="343.2" aria-describedby="speedhelp">
-<output id="speedval" for="speed">343.2 m/s</output>
+<input id="speed" type="range" min="100" max="2000" step=".001" value="343.222" aria-describedby="speedhelp">
+<output id="speedval" for="speed">343.222 m/s</output>
 </div>
 <p id="speedhelp" class="small" data-i18n="speedhelp">A gas acoustics parameter, not the identity of a gas or evidence that an atmosphere is safe to breathe.</p>
 </details>
@@ -101,7 +101,7 @@ function values(){
 function updateValues(){
  el("lengthval").textContent=el("length").value+" mm";
  el("pitchval").textContent=el("pitch").value+" Hz";
- el("speedval").textContent=Number(el("speed").value).toFixed(1)+" m/s";
+ el("speedval").textContent=Number(el("speed").value).toFixed(3)+" m/s";
  el("status").textContent=locale().stale;
 }
 function urlFor(p){return "/api/v1/preview?"+new URLSearchParams(p).toString();}
@@ -109,7 +109,7 @@ function preview(){
  // Only the explicit button updates the browser's media URLs. No autoplay,
  // background recording, microphone access, API mutation or upload.
  el("reference").pause();el("modified").pause();
- el("reference").src=urlFor({length_mm:170,pitch_hz:160,sound_speed:343.22218086816235});
+ el("reference").src=urlFor({length_mm:170,pitch_hz:160,sound_speed:343.222});
  el("modified").src=urlFor(values());
  el("reference").load();el("modified").load();
  el("status").textContent=locale().updated;
