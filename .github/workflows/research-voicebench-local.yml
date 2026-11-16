@@ -1,0 +1,36 @@
+name: "Research · Novice Voice Workbench and typed agent API"
+on:
+  pull_request:
+    paths:
+      - "research/physical-medium/voicebench/**"
+      - "research/physical-medium/cmd/voicebench/**"
+      - ".github/workflows/research-voicebench-local.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  bounded-accessible-control-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Pin and check out public research source, no stored credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Real Go HTTP handler tests, race analysis and basic semantic UI checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/physical-medium
+          go test -race -count=1 ./...
+          go vet ./...
+          go test -run '^Test(Typed|Synthetic|Reject|Accessible)' -v -count=1 ./voicebench
