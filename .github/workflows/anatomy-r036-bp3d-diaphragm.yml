@@ -1,0 +1,61 @@
+name: R036 Diaphragm Source Components and Nonmanifold Edge Forensics
+on:
+  push:
+    branches:
+      - research/r036-bp3d-diaphragm-components-20261116
+    paths:
+      - 'research/anatomy-bp3d-elements/diaphragm.go'
+      - 'research/anatomy-bp3d-elements/diaphragm_test.go'
+      - 'research/anatomy-bp3d-elements/main.go'
+      - '.github/workflows/anatomy-r036-bp3d-diaphragm.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-bp3d-elements/diaphragm.go'
+      - 'research/anatomy-bp3d-elements/diaphragm_test.go'
+      - 'research/anatomy-bp3d-elements/main.go'
+      - '.github/workflows/anatomy-r036-bp3d-diaphragm.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-diaphragm-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  exact-source-fj3131:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    defaults:
+      run:
+        working-directory: research/anatomy-bp3d-elements
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Offline Go original component-graph race vet
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go version
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Admit exact original FJ3131 source bytes to ephemeral public CPU only
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036-bp3d"
+          ROOT=https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20130619
+          curl -fsSL --retry 1 --connect-timeout 12 --max-time 60 --max-filesize 1600000 "$ROOT/partof_element_parts.txt" -o "$RUNNER_TEMP/r036-bp3d/partof_element_parts.txt"
+          curl -fsSL --retry 1 --connect-timeout 12 --max-time 360 --max-filesize 80000000 "$ROOT/partof_BP3D_4.0_obj_99.zip" -o "$RUNNER_TEMP/r036-bp3d/partof_BP3D_4.0_obj_99.zip"
+          (cd "$RUNNER_TEMP/r036-bp3d" && printf '%s\n' \
+            '3f5f6df1028eb122b30de77c711597b6bb8e5541658e5985859fd228adbf88ea  partof_element_parts.txt' \
+            '9fbc713fffeee924a5a657d9813d84d7eb957bded63adb854931dd5e3eb61c97  partof_BP3D_4.0_obj_99.zip' | sha256sum --check --status)
+      - name: Record source exact seam component and nonmanifold face incidence
+        env:
+          GOTOOLCHAIN: local
+          GOPROXY: 'off'
+          GOSUMDB: 'off'
+        run: |
+          set -euo pipefail
+          go run . --diaphragm --elements "$RUNNER_TEMP/r036-bp3d/partof_element_parts.txt" --archive "$RUNNER_TEMP/r036-bp3d/partof_BP3D_4.0_obj_99.zip"
+          echo "No source model published; donor topology is forensic observation, NOT a simulator"
