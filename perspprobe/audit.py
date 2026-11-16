@@ -48,6 +48,8 @@ def validate_manifest(m):
         reject("SOURCE_RIGHTS_OR_FALSE_PHOTOREAL_CLAIM")
     if m.get("source_scene_id")!="original-synthetic-head-v1" or m.get("resolution")!=256:
         reject("SOURCE_SCENE_OR_SIZE")
+    if m.get("exr_z_interpretation")!="PERSPECTIVE_CAMERA_AXIS_MINUS_LOCAL_Z" or m.get("native_ray_metric")!="EUCLIDEAN_CAMERA_TO_HIT_RAY_LENGTH":
+        reject("WRONG_AXIAL_VS_RAY_DEPTH_UNITS")
     if m.get("source_script_sha256")!=sha(SOURCE):
         reject("SOURCE_SCRIPT_SHA_UNBOUND")
     if not isinstance(m.get("geometry_sha256"),str) or len(m["geometry_sha256"])!=64:
@@ -96,9 +98,10 @@ def validate_manifest(m):
             if r["stable"]:stable+=1
             if type(r.get("pass_index")) is not int or r["pass_index"] not in (1,2):
                 reject("RAY_UNKNOWN_OBJECT")
-            z=r.get("depth_from_camera_plane")
-            if type(z) not in (float,int) or not math.isfinite(z) or not 0<z<80:
-                reject("NONFINITE_RAY_DISTANCE")
+            ray=r.get("ray_distance")
+            z=r.get("camera_axis_depth")
+            if type(ray) not in (float,int) or type(z) not in (float,int) or not math.isfinite(ray) or not math.isfinite(z) or not 0<z<=ray+1e-4<80.001:
+                reject("NONFINITE_RAY_OR_INCONSISTENT_AXIAL_DEPTH")
             n=r.get("geometric_normal")
             if not isinstance(n,list) or len(n)!=3 or any(type(v) not in (int,float) or not math.isfinite(v) for v in n) or abs(sum(v*v for v in n)-1)>0.01:
                 reject("BAD_GEOMETRIC_NORMAL")
@@ -106,6 +109,8 @@ def validate_manifest(m):
                 reject("UNNAMED_SOURCE_OBJECT")
         if stable<64 or stable!=case.get("stable_count") or len(rays)!=case.get("ray_sample_count"):
             reject("INSUFFICIENT_STABLE_NATIVE_RAYS")
+        if max((r["ray_distance"]-r["camera_axis_depth"] for r in rays if r["stable"]),default=0)<0.05:
+            reject("UNTESTED_PERSPECTIVE_RAY_VS_AXIS_SEPARATION")
         if not isinstance(case.get("arms"),dict) or set(case["arms"])!=ARMS:
             reject("INCOMPLETE_MATERIAL_MATRIX")
         for arm,files in case["arms"].items():
@@ -115,6 +120,48 @@ def validate_manifest(m):
                 if not isinstance(info,dict) or not isinstance(info.get("sha256"),str) or len(info["sha256"])!=64 or type(info.get("bytes")) is not int or info["bytes"]<128:
                     reject("RENDER_CUSTODY_INVALID")
     return cases
+
+def compare_axial_depth(rays,decoded):
+    """Compare Blender Cycles Z against -camera-local point.Z, never |ray|.
+
+    R057 diagnostic first RED proved that the perspective Cycles Z convention
+    and Euclidean camera ray length differ appreciably off-axis. Keep the
+    exact inherited numeric tolerance, minimum and required match fraction.
+    """
+    depth=decoded["depth"]["Z"]
+    index=decoded["object"]["X"]
+    if depth.shape!=(256,256) or index.shape!=(256,256):
+        reject("INVALID_EXR_DEPTH_OR_ID_DIMENSIONS")
+    total=0;matched=0;bad_z=0;bad_id=0
+    maximum_correct_z_error=0.0
+    for ray in rays:
+        if not ray["stable"]:
+            continue
+        x,y=ray["x"],ray["y"]
+        z=float(depth[y,x])
+        object_id=float(index[y,x])
+        err=abs(z-ray["camera_axis_depth"])
+        good_z=math.isfinite(err) and err<=ortho.DEPTH_TOLERANCE
+        good_id=math.isfinite(object_id) and abs(object_id-ray["pass_index"])<=ortho.OBJECT_TOLERANCE
+        if not good_z:bad_z+=1
+        if not good_id:bad_id+=1
+        if good_z and good_id:
+            matched+=1
+            maximum_correct_z_error=max(maximum_correct_z_error,err)
+        total+=1
+    if total<ortho.MIN_STABLE_RAYS or matched/total<ortho.MIN_CORRECT_FRACTION:
+        reject("REAL_EXR_AXIAL_DEPTH_OR_OBJECT_REPROJECTION")
+    return {
+        "native_stable_rays":total,
+        "joint_correct":matched,
+        "fraction_correct":matched/total,
+        "axial_depth_mismatches":bad_z,
+        "object_id_mismatches":bad_id,
+        "max_abs_axial_depth_error_among_correct":maximum_correct_z_error,
+        "source_metric":"CAMERA_LOCAL_NEGATIVE_Z",
+        "not_metric":"EUCLIDEAN_CAMERA_TO_HIT_RAY_LENGTH"
+    }
+
 
 def independent_verify(root):
     path=root/"r057_source_manifest.json"
@@ -135,7 +182,7 @@ def independent_verify(root):
             decoded[arm]=pixels
             if report["sha256"]!=files["render_passes.exr"]["sha256"]:
                 reject("INDEPENDENT_EXR_SHA_DISAGREEMENT")
-            row=ortho.compare_known_rays(case["rays"],pixels)
+            row=compare_axial_depth(case["rays"],pixels)
             row["exr_sha256"]=report["sha256"]
             rows[label][arm]=row
         diff=np.stack([
