@@ -1,0 +1,63 @@
+{
+  "schema": "scp.r063.critic-candidate-inventory.v1",
+  "authority": {
+    "visual": "https://github.com/SemperSupra/stable-character-pipeline/issues/150",
+    "visual_private": "https://github.com/SemperSupra/stable-character-pipeline-private/issues/168",
+    "audio_public": "https://github.com/SemperSupra/stable-character-pipeline/issues/9",
+    "voice_boundary": "https://github.com/SemperSupra/stable-character-pipeline/issues/7",
+    "audio_critic_proposal": "https://github.com/SemperSupra/stable-character-pipeline/issues/521",
+    "product": "https://github.com/SemperSupra/stable-character-pipeline-private/issues/2"
+  },
+  "model_candidates": [
+    {
+      "id": "SmolVLM2-256M-image",
+      "repo": "HuggingFaceTB/SmolVLM2-256M-Video-Instruct",
+      "revision": "4d176c0088bd75e5e9291c3c3569f3d8ebbf836b",
+      "role": "still-image color and basic scene observer",
+      "declared_license": "apache-2.0",
+      "status": "NOT_QUALIFIED",
+      "negative_control": "blue image versus red image",
+      "semantic_limits": "no anatomical, photorealistic, identity or protected-media acceptance"
+    },
+    {
+      "id": "SmolVLM2-256M-frame-pair",
+      "repo": "HuggingFaceTB/SmolVLM2-256M-Video-Instruct",
+      "revision": "4d176c0088bd75e5e9291c3c3569f3d8ebbf836b",
+      "role": "two-frame sampled H264 motion semantic observer",
+      "declared_license": "apache-2.0",
+      "status": "NOT_QUALIFIED",
+      "negative_control": "reverse direction",
+      "semantic_limits": "not full-video critic nor foot-contact oracle"
+    },
+    {
+      "id": "Whisper-tiny",
+      "repo": "openai/whisper-tiny",
+      "revision": "169d4a4341b33bc18d8881c4b69c2e104e1cc0af",
+      "role": "spoken audio transcription critic",
+      "declared_license": "apache-2.0",
+      "status": "NOT_QUALIFIED",
+      "negative_control": "silence must not create speech",
+      "semantic_limits": "not audio-quality, music, respiration, physics or identity acceptance"
+    }
+  ],
+  "interviews": [
+    "license checkpoint+source provenance",
+    "candidate capability and cost envelope",
+    "actual positive and negative smoke using source-original fixtures",
+    "blinded heldout DoE with abstention, confidence calibration, localization",
+    "independent geometry/acoustics/temporal oracle and exact SHA replay",
+    "owner accepts use-case-specific promotion only"
+  ],
+  "execution": {
+    "venue": "PUBLIC_STANDARD_GHA_CPU",
+    "private_media": false,
+    "paid_api": false,
+    "private_actions_minutes": false,
+    "model_writes": false,
+    "auto_merge": false
+  },
+  "results": {
+    "status": "NOT_RUN_OR_NOT_OBSERVED",
+    "note": "Do not infer run from PR creation"
+  }
+}
