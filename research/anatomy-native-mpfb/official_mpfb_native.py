@@ -61,6 +61,27 @@ def build(n):
  if len(rig.data.bones)<15:fail("MPFB official rig unexpectedly small")
  has_skin=any(m.type=="ARMATURE" and m.object==rig for m in body.modifiers)
  if not has_skin:fail("native body missing MPFB armature deformation")
+ # glTF skinning typically exposes at most 4 vertex influences. Measure original
+ # MPFB rig weight tails explicitly; exporter may truncate those influences.
+ bone_names=set(b.name for b in rig.data.bones)
+ group_names={i:g.name for i,g in enumerate(body.vertex_groups)}
+ more_than_four=0
+ max_influences=0
+ max_tail_fraction=0.0
+ total_tail_mass=0.0
+ for v in body.data.vertices:
+  weights=sorted((vg.weight for vg in v.groups if group_names.get(vg.group) in bone_names and vg.weight>0),reverse=True)
+  max_influences=max(max_influences,len(weights))
+  if len(weights)>4:
+   more_than_four+=1
+   total=sum(weights)
+   tail=sum(weights[4:])
+   total_tail_mass+=tail
+   if total>0:max_tail_fraction=max(max_tail_fraction,tail/total)
+ skin_fidelity={"source_vertices_more_than_four_joint_weights":more_than_four,"source_max_joint_influences":max_influences,
+  "max_discarded_weight_fraction":max_tail_fraction,"sum_discarded_weight_mass":total_tail_mass,
+  "gltf_4_weight_limit":"HOLD" if more_than_four>0 else "UNVERIFIED",
+  "note":"counts are source skin weights, not independently imported/exported weight delta"}
  body.name="R036_Official_MPFB_Human"
  rig.name="R036_Official_MPFB_Rig"
  possible=[b for b in rig.data.bones if b.use_deform and ("spine" in b.name.lower() or "chest" in b.name.lower() or "torso" in b.name.lower())]
@@ -145,7 +166,7 @@ def build(n):
    "real_mpfb_rig_bones":len(rig.data.bones),"selected_torso_bone":target.name,
    "body_vertices":num,"skin_rest_sha":rest_body,"skin_pose_sha":posed_body,
    "organ_rest_sha":rest_organ,"organ_pose_sha":posed_organ,
-   "visibility_render_only":before==after,"blend_sha256":checksum(blend),
+   "visibility_render_only":before==after,"source_skin_influence_audit":skin_fidelity,"blend_sha256":checksum(blend),
    "glb_sha256":checksum(glb),"source":"makehumancommunity/mpfb2 pinned Git commit",
    "limits":"generic MPFB official rig; unregistered synthetic proxy organs; no soft tissue physics, photorealism or human anatomy accepted"}
  with open(os.path.join(n.out,"receipt.json"),"w") as f:json.dump(r,f,sort_keys=True,indent=2)
