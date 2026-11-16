@@ -81,6 +81,12 @@ jobs:
             -out ../out/comparison.json
           grep -F '"status": "PASS_STRUCTURAL_RENDER_DIFFERENCE_ONLY"' ../out/comparison.json
           grep -F '"qualification": "NOT_PHOTOREALISM_OR_HUMAN_PREFERENCE_EVIDENCE"' ../out/comparison.json
+          # R039 independent EXR header/chlist structural qualification; no pixel decode.
+          go run ./exraudit \
+            -baseline ../out/baseline/render_passes.exr \
+            -material ../out/physical_material/render_passes.exr \
+            -out ../out/exr_audit.json
+          grep -F '"status": "EXR_HEADER_CHANNELS_VERIFIED"' ../out/exr_audit.json
           (cd ../out && find . -type f -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
