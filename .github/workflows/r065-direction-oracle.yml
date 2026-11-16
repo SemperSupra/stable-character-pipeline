@@ -1,0 +1,85 @@
+name: R065 real H264 decoded-frame deterministic direction oracle
+
+on:
+  push:
+    branches:
+      - 'research/r065-decoded-frame-direction-oracle-20261116'
+    paths:
+      - 'research/r065-motion-direction/**'
+      - '.github/workflows/r065-direction-oracle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-owned-decoded-frames:
+    name: "R065 / decoded H264 / ${{ matrix.lane }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        lane: [right, left, still, occluded]
+    env:
+      LANE: ${{ matrix.lane }}
+    steps:
+      - name: Checkout public original source with read-only token
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Setup source-pinned Go compiler
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r065-motion-direction/go.mod
+          cache: false
+      - name: Install codec and run independent test oracles
+        working-directory: research/r065-motion-direction
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          mkdir -p "$RUNNER_TEMP/r065/decoded"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          go version
+          go test -count=1 -race ./...
+          go vet ./...
+          go run . --make "$LANE" --out "$RUNNER_TEMP/r065" | tee "$RUNNER_TEMP/r065/fixture-log.txt"
+          ffmpeg -nostdin -v error -y -framerate 1 -i "$RUNNER_TEMP/r065/frame_%03d.png" -frames:v 2 -pix_fmt yuv420p -c:v libx264 "$RUNNER_TEMP/r065/decoded-source.mp4"
+          ffmpeg -nostdin -v error -y -i "$RUNNER_TEMP/r065/decoded-source.mp4" "$RUNNER_TEMP/r065/decoded/frame_%03d.png"
+          count=$(find "$RUNNER_TEMP/r065/decoded" -name 'frame_*.png' | wc -l)
+          test "$count" -eq 2
+          case "$LANE" in
+            right) expected=RIGHT ;;
+            left) expected=LEFT ;;
+            still) expected=STILL ;;
+            occluded) expected=UNKNOWN ;;
+            *) exit 12 ;;
+          esac
+          set +e
+          go run . --first "$RUNNER_TEMP/r065/decoded/frame_001.png" --second "$RUNNER_TEMP/r065/decoded/frame_002.png" --expect "$expected" > "$RUNNER_TEMP/r065/receipt.json"
+          result=$?
+          set -e
+          cat "$RUNNER_TEMP/r065/receipt.json"
+          if [ "$LANE" = occluded ]; then
+            test "$result" -ne 0
+            grep -q '"status":"UNKNOWN"' "$RUNNER_TEMP/r065/receipt.json"
+            grep -q '"reason":"NO_RED_SUBJECT"' "$RUNNER_TEMP/r065/receipt.json"
+            echo "R065_EXPECTED_REJECT source-only missing target yes"
+          else
+            test "$result" -eq 0
+            grep -q '"status":"PASS_NARROW_SOURCE_ONLY"' "$RUNNER_TEMP/r065/receipt.json"
+            echo "R065_DIRECTION_PASS original source FFmpeg actual decoded"
+          fi
+      - name: Archive only bounded text receipts, not generated video
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: "r065-${{ matrix.lane }}-${{ github.run_id }}"
+          path: |
+            ${{ runner.temp }}/r065/receipt.json
+            ${{ runner.temp }}/r065/fixture-log.txt
+          retention-days: 3
+          if-no-files-found: warn
