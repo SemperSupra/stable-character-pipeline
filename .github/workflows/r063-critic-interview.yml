@@ -1,6 +1,12 @@
 name: R063 public CPU candidate critic interviews (synthetic only)
 
 on:
+  push:
+    branches:
+      - 'research/r063-critic-interview-pilot-20261116'
+    paths:
+      - 'research/r063-critic-interview/**'
+      - '.github/workflows/r063-critic-interview.yml'
   pull_request:
     paths:
       - 'research/r063-critic-interview/**'
