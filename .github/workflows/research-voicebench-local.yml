@@ -34,3 +34,36 @@ jobs:
           go test -race -count=1 ./...
           go vet ./...
           go test -run '^Test(Typed|Synthetic|Reject|Accessible)' -v -count=1 ./voicebench
+          go build -o "$RUNNER_TEMP/voicebench" ./cmd/voicebench
+          if "$RUNNER_TEMP/voicebench" -listen "0.0.0.0:9876" > "$RUNNER_TEMP/refused-bind.txt" 2>&1; then
+            echo "ERROR: unauthenticated public listen address accepted"; exit 1
+          fi
+          "$RUNNER_TEMP/voicebench" -listen "127.0.0.1:8765" > "$RUNNER_TEMP/voicebench-local-only.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          python3 - <<'PY'
+          import hashlib,json,time,urllib.request
+          base="http://127.0.0.1:8765"
+          for _ in range(100):
+              try:
+                  with urllib.request.urlopen(base+"/api/v1/controls",timeout=2) as r:
+                      control=json.load(r)
+                  break
+              except OSError:
+                  time.sleep(0.1)
+          else:
+              raise AssertionError("loopback server did not become available")
+          assert control["schema"]=="voicebench.control_capabilities.v0"
+          assert len(control["audiences"])==3
+          url=base+"/api/v1/preview?length_mm=170&pitch_hz=160&sound_speed=343.222"
+          with urllib.request.urlopen(url,timeout=5) as response:
+              data=response.read()
+              assert response.headers["Content-Type"]=="audio/wav"
+              assert response.headers["X-Audio-SHA256"]==hashlib.sha256(data).hexdigest()
+          assert data[:4]==b"RIFF" and len(data)==24044
+          with urllib.request.urlopen(base+"/",timeout=5) as r:
+              html=r.read().decode("utf-8")
+              assert "<html lang=" in html and 'id="preview"' in html
+          print("PASS native loopback HTTP, actual PCM SHA, agent contract, and local HTML; not browser HIL")
+          PY
+
