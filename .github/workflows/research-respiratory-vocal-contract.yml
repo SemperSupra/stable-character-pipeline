@@ -1,0 +1,35 @@
+name: "Research · Respiratory vocal contract and invariants"
+on:
+  pull_request:
+    paths:
+      - "research/respiratory-vocal/**"
+      - ".github/workflows/research-respiratory-vocal-contract.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  public-synthetic-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Exact public synthetic source checkout, no credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Go offline race and invariant tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/respiratory-vocal
+          go test -race -count=1 ./...
+          go vet ./...
+          go test -run '^(TestAllSoundFamilies|TestRejectContradictory|TestBoundary)' -v -count=1 ./behavior
