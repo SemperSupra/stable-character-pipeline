@@ -92,3 +92,14 @@ jobs:
           grep -F '"classification": "BINARY_PAYLOAD_DRIFT"' "$RUNNER_TEMP/r053-negative.json"
           echo "R053_NEGATIVE_SOURCE_SAFE injected_payload_mutation_detected=YES"
           echo "No model bytes persisted outside disposable runner"
+
+      - name: R054 per-bufferView hash-only semantic origin and synthetic mutation oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 research/anatomy-native-mpfb/r054_buffer_views.py \
+            --glb "$RUNNER_TEMP/r053/r044-morph-organ-allweights.glb" \
+            --out "$RUNNER_TEMP/r054-buffer-views.json" --negative
+          grep -F '"status": "PASS_NARROW_BOUNDARY_HASHES"' "$RUNNER_TEMP/r054-buffer-views.json"
+          grep -F '"mutation_detected": true' "$RUNNER_TEMP/r054-buffer-views.json"
+          echo "R054 source-safe per-bufferView SHA receipt; model bytes remain on ephemeral runner"
