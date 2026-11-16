@@ -1,0 +1,78 @@
+name: R036 HRA Skin/Lung → MPFB Source Registration Probe
+on:
+  push:
+    branches:
+      - research/r036-hra-skin-registration-20261116
+    paths:
+      - 'research/anatomy-registration/**'
+      - '.github/workflows/anatomy-r036-hra-skin-registration.yml'
+  pull_request:
+    paths:
+      - 'research/anatomy-registration/**'
+      - '.github/workflows/anatomy-r036-hra-skin-registration.yml'
+permissions:
+  contents: read
+concurrency:
+  group: r036-hra-skin-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  skin-lung-cohort:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Disposable native Blender+NumPy prereqs
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy
+          blender --version | head -2
+      - name: Pin and install actual native MPFB extension to ephemeral Blender
+        env:
+          SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" fetch -q --depth 1 origin "$SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = 'd26635e9326e3cca30778fd7b9c00062b03cce09'
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+      - name: Retrieve rights-cleared same-cohort 3D source models
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 2 --connect-timeout 10 --max-time 120 --max-filesize 65000000 \
+            https://cdn.humanatlas.io/hra-releases/v1.2/models/VH_M_Lung.glb -o "$RUNNER_TEMP/VH_M_Lung.glb"
+          echo "e64351b72b0bc5289a4dc32ba2b402b9c974f9ec0b1972bf06b436864f917913  $RUNNER_TEMP/VH_M_Lung.glb" | sha256sum --check --status
+          curl -fsSL --retry 2 --connect-timeout 10 --max-time 120 --max-filesize 65000000 \
+            https://cdn.humanatlas.io/hra-releases/v1.2/models/VH_M_Skin.glb -o "$RUNNER_TEMP/VH_M_Skin.glb"
+          test "$(wc -c < "$RUNNER_TEMP/VH_M_Skin.glb")" -gt 1024
+          echo "8cab299d04323e6364938a271647df5671138a2177f412e741a0d6bd4536ee1c  $RUNNER_TEMP/VH_M_Skin.glb" | sha256sum --check --status || { echo "HRA_SKIN_SOURCE_SHA256_MISMATCH"; exit 4; }
+          sha256sum "$RUNNER_TEMP/VH_M_Skin.glb"
+          echo "HRA skin and lung both source SHA256 pinned and verified"
+      - name: Build actual MPFB/HRA real-organ refitted native Blender scene
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r036"
+          blender -b -t 2 --python-exit-code 12 --python research/anatomy-native-mpfb/official_mpfb_native.py -- --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r036"
+          blender -b "$RUNNER_TEMP/r036/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 --python research/anatomy-hra/hra_lung_bind.py -- --stage build --organ "$RUNNER_TEMP/VH_M_Lung.glb" --out "$RUNNER_TEMP/r036"
+          blender -b "$RUNNER_TEMP/r036/mpfb-with-hra-lung-provisional.blend" -t 2 --python-exit-code 12 --python research/anatomy-hra-morph/real_lung_refit.py -- --stage probe --out "$RUNNER_TEMP/r036"
+      - name: Analyze reference-source skin/lung frames against actual MPFB body
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036/mpfb-hra-lung-morphed.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-registration/reference_skin_probe.py -- \
+            --stage inspect --skin "$RUNNER_TEMP/VH_M_Skin.glb" --lung "$RUNNER_TEMP/VH_M_Lung.glb" --out "$RUNNER_TEMP/r036"
+      - name: Fresh-process candidate source scene and provenance check
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r036/mpfb-hra-skin-registration-candidate.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-registration/reference_skin_probe.py -- \
+            --stage verify --out "$RUNNER_TEMP/r036"
+          echo "Provisional geometry stays in disposable scratch; public logs contain metrics only"
