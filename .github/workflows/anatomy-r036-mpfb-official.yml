@@ -174,3 +174,18 @@ jobs:
             "$RUNNER_TEMP/r050-expected-reject.log"
           echo "R050_MORPH_NEGATIVE_CONTROL source=true_gpu_readback=YES corrupt_vertex_rejected=YES"
           echo "Raw GLB and numeric vertex arrays remain in public disposable scratch only"
+
+      - name: R051 independent two-export source GLB reproducibility and canonical body geometry comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/r036-official/r044-morph-organ-allweights.glb" "$RUNNER_TEMP/r051-first.glb"
+          blender -b "$RUNNER_TEMP/r036-official/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/morph_organ_coexport.py -- \
+            --out "$RUNNER_TEMP/r036-official"
+          python3 research/anatomy-native-mpfb/r051_glb_repeatability.py \
+            --first "$RUNNER_TEMP/r051-first.glb" \
+            --second "$RUNNER_TEMP/r036-official/r044-morph-organ-allweights.glb" \
+            --out "$RUNNER_TEMP/r051-repeatability-receipt.json"
+          grep -F '"status": "PASS_NARROW_BODY_SOURCE_SEMANTIC_REPEATABILITY"' "$RUNNER_TEMP/r051-repeatability-receipt.json"
+          echo "R051_REPRO_PROBE source_safe_two_exports=YES binary_assets_ephemeral=YES whole_gltf_determinism_not_implied"
