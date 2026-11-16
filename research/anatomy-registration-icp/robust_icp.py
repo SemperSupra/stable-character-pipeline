@@ -176,7 +176,9 @@ def run_probe(ns):
   if ob.name in bpy.data.objects:bpy.data.objects.remove(ob,do_unlink=True)
  root.matrix_world=to_mat(optimized)
  root.name="R036_HRA_ICP_Candidate_UNVALIDATED"
- root["registration_method"]="robust_trimmed_12_step_Kabsch_proper_sim3_fixed_scale"
+ objective_improved=before["score_m"]-after["score_m"]>1e-5
+ root["registration_method"]="robust_trimmed_12_step_Kabsch_proper_fixed_scale" if objective_improved else "BASELINE_PRESERVED_NO_ICP_IMPROVEMENT"
+ root["fit_objective_improved"]=objective_improved
  root["anatomic_landmarks_verified"]=False
  root["source_skin_sha256"]=SKIN_SHA
  root["source_lung_sha256"]=LUNG_SHA
@@ -187,11 +189,13 @@ def run_probe(ns):
  dest=os.path.join(ns.out,"mpfb-hra-icp-candidate.blend")
  bpy.ops.wm.save_as_mainfile(filepath=dest,check_existing=False)
  report={"schema":"scp.anatomy.hra_skin_icp.v1",
-  "status":"PASS_OPTIMIZATION_MECHANICS_ONLY_NOT_ANATOMICAL_REGISTRATION",
+  "status":"MEASURED_RIGID_OPTIMIZATION_IMPROVEMENT_ANATOMY_HOLD" if objective_improved else "HOLD_RIGID_ICP_NO_IMPROVEMENT_BASELINE_RETAINED",
   "control":controls,"baseline":before,"best":after,"iterations":trace,
   "baseline_bands":per_band(source,target,initial),
   "best_bands":per_band(source,target,optimized),
   "selected_improvement_m":before["score_m"]-after["score_m"],
+  "objective_improved":objective_improved,
+  "warning":"Trimmed nearest-vertex inlier score may fall while bidirectional p95 increases; never claim convergence/medical fit from inlier-only decrease",
   "sample_skin_points":len(source),"sample_mpfb_points":len(target),
   "source_skin_sha256":SKIN_SHA,"source_lung_sha256":LUNG_SHA,
   "derived_organ_submeshes":len(parts),"original_source_mesh_immutable":True,
@@ -209,6 +213,7 @@ def verify(ns):
  parts=[o for o in bpy.context.scene.objects if o.name.startswith("R036_HRA_Candidate_Lung_") and o.type=="MESH"]
  if len(parts)!=67 or any(o.parent!=root or o.get("medical_fit")!="NOT_ADMITTED" for o in parts):
   fail("saved source candidate organ identity or rights lost")
+ if root.get("fit_objective_improved") not in (False,True):fail("missing honest objective improvement receipt")
  if root.get("anatomic_landmarks_verified")!=False or root.get("source_skin_sha256")!=SKIN_SHA:
   fail("saved source candidate falsely admitted")
  print("R036_ICP_VERIFY "+json.dumps({"status":"PASS_REOPEN_CANDIDATE_ONLY","submeshes":len(parts),
