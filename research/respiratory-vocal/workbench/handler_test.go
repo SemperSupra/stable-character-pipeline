@@ -133,3 +133,27 @@ func TestRealCatalogHumanAssistiveAgentAndENDETHDelivery(t *testing.T){
   strings.Contains(body,"getUserMedia("){t.Fatal("unexpected media capture/autoplay")}
  if w.Header().Get("Access-Control-Allow-Origin")!=""{t.Fatal("unexpected cross-origin read")}
 }
+
+func TestLocalhostAndHostRebindingSecurityBoundary(t *testing.T){
+ cases:=[]struct{name,endpoint,origin string;want int}{
+  {"real loopback absolute request","http://127.0.0.1:8766/api/v1/capabilities","",200},
+  {"loopback IPv6 absolute","http://[::1]:8766/api/v1/capabilities","",200},
+  {"host header external domain","http://evil.example:8766/api/v1/capabilities","",400},
+  {"host header WAN","http://192.0.2.44:8766/api/v1/capabilities","",400},
+  {"null Origin rejected","http://127.0.0.1:8766/api/v1/capabilities","null",403},
+  {"foreign Origin rejected","http://127.0.0.1:8766/api/v1/capabilities","http://evil.example:8766",403},
+  {"same loopback Origin accepted","http://127.0.0.1:8766/api/v1/capabilities","http://127.0.0.1:8766",200},
+ }
+ for _,tc:=range cases{
+  req:=httptest.NewRequest("GET",tc.endpoint,nil)
+  if tc.origin!=""{req.Header.Set("Origin",tc.origin)}
+  w:=httptest.NewRecorder()
+  Handler().ServeHTTP(w,req)
+  if w.Code!=tc.want{t.Fatalf("%s: status %d, want %d, body %s",tc.name,w.Code,tc.want,w.Body.String())}
+ }
+ // Absolute URI authority may not disagree with the Host header.
+ r:=httptest.NewRequest("GET","http://127.0.0.1:8766/api/v1/capabilities",nil)
+ r.Host="evil.example:8766"
+ w:=httptest.NewRecorder();Handler().ServeHTTP(w,r)
+ if w.Code!=400{t.Fatalf("absolute URI/Host mismatch admitted: %d",w.Code)}
+}
