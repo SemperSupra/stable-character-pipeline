@@ -1,0 +1,9 @@
+# R2 native follow-on — actual Blender F-curve and evaluated skin witness
+
+Distinct stacked draft branch, based only on the fixed and independently hosted-success original R2 VMD binary/Bezier source parent PR #620 exact SHA b9d00623bfa6de233d396903aaba70ba16ca8824. Adds native Blender source and a separate workflow, no modifications to parent fixture or semantic tests.
+
+This workcell uses the **actual MMD Tools v4.5.14 VMDImporter.assign** with an authored CP932 Japanese-named two-key VMD from the parent source, installed **bpy 4.5.0** headless Python wheel and a tiny original synthetic armature with vertex-weighted quad. Two independent public Ubuntu CPU jobs compare linear and intentionally non-linear VMD X-channel interpolation at 7.5, 15, 22.5 Blender subframes against numerically evaluated source VMD curve, including *actual evaluated skinned vertex movement* and rewind. The probe measures displacement along whatever real Blender axis MMD Tools used, so it does not infer convention from bone names.
+
+Strictly original synthetic only, no third-party dance or model, no protected character identity, no private/paid Actions, no GPU, no assets/artifact binary upload. Full MMD playback, independent PMX/MMD pose, IK switch application, morph application, true MakeHuman/MPFB/MHR 3D target skeleton, contact physics, visual photorealism, rights and R009 product acceptance remain unqualified. If hosted native importer reports disagreement, preserve first red and diagnose exact source/axis/curve before editing or widening tolerances.
+
+Current owner authorities: public MMD #19, motion #29, Visual QA #150; private R014 #138, R033 #168, R009 #23. No new canonical IR or release rights. Human view README, automation/agent one structured source/clock/metric JSON line and nonzero failure. DLE = Durable, Legible, Executable.
