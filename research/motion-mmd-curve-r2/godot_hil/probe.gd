@@ -49,11 +49,34 @@ func _initialize() -> void:
     if duration < 0.9 or duration > 1.4:
         reject("UNEXPECTED_GLTF_FPS_SOURCE_CLOCK " + str(duration))
         return
+    var tracks: Array[Dictionary] = []
+    for track_idx in range(animation.get_track_count()):
+        tracks.append({"path": String(animation.track_get_path(track_idx)),
+                       "type": animation.track_get_type(track_idx),
+                       "keys": animation.track_get_key_count(track_idx)})
+    print("R3_GODOT_TRACK_BINDING_DIAGNOSTIC ",JSON.stringify({
+        "animation_name":String(target_name),
+        "player_root_node":String(player.root_node),
+        "skeleton_path":String(skeleton.get_path()),
+        "skinned_mesh_path":String(mesh.get_path()),
+        "bone_name":skeleton.get_bone_name(0),
+        "rest_position":str(skeleton.get_bone_rest(0).origin),
+        "tracks":tracks
+    })
     player.play(target_name)
     player.seek(0.0, true)
+    player.advance(0.0) # Explicit headless mix/evaluation after seek
     var start: Vector3 = skeleton.get_bone_global_pose(0).origin
+    var start_local: Vector3 = skeleton.get_bone_pose_position(0)
     player.seek(duration, true)
+    player.advance(0.0)
     var finish: Vector3 = skeleton.get_bone_global_pose(0).origin
+    var finish_local: Vector3 = skeleton.get_bone_pose_position(0)
+    print("R3_GODOT_BONE_TIME_DIAGNOSTIC ",JSON.stringify({
+        "start_global":str(start),"end_global":str(finish),
+        "start_local":str(start_local),"end_local":str(finish_local),
+        "clip_length":duration,"currently_playing":String(player.current_animation)
+    })
     var delta: Vector3 = finish - start
     if delta.length() < 0.5:
         reject("IMPORTED_SKELETON_BONE_MOTION_FROZEN " + str([start,finish,duration]))
@@ -64,6 +87,7 @@ func _initialize() -> void:
     var max_error: float = 0.0
     for i in range(phases.size()):
         player.seek(phases[i] * duration, true)
+        player.advance(0.0)
         var pos: Vector3 = skeleton.get_bone_global_pose(0).origin
         var progress: float = (pos - start).dot(delta) / delta.length_squared()
         observed.append(progress)
