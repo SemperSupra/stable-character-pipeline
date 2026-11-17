@@ -15,6 +15,16 @@ class FrameContract(unittest.TestCase):
         f=fixture()
         for row in f:row["sha256"]="0"*64
         with self.assertRaisesRegex(RuntimeError,"STATIC_OR_UNCHANGING_FRAMES"):check_frames(f)
+    def test_real_blender_separator_argv_convention(self):
+        # Blender injects engine switches before "--": parser must ignore them.
+        import sys
+        from unittest.mock import patch
+        import render_full
+        cmd=["blender","-b","--python","render_full.py","--","--saved","/missing.blend",
+             "--saved-sha","a"*64,"--glb-sha","b"*64,"--frames","/unused","--out","/unused.json"]
+        with patch.object(sys,"argv",cmd):
+            with self.assertRaisesRegex(RuntimeError,"SOURCE_SAVED_BLEND_SHA_MISMATCH"):
+                render_full.main()
     def test_bad_digest(self):
         f=fixture();f[6]["sha256"]="not-hash"
         with self.assertRaisesRegex(RuntimeError,"FRAME_HASH_INVALID"):check_frames(f)
