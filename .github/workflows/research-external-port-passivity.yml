@@ -1,0 +1,47 @@
+name: "Research · External ports and passive impedance"
+on:
+  pull_request:
+    paths:
+      - "research/respiratory-vocal/**"
+      - ".github/workflows/research-external-port-passivity.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  source-only-cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Pin official read-only source checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Original Go race and vet, bounded synthetic numeric receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/respiratory-vocal
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/external-port-bakeoff > "$RUNNER_TEMP/research-receipts.json"
+          python3 - "$RUNNER_TEMP/research-receipts.json" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as f: report=json.load(f)
+          assert report["schema"]=="respiratory.external_port_bakeoff.v0"
+          assert len(report["cases"])==5
+          assert all(c["dissipated_energy_j"]>0 for c in report["cases"])
+          assert all(abs(c["source_work_j"]-c["dissipated_energy_j"]-c["stored_energy_change_j"])<1e-9 for c in report["cases"])
+          ports={c["name"]:c["port"] for c in report["cases"]}
+          assert ports["balloon_airflow"]=="elastic_balloon" and ports["straw_suction"]=="straw"
+          print("PASS original five object port receipts: flow signs, passive energy; NOT physical instrument acoustics")
+          PY
+          sha256sum "$RUNNER_TEMP/research-receipts.json"
