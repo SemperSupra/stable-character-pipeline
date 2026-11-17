@@ -1,0 +1,111 @@
+name: R073 fail-closed 3D depth witness gate against real decoded H264
+on:
+  push:
+    branches: [research/r073-depth-witness-gate-20261117]
+    paths:
+      - 'research/r073-depth-gate/**'
+      - '.github/workflows/r073-depth-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r073-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-admission:
+    name: R073 / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        lane: [coplanar-pan, coplanar-world-right, coplanar-world-left, parallax-near-still, parallax-far-still, mixed-reference-depths, lost-red, yaw-projective]
+    env:
+      LANE: ${{ matrix.lane }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r073-depth-gate/go.mod
+          cache: false
+      - name: Offline race/vet and hostile receipt mutants
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          mkdir -p "$RUNNER_TEMP/r073/decoded"
+          for d in research/r073-depth-gate research/r072-parallax research/r070-similarity-camera; do
+            (cd "$d" && go test -race -count=1 ./... && go vet ./...)
+          done
+      - name: Generate source-original 3D fixtures and actually encode/decode H264
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          (cd research/r072-parallax && go run . --lane "$LANE" --out "$RUNNER_TEMP/r073") | tee "$RUNNER_TEMP/r073/producer.txt"
+          ffmpeg -nostdin -v error -y -framerate 1 -i "$RUNNER_TEMP/r073/frame_%03d.png" -frames:v 2 -pix_fmt yuv420p -crf 12 -c:v libx264 "$RUNNER_TEMP/r073/video.mp4"
+          ffmpeg -nostdin -v error -y -i "$RUNNER_TEMP/r073/video.mp4" "$RUNNER_TEMP/r073/decoded/frame_%03d.png"
+          test "$(find "$RUNNER_TEMP/r073/decoded" -name 'frame_*.png' | wc -l)" -eq 2
+          case "$LANE" in
+            coplanar-pan) expect=STILL ;;
+            coplanar-world-right) expect=RIGHT ;;
+            coplanar-world-left) expect=LEFT ;;
+            parallax-near-still) expect=LEFT ;;
+            parallax-far-still) expect=RIGHT ;;
+            mixed-reference-depths|lost-red|yaw-projective) expect=UNKNOWN ;;
+            *) exit 12 ;;
+          esac
+          set +e
+          (cd research/r070-similarity-camera && go run . --first "$RUNNER_TEMP/r073/decoded/frame_001.png" --second "$RUNNER_TEMP/r073/decoded/frame_002.png" --expect "$expect") > "$RUNNER_TEMP/r073/r070-receipt.json" 2> "$RUNNER_TEMP/r073/r070-stderr.txt"
+          rc=$?
+          set -e
+          if [ "$expect" = UNKNOWN ]; then test "$rc" -ne 0; else test "$rc" -eq 0; fi
+          (cd research/r072-parallax && go run . --lane "$LANE" --observed "$RUNNER_TEMP/r073/r070-receipt.json" --first "$RUNNER_TEMP/r073/decoded/frame_001.png" --second "$RUNNER_TEMP/r073/decoded/frame_002.png") | tee "$RUNNER_TEMP/r073/r072-receipt.json"
+      - name: Evaluate typed R073 depth/provenance gate and assert hard HOLD exit
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          set +e
+          (cd research/r073-depth-gate && go run . --lane "$LANE" --source-sha "$GITHUB_SHA" --first "$RUNNER_TEMP/r073/decoded/frame_001.png" --second "$RUNNER_TEMP/r073/decoded/frame_002.png" --r070 "$RUNNER_TEMP/r073/r070-receipt.json" --r072 "$RUNNER_TEMP/r073/r072-receipt.json") > "$RUNNER_TEMP/r073/r073-gate.json" 2> "$RUNNER_TEMP/r073/r073-stderr.txt"
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/r073/r073-gate.json"
+          case "$LANE" in
+            coplanar-*)
+              test "$rc" -eq 0
+              grep -q '"Decision":"ADMIT_SYNTHETIC_COPLANAR_ONLY"' "$RUNNER_TEMP/r073/r073-gate.json"
+              ;;
+            parallax-*)
+              test "$rc" -ne 0
+              grep -q '"Decision":"HOLD_PARALLAX"' "$RUNNER_TEMP/r073/r073-gate.json"
+              ;;
+            mixed-reference-depths)
+              test "$rc" -ne 0
+              grep -q '"Decision":"HOLD_REFERENCE_DEPTH"' "$RUNNER_TEMP/r073/r073-gate.json"
+              ;;
+            lost-red)
+              test "$rc" -ne 0
+              grep -q '"Decision":"HOLD_MISSING_SUBJECT"' "$RUNNER_TEMP/r073/r073-gate.json"
+              ;;
+            yaw-projective)
+              test "$rc" -ne 0
+              grep -q '"Decision":"HOLD_PROJECTIVE_CAMERA"' "$RUNNER_TEMP/r073/r073-gate.json"
+              ;;
+          esac
+          echo 'R073_ACTUAL_SOURCE_BOUND_ADMISSION_POLICY_EXPECTED_CONTROL'
+      - name: Preserve exact receipt/RED, not source images/video or identity
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r073-${{ matrix.lane }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r073/*.json
+            ${{ runner.temp }}/r073/*.txt
+          retention-days: 3
+          if-no-files-found: warn
