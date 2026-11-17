@@ -10,6 +10,7 @@ import(
  "encoding/json"
  "errors"
  "fmt"
+ "net"
  "net/http"
  "strconv"
  "strings"
@@ -113,13 +114,18 @@ func Handler()http.Handler{
    if r.Method!=http.MethodGet{w.Header().Set("Allow","GET");errorJSON(w,405,"method_not_allowed","read-only synthetic research API","");return}
    errorJSON(w,400,"request_body_forbidden","no body, media upload or microphone accepted","");return
   }
-  if len(r.URL.Path)>128||strings.Contains(r.URL.Path,"..")||r.URL.Host!=""{
-   errorJSON(w,400,"unsafe_request","invalid local path","");return
+  // Reject DNS-rebound Host headers and ambiguous absolute-form hosts, but
+  // accept valid absolute-URI requests whose authority matches loopback Host.
+  host,_,hostErr:=net.SplitHostPort(r.Host)
+  if hostErr!=nil||(host!="127.0.0.1"&&host!="::1")||
+   len(r.URL.Path)>128||strings.Contains(r.URL.Path,"..")||
+   (r.URL.Host!=""&&r.URL.Host!=r.Host){
+   errorJSON(w,400,"unsafe_request","non-loopback host or invalid local path","");return
   }
-  // A direct hostile API use must not acquire an implicit permissive fallback.
-  if strings.Contains(r.Header.Get("Origin"),"http")&&
-   r.Header.Get("Origin")!="http://127.0.0.1:8766"{
-    errorJSON(w,403,"cross_origin_denied","preview is local and source-only","");return
+  // Same-origin browser controls only; a special Origin such as "null" is
+  // not a bypass. Local non-browser clients may omit the Origin header.
+  if origin:=r.Header.Get("Origin");origin!=""&&origin!="http://"+r.Host{
+   errorJSON(w,403,"cross_origin_denied","preview is local and source-only","");return
   }
   mux.ServeHTTP(w,r)
  })
