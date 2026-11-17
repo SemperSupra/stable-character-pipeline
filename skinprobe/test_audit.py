@@ -15,9 +15,12 @@ def translation(dx):
 def fixture():
     bind=[[0.01*i,0.0,1.0+i/100] for i in range(audit.VERTICES)]
     w=[[0.5,0.5] for _ in bind]
-    faces=[[i,i+1,i+audit.SIDES+1,i+audit.SIDES]
-           for i in range(audit.SIDES*(audit.RINGS-1))
-           if i%audit.SIDES!=audit.SIDES-1]
+    faces=[]
+    for row in range(audit.RINGS-1):
+        for k in range(audit.SIDES):
+            a=row*audit.SIDES+k
+            b=row*audit.SIDES+(k+1)%audit.SIDES
+            faces.append([a,b,b+audit.SIDES,a+audit.SIDES])
     source={
       "vertex_bind":bind,"weights":w,"faces":faces,
       "bone_names":["root","tip"],
