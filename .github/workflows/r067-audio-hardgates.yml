@@ -1,0 +1,86 @@
+name: R067 public audio physical critic and fail-closed PCM gates
+on:
+  push:
+    branches:
+      - research/r067-audio-signal-hardgates-20261117
+    paths:
+      - 'research/r067-audio-hardgates/**'
+      - '.github/workflows/r067-audio-hardgates.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r067-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-audio:
+    name: R067 / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        lane: [silence, tone, breath-like-noise, clipped, truncated]
+    env:
+      LANE: ${{ matrix.lane }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r067-audio-hardgates/go.mod
+          cache: false
+      - name: Compile/test independent original signal oracle
+        shell: bash
+        working-directory: research/r067-audio-hardgates
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Generate and analyze one original PCM fixture from WAV bytes
+        shell: bash
+        working-directory: research/r067-audio-hardgates
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          mkdir -p "$RUNNER_TEMP/r067"
+          go run . --make "$LANE" --out "$RUNNER_TEMP/r067/sample.wav" | tee "$RUNNER_TEMP/r067/producer.txt"
+          case "$LANE" in
+            silence) expected=DIGITAL_SILENCE ;;
+            tone|breath-like-noise) expected=AUDIO_PRESENT_UNCLASSIFIED ;;
+            clipped) expected=CLIPPED_REJECT ;;
+            truncated) expected=UNKNOWN ;;
+            *) exit 12 ;;
+          esac
+          set +e
+          go run . --input "$RUNNER_TEMP/r067/sample.wav" --expect "$expected" > "$RUNNER_TEMP/r067/receipt.json" 2> "$RUNNER_TEMP/r067/stderr.log"
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/r067/receipt.json"
+          if [ "$LANE" = truncated ]; then
+            test "$status" -ne 0
+            grep -q '"status":"UNKNOWN"' "$RUNNER_TEMP/r067/receipt.json"
+            grep -q '"reason":"PCM_16KHZ_MONO_REQUIRED"' "$RUNNER_TEMP/r067/receipt.json"
+            echo 'R067_EXPECTED_INVALID_INPUT_REJECTED'
+          else
+            test "$status" -eq 0
+            grep -q '"outcome":"PASS_NARROW"' "$RUNNER_TEMP/r067/receipt.json"
+            if [ "$LANE" = clipped ]; then
+              grep -q '"status":"CLIPPED_REJECT"' "$RUNNER_TEMP/r067/receipt.json"
+            fi
+            echo 'R067_SOURCE_ONLY_SIGNAL_ORACLE_EXPECTED_CONTROL'
+          fi
+      - name: Retain only source evidence and first RED (no WAV)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r067-${{ matrix.lane }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r067/receipt.json
+            ${{ runner.temp }}/r067/producer.txt
+            ${{ runner.temp }}/r067/stderr.log
+          retention-days: 3
+          if-no-files-found: warn
