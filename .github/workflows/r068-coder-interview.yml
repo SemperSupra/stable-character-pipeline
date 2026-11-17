@@ -5,6 +5,7 @@ on:
       - research/r068-coder-3b-interview-20261117
     paths:
       - 'research/r068-agent-candidate/**'
+      - 'research/r062-free-agent/**'
       - '.github/workflows/r068-coder-interview.yml'
   workflow_dispatch:
 permissions:
