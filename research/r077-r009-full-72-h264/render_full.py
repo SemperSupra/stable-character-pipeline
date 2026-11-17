@@ -70,7 +70,8 @@ def run(a):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     for name in ("saved","saved-sha","glb-sha","frames","out"):p.add_argument("--"+name,required=True)
-    a=p.parse_args()
+    argv=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
+    a=p.parse_args(argv)
     demand(len(a.saved_sha)==64 and len(a.glb_sha)==64,"SHA_REQUIRED")
     run(a)
 if __name__=="__main__":
