@@ -1,0 +1,47 @@
+name: "Research · Respiratory human-AT-agent capability catalog"
+on:
+  pull_request:
+    paths:
+      - "research/respiratory-vocal/**"
+      - ".github/workflows/research-respiratory-capability-catalog.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  typed-source-capabilities:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Exact public source checkout without saved credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Go race/vet and bounded typed capability receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/respiratory-vocal
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/respiratory-capabilities > "$RUNNER_TEMP/capabilities.json"
+          python3 - "$RUNNER_TEMP/capabilities.json" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as f: c=json.load(f)
+          assert c["schema"]=="respiratory.audience_capabilities.v0"
+          assert len(c["entries"])==18 and c["locales"]==["en","de","th"]
+          assert len(c["audiences"])==3
+          assert sum(e["mode"]=="synthetic_preview_only" for e in c["entries"])==15
+          assert sum(e["mode"]=="typed_contract_only" for e in c["entries"])==3
+          assert all(not e["can_make_physical_human_voice"] and not e["can_claim_real_anatomy"] and not e["can_claim_breathability_or_medical_safety"] for e in c["entries"])
+          print("PASS 18 typed actions; 15 synthetic previews, 3 contract-only; EN/DE/TH; zero physical-voice overclaims")
+          PY
+          sha256sum "$RUNNER_TEMP/capabilities.json"
