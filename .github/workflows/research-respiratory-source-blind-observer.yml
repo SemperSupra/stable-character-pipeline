@@ -1,0 +1,50 @@
+name: "Research · Source-blind respiratory audio critic"
+on:
+  pull_request:
+    paths:
+      - "research/respiratory-vocal/**"
+      - ".github/workflows/research-respiratory-source-blind-observer.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  source-only-cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Pin official read-only source checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Original Go race and vet, bounded synthetic numeric receipts
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/respiratory-vocal
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/respiratory-audio-critic > "$RUNNER_TEMP/research-receipts.json"
+          python3 - "$RUNNER_TEMP/research-receipts.json" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as f: report=json.load(f)
+          assert report["schema"]=="respiratory.source_blind_pcm_batch.v0"
+          assert len(report["results"])==17
+          by_name={x["name"]:x for x in report["results"]}
+          assert by_name["nasal_quiet"]["differenced_energy_ratio"]<by_name["oral_quiet"]["differenced_energy_ratio"]
+          assert by_name["oral_heavy"]["rms_fraction_full_scale"]>by_name["oral_quiet"]["rms_fraction_full_scale"]
+          assert by_name["humming"]["evidence_at_180_hz"]["status"]=="coherent_line_present_uncalibrated"
+          assert by_name["lip_whistling"]["evidence_at_900_hz"]["status"]=="coherent_line_present_uncalibrated"
+          assert by_name["nasal_quiet"]["evidence_at_180_hz"]["status"]=="abstain_no_line"
+          assert by_name["no_flow_silence"]["silent"] is True
+          print("PASS 17 independent PCM metrics, route contrast, toy tonal evidence, nonpitch abstention; NOT human F0")
+          PY
+          sha256sum "$RUNNER_TEMP/research-receipts.json"
