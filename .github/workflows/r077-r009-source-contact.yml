@@ -40,7 +40,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/r077-a"
           python3 qualification/original_reusable_characters/generate_original_glb.py --out "$RUNNER_TEMP/r077-a/fictional.glb" --receipt "$RUNNER_TEMP/r077-a/producer.json"
           python3 qualification/original_reusable_characters/verify_original_glb.py --input "$RUNNER_TEMP/r077-a/fictional.glb" --receipt "$RUNNER_TEMP/r077-a/original-verifier.json"
+          set +e
           python3 research/r077-r009-source-contact/source_capability.py --glb "$RUNNER_TEMP/r077-a/fictional.glb" --out "$RUNNER_TEMP/r077-a/contact.json"
+          hold_rc=$?
+          set -e
+          test "$hold_rc" -eq 12
           python3 - "$RUNNER_TEMP/r077-a/contact.json" <<'PY'
           import json,sys
           r=json.load(open(sys.argv[1]))
