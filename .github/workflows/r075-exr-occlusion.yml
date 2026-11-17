@@ -1,0 +1,66 @@
+name: R075 real Cycles 3D occlusion semantic EXR typed-HOLD qualification
+
+on:
+  push:
+    branches: [research/r075-occluded-semantic-exr-20261117]
+    paths:
+      - 'occlusionprobe/**'
+      - '.github/workflows/r075-exr-occlusion.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r075-public-real-occlusion
+  cancel-in-progress: true
+
+jobs:
+  actual-source-occluder-HOLD:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install disposable free original-only Blender CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+          blender --version | head -3
+      - name: Actually render clear partial severe source-known 3D foreground occluder
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          blender -b -t 2 --python occlusionprobe/scene.py -- --out out
+          test -s out/r075_source.json
+          for case in clear partial severe; do
+            test -s "out/$case/beauty.png"
+            test -s "out/$case/render_passes.exr"
+          done
+      - name: Independently decode real EXR object index and enforce typed visibility HOLD
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/r075-exr"
+          "$RUNNER_TEMP/r075-exr/bin/pip" install --disable-pip-version-check \
+            --only-binary=:all: --no-cache-dir numpy==1.26.4 OpenEXR==3.3.3
+          "$RUNNER_TEMP/r075-exr/bin/python" -m unittest discover \
+            -s occlusionprobe -p test_audit.py -v
+          "$RUNNER_TEMP/r075-exr/bin/python" occlusionprobe/audit.py \
+            --root out --out out/r075_report.json
+          grep -F '"status": "PASS_NARROW_REAL_EXR_OCCLUSION_REQUIRES_TYPED_HOLD"' out/r075_report.json
+          grep -F '"decision": "HOLD_PARTIAL_OCCLUSION_NO_PERSON_ID"' out/r075_report.json
+          grep -F '"decision": "HOLD_SEVERE_OCCLUSION_NO_PERSON_ID"' out/r075_report.json
+          (cd out && find . -type f ! -name artifact_manifest.sha256 -print0 | sort -z | xargs -0 sha256sum > artifact_manifest.sha256)
+          (cd out && sha256sum -c artifact_manifest.sha256)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: r075-original-synthetic-real-exr-occlusion-HOLD
+          path: out/
+          retention-days: 3
+          if-no-files-found: warn
