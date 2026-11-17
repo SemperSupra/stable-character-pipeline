@@ -98,8 +98,8 @@ jobs:
               after='return false'
           elif suite=="strict-json":
               path=root/"r061_strict_input.go"
-              before='if _,present:=seen[name];present{return fmt.Errorf("duplicate JSON key %q",name)}'
-              after='if false{return fmt.Errorf("duplicate JSON key %q",name)}'
+              before='if err:=jsonValue(guard,0);err!=nil{return err}'
+              after='if err:=jsonValue(guard,0);err!=nil{return nil}'
           else:
               raise SystemExit("UNSUPPORTED_SUITE")
           contents=path.read_text()
