@@ -9,7 +9,7 @@ permissions:
 jobs:
   independent-native-evidence:
     name: R062 / normal and pixels / ${{ matrix.rep }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 18
     strategy:
       fail-fast: false
@@ -30,7 +30,9 @@ jobs:
           sudo apt-get -qq update
           sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -y install blender python3-numpy
           blender --version | head -3
-          git -c protocol.version=2 clone -q --no-checkout --filter=blob:none https://github.com/makehumancommunity/mpfb2.git "$RUNNER_TEMP/mpfb2"
+          mkdir -p "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
           git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin "$SOURCE"
           git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
           test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
