@@ -103,6 +103,7 @@ def main():
     result=evaluate(doc,bin,hashlib.sha256(raw).hexdigest())
     args.out.write_text(json.dumps(result,sort_keys=True,indent=2,allow_nan=False)+"\n",encoding="utf8")
     print(json.dumps(result,sort_keys=True))
+    raise SystemExit(12)  # Explicit HOLD cannot be treated as an acceptance CLI pass
 if __name__=="__main__":
     try:main()
     except (OSError,Hold,TypeError,IndexError,KeyError) as exc:
