@@ -1,0 +1,94 @@
+name: R070 public H264 three-fiducial camera-similarity qualification
+on:
+  push:
+    branches:
+      - research/r070-similarity-camera-20261117
+    paths:
+      - 'research/r070-similarity-camera/**'
+      - '.github/workflows/r070-similarity-camera.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r070-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-camera-lane:
+    name: R070 / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        lane: [translation-only, zoom-only, rotation-only, right-under-zoom, left-under-rotation, corrupted-third-anchor, mirror-reflection, lost-third-anchor, lost-subject]
+    env:
+      LANE: ${{ matrix.lane }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r070-similarity-camera/go.mod
+          cache: false
+      - name: Independent source-only Go oracle race/vet
+        shell: bash
+        working-directory: research/r070-similarity-camera
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Source-original 3-reference geometry through actual H264 encode/decode
+        shell: bash
+        working-directory: research/r070-similarity-camera
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          mkdir -p "$RUNNER_TEMP/r070/decoded"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          go run . --make "$LANE" --out "$RUNNER_TEMP/r070" | tee "$RUNNER_TEMP/r070/producer.txt"
+          ffmpeg -nostdin -v error -y -framerate 1 -i "$RUNNER_TEMP/r070/frame_%03d.png" -frames:v 2 -pix_fmt yuv420p -crf 12 -c:v libx264 "$RUNNER_TEMP/r070/original-synthetic.mp4"
+          ffmpeg -nostdin -v error -y -i "$RUNNER_TEMP/r070/original-synthetic.mp4" "$RUNNER_TEMP/r070/decoded/frame_%03d.png"
+          test "$(find "$RUNNER_TEMP/r070/decoded" -name 'frame_*.png' | wc -l)" -eq 2
+          case "$LANE" in
+            translation-only|zoom-only|rotation-only) expect=STILL ;;
+            right-under-zoom) expect=RIGHT ;;
+            left-under-rotation) expect=LEFT ;;
+            corrupted-third-anchor|mirror-reflection|lost-third-anchor|lost-subject) expect=UNKNOWN ;;
+            *) exit 12 ;;
+          esac
+          set +e
+          go run . --first "$RUNNER_TEMP/r070/decoded/frame_001.png" --second "$RUNNER_TEMP/r070/decoded/frame_002.png" --expect "$expect" > "$RUNNER_TEMP/r070/receipt.json" 2> "$RUNNER_TEMP/r070/stderr.txt"
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/r070/receipt.json"
+          if [ "$expect" = UNKNOWN ]; then
+            test "$code" -ne 0
+            grep -q '"Status":"UNKNOWN"' "$RUNNER_TEMP/r070/receipt.json"
+            case "$LANE" in
+              corrupted-third-anchor) grep -q 'THIRD_ANCHOR_RESIDUAL' "$RUNNER_TEMP/r070/receipt.json" ;;
+              mirror-reflection) grep -q 'SIMILARITY_OUT_OF_DOMAIN' "$RUNNER_TEMP/r070/receipt.json" ;;
+              lost-third-anchor) grep -q 'MISSING_YELLOW' "$RUNNER_TEMP/r070/receipt.json" ;;
+              lost-subject) grep -q 'MISSING_RED' "$RUNNER_TEMP/r070/receipt.json" ;;
+            esac
+            echo 'R070_EXPECTED_GEOMETRY_FAIL_CLOSED'
+          else
+            test "$code" -eq 0
+            grep -q '"Status":"PASS_NARROW_SOURCE_ONLY"' "$RUNNER_TEMP/r070/receipt.json"
+            grep -q "\"Direction\":\"$expect\"" "$RUNNER_TEMP/r070/receipt.json"
+            echo 'R070_MATCHED_SOURCE_ONLY_SIMILARITY_PASS'
+          fi
+      - name: Evidence receipts only, no video or identity assets
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r070-${{ matrix.lane }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r070/receipt.json
+            ${{ runner.temp }}/r070/producer.txt
+            ${{ runner.temp }}/r070/stderr.txt
+          retention-days: 3
+          if-no-files-found: warn
