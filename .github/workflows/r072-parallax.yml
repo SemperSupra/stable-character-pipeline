@@ -1,0 +1,87 @@
+name: R072 actual H264 source-original 3D parallax counterexamples
+on:
+  push:
+    branches: [research/r072-parallax-20261117]
+    paths:
+      - 'research/r072-parallax/**'
+      - '.github/workflows/r072-parallax.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r072-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-3d-scene:
+    name: R072 / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        lane: [coplanar-pan, coplanar-world-right, coplanar-world-left, parallax-near-still, parallax-far-still, mixed-reference-depths, lost-red, yaw-projective]
+    env:
+      LANE: ${{ matrix.lane }}
+    steps:
+      - name: Read-only GitHub checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Setup standalone Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r072-parallax/go.mod
+          cache: false
+      - name: Independently verify source pinhole and existing 2D oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          (cd research/r072-parallax && go test -race -count=1 ./... && go vet ./...)
+          (cd research/r070-similarity-camera && go test -race -count=1 ./... && go vet ./...)
+      - name: Source-new 3D pinhole frames through actual H264 encoder and decoder
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          mkdir -p "$RUNNER_TEMP/r072/decoded"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          (cd research/r072-parallax && go run . --lane "$LANE" --out "$RUNNER_TEMP/r072") | tee "$RUNNER_TEMP/r072/producer.txt"
+          ffmpeg -nostdin -v error -y -framerate 1 -i "$RUNNER_TEMP/r072/frame_%03d.png" -frames:v 2 -pix_fmt yuv420p -crf 12 -c:v libx264 "$RUNNER_TEMP/r072/movie.mp4"
+          ffmpeg -nostdin -v error -y -i "$RUNNER_TEMP/r072/movie.mp4" "$RUNNER_TEMP/r072/decoded/frame_%03d.png"
+          test "$(find "$RUNNER_TEMP/r072/decoded" -name 'frame_*.png' | wc -l)" -eq 2
+          case "$LANE" in
+            coplanar-pan) expected=STILL ;;
+            coplanar-world-right) expected=RIGHT ;;
+            coplanar-world-left) expected=LEFT ;;
+            parallax-near-still) expected=LEFT ;;
+            parallax-far-still) expected=RIGHT ;;
+            mixed-reference-depths|lost-red|yaw-projective) expected=UNKNOWN ;;
+            *) exit 12 ;;
+          esac
+          set +e
+          (cd research/r070-similarity-camera && go run . --first "$RUNNER_TEMP/r072/decoded/frame_001.png" --second "$RUNNER_TEMP/r072/decoded/frame_002.png" --expect "$expected") > "$RUNNER_TEMP/r072/r070-observation.json" 2> "$RUNNER_TEMP/r072/r070-stderr.txt"
+          code=$?
+          set -e
+          echo "R072_UNMODIFIED_R070_EXIT=$code"
+          cat "$RUNNER_TEMP/r072/r070-observation.json"
+          if [ "$expected" = UNKNOWN ]; then test "$code" -ne 0; else test "$code" -eq 0; fi
+          grep -q '"Schema":"scp.r070.similarity-camera.v1"' "$RUNNER_TEMP/r072/r070-observation.json"
+          (cd research/r072-parallax && go run . --lane "$LANE" --observed "$RUNNER_TEMP/r072/r070-observation.json" --first "$RUNNER_TEMP/r072/decoded/frame_001.png" --second "$RUNNER_TEMP/r072/decoded/frame_002.png") | tee "$RUNNER_TEMP/r072/independent-3d-receipt.json"
+          case "$LANE" in
+            coplanar-*) grep -q '"Status":"SAFE_COPLANAR_CONTROL"' "$RUNNER_TEMP/r072/independent-3d-receipt.json" ;;
+            parallax-*) grep -q '"Status":"CONFIRMED_UNSAFE_2D_PARALLAX_FALSE_MOTION"' "$RUNNER_TEMP/r072/independent-3d-receipt.json" ;;
+            mixed-reference-depths|lost-red|yaw-projective) grep -q '"Status":"REJECTED_OUT_OF_DOMAIN"' "$RUNNER_TEMP/r072/independent-3d-receipt.json" ;;
+          esac
+      - name: Preserve first RED and exact source SHA/frame hashes only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r072-${{ matrix.lane }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r072/*.json
+            ${{ runner.temp }}/r072/*.txt
+          retention-days: 3
+          if-no-files-found: warn
