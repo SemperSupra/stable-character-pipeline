@@ -71,6 +71,12 @@ def inspect(saved, saved_sha, original_sha, output):
     fail(bpy.context.scene.render.fps != 12, "NATIVE_FPS_MISMATCH")
     arms, groups = paired_native()
     scene=bpy.context.scene
+    # Witness belongs to this ORIGINAL synthetic scene; a source-authoritative
+    # floor height is not inferred from an actor bounding box or pixel mask.
+    floor=bpy.data.objects.get("R074_OriginalPathGround")
+    fail(floor is None or floor.type!="MESH", "NATIVE_SOURCE_FLOOR_MISSING")
+    floor_z=max((floor.matrix_world @ Vector(corner)).z for corner in floor.bound_box)
+    fail(not math.isfinite(floor_z) or abs(floor_z)>1e-5, "NATIVE_FLOOR_REFERENCE_CHANGED")
     observed=[]
     for frame in (0.,.125,12.,24.,24.125,36.,48.,48.125,71.):
         scene.frame_set(int(frame),subframe=frame-int(frame))
@@ -92,6 +98,10 @@ def inspect(saved, saved_sha, original_sha, output):
     fail(separation_start < 1. or separation_end >= separation_start-0.5,
          "TWO_ACTOR_NATIVE_APPROACH_NOT_PROVEN")
     ground_min=min(actor["min_z_m"] for p in observed for actor in p["actors"])
+    floor_relative=ground_min-floor_z
+    floor_class=("FLOATING_GLOBAL_PROXY_GT_5MM" if floor_relative>0.005
+        else "PENETRATING_GLOBAL_PROXY_GT_1MM" if floor_relative<-.001
+        else "NEAR_FLOOR_PROXY_UNQUALIFIED")
     motion=max(abs(start[i]["pair_distances_m"][j]-end[i]["pair_distances_m"][j])
                for i in range(2) for j in range(len(start[i]["pair_distances_m"])))
     result={
@@ -105,6 +115,9 @@ def inspect(saved, saved_sha, original_sha, output):
                              "separation_end_m":separation_end},
         "source_native_skin_pair_max_delta_m":motion,
         "ground_clearance_min_m":ground_min,
+        "source_floor_top_z_m":floor_z,
+        "minimum_mesh_to_floor_proxy_m":floor_relative,
+        "floor_proxy_classification":floor_class,
         "sampled_fractional_frames":True,
         "ground_contact_qualified":False,"heel_toe_qualified":False,
         "source_kinematic_envelope_qualified":False,
@@ -125,6 +138,12 @@ def build(glb,expected,saved,out):
     paired_native()
     scene=bpy.context.scene
     scene.frame_start=0;scene.frame_end=71;scene.render.fps=12
+    # Source-original explicit level park path: top face exactly Z=0m.
+    bpy.ops.mesh.primitive_cube_add(size=1,location=(0,0,-0.02))
+    floor=bpy.context.object
+    floor.name="R074_OriginalPathGround"
+    floor.dimensions=(12,2.4,.04)
+    bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
     scene.render.engine="BLENDER_WORKBENCH"
     scene.render.resolution_x=480
     scene.render.resolution_y=270
