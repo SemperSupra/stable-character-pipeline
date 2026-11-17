@@ -60,6 +60,15 @@ class Critic(unittest.TestCase):
     def test_forged_source_type(self):
         d,b=s.decode_glb(fixture());d["extras"]["source_class"]="PROTECTED_REAL_PERSON"
         with self.assertRaisesRegex(s.Hold,"SOURCE_NOT_ORIGINAL_SYNTHETIC"):s.evaluate(d,b,"0"*64)
+    def test_valid_source_cli_hold_returns_nonzero(self):
+        with tempfile.TemporaryDirectory() as root:
+            f=Path(root)/"actual.glb";f.write_bytes(fixture())
+            out=Path(root)/"receipt.json"
+            r=subprocess.run([sys.executable,s.__file__,"--glb",str(f),"--out",str(out)],capture_output=True,text=True)
+            self.assertEqual(r.returncode,12)
+            receipt=json.loads(out.read_text(encoding="utf8"))
+            self.assertEqual(receipt["status"],"HOLD_SOURCE_CONTACT_AND_GAIT")
+            self.assertFalse(receipt["mvp_accepted"])
     def test_no_source_overwrite(self):
         with tempfile.TemporaryDirectory() as root:
             file=Path(root)/"fixture.glb";file.write_bytes(fixture())
