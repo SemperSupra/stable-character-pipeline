@@ -7,6 +7,12 @@ func reject(code: String) -> void:
     quit(12)
 
 func _initialize() -> void:
+    # GDScript SceneTree._initialize fires before nodes are fully entered.
+    # First actual Godot RED showed local bone pose 0→1 while global pose
+    # cache was zero; defer actual evaluation until scene tree is ready.
+    call_deferred("_run")
+
+func _run() -> void:
     var args: PackedStringArray = OS.get_cmdline_user_args()
     if args.size() != 2 or args[0] != "--lane" or not (args[1] in ["linear", "nonlinear"]):
         reject("UNKNOWN_EXPERIMENT_LANE")
@@ -66,15 +72,15 @@ func _initialize() -> void:
     player.play(target_name)
     player.seek(0.0, true)
     player.advance(0.0) # Explicit headless mix/evaluation after seek
-    var start: Vector3 = skeleton.get_bone_global_pose(0).origin
-    var start_local: Vector3 = skeleton.get_bone_pose_position(0)
+    var start: Vector3 = skeleton.get_bone_pose_position(0)
+    var start_global: Vector3 = skeleton.get_bone_global_pose(0).origin
     player.seek(duration, true)
     player.advance(0.0)
-    var finish: Vector3 = skeleton.get_bone_global_pose(0).origin
-    var finish_local: Vector3 = skeleton.get_bone_pose_position(0)
+    var finish: Vector3 = skeleton.get_bone_pose_position(0)
+    var finish_global: Vector3 = skeleton.get_bone_global_pose(0).origin
     print("R3_GODOT_BONE_TIME_DIAGNOSTIC ",JSON.stringify({
-        "start_global":str(start),"end_global":str(finish),
-        "start_local":str(start_local),"end_local":str(finish_local),
+        "start_global":str(start_global),"end_global":str(finish_global),
+        "start_local":str(start),"end_local":str(finish),
         "clip_length":duration,"currently_playing":String(player.current_animation)
     }))
     var delta: Vector3 = finish - start
@@ -88,7 +94,7 @@ func _initialize() -> void:
     for i in range(phases.size()):
         player.seek(phases[i] * duration, true)
         player.advance(0.0)
-        var pos: Vector3 = skeleton.get_bone_global_pose(0).origin
+        var pos: Vector3 = skeleton.get_bone_pose_position(0)
         var progress: float = (pos - start).dot(delta) / delta.length_squared()
         observed.append(progress)
         max_error = maxf(max_error, absf(progress - expected[i]))
@@ -111,6 +117,8 @@ func _initialize() -> void:
         "native_observed_progress": observed,
         "maximum_normalized_source_progress_error": max_error,
         "actual_bone_displacement": delta.length(),
+        "measurement_frame": "SKELETON3D_LOCAL_BONE_POSE",
+        "global_skin_deformation": "NOT_QUALIFIED_BY_THIS_PROBE",
         "vmd_bezier_source_controls": "NOT_PRESERVED_AS_VMD_NATIVE_CONTROLS",
         "vmd_morph_ik": "NOT_ADMITTED",
         "native_mmd_playback": "NOT_RUN",
