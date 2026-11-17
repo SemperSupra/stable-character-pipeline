@@ -125,8 +125,7 @@ func main(){
   if err!=nil{fmt.Fprintln(os.Stderr,"R067_HOLD",err);os.Exit(12)}
   if err:=os.WriteFile(*out,raw,0600);err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(12)}
   h:=sha256.Sum256(raw)
-  fmt.Printf("R067_SYNTHETIC_WAV name=%s sha256=%s bytes=%d
-",*makeName,hex.EncodeToString(h[:]),len(raw))
+  fmt.Printf("R067_SYNTHETIC_WAV name=%s sha256=%s bytes=%d%c",*makeName,hex.EncodeToString(h[:]),len(raw),10)
   return
  }
  if *input==""||*expect==""{fmt.Fprintln(os.Stderr,"R067_HOLD missing input or expectation");os.Exit(12)}
