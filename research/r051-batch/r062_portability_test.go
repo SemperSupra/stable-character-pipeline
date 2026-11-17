@@ -38,8 +38,8 @@ func TestR062AdversarialInputs(t *testing.T){
   t.Parallel()
   cases:=map[string][]byte{
     "invalid-utf8":append([]byte(`{"actor":"`),0xff,0xfe,'"','}'),
-    "escaped-duplicate-root":[]byte(`{"schema":"first","schema":"second"}`),
-    "escaped-duplicate-nested":[]byte(`{"packets":[{"id":"x","id":"y"}]}`),
+    "escaped-duplicate-root":[]byte(`{"schema":"first","s\u0063hema":"second"}`),
+    "escaped-duplicate-nested":[]byte(`{"packets":[{"id":"x","\u0069d":"y"}]}`),
     "max-nesting":append(bytes.Repeat([]byte("["),66),bytes.Repeat([]byte("]"),66)...),
     "two-documents":[]byte(`{"schema":"x"}{"schema":"y"}`),
     "unknown-owner-override":[]byte(`{"schema":"x","owner_approved":true}`),
