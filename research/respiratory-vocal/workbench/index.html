@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Respiratory–Vocal Performance · Synthetic Workbench</title>
+<style>
+:root{color-scheme:light dark;font-family:system-ui,-apple-system,sans-serif;line-height:1.5}
+body{max-width:55rem;margin:0 auto;padding:1rem}
+h1,h2{line-height:1.2}
+.notice{border-inline-start:.25rem solid GrayText;padding:.5rem 1rem}
+fieldset{border:1px solid GrayText;border-radius:.6rem;padding:1rem;margin:1rem 0}
+label{display:block;font-weight:600;margin:.8rem 0 .3rem}
+select,button{font:inherit;padding:.6rem;width:100%;min-height:2.7rem}
+button{font-weight:650}
+button:disabled{cursor:not-allowed;opacity:.65}
+:focus-visible{outline:3px solid Highlight;outline-offset:3px}
+audio{width:100%}
+[role=status]{min-height:1.4rem;font-weight:600}
+small,.muted{color:GrayText}
+footer{border-top:1px solid GrayText;margin-top:2rem;padding-top:1rem}
+@media(min-width:36rem){.cols{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style></head>
+<body>
+<header><h1 id="heading">Respiratory–Vocal Performance</h1>
+<p class="notice" id="disclaimer">Original synthetic examples only. Not human breathing, speech, a real wind instrument, or a medical-safety model. No recordings, microphone or autoplay.</p></header>
+<main>
+<fieldset><legend id="legend">Choose a performance</legend>
+<label id="language-label" for="language">Interface language</label>
+<select id="language"><option value="en">English</option><option value="de">Deutsch</option><option value="th">ไทย</option></select>
+<div class="cols">
+<div>
+<label id="action-label" for="action">Breath or vocal action</label>
+<select id="action" aria-describedby="capability-status" disabled></select>
+</div>
+<div>
+<label id="scenario-label" for="scenario">Original synthetic scenario</label>
+<select id="scenario" aria-describedby="capability-status" disabled></select>
+</div>
+</div>
+<p id="capability-status" role="status" aria-live="polite" aria-atomic="true">Loading local capabilities.</p>
+<button type="button" id="prepare" disabled>Prepare synthetic preview</button>
+<p id="audio-status" role="status" aria-live="polite" aria-atomic="true"></p>
+</fieldset>
+<section aria-labelledby="play-label">
+<h2 id="play-label">Listen to the synthetic source</h2>
+<audio id="play" controls preload="none" aria-label="Synthetic respiratory or vocal sound"></audio>
+<p class="muted" id="manual">Preparing a sound does not play it. Press Play yourself.</p>
+</section>
+<section aria-labelledby="limits-title">
+<h2 id="limits-title">What this proves</h2>
+<p id="limits">These examples only test a source-neutral respiratory event model and illustrative sound generator. Actual human vocal anatomy, airflow physics, instrument feedback and identity are not validated.</p>
+<p><a id="api-link" href="/api/v1/capabilities">Read the typed capabilities for automation and agents</a></p>
+</section></main>
+<footer><small id="footer-text">Locally bound, read-only, original-source educational prototype. No background audio or uploads.</small></footer>
+<noscript><p>JavaScript is required for this interactive workbench; the read-only JSON API remains available at /api/v1/capabilities.</p></noscript>
+<script>
+"use strict";
+const texts={
+en:{heading:"Respiratory–Vocal Performance",disclaimer:"Original synthetic examples only. Not human breathing, speech, a real wind instrument, or a medical-safety model. No recordings, microphone or autoplay.",legend:"Choose a performance",language:"Interface language",action:"Breath or vocal action",scenario:"Original synthetic scenario",prepare:"Prepare synthetic preview",play:"Listen to the synthetic source",manual:"Preparing a sound does not play it. Press Play yourself.",limitsTitle:"What this proves",limits:"This is a source-neutral event and illustrative sound generator. Human vocal anatomy, real airflow physics, instrument feedback and identity are not validated.",api:"Read the typed capabilities for automation and agents",footer:"Local read-only educational prototype. No background audio or uploads.",loading:"Loading local capabilities.",unavailable:"State contract only: no admitted synthetic audio. Playback disabled.",available:"Synthetic preview only. Not a real-person or physical-instrument model.",prepared:"Synthetic audio selected. Use the Play control to listen.",changed:"Selection changed. Prepare a new audio preview.",error:"Unable to load or prepare the local synthetic source."},
+de:{heading:"Atmungs- und Stimmwerkbank",disclaimer:"Nur eigene synthetische Beispiele. Keine echte menschliche Atmung, Sprache, Instrumentenphysik oder medizinische Sicherheitsbewertung. Kein Mikrofon und keine automatische Wiedergabe.",legend:"Klangart auswählen",language:"Oberflächensprache",action:"Atmungs- oder Stimmhandlung",scenario:"Synthetisches Beispiel",prepare:"Synthetisches Hörbeispiel vorbereiten",play:"Synthetischen Klang anhören",manual:"Das Vorbereiten startet keine Wiedergabe. Zum Hören selbst auf Play drücken.",limitsTitle:"Was dieses Modell zeigt",limits:"Ereignis- und Klangmodell zur Veranschaulichung. Menschliche Anatomie, reale Atemphysik, Instrumentenrückkopplung und Identität sind nicht validiert.",api:"Typisierte Funktionen für Automatisierung und Agenten",footer:"Lokales schreibgeschütztes Lernmodell. Kein Hintergrundton oder Upload.",loading:"Lokale Funktionen werden geladen.",unavailable:"Nur Ereignisvertrag: kein geprüftes synthetisches Klangbeispiel. Wiedergabe deaktiviert.",available:"Nur synthetische Vorschau. Kein reales Personen- oder Instrumentenmodell.",prepared:"Synthetischer Klang ausgewählt. Über Play anhören.",changed:"Auswahl geändert. Neues Hörbeispiel vorbereiten.",error:"Lokale synthetische Quelle konnte nicht geladen werden."},
+th:{heading:"เวิร์กเบนช์ระบบหายใจและเสียง",disclaimer:"เป็นตัวอย่างเสียงสังเคราะห์เท่านั้น ไม่ใช่การหายใจหรือเสียงพูดของมนุษย์จริง ไม่ใช่แบบจำลองเครื่องดนตรีหรือความปลอดภัยทางการแพทย์ ไม่มีไมโครโฟนหรือเล่นอัตโนมัติ",legend:"เลือกการแสดงเสียง",language:"ภาษาของหน้าจอ",action:"การหายใจหรือการออกเสียง",scenario:"ตัวอย่างเสียงสังเคราะห์",prepare:"เตรียมเสียงตัวอย่าง",play:"ฟังเสียงสังเคราะห์",manual:"เตรียมเสียงแล้วจะไม่เล่นอัตโนมัติ กดเล่นด้วยตนเอง",limitsTitle:"ขอบเขตของแบบจำลอง",limits:"เป็นแบบจำลองเหตุการณ์และเสียงสังเคราะห์ประกอบการเรียนรู้ ยังไม่ได้ตรวจสอบกายวิภาค การไหลของอากาศจริง การตอบสนองของเครื่องดนตรี หรืออัตลักษณ์เสียง",api:"ดูข้อมูลความสามารถสำหรับระบบอัตโนมัติและเอเจนต์",footer:"ตัวอย่างเพื่อเรียนรู้ในเครื่องเท่านั้น อ่านอย่างเดียว ไม่มีการบันทึกหรืออัปโหลด",loading:"กำลังโหลดความสามารถ",unavailable:"รองรับเฉพาะข้อมูลเหตุการณ์ ยังไม่มีเสียงตัวอย่างสังเคราะห์ที่รับรอง ปิดการเล่นเสียง",available:"ตัวอย่างสังเคราะห์เท่านั้น ไม่ใช่แบบจำลองมนุษย์หรือเครื่องดนตรีจริง",prepared:"เลือกเสียงสังเคราะห์แล้ว กดเล่นเพื่อฟัง",changed:"เปลี่ยนการเลือกแล้ว โปรดเตรียมเสียงใหม่",error:"ไม่สามารถโหลดหรือเตรียมเสียงตัวอย่างในเครื่องได้"}};
+const el=id=>document.getElementById(id);
+let catalog=null;
+function t(key){return (texts[el("language").value]||texts.en)[key];}
+function lang(){return el("language").value;}
+function findAction(){return catalog?.entries.find(x=>x.action===el("action").value);}
+function relabel(){
+ document.documentElement.lang=lang();
+ const parts={heading:"heading",disclaimer:"disclaimer",legend:"legend","language-label":"language","action-label":"action","scenario-label":"scenario",prepare:"prepare","play-label":"play",manual:"manual","limits-title":"limitsTitle",limits:"limits","api-link":"api","footer-text":"footer"};
+ for(const [id,key] of Object.entries(parts))el(id).textContent=t(key);
+ const old=el("action").value;
+ if(catalog){el("action").replaceChildren();
+  for(const entry of catalog.entries){
+   const opt=document.createElement("option");opt.value=entry.action;
+   opt.textContent=entry.labels[lang()]||entry.labels.en;
+   el("action").append(opt);
+  }
+  if(catalog.entries.some(e=>e.action===old))el("action").value=old;
+  redrawAction();
+ }
+}
+function clearAudio(){
+ el("play").pause();el("play").removeAttribute("src");el("play").load();
+ el("audio-status").textContent="";
+}
+function redrawAction(){
+ const selected=findAction();
+ el("scenario").replaceChildren();
+ const allowed=selected?.mode==="synthetic_preview_only";
+ el("scenario").disabled=!allowed;el("prepare").disabled=!allowed;
+ if(allowed){
+  for(const name of selected.available_synthetic_scenarios){
+   const opt=document.createElement("option");opt.value=name;opt.textContent=name.replaceAll("_"," ");
+   el("scenario").append(opt);
+  }
+ }
+ el("capability-status").textContent=allowed?t("available"):t("unavailable");
+ clearAudio();
+}
+async function load(){
+ relabel();
+ try{
+  const res=await fetch("/api/v1/capabilities",{cache:"no-store",credentials:"omit"});
+  if(!res.ok)throw new Error("capability unavailable");
+  const data=await res.json();
+  if(data.schema!=="respiratory.audience_capabilities.v0"||!Array.isArray(data.entries))throw new Error("schema mismatch");
+  catalog=data;el("action").disabled=false;relabel();
+ }catch(_){el("capability-status").textContent=t("error");}
+}
+el("language").addEventListener("change",relabel);
+el("action").addEventListener("change",redrawAction);
+el("scenario").addEventListener("change",()=>{clearAudio();el("audio-status").textContent=t("changed");});
+el("prepare").addEventListener("click",()=>{
+ const selected=findAction();
+ if(!selected||selected.mode!=="synthetic_preview_only"||!selected.available_synthetic_scenarios.includes(el("scenario").value)){
+  el("audio-status").textContent=t("unavailable");return;
+ }
+ const params=new URLSearchParams({action:selected.action,scenario:el("scenario").value});
+ // Deliberately no autoplay. A new media URL is selected only on click.
+ el("play").pause();el("play").src="/api/v1/preview?"+params.toString();
+ el("play").load();el("audio-status").textContent=t("prepared");
+});
+el("play").addEventListener("error",()=>{el("audio-status").textContent=t("error");});
+load();
+</script></body></html>

@@ -1,0 +1,72 @@
+name: "Research · Respiratory human/agent source-bound localhost R055"
+on:
+  pull_request:
+    paths:
+      - "research/respiratory-vocal/**"
+      - ".github/workflows/research-respiratory-workbench-http-r055.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  native-public-source-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Pin public source checkout, no retained credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Native Go race, vet, integration and controlled machine-readable evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/respiratory-vocal
+          go test -race -count=1 ./...
+          go vet ./...
+          go build -o "$RUNNER_TEMP/respiratory-workbench" ./cmd/respiratory-workbench
+                    if "$RUNNER_TEMP/respiratory-workbench" -listen 0.0.0.0:9876 > "$RUNNER_TEMP/denied-bind.log" 2>&1; then echo 'ERROR: public listen was admitted'; exit 1; fi
+                    "$RUNNER_TEMP/respiratory-workbench" -listen 127.0.0.1:8766 > "$RUNNER_TEMP/loopback.log" 2>&1 &
+                    pid=$!
+                    trap 'kill "$pid" 2>/dev/null || true' EXIT
+          python3 - <<'PY'
+          import json,sys
+          
+          import urllib.request,urllib.parse,urllib.error,hashlib,time
+          base="http://127.0.0.1:8766"
+          for _ in range(70):
+              try:
+                  with urllib.request.urlopen(base+"/api/v1/capabilities",timeout=2) as r:
+                      c=json.load(r)
+                  break
+              except OSError:
+                  time.sleep(.1)
+          else: raise AssertionError("loopback server did not start")
+          assert c["schema"]=="respiratory.audience_capabilities.v0"
+          assert len(c["entries"])==18 and c["locales"]==["en","de","th"]
+          query=urllib.parse.urlencode({"action":"quiet_breath","scenario":"nasal_quiet"})
+          with urllib.request.urlopen(base+"/api/v1/preview?"+query,timeout=5) as r:
+              wav=r.read()
+              assert r.headers.get("Content-Type")=="audio/wav"
+              assert r.headers.get("X-Audio-SHA256")==hashlib.sha256(wav).hexdigest()
+          assert wav[:4]==b"RIFF" and len(wav)>10000
+          for action in ("sniff","sigh","gasp"):
+              try:
+                  urllib.request.urlopen(base+"/api/v1/preview?action="+action,timeout=5)
+                  raise AssertionError("contract-only action falsely generated WAV")
+              except urllib.error.HTTPError as e:
+                  assert e.code==409
+                  assert json.load(e)["code"]=="contract_only_no_audio"
+          with urllib.request.urlopen(base+"/",timeout=5) as r:
+              html=r.read().decode("utf-8")
+          assert 'aria-live="polite"' in html and 'id="prepare"' in html and 'option value="th"' in html
+          print("PASS real loopback HTTP, 18 truthful EN/DE/TH actions, 17 original WAV binding, 409 disabled audio, no public bind; not browser HIL")
+          PY
