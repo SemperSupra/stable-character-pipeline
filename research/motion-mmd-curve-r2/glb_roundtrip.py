@@ -36,12 +36,15 @@ def glb_info(path):
     anim=doc["animations"][0]
     assert anim.get("channels") and anim.get("samplers")
     sample_types=[x["interpolation"] for x in anim["samplers"]]
+    mesh_names=[m.get("name","") for m in doc["meshes"]]
+    node_names=[n.get("name","") for n in doc.get("nodes",[])]
     counts=[doc["accessors"][x["input"]]["count"] for x in anim["samplers"]]
     assert min(counts)>=2
     return {"sha256":hashlib.sha256(raw).hexdigest(),
             "byte_length":len(raw),"animation_channels":len(anim["channels"]),
             "sampler_interpolations":sample_types,"sample_counts":counts,
-            "skin_count":len(doc["skins"]),"mesh_count":len(doc["meshes"])}
+            "skin_count":len(doc["skins"]),"mesh_count":len(doc["meshes"]),
+            "glb_mesh_names":mesh_names,"glb_node_names":node_names}
 
 def run(root,lane):
     import bpy
@@ -91,6 +94,8 @@ def run(root,lane):
         bpy.ops.object.select_all(action="DESELECT")
         rig.select_set(True);ob.select_set(True)
         bpy.context.view_layer.objects.active=rig
+        source_selection=[(x.name,x.type,len(x.data.vertices) if x.type=="MESH" else 0,x.select_get()) for x in bpy.data.objects]
+        print("R3_PREEXPORT_SOURCE_SELECTION",json.dumps(source_selection,sort_keys=True),flush=True)
         result=bpy.ops.export_scene.gltf(filepath=str(export),export_format="GLB",
              use_selection=True,export_animations=True,export_force_sampling=True,
              export_frame_step=1,export_skins=True,export_morph=True)
@@ -104,7 +109,15 @@ def run(root,lane):
         meshes=[o for o in bpy.data.objects if o.type=="MESH"]
         rigs=[o for o in bpy.data.objects if o.type=="ARMATURE"]
         assert len(meshes)>=1 and len(rigs)>=1,("GLB mesh or armature missing",len(meshes),len(rigs))
-        obj=max(meshes,key=lambda o:len(o.data.vertices))
+        imported_inventory=[(x.name,x.type,len(x.data.vertices) if x.type=="MESH" else 0,[m.type for m in x.modifiers],len(x.vertex_groups) if x.type=="MESH" else 0) for x in bpy.data.objects]
+        print("R3_IMPORTED_INVENTORY",json.dumps(imported_inventory,sort_keys=True),flush=True)
+        # Do not choose a random mesh by vertex count: this previously selected
+        # an unskinned 42-vertex Icosphere rather than the source quad.
+        candidates=[o for o in meshes if any(m.type=="ARMATURE" for m in o.modifiers)]
+        if len(candidates)!=1:
+            print("R3_ACTUAL_GLTF_MESH_BINDING_REJECT",json.dumps({"skinned_candidates":[o.name for o in candidates],"mesh_inventory":imported_inventory,"glb":glb},sort_keys=True),flush=True)
+            raise AssertionError("GLB roundtrip has no unique actually skinned imported mesh")
+        obj=candidates[0]
         rig2=rigs[0]
         assert rig2.animation_data and rig2.animation_data.action,"GLB imported animation lost"
         # Blender glTF-importer typically starts animation at 1 rather than VMD at 0;
