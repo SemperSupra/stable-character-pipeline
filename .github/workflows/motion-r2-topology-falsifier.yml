@@ -1,0 +1,36 @@
+name: Motion R2 3-link topology and endpoint non-identifiability CPU
+on:
+  pull_request:
+    paths:
+      - 'research/motion-topology-r2/**'
+      - '.github/workflows/motion-r2-topology-falsifier.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-source-safe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        lane: [topology, ambiguity, constraints]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: research/motion-topology-r2/go.mod
+          cache: false
+      - name: Independently test stable joint topology, alternative IK and explicit constraints
+        shell: bash
+        working-directory: research/motion-topology-r2
+        run: |
+          set -euo pipefail
+          case '${{ matrix.lane }}' in
+            topology) go test -count=1 -v -run '^TestTopologyValidAndInvalid$' ./... ;;
+            ambiguity) go test -count=1 -v -run '^TestEndpointAliasingAcrossDifferentJointConfigurations$' ./... ;;
+            constraints) go test -count=1 -v -run '^TestPoseBendPolicyAndUnsupportedTarget$' ./...; go vet ./... ;;
+          esac
