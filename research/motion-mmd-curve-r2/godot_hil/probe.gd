@@ -88,7 +88,11 @@ func _run() -> void:
         reject("IMPORTED_SKELETON_BONE_MOTION_FROZEN " + str([start,finish,duration]))
         return
     var phases: Array[float] = [0.25,0.5,0.75]
-    var expected: Array[float] = [0.25,0.5,0.75] if lane == "linear" else [0.6594358665676617,0.8710503045526693,0.9634757240065654]
+    # GDScript conditional Array literal returns untyped Array, not Array[float].
+    # Prior actual hosted RED #44042459874 is preserved, no tolerance changes.
+    var expected: Array[float] = [0.25,0.5,0.75]
+    if lane == "nonlinear":
+        expected = [0.6594358665676617,0.8710503045526693,0.9634757240065654]
     var observed: Array[float] = []
     var max_error: float = 0.0
     for i in range(phases.size()):
