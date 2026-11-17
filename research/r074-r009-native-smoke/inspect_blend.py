@@ -138,6 +138,14 @@ def build(glb,expected,saved,out):
     camera_data.type="ORTHO";camera_data.ortho_scale=9.5
     scene.camera=cam
     bpy.ops.wm.save_as_mainfile(filepath=str(Path(saved).resolve()))
+    # Three actual native preview frames; 72-frame full motion is verified by
+    # the sampled evaluated 3D scene, not misrepresented by this video smoke.
+    frames=Path(out).parent/"frames"
+    frames.mkdir(parents=True,exist_ok=True)
+    for idx,frame in enumerate((0,36,71)):
+        scene.frame_set(frame)
+        scene.render.filepath=str(frames/f"frame_{idx:03d}.png")
+        bpy.ops.render.render(write_still=True)
     rec={"schema":"scp.r074.native-source-build.v1","glb_sha256":expected,
          "saved_blend_sha256":filehash(saved),
          "scene_frames":72,"camera_source":"ORIGINAL_SYNTHETIC",
