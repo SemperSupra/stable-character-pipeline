@@ -46,7 +46,7 @@ def glb_info(path):
             "skin_count":len(doc["skins"]),"mesh_count":len(doc["meshes"]),
             "glb_mesh_names":mesh_names,"glb_node_names":node_names}
 
-def run(root,lane):
+def run(root,lane,export_out=None):
     import bpy
     from mathutils import Vector
     import probe as vsource
@@ -172,13 +172,24 @@ def run(root,lane):
         print(json.dumps(report,sort_keys=True),flush=True)
         if max_relative>.015: fail("GLB reimport drift >0.015 blender units")
         assert len(after)>0
+        if export_out is not None:
+            # The child independent-engine qualification consumes a disposable GLB
+            # only after the complete Blender native roundtrip has passed.
+            runner_temp=pathlib.Path(os.environ.get('RUNNER_TEMP','')).resolve()
+            output=export_out.resolve()
+            assert runner_temp.is_dir() and runner_temp in output.parents, 'Godot HIL output outside ephemeral runner temp'
+            with output.open('xb') as sink:
+                sink.write(export.read_bytes())
+            assert hashlib.sha256(output.read_bytes()).hexdigest()==glb['sha256']
+            print('R3_EPHEMERAL_GLTF_FOR_INDEPENDENT_ENGINE',json.dumps({'sha256':glb['sha256'],'bytes':output.stat().st_size},sort_keys=True),flush=True)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser()
     p.add_argument("--upstream",type=pathlib.Path,required=True)
     p.add_argument("--lane",choices=("nonlinear","linear"),required=True)
+    p.add_argument("--export-out",type=pathlib.Path,default=None,help="one exclusively new GLB path under RUNNER_TEMP; private scratch only")
     a=p.parse_args()
-    try:run(a.upstream,a.lane)
+    try:run(a.upstream,a.lane,a.export_out)
     except BaseException:
         traceback.print_exc()
         sys.stdout.flush();sys.stderr.flush();os._exit(1)
