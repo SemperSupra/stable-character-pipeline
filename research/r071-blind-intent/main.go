@@ -164,6 +164,6 @@ func main(){
  p,err:=parse(b,*suite);if err!=nil{r.Reason=err.Error();finish(12)}
  r.Checks,r.Score,err=evaluate(*suite,p);if err!=nil{r.Reason=err.Error();finish(12)}
  r.Total=len(r.Checks)
- if r.Score==r.Total{r.Status="PASS_EXACT_SYNTHETIC_ONLY";finish(0)}
+ if r.Score==r.Total{r.Status="PASS_EXACT_SYNTHETIC_ONLY";finish(0);return}
  r.Status="FAIL_BLIND_CONTROLS";r.Reason="POLARITY_MISMATCH";finish(12)
 }
