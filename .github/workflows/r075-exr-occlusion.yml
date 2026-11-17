@@ -23,6 +23,11 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Fail fast on Python source syntax before installing Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile occlusionprobe/scene.py occlusionprobe/audit.py occlusionprobe/test_audit.py
       - name: Install disposable free original-only Blender CPU
         shell: bash
         run: |
