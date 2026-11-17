@@ -90,7 +90,7 @@ func TestIndependentToneVsNoiseCalibrationAndInputCorruption(t *testing.T){
  wrongLength:=append([]byte(nil),base...)
  binary.LittleEndian.PutUint32(wrongLength[40:44],100)
  cases=append(cases,wrongLength)
- clipping:=make([]int16,4800);clipping[0]=math.MaxInt16
+ clipping:=make([]int16,4800);clipping[0]=32767
  cases=append(cases,mkWAV(clipping))
  for i,c:=range cases{
   if _,err:=AnalyzeWAV(c);err==nil{t.Fatalf("bad/near-clipped wav %d accepted",i)}
