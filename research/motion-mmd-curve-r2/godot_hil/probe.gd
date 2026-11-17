@@ -62,7 +62,7 @@ func _initialize() -> void:
         "bone_name":skeleton.get_bone_name(0),
         "rest_position":str(skeleton.get_bone_rest(0).origin),
         "tracks":tracks
-    })
+    }))
     player.play(target_name)
     player.seek(0.0, true)
     player.advance(0.0) # Explicit headless mix/evaluation after seek
@@ -76,7 +76,7 @@ func _initialize() -> void:
         "start_global":str(start),"end_global":str(finish),
         "start_local":str(start_local),"end_local":str(finish_local),
         "clip_length":duration,"currently_playing":String(player.current_animation)
-    })
+    }))
     var delta: Vector3 = finish - start
     if delta.length() < 0.5:
         reject("IMPORTED_SKELETON_BONE_MOTION_FROZEN " + str([start,finish,duration]))
