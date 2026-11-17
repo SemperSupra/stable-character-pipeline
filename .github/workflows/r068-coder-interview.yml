@@ -1,0 +1,151 @@
+name: R068 source-safe CPU 3B model coder and mutation interview
+on:
+  push:
+    branches:
+      - research/r068-coder-3b-interview-20261117
+    paths:
+      - 'research/r068-agent-candidate/**'
+      - '.github/workflows/r068-coder-interview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r068-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  model-candidate:
+    name: R068 / 3B / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        lane: [path-boundaries, strict-json]
+    env:
+      LANE: ${{ matrix.lane }}
+      MODEL: qwen2.5-coder:3b-instruct
+      RESEARCH_ONLY: "true"
+    steps:
+      - name: Checkout exact public source, no persistent Git credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Setup pinned Go toolchain
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r062-free-agent/go.mod
+          cache: false
+      - name: Source-owned offline baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          (cd research/r051-batch && go test -count=1 ./...)
+          (cd research/r062-free-agent && go test -count=1 ./... && go vet ./...)
+          mkdir -p "$RUNNER_TEMP/r068"
+          echo "R068 source=$GITHUB_SHA model=$MODEL lane=$LANE license=QWEN_RESEARCH_ONLY product_admitted=NO"
+      - name: Acquire isolated research-only local model and preserve digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name r068-ollama -p 127.0.0.1:11434:11434 -e OLLAMA_NUM_PARALLEL=1 -e OLLAMA_CONTEXT_LENGTH=3072 ollama/ollama:0.13.2
+          for i in $(seq 1 35); do
+            curl -fsS --max-time 3 http://127.0.0.1:11434/api/tags >/dev/null && break
+            sleep 2
+          done
+          curl -fsS --max-time 5 http://127.0.0.1:11434/api/tags >/dev/null
+          docker exec r068-ollama ollama pull "$MODEL" > "$RUNNER_TEMP/r068/pull.log" 2>&1
+          docker exec r068-ollama ollama list | tee "$RUNNER_TEMP/r068/model-inventory.txt"
+          docker exec r068-ollama ollama show "$MODEL" | head -50 > "$RUNNER_TEMP/r068/model-license.txt"
+          grep -q 'qwen2.5-coder:3b-instruct' "$RUNNER_TEMP/r068/model-inventory.txt"
+      - name: One-shot bounded CPU inference, no auto-push
+        shell: bash
+        working-directory: research/r062-free-agent
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          set +e
+          timeout --signal=INT --kill-after=15s 225s go run . --lane "$LANE" --model "$MODEL" > "$RUNNER_TEMP/r068/agent.log" 2>&1
+          ec=$?
+          set -e
+          echo "AGENT_EXIT=$ec" >> "$GITHUB_ENV"
+          echo "R068_AGENT_EXIT=$ec"
+          tail -c 5000 "$RUNNER_TEMP/r068/agent.log"
+      - name: Independent syntax, file ownership, go tests and mutant sensitivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          case "$LANE" in
+            path-boundaries) TARGET=research/r051-batch/r062_paths_test.go ;;
+            strict-json) TARGET=research/r051-batch/r062_json_test.go ;;
+            *) exit 12 ;;
+          esac
+          result=FAIL
+          reason=MODEL_EXIT
+          git status --porcelain | tee "$RUNNER_TEMP/r068/status.txt"
+          if [ "${AGENT_EXIT:-99}" = "0" ]; then
+            if [ ! -s "$TARGET" ]; then
+              reason=NO_CANDIDATE
+            else
+              git add -N "$TARGET"
+              git diff -- "$TARGET" > "$RUNNER_TEMP/r068/candidate.diff"
+              changed=$(git status --porcelain | awk '{print $2}' | sort -u)
+              if [ "$changed" != "$TARGET" ]; then
+                reason=OUT_OF_SCOPE
+              elif [ ! -s "$RUNNER_TEMP/r068/candidate.diff" ]; then
+                reason=EMPTY_DIFF
+              elif ! (cd research/r051-batch && go test -count=1 -race ./... && go vet ./...) > "$RUNNER_TEMP/r068/tests.log" 2>&1; then
+                reason=TEST_FAIL
+              else
+                reason=MUTANT_SURVIVED
+                mkdir -p "$RUNNER_TEMP/r068/mutant"
+                cp -a research/r051-batch/. "$RUNNER_TEMP/r068/mutant/"
+                export MUTANT_DIR="$RUNNER_TEMP/r068/mutant"
+                python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root=Path(os.environ["MUTANT_DIR"])
+          lane=os.environ["LANE"]
+          if lane=="path-boundaries":
+              path=root/"main.go"
+              needle='return a==b||strings.HasPrefix(a,b+"/")||strings.HasPrefix(b,a+"/")'
+              hostile='return false'
+          elif lane=="strict-json":
+              path=root/"r061_strict_input.go"
+              needle='if _,present:=seen[name];present{return fmt.Errorf("duplicate JSON key %q",name)}'
+              hostile='if false {return fmt.Errorf("duplicate JSON key %q",name)}'
+          else:
+              raise SystemExit("unsupported lane")
+          src=path.read_text()
+          if src.count(needle)!=1: raise SystemExit("mutant target not uniquely found")
+          path.write_text(src.replace(needle,hostile))
+          print("R068_PRIVATE_FREE_SOURCE_ONLY_MUTANT_APPLIED", lane)
+          PY
+                set +e
+                (cd "$RUNNER_TEMP/r068/mutant" && go test -count=1 -run '^TestR062' ./...) > "$RUNNER_TEMP/r068/mutant-test.log" 2>&1
+                mutant_code=$?
+                set -e
+                echo "R068_MUTANT_EXIT=$mutant_code"
+                if [ "$mutant_code" -ne 0 ]; then
+                  result=PASS_NARROW_SOURCE_ONLY
+                  reason=TESTS_AND_MUTANT_REJECTED
+                fi
+              fi
+            fi
+          fi
+          printf '{"schema":"scp.r068.model-code-interview.v1","lane":"%s","model":"%s","source_sha":"%s","status":"%s","reason":"%s","agent_exit":%s,"checkpoint_rights":"QWEN_RESEARCH_ONLY_NOT_PRODUCT_ADMITTED","private_inputs":false,"model_generated_file_committed":false,"owner_accepted":false}\n'             "$LANE" "$MODEL" "$GITHUB_SHA" "$result" "$reason" "${AGENT_EXIT:-99}" | tee "$RUNNER_TEMP/r068/receipt.json"
+          test "$result" = PASS_NARROW_SOURCE_ONLY
+      - name: Preserve RED and candidate diff (source-safe text only)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r068-${{ matrix.lane }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r068/*.txt
+            ${{ runner.temp }}/r068/*.log
+            ${{ runner.temp }}/r068/*.json
+            ${{ runner.temp }}/r068/*.diff
+          retention-days: 3
+          if-no-files-found: warn
