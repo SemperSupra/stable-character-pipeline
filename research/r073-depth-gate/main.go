@@ -15,8 +15,8 @@ import(
  "os"
 )
 type R070 struct{
- Schema,SourceSHA,Frame1SHA,Frame2SHA,Expected,Status,Direction,Reason string
- WorldDX float64
+ Schema,SourceSHA,Frame1SHA,Frame2SHA,Lane,Expected,Status,Direction,Reason,Scope string
+ WorldDX,WorldDY,CameraScale,CameraRotationRad,AnchorResidualPx float64
 }
 type R072 struct{
  Schema,SourceSHA,Lane,Status,SourceTruth,ObservedDirection,ObservedStatus,Reason,FirstSHA,SecondSHA,Scope string
