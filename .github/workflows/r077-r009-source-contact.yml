@@ -1,0 +1,76 @@
+name: R077 A original synthetic 72f rig clock and foot-contact HOLD
+on:
+  push:
+    branches: [research/r077-r009-source-contact-20261118]
+    paths:
+      - 'research/r077-r009-source-contact/**'
+      - '.github/workflows/r077-r009-source-contact.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r077a-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  adversarial-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Real source-only hostile suite
+        run: |
+          set -euo pipefail
+          cd research/r077-r009-source-contact
+          python3 -m unittest -v test_source_capability
+          python3 -m py_compile source_capability.py test_source_capability.py
+          echo R077_A_SOURCE_ONLY_TESTS_COMPLETE
+  original-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Generate exact original source and verify real 72f joint clocks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r077-a"
+          python3 qualification/original_reusable_characters/generate_original_glb.py --out "$RUNNER_TEMP/r077-a/fictional.glb" --receipt "$RUNNER_TEMP/r077-a/producer.json"
+          python3 qualification/original_reusable_characters/verify_original_glb.py --input "$RUNNER_TEMP/r077-a/fictional.glb" --receipt "$RUNNER_TEMP/r077-a/original-verifier.json"
+          set +e
+          python3 research/r077-r009-source-contact/source_capability.py --glb "$RUNNER_TEMP/r077-a/fictional.glb" --out "$RUNNER_TEMP/r077-a/contact.json"
+          hold_rc=$?
+          set -e
+          test "$hold_rc" -eq 12
+          python3 - "$RUNNER_TEMP/r077-a/contact.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          assert r['status']=='HOLD_SOURCE_CONTACT_AND_GAIT'
+          assert r['sampled_frame_count']==72 and r['actor_count']==2
+          assert r['articulated_heel_toe_nodes']==0
+          assert 'NO_SOURCE_HEEL_TOE_ARTICULATION' in r['reasons']
+          assert not r['mvp_accepted'] and not r['release_authorized']
+          print('R077_A_ACTUAL_ORIGINAL_SOURCE_HOLD_VERIFIED')
+          PY
+          cp "$RUNNER_TEMP/r077-a/fictional.glb" "$RUNNER_TEMP/r077-a/tamper.glb"
+          python3 - "$RUNNER_TEMP/r077-a/tamper.glb" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]);b=bytearray(p.read_bytes());b[0]=0;p.write_bytes(b)
+          PY
+          set +e
+          python3 research/r077-r009-source-contact/source_capability.py --glb "$RUNNER_TEMP/r077-a/tamper.glb" --out "$RUNNER_TEMP/r077-a/should-not-exist.json"
+          rc=$?
+          set -e
+          test "$rc" -eq 12
+          test ! -e "$RUNNER_TEMP/r077-a/should-not-exist.json"
+      - name: Upload receipts only; no GLB/media
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r077-a-json-receipts-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r077-a/*.json
+          retention-days: 3
