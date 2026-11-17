@@ -84,7 +84,7 @@ func acquire(ctx context.Context, endpoint, model, prompt string) (string,error)
 
 func validateGenerated(src string) error {
  if len(src)<80 || len(src)>8000{return errors.New("candidate outside bounded code-size envelope")}
- if !strings.HasPrefix(strings.TrimSpace(src),"package main"){return errors.New("candidate must declare package main")}
+ // Go AST below, not an overly strict source-prefix heuristic, establishes the package.
  fs:=token.NewFileSet()
  parsed,err:=parser.ParseFile(fs,"candidate_test.go",src,parser.AllErrors)
  if err!=nil{return fmt.Errorf("invalid Go syntax: %w",err)}
@@ -115,6 +115,12 @@ func main() {
  start:=time.Now()
  src,err:=acquire(ctx,*endpoint,*model,prompt)
  if err!=nil{fmt.Fprintln(os.Stderr,"R062_HOLD MODEL_CONTRACT",err);os.Exit(12)}
+ preview:=src
+ if len(preview)>120{preview=preview[:120]}
+ rawHash:=sha256.Sum256([]byte(src))
+ var intervention string
+ src,intervention=normalizeCandidateGo(src)
+ fmt.Fprintln(os.Stderr,"R068_CANDIDATE_RAW sha256="+hex.EncodeToString(rawHash[:]),"intervention="+intervention,"prefix="+fmt.Sprintf("%q",preview))
  if err:=validateGenerated(src);err!=nil{
   fmt.Fprintln(os.Stderr,"R062_HOLD MODEL_SOURCE",err);os.Exit(12)
  }
