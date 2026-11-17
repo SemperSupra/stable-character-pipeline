@@ -75,7 +75,7 @@ func TestResistanceScalingAndInwardStrawWork(t *testing.T){
  a,err:=Evaluate(p,c);if err!=nil{t.Fatal(err)}
  c.ResistancePaSPerM3*=2
  b,err:=Evaluate(p,c);if err!=nil{t.Fatal(err)}
- if !(a.Frames[0].TotalPressureDropPa<0)&&!(b.Frames[0].TotalPressureDropPa<0){
+ if !(a.Frames[0].TotalPressureDropPa<0)||!(b.Frames[0].TotalPressureDropPa<0){
   t.Fatal("suction is incorrectly outward")
  }
  if !closeEnough(b.DissipatedEnergyJ,2*a.DissipatedEnergyJ)||
