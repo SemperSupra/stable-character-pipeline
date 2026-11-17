@@ -1,0 +1,143 @@
+name: R074 R009 two-actor native MVP acceptance scout, original source only
+on:
+  push:
+    branches: [research/r074-r009-native-acceptance-smoke-20261117]
+    paths:
+      - 'research/r074-r009-native-smoke/**'
+      - '.github/workflows/r074-r009-native-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r074-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-source-provenance:
+    name: R074 / original fixture and SHA substitution hard reject
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Actual original source generation and independent witness
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r074-source"
+          cd qualification/original_reusable_characters
+          python3 -m unittest -v test_original_glb
+          python3 generate_original_glb.py --out "$RUNNER_TEMP/r074-source/original.glb" --receipt "$RUNNER_TEMP/r074-source/producer.json"
+          python3 verify_original_glb.py --input "$RUNNER_TEMP/r074-source/original.glb" --receipt "$RUNNER_TEMP/r074-source/independent.json"
+          python3 - "$RUNNER_TEMP/r074-source/independent.json" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1]))
+          assert p['characters']==2 and p['frames']==72 and p['skeleton_joints_each']==17
+          assert p['human_gait']=='UNKNOWN' and p['contact']=='UNKNOWN'
+          print('R074_R009_SOURCE_ONLY_ORIGINAL_FIXTURE_PASS',p['sha256'])
+          PY
+      - name: Independent corrupted SHA/GLB source negative
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/r074-source/original.glb"
+          cp "$src" "$RUNNER_TEMP/r074-source/tampered.glb"
+          python3 - "$RUNNER_TEMP/r074-source/tampered.glb" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]);a=bytearray(p.read_bytes());a[2]^=1;p.write_bytes(a)
+          PY
+          set +e
+          python3 qualification/original_reusable_characters/verify_original_glb.py --input "$RUNNER_TEMP/r074-source/tampered.glb" --receipt "$RUNNER_TEMP/r074-source/tampered.json" > "$RUNNER_TEMP/r074-source/tampered-stdout.txt" 2>&1
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          echo "R074_INDEPENDENT_SOURCE_TAMPER_EXPECTED_REJECT=$rc"
+      - name: Small source-only receipt custody
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r074-source-only-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r074-source/*.json
+            ${{ runner.temp }}/r074-source/*.txt
+          retention-days: 3
+  actual-native-saved-scene:
+    name: R074 / actual source GLB to Blender save/reopen H264 and 9 temporal samples
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Generate independent original two-actor 72f GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r074"
+          python3 qualification/original_reusable_characters/generate_original_glb.py --out "$RUNNER_TEMP/r074/source.glb" --receipt "$RUNNER_TEMP/r074/source.json"
+          python3 qualification/original_reusable_characters/verify_original_glb.py --input "$RUNNER_TEMP/r074/source.glb" --receipt "$RUNNER_TEMP/r074/witness.json"
+      - name: Acquire pinned SHA-verified Blender 4.5.15 and original FFmpeg
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg xvfb xauth libegl1 libgl1 libgl1-mesa-dri libgbm1
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15.sha256 -o "$RUNNER_TEMP/blender.sha256"
+          curl --fail --location --retry 3 --silent --show-error https://download.blender.org/release/Blender4.5/blender-4.5.15-linux-x64.tar.xz -o "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz"
+          (cd "$RUNNER_TEMP"; grep 'blender-4.5.15-linux-x64.tar.xz' blender.sha256 | sha256sum -c -)
+          tar -xJf "$RUNNER_TEMP/blender-4.5.15-linux-x64.tar.xz" -C "$RUNNER_TEMP"
+      - name: Actual native scene save plus three genuine time samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          b="$RUNNER_TEMP/blender-4.5.15-linux-x64/blender"
+          source_sha="$(sha256sum "$RUNNER_TEMP/r074/source.glb" | cut -d' ' -f1)"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$b" -b --factory-startup --python-exit-code 8 --python research/r074-r009-native-smoke/inspect_blend.py -- --mode build --glb "$RUNNER_TEMP/r074/source.glb" --glb-sha "$source_sha" --saved "$RUNNER_TEMP/r074/saved.blend" --out "$RUNNER_TEMP/r074/build.json"
+          test "$(find "$RUNNER_TEMP/r074/frames" -name 'frame_*.png' | wc -l)" -eq 3
+          ffmpeg -nostdin -v error -y -framerate 3 -i "$RUNNER_TEMP/r074/frames/frame_%03d.png" -c:v libx264 -pix_fmt yuv420p -crf 20 "$RUNNER_TEMP/r074/smoke.mp4"
+          test "$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/r074/smoke.mp4")" = 3
+          printf 'R074_NATIVE_SMOKE_VIDEO_SHA256 '
+          sha256sum "$RUNNER_TEMP/r074/smoke.mp4"
+      - name: Fresh separate Blender process reopens native scene with scripts disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          b="$RUNNER_TEMP/blender-4.5.15-linux-x64/blender"
+          source_sha="$(sha256sum "$RUNNER_TEMP/r074/source.glb" | cut -d' ' -f1)"
+          scene_sha="$(sha256sum "$RUNNER_TEMP/r074/saved.blend" | cut -d' ' -f1)"
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$b" -b --factory-startup --python-exit-code 8 --python research/r074-r009-native-smoke/inspect_blend.py -- --mode inspect --saved "$RUNNER_TEMP/r074/saved.blend" --saved-sha "$scene_sha" --glb-sha "$source_sha" --out "$RUNNER_TEMP/r074/scout.json"
+          python3 - "$RUNNER_TEMP/r074/scout.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          assert r['actor_count']==2 and r['source_class']=='ORIGINAL_SELF_AUTHORED_SYNTHETIC'
+          assert len(r['observations'])==9 and r['sampled_fractional_frames']
+          assert r['animated_approach']['separation_start_m']>r['animated_approach']['separation_end_m']
+          assert r['status']=='HOLD_NATIVE_CONTACT_AND_GAIT'
+          assert not r['ground_contact_qualified'] and not r['mvp_accepted']
+          print('R074_ACTUAL_NATIVE_SOURCE_BOUND_SCOUT_COMPLETE_NOT_FILM_ACCEPTANCE')
+          PY
+      - name: Wrong source and saved scene digest both must hard reject
+        shell: bash
+        run: |
+          set -euo pipefail
+          b="$RUNNER_TEMP/blender-4.5.15-linux-x64/blender"
+          source_sha="$(sha256sum "$RUNNER_TEMP/r074/source.glb" | cut -d' ' -f1)"
+          scene_sha="$(sha256sum "$RUNNER_TEMP/r074/saved.blend" | cut -d' ' -f1)"
+          set +e
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$b" -b --factory-startup --python-exit-code 8 --python research/r074-r009-native-smoke/inspect_blend.py -- --mode build --glb "$RUNNER_TEMP/r074/source.glb" --glb-sha "0000000000000000000000000000000000000000000000000000000000000000" --saved "$RUNNER_TEMP/r074/forbidden.blend" --out "$RUNNER_TEMP/r074/forbidden.json" > "$RUNNER_TEMP/r074/wrong-source.txt" 2>&1
+          rc1=$?
+          xvfb-run -a -s '-screen 0 1280x720x24' env LIBGL_ALWAYS_SOFTWARE=1 "$b" -b --factory-startup --python-exit-code 8 --python research/r074-r009-native-smoke/inspect_blend.py -- --mode inspect --saved "$RUNNER_TEMP/r074/saved.blend" --saved-sha "0000000000000000000000000000000000000000000000000000000000000000" --glb-sha "$source_sha" --out "$RUNNER_TEMP/r074/forbidden.json" > "$RUNNER_TEMP/r074/wrong-scene.txt" 2>&1
+          rc2=$?
+          set -e
+          test "$rc1" -ne 0 && test "$rc2" -ne 0
+          test ! -f "$RUNNER_TEMP/r074/forbidden.blend"
+          echo "R074_SOURCE_AND_SAVED_SCENE_TAMPER_EXPECTED_REJECT $rc1/$rc2"
+      - name: Publish ONLY small source-owned receipts, not private characters or model assets
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r074-native-scout-receipts-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r074/*.json
+            ${{ runner.temp }}/r074/*.txt
+          retention-days: 3
