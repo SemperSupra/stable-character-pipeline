@@ -1,0 +1,91 @@
+name: R066 public H264 camera-relative motion critic qualification
+on:
+  push:
+    branches:
+      - research/r066-camera-relative-critic-20261117
+    paths:
+      - 'research/r066-camera-relative/**'
+      - '.github/workflows/r066-camera-relative.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r066-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-fixture:
+    name: R066 / ${{ matrix.lane }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        lane: [camera-pan-only, right-with-opposite-pan, left-with-opposite-pan, missing-fiducial, missing-subject]
+    env:
+      LANE: ${{ matrix.lane }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version-file: research/r066-camera-relative/go.mod
+          cache: false
+      - name: Compile and verify original geometry adversarial oracles
+        shell: bash
+        working-directory: research/r066-camera-relative
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          go test -race -count=1 ./...
+          go vet ./...
+      - name: Produce original frames, encode H264, decode and evaluate
+        shell: bash
+        working-directory: research/r066-camera-relative
+        run: |
+          set -euo pipefail
+          export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+          mkdir -p "$RUNNER_TEMP/r066/decoded"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          go run . --make "$LANE" --out "$RUNNER_TEMP/r066" | tee "$RUNNER_TEMP/r066/producer.txt"
+          ffmpeg -nostdin -v error -y -framerate 1 -i "$RUNNER_TEMP/r066/frame_%03d.png" -frames:v 2 -pix_fmt yuv420p -c:v libx264 "$RUNNER_TEMP/r066/movie.mp4"
+          ffmpeg -nostdin -v error -y -i "$RUNNER_TEMP/r066/movie.mp4" "$RUNNER_TEMP/r066/decoded/frame_%03d.png"
+          test "$(find "$RUNNER_TEMP/r066/decoded" -name 'frame_*.png' | wc -l)" -eq 2
+          case "$LANE" in
+            camera-pan-only) expected=STILL ;;
+            right-with-opposite-pan) expected=RIGHT ;;
+            left-with-opposite-pan) expected=LEFT ;;
+            missing-fiducial|missing-subject) expected=UNKNOWN ;;
+            *) exit 12 ;;
+          esac
+          set +e
+          go run . --first "$RUNNER_TEMP/r066/decoded/frame_001.png" --second "$RUNNER_TEMP/r066/decoded/frame_002.png" --expect "$expected" > "$RUNNER_TEMP/r066/receipt.json" 2> "$RUNNER_TEMP/r066/stderr.log"
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/r066/receipt.json"
+          if [ "$expected" = UNKNOWN ]; then
+            test "$code" -ne 0
+            grep -q '"status":"UNKNOWN"' "$RUNNER_TEMP/r066/receipt.json"
+            case "$LANE" in
+              missing-fiducial) grep -q 'NO_GREEN_FIDUCIAL' "$RUNNER_TEMP/r066/receipt.json" ;;
+              missing-subject) grep -q 'NO_RED_SUBJECT' "$RUNNER_TEMP/r066/receipt.json" ;;
+            esac
+            echo 'R066_EXPECTED_NEGATIVE_REJECTION'
+          else
+            test "$code" -eq 0
+            grep -q '"status":"PASS_NARROW_SOURCE_ONLY"' "$RUNNER_TEMP/r066/receipt.json"
+            echo 'R066_QUALIFIED_ORIGINAL_FIXED_TRANSLATION_ONLY'
+          fi
+      - name: Retain only receipts and first RED, not image or video
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r066-${{ matrix.lane }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r066/receipt.json
+            ${{ runner.temp }}/r066/producer.txt
+            ${{ runner.temp }}/r066/stderr.log
+          retention-days: 3
+          if-no-files-found: warn
