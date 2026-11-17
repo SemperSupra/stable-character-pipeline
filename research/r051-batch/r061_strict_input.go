@@ -9,6 +9,7 @@ import (
     "fmt"
     "io"
     "os"
+    "unicode/utf8"
 )
 
 const maxLocalReceiptBytes = 1 << 20
@@ -54,6 +55,7 @@ func decodeLocalBounded(file string, out interface{}) error {
     if len(raw)==0||len(raw)>maxLocalReceiptBytes{
         return errors.New("invalid bounded input byte count")
     }
+    if !utf8.Valid(raw){return errors.New("invalid UTF-8 in local JSON input")}
     guard:=json.NewDecoder(bytes.NewReader(raw))
     guard.UseNumber()
     if err:=jsonValue(guard,0);err!=nil{return err}
