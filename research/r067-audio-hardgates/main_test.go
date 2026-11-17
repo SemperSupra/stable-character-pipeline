@@ -30,6 +30,6 @@ func TestTamperedAndTruncatedAudioReject(t *testing.T){
  raw[12]='n'
  if _,err=decode(raw);err==nil{t.Fatal("non-PCM fmt accepted")}
  raw,err=generate("silence");if err!=nil{t.Fatal(err)}
- raw[40]=0
+ raw[40]=1
  if _,err=decode(raw);err==nil{t.Fatal("incorrect data length accepted")}
 }
