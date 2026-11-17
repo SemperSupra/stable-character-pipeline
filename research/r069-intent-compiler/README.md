@@ -1,0 +1,16 @@
+# R069 — typed noncode test-intent protocol, public model/harness interview
+
+**Authority:** original failed [R062 #606](https://github.com/SemperSupra/stable-character-pipeline/pull/606), failed 3B [R068 #613](https://github.com/SemperSupra/stable-character-pipeline/pull/613), R009 private [MVP issue #23](https://github.com/SemperSupra/stable-character-pipeline-private/issues/23), canonical Way of Working (DLE = Durable, Legible, Executable). Research PR stacked on R062 source-safe Go fixture baseline. No owner branch changes, merges, paid API or protected media.
+
+### Hypothesis / experiment
+R062 1.5B coding candidate gave syntax errors; R068 3B JSON-mode model returned JSON package metadata plus unparsable Go code on BOTH tasks. Test whether model–harness boundary improves when models return only **enumerated test intents** (JSON data), while a deterministic verified Go compiler produces the executable tests.
+
+In **six independent public CPU jobs** use a matched 2 suites × 3 treatments design: source-only fixed-intent positive control (no model), 1.5B Qwen coder model, and 3B Qwen coder model (3B Qwen Research License, research-only NOT product-admitted). Each must independently pass strict duplicate-key/unknown-field/suite/expectation/scope/coverage validation and include the test that detects the predeclared source mutation:
+- Path suite: absolute escape, parent escape, subtree overlap (mutant-sensitive), sibling non-overlap.
+- JSON suite: nested duplicate key (mutant-sensitive), trailing document, valid empty document, unknown field.
+- Source-original fixtures only. All emitted Go originates from **hardcoded strings in a compiler**, not model-authored Go. Go AST parsed by native toolchain; `go test -race`, `go vet`, byte-for-byte owned-path check. The independent negative mutates production overlap to always false OR disables nested duplicate-key guard, and the candidate test must FAIL that mutant.
+- If a candidate omits the mutant-sensitive case, gets oracle value wrong, uses an unknown ID, adds JSON keys, repeats a key, or returns prose/code, reject before it becomes Go. Keep first RED, checkpoint digest, exact tested SHA, output JSON hash and model/harness contract.
+
+**Limitations / nonpromotion:** These prompts deliberately include all allowed case IDs and expected outcomes, so success is contract reproduction or bounded selection, **not autonomous discovery or general reasoning**. R069 only tests the feasibility of a typed interface; it does not prove independent model judgment, realism, motion, audio, identity, robustness to new tasks or a general coder. Future blind/held-out interview must hide expected outcomes and require calibrated independent oracle. Rights/license admission for 3B is separate. No Cloudflare MCP tunnel, private Actions, protected source/voice/identity, release or model acceptance.
+
+Source [compiler](./main.go), [source-only negative tests](./main_test.go), [workflow](../../.github/workflows/r069-typed-intent.yml). Initially NOT_OBSERVED until actual CI receipts.
