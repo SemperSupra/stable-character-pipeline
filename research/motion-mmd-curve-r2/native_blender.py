@@ -40,6 +40,11 @@ def run(root, lane):
         vg.add([0,1,2,3],1.0,"REPLACE")
         modifier=ob.modifiers.new("source_native_armature","ARMATURE")
         modifier.object=arm
+        # VMDImporter sets frame_start from scene.frame_current, not VMD t=0.
+        # First true RED #44038275021 demonstrated that Blender's default frame=1
+        # shifts the nonlinear source curve by one frame while linear can hide it.
+        bpy.context.scene.frame_set(0)
+        assert bpy.context.scene.frame_current == 0, "native timeline origin not calibrated"
         VMDImporter(str(p),scale=1.0,frame_margin=0).assign(arm)
         assert arm.animation_data and arm.animation_data.action
         def sample(tick):
