@@ -16,10 +16,12 @@ def check_frames(rows):
     demand(len(set(hashes))>=3 and hashes[0]!=hashes[-1],"STATIC_OR_UNCHANGING_FRAMES")
     return len(set(hashes))
 def run(a):
-    import bpy
-    from mathutils import Vector
+    # Validate source input before importing Blender; source-only preflight and
+    # negative tests run on CPUs without bpy and must not depend on engine IO.
     saved=Path(a.saved)
     demand(saved.is_file() and digest(saved)==a.saved_sha,"SOURCE_SAVED_BLEND_SHA_MISMATCH")
+    import bpy
+    from mathutils import Vector
     bpy.ops.wm.open_mainfile(filepath=str(saved.resolve()),load_ui=False,use_scripts=False)
     demand(digest(saved)==a.saved_sha,"SAVED_BLEND_CHANGED_ON_REOPEN")
     scene=bpy.context.scene
