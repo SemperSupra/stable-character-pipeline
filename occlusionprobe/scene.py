@@ -136,5 +136,5 @@ def run(out):
 if __name__=="__main__":
     p=argparse.ArgumentParser()
     p.add_argument("--out",required=True,type=Path)
-    args=p.parse_args(sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
+    args=p.parse_args(sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else [])
     run(args.out)
