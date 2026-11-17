@@ -98,13 +98,9 @@ func Evaluate(p behavior.Performance,c Config)(Receipt,error){
    vNext+=transfer
    if vNext>c.BalloonCapacityM3+1e-12{return empty,fmt.Errorf("frame %d balloon capacity exhausted",i)}
    if vNext>c.BalloonCapacityM3{vNext=c.BalloonCapacityM3}
-   elasticMid:=(volume+vNext)/(2*c.BalloonComplianceM3PerPa)
+   elasticMid=(volume+vNext)/(2*c.BalloonComplianceM3PerPa)
    stored=(vNext*vNext-volume*volume)/(2*c.BalloonComplianceM3PerPa)
-   _=elasticMid
   }
-  // In-place assignment is intentionally after volume update; the delta
-  // matches the midpoint quadrature of a linear potential exactly.
-  if c.Port==behavior.Balloon{elasticMid=(volume+vNext)/(2*c.BalloonComplianceM3PerPa)}
   resistiveDrop:=c.ResistancePaSPerM3*q
   pressure:=resistiveDrop+elasticMid
   loss:=c.ResistancePaSPerM3*q*q*dt
