@@ -1,0 +1,47 @@
+name: "Research · Respiratory mechanics-to-audio adapter R055"
+on:
+  pull_request:
+    paths:
+      - "research/respiratory-vocal/**"
+      - ".github/workflows/research-respiratory-mechanics-audio-r055.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  native-public-source-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Pin public source checkout, no retained credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Native Go race, vet, integration and controlled machine-readable evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          cd research/respiratory-vocal
+          go test -race -count=1 ./...
+          go vet ./...
+          go run ./cmd/coupled-performance > "$RUNNER_TEMP/research-receipts.json"
+          python3 - "$RUNNER_TEMP/research-receipts.json" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as f: report=json.load(f)
+          assert report["schema"]=="respiratory.coupled_synthetic_batch.v0"
+          assert len(report["cases"])==17
+          assert sum(c["audio"]["rms_fraction_full_scale"]==0 for c in report["cases"])==1
+          assert all(c["mechanics"]["schema"]=="respiratory.resistance_compliance.v0" for c in report["cases"])
+          assert all(c["audio"]["wav_sha256"] and c["audio"]["peak_fraction_full_scale"]<.99 for c in report["cases"])
+          assert all(c["mechanics"]["max_abs_energy_residual_j"]<1e-9 for c in report["cases"])
+          print("PASS 17 source-unchanged synthetic cases with checked RC energy and source-bound WAV SHA; not real lungs")
+          PY
+          sha256sum "$RUNNER_TEMP/research-receipts.json"
