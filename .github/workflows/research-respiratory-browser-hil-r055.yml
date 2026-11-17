@@ -1,0 +1,68 @@
+name: "Research · Respiratory actual Chrome browser and AX qualification R055"
+on:
+  pull_request:
+    paths:
+      - "research/respiratory-vocal/workbench/qa/**"
+      - ".github/workflows/research-respiratory-browser-hil-r055.yml"
+permissions:
+  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  source-only-native-chrome:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      GOPROXY: "off"
+      GOSUMDB: "off"
+      GOTOOLCHAIN: "local"
+    steps:
+      - name: Read-only source pinned checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Real headless Chrome, actual Go local source, typed API and browser AX tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          node --version
+          cd research/respiratory-vocal
+          go test -race -count=1 ./...
+          go vet ./...
+          go build -o "$RUNNER_TEMP/respiratory-workbench" ./cmd/respiratory-workbench
+          if "$RUNNER_TEMP/respiratory-workbench" -listen 0.0.0.0:9876 >/dev/null 2>&1; then
+            echo "ERROR: unsafe network bind admitted"; exit 1
+          fi
+          "$RUNNER_TEMP/respiratory-workbench" -listen 127.0.0.1:8766 > "$RUNNER_TEMP/go-loopback.log" 2>&1 &
+          app_pid=$!
+          chrome_bin="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          [[ -n "$chrome_bin" ]] || { echo "ERROR: native Chrome absent; do not claim browser HIL"; exit 1; }
+          "$chrome_bin" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --no-first-run --disable-default-apps --remote-debugging-port=9222 \
+            --remote-debugging-address=127.0.0.1 --remote-allow-origins='*' \
+            --user-data-dir="$RUNNER_TEMP/chrome-profile" about:blank > "$RUNNER_TEMP/chrome.log" 2>&1 &
+          chrome_pid=$!
+          trap 'kill "$app_pid" "$chrome_pid" 2>/dev/null || true' EXIT
+          if node -e 'process.exit(typeof WebSocket==="function"?0:1)'; then
+            BROWSER_SCREENSHOT_PATH="$RUNNER_TEMP/browser-320.png" \
+              node workbench/qa/browser-cdp.mjs > "$RUNNER_TEMP/native-browser-receipt.json"
+          else
+            BROWSER_SCREENSHOT_PATH="$RUNNER_TEMP/browser-320.png" \
+              node --experimental-websocket workbench/qa/browser-cdp.mjs > "$RUNNER_TEMP/native-browser-receipt.json"
+          fi
+          python3 - "$RUNNER_TEMP/native-browser-receipt.json" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as f: r=json.load(f)
+          assert r["schema"]=="respiratory.browser_source_hil.v0"
+          assert r["passed"]>=10
+          assert r["actions"]==18 and r["scenarios"]==17 and r["unavailable"]==3
+          assert r["viewportWidths"]==[375,320]
+          assert r["screenshotBytes"]>800
+          assert r["browser"]=="chrome_headless_CDP"
+          print("PASS native Chrome DOM/AX with 320/375px, Thai labels, contract-only disabled, no autoplay; NOT actual screen reader HIL")
+          PY
+          sha256sum "$RUNNER_TEMP/native-browser-receipt.json" "$RUNNER_TEMP/browser-320.png"
