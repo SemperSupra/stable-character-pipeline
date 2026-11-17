@@ -40,7 +40,7 @@ jobs:
           assert len(report["cases"])==17
           assert sum(c["audio"]["rms_fraction_full_scale"]==0 for c in report["cases"])==1
           assert all(c["mechanics"]["schema"]=="respiratory.resistance_compliance.v0" for c in report["cases"])
-          assert all(c["audio"]["wav_sha256"] and c["audio"]["peak"]<.99 for c in report["cases"])
+          assert all(c["audio"]["wav_sha256"] and c["audio"]["peak_fraction_full_scale"]<.99 for c in report["cases"])
           assert all(c["mechanics"]["max_abs_energy_residual_j"]<1e-9 for c in report["cases"])
           print("PASS 17 source-unchanged synthetic cases with checked RC energy and source-bound WAV SHA; not real lungs")
           PY
