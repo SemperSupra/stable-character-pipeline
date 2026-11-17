@@ -115,6 +115,18 @@ def run(root,lane):
         bs=Vector(before[0][0]);as_=Vector(after[0][0])
         motion_baseline=Vector(before[-1][0])-bs
         motion_imported=Vector(after[-1][0])-as_
+        # Preserve original strict failed gate; print a bounded source-only diagnostic
+        # before it. First actual GHA #44040646685 was RED in both variants.
+        diag={"native_before_start":before[0],"native_before_end":before[-1],
+              "imported_after_start":after[0],"imported_after_end":after[-1],
+              "source_motion":motion_baseline.length,
+              "imported_motion":motion_imported.length,
+              "imported_rig_bones":[b.name for b in rig2.pose.bones],
+              "imported_object":obj.name,
+              "object_modifiers":[m.type for m in obj.modifiers],
+              "imported_action_frame_range":list(rig2.animation_data.action.frame_range),
+              "glb":glb}
+        print("R3_DIAGNOSTIC_SOURCE_SAFE",json.dumps(diag,sort_keys=True),flush=True)
         assert motion_baseline.length>.5 and motion_imported.length>.5,"GLB frozen skin"
         max_relative=0.0
         max_intrinsic=0.0
