@@ -2,7 +2,39 @@ import copy
 import unittest
 
 import audit
-from skinprobe.test_audit import fixture as parent_fixture
+def parent_fixture():
+    bind=[[0.01*i,0.0,1.0+i/100] for i in range(audit.lbs.VERTICES)]
+    weights=[[0.5,0.5] for _ in bind]
+    faces=[]
+    for row in range(audit.lbs.RINGS-1):
+        for k in range(audit.lbs.SIDES):
+            a=row*audit.lbs.SIDES+k
+            b=row*audit.lbs.SIDES+(k+1)%audit.lbs.SIDES
+            faces.append([a,b,b+audit.lbs.SIDES,a+audit.lbs.SIDES])
+    identity=[float(i==j) for i in range(4) for j in range(4)]
+    source={
+        "vertex_bind":bind,"weights":weights,"faces":faces,
+        "bone_names":["root","tip"],
+        "bone_rest_matrices":{"root":identity,"tip":identity},
+        "rest_mesh_sha256":audit.lbs.canonical_hash({
+            "vertices":bind,"faces":faces,"weights":weights}),
+    }
+    cam={"type":"PERSP","lens_mm":65.0,"sensor_width_mm":36.0,
+         "resolution":[256,256],"shift_x":0.0,"shift_y":0.0}
+    return {
+        "schema":"r072.synthetic.skinning.native.v1",
+        "status":"NATIVE_ARMATURE_SOURCE_CAPTURE_PENDING_INDEPENDENT_LBS_EXR",
+        "rights":"ORIGINAL_SYNTHETIC",
+        "qualification":"NOT_REAL_PERSON_OR_MAKEHUMAN_SKINNING",
+        "source_scene_id":"original-synthetic-head-v1",
+        "motion_type":"TWO_BONE_LINEAR_BLEND_SKINNING_NO_HUMAN",
+        "original_source_script_sha256":audit.sha(audit.ROOT/"renderlab"/"synthetic_scene.py"),
+        "perspective_script_sha256":audit.sha(audit.ROOT/"perspprobe"/"scene.py"),
+        "rig_object_name":"r072-original-weighted-sleeve",
+        "rig_object_id":3,
+        "camera":cam,"camera_sha256":audit.perspective.canonical_hash(cam),
+        "source":source,"frames":{"0":{},"1":{},"2":{}},
+    }
 
 def fixture():
     p=parent_fixture()
