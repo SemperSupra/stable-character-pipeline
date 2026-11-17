@@ -93,6 +93,12 @@ def cubic(v0, v1, u):
     return 3 * (1-u)**2 * u * v0 + 3 * (1-u) * u*u * v1 + u**3
 
 def curve_at(t, curve):
+    # Endpoint invariants are exact; interior x inversion uses bounded bisection.
+    # First hosted RED #44037581312 approached endpoints asymptotically instead.
+    if t <= 0.0:
+        return 0.0
+    if t >= 1.0:
+        return 1.0
     x1,y1,x2,y2 = (v/127.0 for v in curve)
     assert 0 <= x1 <= x2 <= 1 and 0 <= y1 <= y2 <= 1
     lo,hi=0.0,1.0
