@@ -1,0 +1,108 @@
+name: R062 authored normal versus native Cycles synthetic qualification
+on:
+  pull_request:
+    paths:
+      - 'research/anatomy-native-mpfb/**'
+      - '.github/workflows/r062-authored-normal-cycles.yml'
+permissions:
+  contents: read
+jobs:
+  independent-native-evidence:
+    name: R062 / normal and pixels / ${{ matrix.rep }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        rep: [a, b]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Pinned official MPFB source and Blender native renderer
+        shell: bash
+        env:
+          SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -y install blender python3-numpy
+          blender --version | head -3
+          git -c protocol.version=2 clone -q --no-checkout --filter=blob:none https://github.com/makehumancommunity/mpfb2.git "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin "$SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
+          test -f "$RUNNER_TEMP/mpfb2/src/mpfb/data/3dobjs/base.obj"
+          blender --command extension build \
+            --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" \
+            --output-filepath "$RUNNER_TEMP/mpfb-pinned-extension.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned-extension.zip"
+      - name: Independent original synthetic native source and derived-only GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r062"
+          blender -b -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/official_mpfb_native.py -- \
+            --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r062"
+          blender -b "$RUNNER_TEMP/r062/mpfb-official-anatomy.blend" -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/morph_organ_coexport.py -- \
+            --out "$RUNNER_TEMP/r062"
+          test -s "$RUNNER_TEMP/r062/r044-morph-organ-allweights.glb"
+          python3 research/anatomy-native-mpfb/r060_proxy_index_canonical.py \
+            --source "$RUNNER_TEMP/r062/r044-morph-organ-allweights.glb" \
+            --derived "$RUNNER_TEMP/r062/derived-only.glb" \
+            --out "$RUNNER_TEMP/r062/r060.json"
+      - name: Authored glTF NORMAL association and mutation/winding oracles
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 research/anatomy-native-mpfb/r062_gltf_authored_normals.py \
+            --source "$RUNNER_TEMP/r062/r044-morph-organ-allweights.glb" \
+            --derived "$RUNNER_TEMP/r062/derived-only.glb" \
+            --out "$RUNNER_TEMP/r062/authored-normals.json"
+          grep -F '"status": "PASS_NARROW_AUTHORED_NORMAL_ASSOCIATION_INVARIANT"' "$RUNNER_TEMP/r062/authored-normals.json"
+          grep -F '"normal_mutation_rejected": true' "$RUNNER_TEMP/r062/authored-normals.json"
+      - name: Actual Blender native corner-normal diagnostic preserves earlier RED
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b --factory-startup -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/r061_blender_import.py -- \
+            --glb "$RUNNER_TEMP/r062/r044-morph-organ-allweights.glb" \
+            --out "$RUNNER_TEMP/r062/native-original.json"
+          blender -b --factory-startup -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/r061_blender_import.py -- \
+            --glb "$RUNNER_TEMP/r062/derived-only.glb" \
+            --out "$RUNNER_TEMP/r062/native-derived.json"
+          python3 research/anatomy-native-mpfb/r062_native_normal_delta.py \
+            --original "$RUNNER_TEMP/r062/native-original.json" \
+            --derived "$RUNNER_TEMP/r062/native-derived.json" \
+            --out "$RUNNER_TEMP/r062/native-delta.json"
+          grep -F '"status": "FAIL_NARROW_NATIVE_CORNER_NORMAL_STRICT_EQUALITY"' "$RUNNER_TEMP/r062/native-delta.json"
+          echo 'R062 native Blender shading NOT QUALIFIED despite source-authored NORMAL invariance'
+      - name: Two separate native seeded CPU Cycles 128x128 renders, ephemeral pixels
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b --factory-startup -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/r062_blender_render.py -- \
+            --glb "$RUNNER_TEMP/r062/r044-morph-organ-allweights.glb" \
+            --out "$RUNNER_TEMP/r062/original-render.json" \
+            --pixels "$RUNNER_TEMP/r062/original.rgba8"
+          blender -b --factory-startup -t 2 --python-exit-code 12 \
+            --python research/anatomy-native-mpfb/r062_blender_render.py -- \
+            --glb "$RUNNER_TEMP/r062/derived-only.glb" \
+            --out "$RUNNER_TEMP/r062/derived-render.json" \
+            --pixels "$RUNNER_TEMP/r062/derived.rgba8"
+          python3 research/anatomy-native-mpfb/r062_compare_render.py \
+            --original "$RUNNER_TEMP/r062/original-render.json" \
+            --derived "$RUNNER_TEMP/r062/derived-render.json" \
+            --original-pixels "$RUNNER_TEMP/r062/original.rgba8" \
+            --derived-pixels "$RUNNER_TEMP/r062/derived.rgba8" \
+            --out "$RUNNER_TEMP/r062/raster-parity.json"
+          grep -F '"pixel_mutation_detected": true' "$RUNNER_TEMP/r062/raster-parity.json"
+          echo 'R062 renderer receipt emitted; PASS_NARROW only if exact 8-bit pixels, otherwise explicit FAIL_NARROW retained'
+          echo 'No PNG, raw pixels, GLB, BLEND, licensed or protected assets uploaded'
