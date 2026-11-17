@@ -100,7 +100,15 @@ if __name__=="__main__":
     p.add_argument("--upstream",type=pathlib.Path,required=True)
     p.add_argument("--lane",choices=("nonlinear","linear"),required=True)
     a=p.parse_args()
-    run(a.upstream,a.lane)
+    try:
+        run(a.upstream,a.lane)
+    except BaseException:
+        # A prior source-native Blender Python-wheel failure can hang on teardown.
+        # Preserve the exact first traceback and exit nonzero; never hide RED.
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush();sys.stderr.flush()
+        os._exit(1)
     sys.stdout.flush();sys.stderr.flush()
     # Prior source-native Blender Python-wheel process hung on interpreter shutdown.
     os._exit(0)
