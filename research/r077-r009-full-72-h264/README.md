@@ -1,0 +1,9 @@
+# R077-B — Full 72-frame original-synthetic Blender/H264 qualification
+
+Under private [R009 MVP #23](https://github.com/SemperSupra/stable-character-pipeline-private/issues/23) and public #272, this independent workcell stacks on public [R074 #637](https://github.com/SemperSupra/stable-character-pipeline/pull/637) at frozen SHA `895a6057bd87fe11b3bfa3c2cf6712f2d3d49e4d`. It adds no changes to the original two-person fixture or owning producer.
+
+R074's legitimate native scene opened, rendered and reopened, but the H264 contains **three** images rather than 72. R077-B tests source-only 72-frame manifests separately and runs actual SHA-pinned Blender 4.5.15 on standard public Ubuntu CPU: original fictional GLB -> R074 editable Blender save -> *second fresh scripts-disabled Blender process* -> all 72 320x180 images rendered at 12fps -> FFmpeg real H264 -> independently decoded 72-frame FFmpeg framemd5 validation. Raw model/video/Blender assets **stay in runner scratch**; only small JSON SHA receipts upload, 3 days. Invalid saved SHA, wrong scene frame clock, missing actors, missing floor, static or omitted frames fail.
+
+Status is necessarily `HOLD_NATIVE_GAIT_CONTACT_AND_REAL_CHARACTER_RIGHTS`. This demonstrates a reusable technical complete-film source chain on original fictitious actors, **not** Naomi/Alison, actual human foot skating, anatomical suitability, character identity, source license, real person rights, accessible interfaces or release.
+
+Reproduction (source-only): `cd research/r077-r009-full-72-h264 && python3 -m unittest -v test_render_contract`. Native execution is bounded to a disposable public runner after source-only admission, preserving exact first failures and no threshold waivers. Reconcile terminal provider status to private R009 #23 and public #272; never claim source tests imply native video execution.
