@@ -156,6 +156,10 @@ func main(){
  if err:=json.Unmarshal(raw,&o);err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(12)}
  r,err:=audit(*lane,o)
  r.FirstSHA=sha(*first);r.SecondSHA=sha(*second)
+ if r.FirstSHA==""||r.SecondSHA==""||o.Frame1SHA!=r.FirstSHA||o.Frame2SHA!=r.SecondSHA||
+    o.Schema!="scp.r070.similarity-camera.v1"||o.SourceSHA!=os.Getenv("GITHUB_SHA"){
+  r.Status="UNKNOWN";r.Reason="R070_SOURCE_OR_DECODED_FRAMES_SHA_BINDING_MISMATCH";err=errors.New(r.Reason)
+ }
  b,_:=json.Marshal(r);fmt.Println(string(b))
  if err!=nil{os.Exit(12)}
 }
