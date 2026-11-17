@@ -47,6 +47,23 @@ jobs:
             --user-data-dir="$RUNNER_TEMP/chrome-profile" about:blank > "$RUNNER_TEMP/chrome.log" 2>&1 &
           chrome_pid=$!
           trap 'kill "$app_pid" "$chrome_pid" 2>/dev/null || true' EXIT
+          echo "Chrome executable: $chrome_bin"
+          "$chrome_bin" --version || true
+          chrome_ready=0
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 1 http://127.0.0.1:9222/json/version > "$RUNNER_TEMP/cdp-version.json" 2>/dev/null; then
+              chrome_ready=1; break
+            fi
+            sleep .25
+          done
+          if [[ "$chrome_ready" -ne 1 ]]; then
+            echo "ERROR: Chrome CDP did not bind loopback, preserved native environment evidence:"
+            tail -100 "$RUNNER_TEMP/chrome.log" || true
+            ps -p "$chrome_pid" -o pid,stat,args || true
+            ls -la "$RUNNER_TEMP/chrome-profile" || true
+            exit 1
+          fi
+          echo "CDP loopback endpoint ready (startup and authority only, no browser validation yet)"
           if node -e 'process.exit(typeof WebSocket==="function"?0:1)'; then
             BROWSER_SCREENSHOT_PATH="$RUNNER_TEMP/browser-320.png" \
               node workbench/qa/browser-cdp.mjs > "$RUNNER_TEMP/native-browser-receipt.json"
