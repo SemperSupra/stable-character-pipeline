@@ -1,0 +1,55 @@
+name: SCP N08 source-safe state CAS bakeoff
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'research/n08-gate/**'
+      - '.github/workflows/scp-n08-cas.yml'
+permissions:
+  contents: read
+jobs:
+  linux-race:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Go race and finite-state negatives
+        working-directory: research/n08-gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          go version
+          go test -race -count=1 -v ./...
+          go vet ./...
+          go run ./cmd/receipt > "$GITHUB_WORKSPACE/n08-linux.json"
+          python3 -m json.tool "$GITHUB_WORKSPACE/n08-linux.json" > /dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scp-n08-linux
+          path: n08-linux.json
+          retention-days: 3
+          if-no-files-found: error
+  windows-interop:
+    runs-on: windows-2022
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Native Windows Go tests and structured receipt
+        working-directory: research/n08-gate
+        shell: pwsh
+        run: |
+          go version
+          go test -count=1 -v ./...
+          if ($LASTEXITCODE -ne 0) { exit 12 }
+          go vet ./...
+          if ($LASTEXITCODE -ne 0) { exit 12 }
+          go run ./cmd/receipt | Out-File -Encoding utf8 "$env:GITHUB_WORKSPACE/n08-windows.json"
+          if ($LASTEXITCODE -ne 0) { exit 12 }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scp-n08-windows
+          path: n08-windows.json
+          retention-days: 3
+          if-no-files-found: error
