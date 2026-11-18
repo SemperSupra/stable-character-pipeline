@@ -1,0 +1,23 @@
+name: R091 synthetic fidelity contract qualification
+on:
+  pull_request:
+    paths:
+      - 'research/r091-fidelity-contract/**'
+      - '.github/workflows/r091-fidelity-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-controls:
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [morphology, wardrobe, tissue]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run source-safe hostile controls
+        run: python3 research/r091-fidelity-contract/test_contract.py --lane "${{ matrix.lane }}"
