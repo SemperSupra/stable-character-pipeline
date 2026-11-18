@@ -33,9 +33,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # GitHub ubuntu-24.04 runner already has package indices.
-          # Bound transient mirror/dpkg stalls rather than burning the job budget.
-          timeout 180s sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends blender python3-numpy
+          # Stale runner apt lists can reference packages already removed by mirrors.
+          # Refresh with bounded retries, then use a bounded install.
+          timeout 150s sudo apt-get -o Acquire::Retries=2 update -qq
+          timeout 180s sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 install -y --no-install-recommends blender python3-numpy
           blender --version | head -n 3
           blender --background --factory-startup --disable-autoexec --python-expr 'import numpy; print("BLENDER NUMPY", numpy.__version__)'
       - name: Execute original synthetic Boolean/transform/topology fixture
