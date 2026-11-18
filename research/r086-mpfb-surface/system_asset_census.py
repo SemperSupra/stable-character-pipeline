@@ -22,7 +22,7 @@ def candidate_record(path,blob):
  lines=blob.decode("utf8","replace").splitlines()[:100]
  headers=[l.strip()[:180] for l in lines if "license" in l.lower()][:8]
  states=[l.lower().replace(":"," ").strip() for l in headers]
- explicit=any(re.match(r"^#?\s*license\s+cc[- ]?0(?:\s|$)",s) for s in states)
+ explicit=any(re.match(r"^#?\s*license\s+cc[- ]?0(?:\s|$)",s) or re.match(r"^#?\s*this asset was explicitly released as cc[- ]?0\b",s) for s in states)
  conflict=any("agpl" in s or re.search(r"\bgpl\d",s) for s in states)
  return {"path":path,"sha256":hashlib.sha256(blob).hexdigest(),
          "license_headers":headers,"header_cc0":explicit and not conflict,
