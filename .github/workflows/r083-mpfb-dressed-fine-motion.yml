@@ -55,6 +55,9 @@ jobs:
           if ! command -v xvfb-run >/dev/null; then
             timeout 180 sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install xvfb xauth
           fi
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            timeout 180 sudo env DEBIAN_FRONTEND=noninteractive apt-get -y -qq install ffmpeg
+          fi
           command -v ffmpeg
           command -v ffprobe
           command -v xvfb-run
