@@ -57,15 +57,20 @@ jobs:
           import sys, trimesh, json
           asset = trimesh.load(sys.argv[1], force='scene', process=False)
           meshes = [m for m in asset.dump() if isinstance(m, trimesh.Trimesh)]
-          assert len(meshes) == 1, f"Unexpected selected geometry count: {len(meshes)}"
-          mesh = meshes[0]
+          assert meshes, "GLB contained no visible geometry"
+          # glTF may store a single result in multiple mesh primitives.
+          # Test actual geometry, not arbitrary exporter packing.
+          mesh = trimesh.util.concatenate(meshes)
+          source_vertices = len(mesh.vertices)
+          mesh.merge_vertices(digits_vertex=7)
           parts = mesh.split(only_watertight=False)
-          assert len(parts) == 2, f"OpenGLTF consumer lost a disconnected part: {len(parts)}"
+          assert len(parts) == 2, f"GLB lost/duplicated components: {len(parts)}; meshes={len(meshes)}"
           assert mesh.bounds[1][0] > 1.809, mesh.bounds
           assert all(part.is_watertight for part in parts), "GLB components not watertight"
+          assert abs(mesh.volume - 4.1719986) < .03, f"GLB geometry unexpected volume: {mesh.volume}"
           print("R97 INDEPENDENT GLB PASS", json.dumps({
               "meshes": len(meshes), "components": len(parts),
-              "vertices": len(mesh.vertices), "faces": len(mesh.faces),
+              "vertices": len(mesh.vertices), "unwelded_vertices": source_vertices, "faces": len(mesh.faces),
               "bounds": mesh.bounds.tolist(),
           }, sort_keys=True))
           PY
