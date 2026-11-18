@@ -1,0 +1,45 @@
+name: SCP N04B nonplanar triangle parity public CPU
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'research/n04b-nonplanar/**'
+      - '.github/workflows/scp-n04b-nonplanar.yml'
+permissions:
+  contents: read
+jobs:
+  independent-geometry-oracle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Ericson reference adversarial correctness
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n04b-nonplanar -p test_nonplanar_oracle.py -v
+  actual-library-comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Pin source-clean CPU dependencies
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/n04b"
+          "$RUNNER_TEMP/n04b/bin/python" -m pip install --only-binary=:all: --no-cache-dir open3d-cpu==0.19.0 scipy==1.15.3 numpy==2.2.6
+      - name: Measure three nonplanar deformations
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          "$RUNNER_TEMP/n04b/bin/python" research/n04b-nonplanar/bakeoff.py > receipts/n04b.json
+          python3 -m json.tool receipts/n04b.json >/dev/null
+          cat receipts/n04b.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: n04b-nonplanar-synthetic-receipt
+          path: receipts/n04b.json
+          retention-days: 3
+          if-no-files-found: ignore
