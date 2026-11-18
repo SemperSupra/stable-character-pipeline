@@ -1,0 +1,43 @@
+name: R086 official MakeHuman CC0 system appearance asset census
+on:
+  push:
+    branches: [research/r086-mpfb-system-surface-census-20261118]
+    paths:
+      - 'research/r086-mpfb-surface/**'
+      - '.github/workflows/r086-mpfb-surface-census.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r086-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-license-hostile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - run: |
+          set -euo pipefail
+          cd research/r086-mpfb-surface
+          python3 -m unittest -v test_system_asset_census
+          python3 -m py_compile system_asset_census.py test_system_asset_census.py
+  official-system-pack-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Read-only publisher SHA-pinned original system pack eyes hair skin metadata
+        run: |
+          set -euo pipefail
+          python3 research/r086-mpfb-surface/system_asset_census.py --out "$RUNNER_TEMP/r086-system-pack.json"
+      - name: Upload official metadata-only source license and inventory receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r086-surface-census-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/r086-system-pack.json
+          retention-days: 3
+          if-no-files-found: ignore
