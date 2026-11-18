@@ -1,0 +1,45 @@
+name: SCP N05 synthetic morphometry Jacobian inverse CPU
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'research/n05-inverse/**'
+      - '.github/workflows/scp-n05-inverse.yml'
+permissions:
+  contents: read
+jobs:
+  independent-differential-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Exact analytic Jacobian numerical negative controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n05-inverse -p test_morphology_contract.py -v
+  numerical-inverse-comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Pinned CPU numerical libraries
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/n05venv"
+          "$RUNNER_TEMP/n05venv/bin/python" -m pip install --only-binary=:all: --no-cache-dir numpy==2.2.6 scipy==1.15.3
+      - name: Inverse optimization cross-check and evidence
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          "$RUNNER_TEMP/n05venv/bin/python" research/n05-inverse/bakeoff.py > receipts/n05-inverse.json
+          python3 -m json.tool receipts/n05-inverse.json > /dev/null
+          cat receipts/n05-inverse.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: n05-original-synthetic-inverse
+          path: receipts/n05-inverse.json
+          retention-days: 3
+          if-no-files-found: ignore
