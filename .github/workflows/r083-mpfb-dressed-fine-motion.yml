@@ -35,11 +35,29 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with: {persist-credentials: false}
-      - name: Disposable Blender and software renderer
+      - name: Pinned upstream standalone Blender 4.5.16, bounded OS dependencies
         run: |
           set -euo pipefail
-          sudo apt-get -qq update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy libegl1 libgl1 libgl1-mesa-dri libgbm1 xvfb xauth curl
+          mkdir -p "$RUNNER_TEMP/r083-standalone"
+          cd "$RUNNER_TEMP/r083-standalone"
+          base="https://download.blender.org/release/Blender4.5"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "$(printf '%s' "$hash" | wc -c)" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r083-standalone" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          "$bin" --version | head -2
+          "$bin" --background --python-expr 'import numpy;print("R083_EMBEDDED_NUMPY",numpy.__version__)'
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+          if ! command -v xvfb-run >/dev/null; then
+            timeout 180 sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install xvfb xauth
+          fi
+          command -v ffmpeg
+          command -v ffprobe
+          command -v xvfb-run
       - name: Exact original official MakeHuman/MPFB code and CC0 core
         env:
           SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
