@@ -1,0 +1,50 @@
+name: SCP N04 nearest vertex vs Open3D triangle CPU
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'research/n04-surface/**'
+      - '.github/workflows/scp-n04-surface.yml'
+permissions:
+  contents: read
+jobs:
+  source-truth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Independent no-dependency analytic geometry tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n04-surface -p test_geometry_contract.py -v
+          python3 -m py_compile research/n04-surface/geometry_contract.py
+  library-bakeoff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Pinned third-party public CPU packages in ephemeral venv
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/n04venv"
+          "$RUNNER_TEMP/n04venv/bin/python" -m pip install --only-binary=:all: --no-cache-dir open3d-cpu==0.19.0 scipy==1.15.3 numpy==2.2.6
+          "$RUNNER_TEMP/n04venv/bin/python" -m pip freeze | grep -E '^(open3d-cpu|scipy|numpy)==' | tee "$RUNNER_TEMP/n04-package-pins.txt"
+      - name: Independent analytic oracle vs battle-tested query implementations
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/n04"
+          "$RUNNER_TEMP/n04venv/bin/python" research/n04-surface/bakeoff.py > "$RUNNER_TEMP/n04/n04-surface.json"
+          python3 -m json.tool "$RUNNER_TEMP/n04/n04-surface.json" > /dev/null
+          cat "$RUNNER_TEMP/n04/n04-surface.json"
+      - name: Upload synthetic receipt only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n04-surface-numeric-qualification
+          path: ${{ runner.temp }}/n04/*.json
+          retention-days: 3
+          if-no-files-found: ignore

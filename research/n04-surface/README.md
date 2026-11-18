@@ -1,0 +1,9 @@
+# N04 — True triangle-surface vs nearest vertex, public $0 CPU trial
+
+This is an original, analytic, source-clean synthetic geometry falsifier only. Existing private R009 Naomi template fitting uses SciPy cKDTree nearest-**vertex** matching; this workcell independently compares SciPy `cKDTree` (version 1.15.3) with Open3D CPU RaycastingScene `compute_closest_points` (version 0.19.0). The fixture is a known `z=0` square triangulated 20x20 (441 vertices, 800 faces), 4,101 exact seeded points including outside/edge/mid-triangle cases, and a separate double-precision closest-point analytic oracle.
+
+Pass requires Open3D's triangle closest-distance error under 20µm against that oracle and demonstrable systematic error from using vertices. Performance uses five warmed per-method query repetitions, but cannot be compared as whole-pipeline performance until matching real topology/rig/UV/attribute constraints, initialization and setup cost are included.
+
+Public Linux standard hosted runner (8-15 min max), Python 3.12 venv, binary wheels only, pinned package versions. External wheel *source hashes not yet admitted*; only public disposable synthetic workload allowed. A second independent job runs a pure Python 3 stdlib analytic oracle with negative tests, no pip downloads. No protected identities/models, source-derived mesh, private GHA, paid acceleration, UI, new asset capture, or actual character registration/adoption. Numeric JSON receipts are short lived. Source authority Product #2/R032 #166/R009 #23, workplan #650; keep RED and first failure; release HOLD.
+
+Future: held-out nonplanar, multi-region deforming meshes, true triangle signed distance/ARAP against standalone libigl, topology/UV/skin/differential reimport, actual native Blender and identity source only after independent rights and private execution qualification. No ARAP method is claimed implemented here.
