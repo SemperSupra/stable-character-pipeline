@@ -27,6 +27,16 @@ def source_centers(frame):
     require(type(frame) is int and 0<=frame<FRAMES,"FRAME_OUT_OF_RANGE")
     progress=frame/(FRAMES-1)
     return (-3.35+2.56*progress,3.35-2.56*progress)
+def validate_shape_metrics(m):
+    require(isinstance(m,dict),"SHAPE_METRICS_MISSING")
+    require(set(m)=={"bbox_x_over_height","bbox_y_over_height","leg_segments","measured_from","anatomical_landmark_centres_accepted"},"SHAPE_METRICS_SCHEMA_DRIFT")
+    require(m["measured_from"]=="EVALUATED_SAVED_MPF_BODY_AND_NATIVE_REST_RIG","NON_NATIVE_GEOMETRY_FIT")
+    require(m["anatomical_landmark_centres_accepted"] is False,"FALSE_ANATOMY_ACCEPTANCE")
+    require(all(type(m[k]) in (int,float) and math.isfinite(m[k]) and 0<m[k]<10 for k in ("bbox_x_over_height","bbox_y_over_height")),"INVALID_BODY_METRIC")
+    leg=m["leg_segments"]
+    require(isinstance(leg,dict) and set(leg)=={"upper_L_over_height","upper_R_over_height","lower_L_over_height","lower_R_over_height"},"LEG_SEGMENT_KEYS_DRIFT")
+    require(all(type(v) in (int,float) and math.isfinite(v) and 0<v<10 for v in leg.values()),"INVALID_LEG_METRIC")
+    return True
 def validate_receipt(r):
     require(r.get("schema")==SCHEMA,"WRONG_SCHEMA")
     require(r.get("source_class")=="ORIGINAL_FICTIONAL_MPFBCORE_CC0","NOT_SOURCE_SAFE")
@@ -35,5 +45,6 @@ def validate_receipt(r):
     require([x["name"] for x in r["actors"]]==[x["name"] for x in PROFILES],"SOURCE_ACTOR_NAMES_DRIFT")
     require(all(x["bones"]>=100 and x["body_vertices"]>10000 for x in r["actors"]),"NOT_REAL_MPF_FRONTEND_RIG")
     require(all(x["rest_pose_sha256"]!=x["mid_pose_sha256"] for x in r["actors"]),"NOT_DEFORMING_REAL_MPF_BODIES")
+    require(all(validate_shape_metrics(x.get("native_body_shape_metrics")) for x in r["actors"]),"NOT_MEASURED_ACTOR_SHAPES")
     require(all(not r.get(k,True) for k in ("photoreal_accepted","gait_accepted","real_identity_accepted","mvp_accepted","release_authorized")),"FALSE_PRODUCT_ACCEPTANCE")
     return True
