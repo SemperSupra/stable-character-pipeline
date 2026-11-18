@@ -100,7 +100,7 @@ jobs:
           source="$RUNNER_TEMP/r082/aster-juniper-cc0-native-wardrobe.blend"
           source_sha="$(sha256sum "$source" | cut -d ' ' -f1)"
           blender -b "$source" -t 2 --python-exit-code 12 --python research/r085-floor-correction/native_floor_correct.py -- --stage build --scene "$source" --source-sha "$source_sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --out "$RUNNER_TEMP/r085"
-      - name: Separate Blender process: remeasure floor penetration without accepting gait
+      - name: Independent Blender process remeasures floor penetration without accepting gait
         run: |
           set -euo pipefail
           scene="$RUNNER_TEMP/r085/r085-floor-lift-candidate.blend"
