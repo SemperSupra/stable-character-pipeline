@@ -1,0 +1,92 @@
+name: R081 24fps native MPFB fine gait and tissue deformation
+on:
+  push:
+    branches: [research/r081-mpfb-fine-motion-tissue-20261118]
+    paths:
+      - 'research/r081-mpfb-fine-motion/**'
+      - '.github/workflows/r081-mpfb-fine-motion.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r081-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-hostile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Original-fictional phase and tissue deterministic tests
+        run: |
+          set -euo pipefail
+          cd research/r081-mpfb-fine-motion
+          python3 -m unittest -v test_fine_motion
+          python3 -m py_compile fine_motion.py native_fine_tissue.py
+  native-fine-film:
+    runs-on: ubuntu-latest
+    timeout-minutes: 27
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Install disposable Blender, FFmpeg and virtual display
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install blender python3-numpy ffmpeg libegl1 libgl1 libgl1-mesa-dri libgbm1 xvfb xauth
+          blender --version | head -2
+      - name: Pin official CC0 MPFB source and install extension
+        env:
+          SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin "$SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = d26635e9326e3cca30778fd7b9c00062b03cce09
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+      - name: Reproduce immutable 72-frame two-human official native baseline
+        run: |
+          set -euo pipefail
+          blender -b -t 2 --python-exit-code 12 --python research/r078-r009-mpfb-pair/makehuman_pair.py -- --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r078"
+      - name: Native 144-frame actual rig plus signed soft-tissue morph-key animation
+        run: |
+          set -euo pipefail
+          base="$RUNNER_TEMP/r078/aster-juniper-official-mpfb.blend"
+          base_sha="$(sha256sum "$base" | cut -d ' ' -f1)"
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 blender -b "$base" -t 2 --python-exit-code 12 --python research/r081-mpfb-fine-motion/native_fine_tissue.py -- --stage build --baseline-sha "$base_sha" --out "$RUNNER_TEMP/r081"
+      - name: Fresh-process shape-key/skin witness, three stills and full 144 native frames
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r081/aster-juniper-r081-fine-tissue.blend"
+          scene_sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          xvfb-run -a -s "-screen 0 1280x720x24" env LIBGL_ALWAYS_SOFTWARE=1 blender -b "$scene" -t 2 --python-exit-code 12 --python research/r081-mpfb-fine-motion/native_fine_tissue.py -- --stage verify --scene "$scene" --scene-sha "$scene_sha" --out "$RUNNER_TEMP/r081" --full-video
+          test "$(find "$RUNNER_TEMP/r081/frames" -name 'frame_*.png' | wc -l)" -eq 144
+      - name: Encode and independently decode 144 frames to H264
+        run: |
+          set -euo pipefail
+          ffmpeg -hide_banner -loglevel error -y -framerate 24 -i "$RUNNER_TEMP/r081/frames/frame_%04d.png" -c:v libx264 -pix_fmt yuv420p "$RUNNER_TEMP/r081/fictional-fine-gait.mp4"
+          frames="$(ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of default=noprint_wrappers=1:nokey=1 "$RUNNER_TEMP/r081/fictional-fine-gait.mp4")"
+          test "$frames" = "144"
+          sha256sum "$RUNNER_TEMP/r081/fictional-fine-gait.mp4"
+          python3 - "$RUNNER_TEMP/r081" "$frames" <<'PY'
+          import json,pathlib,sys,hashlib
+          p=pathlib.Path(sys.argv[1]);v=p/"fictional-fine-gait.mp4"
+          r={"schema":"scp.r081.native-24fps-h264.v1","source_class":"ORIGINAL_FICTIONAL_MPFBCORE_CC0","video_sha256":hashlib.sha256(v.read_bytes()).hexdigest(),"frames_decoded":int(sys.argv[2]),"fps":24,"geometry_motion_accepted":False,"source_identity_accepted":False,"physics_accepted":False,"release_authorized":False}
+          (p/"video.json").write_text(json.dumps(r,indent=2,sort_keys=True)+"\n")
+          print("R081_H264_RECEIPT",json.dumps(r,sort_keys=True))
+          PY
+      - name: Upload JSON metadata only, never generated film, model or images
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r081-fine-motion-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/r081/*.json
+          retention-days: 3
+          if-no-files-found: ignore
