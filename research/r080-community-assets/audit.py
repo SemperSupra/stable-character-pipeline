@@ -20,7 +20,14 @@ def validate_zip(data,pack):
    if not i.is_dir():items.append(i)
   if z.testzip() is not None:raise ValueError("ZIP_CRC_FAILURE")
   assets=sorted(i.filename for i in items if i.filename.lower().endswith(".mhclo"))
-  return {"file_count":len(items),"expanded_bytes":total,"mhclo_count":len(assets),
+  # Inspect exactly the proposed wardrobe .mhclo metadata only; not geometry or textures.
+  license_headers={}
+  for s in CATALOG[pack]["candidates"]:
+   matched=[n for n in assets if s in n.lower()]
+   if matched:
+    lines=z.read(matched[0]).decode("utf8","replace").splitlines()[:80]
+    license_headers[s]=[line.strip()[:180] for line in lines if "license" in line.lower()][:4]
+  return {"candidate_license_headers":license_headers,"file_count":len(items),"expanded_bytes":total,"mhclo_count":len(assets),
           "selected_asset_present":{s:any(s in p.lower() for p in assets) for s in CATALOG[pack]["candidates"]},
           "sample_mhclo_paths":assets[:20],"per_file_license_admitted":False}
 def download(pack):
