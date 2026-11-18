@@ -1,0 +1,9 @@
+{
+  "schema_version": "r091.1",
+  "scope": "original-synthetic-controls-only",
+  "identity": {"id":"aster-fiction","morphology_landmarks_m":[0.11,0.28,0.41],"tolerances_m":[0.015,0.015,0.02]},
+  "appearance_state": {"version":"outfit-001","hair":"long-auburn-proxy","footwear":"heeled-proxy","upper":"fitted-top-proxy","lower":"denim-proxy"},
+  "wardrobe": {"rights":"CC0-explicit-file","ground_penetration_m":0.0,"planted_slide_m_s":0.015,"collision_count":0,"has_contact":true},
+  "tissue": {"sample_rate_hz":240,"displacements_m":[0.0,0.001,0.0006,0.0003],"calibrated":false},
+  "acceptance": {"morph_landmark_error_hard_max_m":0.02,"max_penetration_m":0.003,"max_stance_slide_m_s":0.05}
+}
