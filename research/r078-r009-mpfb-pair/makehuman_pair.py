@@ -44,7 +44,8 @@ def body_shape_metrics(body,rig):
           "leg_segments":leg,"measured_from":"EVALUATED_SAVED_MPF_BODY_AND_NATIVE_REST_RIG",
           "anatomical_landmark_centres_accepted":False}
  finally:e.to_mesh_clear()
-\ndef services():
+
+def services():
  import addon_utils
  mod="bl_ext.user_default.mpfb"
  if not addon_utils.check(mod)[1]:addon_utils.enable(mod,default_set=False,persistent=False)
