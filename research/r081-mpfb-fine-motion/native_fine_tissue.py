@@ -148,7 +148,10 @@ def verify(a):
     for sign in ("positive","negative"):
      if "R081_"+region+"_"+sign not in keys.key_blocks:fail("TISSUE_MORPH_LOST")
    sha,count=skinhash(body)
-   if count<10000:fail("EVALUATED_BODY_EMPTY")
+   raw_vertices=len(body.data.vertices)
+   if raw_vertices<19000:fail("NATIVE_SOURCE_BODY_TOPOLOGY_LOST")
+   if not (100<=count<=raw_vertices):fail("VISIBLE_DRESSED_SKIN_INVALID")
+   print("R083_DRESSED_SKIN_COUNTS",actor["name"],"source",raw_vertices,"evaluated_visible",count,flush=True)
    pair.append({"name":actor["name"],"skin_sha256":sha,"root_x":round(root.location.x,6),
                 "nonzero_tissue_controls":sum(1 for k in keys.key_blocks if k.name.startswith("R081_") and abs(k.value)>1e-7)})
   observations.append({"frame":frame,"actors":pair})
