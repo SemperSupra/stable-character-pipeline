@@ -49,6 +49,11 @@ def build(args):
  module="bl_ext.user_default.retarget_bvh"
  addon_utils.enable(module,default_set=False,persistent=False)
  if not addon_utils.check(module)[1]:abort("OFFICIAL_PINNED_RETARGETER_NOT_ENABLED")
+ from importlib import import_module
+ vendor=import_module(module)
+ vendor.setSilentMode(True)
+ from bl_ext.user_default.retarget_bvh.bsettings import BD
+ from bl_ext.user_default.retarget_bvh.utils import mcpRna
  if not hasattr(bpy.ops.mcp,"load_and_retarget"):abort("REAL_VENDOR_RETARGET_OPERATOR_MISSING")
  src=source_clip(args.source,args.clip)
  actors=[]
@@ -60,13 +65,23 @@ def build(args):
   bpy.ops.object.select_all(action="DESELECT")
   rig.hide_set(False)
   rig.select_set(True);bpy.context.view_layer.objects.active=rig
-  # Output of source-world name mapping, T-pose and retarget is third-party owned.
+  # Enforce publisher-provided MakeHuman mapping; auto rig recognition chose
+  # "breast.R" as shoulder and silently returned FINISHED with a vendor error.
+  BD.ensureInited(scene)
+  BD.ensureTargetInited(scene)
+  mcpRna(scene).TargetRig="MakeHuman"
+  mcpRna(scene).TargetTPose="Default"
+  prior_action=rig.animation_data.action if rig.animation_data else None
+  # Third-party operator may return FINISHED even after internal MocapError.
   out=bpy.ops.mcp.load_and_retarget(
    filepath=str(Path(args.clip).resolve()),useAllFrames=False,startFrame=1,endFrame=72,
-   useNLA=False,useBendPositive=False,useAutoTarget=True,
+   useNLA=False,useBendPositive=False,useAutoTarget=False,
    useDefaultSS=True,useSimplify=False,useTimeScale=False)
   if "FINISHED" not in out:abort("THIRD_PARTY_OPERATOR_NOT_FINISHED_"+name)
+  vendor_message=vendor.getErrorMessage()
+  if vendor_message.strip()!="BVH file(s) retargeted":abort("THIRD_PARTY_REPORTED_ERROR_"+name+"_"+vendor_message)
   if rig.animation_data is None or rig.animation_data.action is None:abort("NO_RETARGETED_NATIVE_ACTION_"+name)
+  if rig.animation_data.action==prior_action:abort("REUSED_OLD_ACTION_FALSE_POSITIVE_"+name)
   seen=[]
   for frame in (1,36,71):
    scene.frame_set(frame)
