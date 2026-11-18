@@ -82,17 +82,30 @@ def build(args):
   if vendor_message.strip()!="BVH file(s) retargeted":abort("THIRD_PARTY_REPORTED_ERROR_"+name+"_"+vendor_message)
   if rig.animation_data is None or rig.animation_data.action is None:abort("NO_RETARGETED_NATIVE_ACTION_"+name)
   if rig.animation_data.action==prior_action:abort("REUSED_OLD_ACTION_FALSE_POSITIVE_"+name)
+  action=rig.animation_data.action
+  first,last=tuple(float(x) for x in action.frame_range)
+  expected_duration=(src["frames"]-1)/src["source_fps"]
+  actual_duration=(last-first)/12.0
+  if not math.isfinite(actual_duration) or not 0.25<actual_duration<2.0:abort("RETARGETED_ACTION_CLOCK_INVALID_"+name)
+  if abs(actual_duration-expected_duration)>0.12:abort("RETARGETED_CLOCK_MISMATCH_"+name)
+  start=int(round(first));end=int(round(last))
+  if start<0 or end<=start or end>32:abort("RETARGETED_FRAME_RANGE_INVALID_"+name)
   seen=[]
-  for frame in (1,36,71):
+  for frame in (start,(start+end)//2,end):
    scene.frame_set(frame)
    data=observed(body)
    if data["vertices"]<10000:abort("NATIVE_MPF_BODY_EVALUATION_MISSING")
    seen.append({"frame":frame,"evaluated_body":data,"rig_pose_sha256":pose_fingerprint(rig)})
   if len(set(x["evaluated_body"]["sha256"] for x in seen))<2:abort("RETARGETED_RIG_BODY_NOT_MOVING_"+name)
   if len(set(x["rig_pose_sha256"] for x in seen))<2:abort("RETARGET_RIG_HAS_NO_POSE_CHANGES_"+name)
-  actors.append({"actor":name,"native_rig_bones":len(rig.data.bones),"native_action_name":rig.animation_data.action.name,
+  actors.append({"actor":name,"native_rig_bones":len(rig.data.bones),"native_action_name":action.name,
+      "source_duration_seconds":round(expected_duration,6),
+      "target_action_frame_range":[round(first,3),round(last,3)],
+      "target_action_duration_seconds":round(actual_duration,6),
       "samples":seen,"real_animated_target_geometry":True,"foot_contact_accepted":False})
- scene.frame_start=1;scene.frame_end=72
+ if abs(actors[0]["target_action_frame_range"][1]-actors[1]["target_action_frame_range"][1])>1:abort("TWO_ACTOR_CLOCK_DIVERGENCE")
+ scene.frame_start=int(round(actors[0]["target_action_frame_range"][0]))
+ scene.frame_end=int(round(actors[0]["target_action_frame_range"][1]))
  candidate=Path(args.out).with_suffix(".blend")
  bpy.ops.wm.save_as_mainfile(filepath=str(candidate.resolve()))
  result={"schema":"scp.r089.real-thirdparty-mpfb-retarget.v1",
