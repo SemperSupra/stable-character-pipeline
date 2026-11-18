@@ -10,6 +10,13 @@ class SourceOnly(unittest.TestCase):
  def test_explicit_cc0_header_candidate(self):
   x=candidate_record("hair/long01/long01.mhclo",b"# license CC0")
   self.assertTrue(x["header_cc0"]);self.assertFalse(x["catalog_header_conflict"])
+ def test_publisher_explicit_cc0_release_sentence(self):
+  x=candidate_record("hair/long01/long01.mhclo",b"# This asset was explicitly released as CC0 in september 2020. The license")
+  self.assertTrue(x["header_cc0"])
+  self.assertFalse(x["catalog_header_conflict"])
+ def test_publisher_notice_and_agpl_conflict_is_held(self):
+  x=candidate_record("hair/long01/long01.mhclo",b"# This asset was explicitly released as CC0 in september 2020. The license\n# license AGPL3")
+  self.assertFalse(x["header_cc0"])
  def test_agpl_header_rejected(self):
   x=candidate_record("hair/long01/long01.mhclo",b"# license AGPL3")
   self.assertTrue(x["catalog_header_conflict"]);self.assertFalse(x["header_cc0"])
