@@ -8,15 +8,9 @@ sys.path.insert(0,str(Path(__file__).parent))
 sys.path.insert(0,str(Path(__file__).parent.parent/"r084-shoe-contact"))
 from native_shoe_contact import sole_sample,digest
 from shoe_contact import quantify
-MAX_ROOT_LIFT_M=.12
-CONTACT_MARGIN_M=.003
+from floor_math import lift_for_min_z
 def reject(code):
  print("R085_NATIVE_RED",code,flush=True);raise RuntimeError(code)
-def lift_for_min_z(z):
- if type(z) not in (int,float) or not math.isfinite(z):raise ValueError("NONFINITE_SOLE_HEIGHT")
- value=max(0.,-float(z)+CONTACT_MARGIN_M) if z<0 else 0.
- if value>MAX_ROOT_LIFT_M:raise ValueError("ROOT_LIFT_OVER_ENVELOPE")
- return round(value,8)
 def manifest(args):
  if digest(args.scene)!=args.source_sha:reject("SOURCE_SCENE_SHA_MISMATCH")
  scene=bpy.context.scene
