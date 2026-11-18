@@ -51,6 +51,7 @@ def inspect(obj):
         try:
             bm.from_mesh(mesh)
             bm.verts.ensure_lookup_table()
+            bm.verts.index_update()
             volume = abs(bm.calc_volume(signed=True))
             remaining = set(v.index for v in bm.verts)
             groups = []
@@ -67,7 +68,7 @@ def inspect(obj):
                             queue.append(adjacent)
                             n += 1
                 groups.append(n)
-            bbox = [tuple(obj.matrix_world @ Vector(v)) for v in mesh.vertices]
+            bbox = [tuple(obj.matrix_world @ v.co) for v in mesh.vertices]
             lo = [min(p[i] for p in bbox) for i in range(3)]
             hi = [max(p[i] for p in bbox) for i in range(3)]
             return {
@@ -120,9 +121,10 @@ def main(out_dir):
     # Geometry of evaluated result should remain unchanged when hidden operands
     # are excluded from visible editor output. Blender relies on references.
     for obj in bpy.context.scene.objects:
-        if obj != joined:
-            obj.hide_render = True
-            obj.hide_set(True)
+        obj.hide_set(False)
+        obj.select_set(False)
+        obj.hide_render = (obj != joined)
+        obj.hide_set(obj != joined)
     joined.hide_set(False)
     after_hide = inspect(joined)
     check(after_hide['components'] == 2, 'Hidden Boolean operand changed evaluated result')
