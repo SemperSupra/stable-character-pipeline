@@ -27,6 +27,17 @@ class Audit(unittest.TestCase):
   m=validate_zip(fixture([("README.txt","test")]),"shirts01")
   self.assertEqual(m["mhclo_count"],0)
   self.assertFalse(m["per_file_license_admitted"])
+ def test_catalog_cc0_conflict_is_typed_hold(self):
+  data=fixture([("clothes/skalldyrssuppe_tube_top_funky_colors/shirt.mhclo","# license AGPL3")])
+  result=validate_zip(data,"shirts01")
+  self.assertTrue(result["license_conflict_hold"])
+  self.assertEqual(result["admission"],"HOLD_CATALOG_VS_EMBEDDED_LICENSE")
+  self.assertEqual(result["catalog_vs_embedded_license_conflicts"],["shirt"])
+ def test_explicit_cc0_header_does_not_imply_all_asset_rights(self):
+  data=fixture([("clothes/toigo_camisole_top/cami.mhclo","# license CC0")])
+  result=validate_zip(data,"shirts01")
+  self.assertFalse(result["license_conflict_hold"])
+  self.assertFalse(result["per_file_license_admitted"])
  def test_symlink_rejected(self):
   i=zipfile.ZipInfo("fake.mhclo");i.create_system=3;i.external_attr=(stat.S_IFLNK|0o777)<<16
   b=io.BytesIO()
