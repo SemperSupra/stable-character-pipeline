@@ -22,7 +22,29 @@ def evaluated_local(obj):
    h.update(struct.pack("<3f",v.co.x,v.co.y,v.co.z))
   return h.hexdigest(),len(mesh.vertices)
  finally:e.to_mesh_clear()
-def services():
+def body_shape_metrics(body,rig):
+ # Diagnostic metrics only; rig-local bone origins are not validated anatomical joint centres.
+ bpy.context.view_layer.update()
+ e=body.evaluated_get(bpy.context.evaluated_depsgraph_get());mesh=e.to_mesh()
+ try:
+  coords=[(v.co.x,v.co.y,v.co.z) for v in mesh.vertices]
+  if not coords:fail("EMPTY_EVALUATED_HUMAN")
+  ext=[max(p[k] for p in coords)-min(p[k] for p in coords) for k in range(3)]
+  if not all(math.isfinite(v) and v>1e-6 for v in ext):fail("INVALID_BODY_EXTENT")
+  bones=rig.data.bones
+  leg={}
+  for side in ("L","R"):
+   for segment,bone in (("upper","upperleg01."+side),("lower","lowerleg01."+side)):
+    if bone not in bones:fail("MISSING_CALIBRATION_RIG_BONE_"+bone)
+    value=bones[bone].length/ext[2]
+    if not math.isfinite(value) or value<=0:fail("INVALID_SEGMENT_RATIO")
+    leg[segment+"_"+side+"_over_height"]=round(value,8)
+  return {"bbox_x_over_height":round(ext[0]/ext[2],8),
+          "bbox_y_over_height":round(ext[1]/ext[2],8),
+          "leg_segments":leg,"measured_from":"EVALUATED_SAVED_MPF_BODY_AND_NATIVE_REST_RIG",
+          "anatomical_landmark_centres_accepted":False}
+ finally:e.to_mesh_clear()
+\ndef services():
  import addon_utils
  mod="bl_ext.user_default.mpfb"
  if not addon_utils.check(mod)[1]:addon_utils.enable(mod,default_set=False,persistent=False)
@@ -73,7 +95,7 @@ def build(args):
   if body is None or body.type!="MESH":fail("MPF_BODY_CREATION_FAILED")
   rig=hs.add_builtin_rig(body,"default",import_weights=True)
   if rig is None or rig.type!="ARMATURE":fail("MPF_RIG_CREATION_FAILED")
-  for key in ("height","weight"):props.set_value(key,p[key],entity_reference=body)
+  for key in c.PHENOTYPE_KEYS:props.set_value(key,p[key],entity_reference=body)
   ts.reapply_macro_details(body)
   hs.refit(body)
   body.name=p["name"]+"_MPFBBody"
@@ -94,7 +116,8 @@ def build(args):
   mid,count2=evaluated_local(body)
   if rest==mid or count!=count2:fail("ACTUAL_MPF_BODY_SKIN_NOT_MOVING")
   details.append({"name":p["name"],"body":body.name,"rig":rig.name,"root":root.name,
-   "profile":{k:p[k] for k in ("height","weight")},
+   "profile":{k:p[k] for k in c.PHENOTYPE_KEYS},
+   "native_body_shape_metrics":body_shape_metrics(body,rig),
    "bones":len(rig.data.bones),"body_vertices":len(body.data.vertices),
    "evaluated_vertices":count,"rest_pose_sha256":rest,"mid_pose_sha256":mid,
    "body_source":"PINNED_OFFICIAL_MPF_HUMANSERVICE",
@@ -129,7 +152,7 @@ def build(args):
   "blend_sha256":digest(saved),"photoreal_accepted":False,"gait_accepted":False,
   "real_identity_accepted":False,"mvp_accepted":False,"release_authorized":False,
   "asset_rights_scope":"official MPFB CC0 core only; no external hair/clothes/textures",
-  "operator_note":"Macro sliders and provisional gait do NOT imply measured anthropometrics or physics."}
+  "operator_note":"Female phenotype and broader macro sliders remain FICTIONAL source-safe hypotheses; body extents and bone lengths are native diagnostics, not original-character matching or anatomical centres."}
  c.validate_receipt(receipt)
  (out/"build.json").write_text(json.dumps(receipt,sort_keys=True,indent=2,allow_nan=False)+"\n")
  print("R078_MPF_PAIR_BUILD",json.dumps({"sha":receipt["blend_sha256"],"actors":details},sort_keys=True),flush=True)
