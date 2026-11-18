@@ -1,0 +1,51 @@
+name: R080 official MakeHuman CC0 wardrobe archive qualification
+on:
+  push:
+    branches: [research/r080-mpfb-cc0-assets-20261118]
+    paths:
+      - 'research/r080-community-assets/**'
+      - '.github/workflows/r080-mpfb-cc0-assets.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r080-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-only-hostile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: |
+          set -euo pipefail
+          cd research/r080-community-assets
+          python3 -m unittest -v test_audit
+          python3 -m py_compile audit.py test_audit.py
+  official-archive-metadata:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pack: [shirts01, pants01, shoes01]
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Download official CC0 archive and verify metadata (no extraction)
+        env:
+          PACK: ${{ matrix.pack }}
+        run: |
+          set -euo pipefail
+          python3 research/r080-community-assets/audit.py --pack "$PACK" --out "$RUNNER_TEMP/r080-$PACK.json"
+      - name: Upload metadata only, never models or textures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r080-${{ matrix.pack }}-metadata-${{ github.run_id }}
+          path: ${{ runner.temp }}/r080-*.json
+          retention-days: 3
+          if-no-files-found: ignore
