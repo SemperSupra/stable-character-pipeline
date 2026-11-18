@@ -110,7 +110,9 @@ def build(a):
  sc.frame_start=0;sc.frame_end=m.FRAMES-1;sc.render.fps=m.FPS
  sc["r081_tier"]="FICTIONAL_24FPS_PROVISIONAL_TISSUE"
  sc["r081_baseline_sha"]=a.baseline_sha
- sc.render.engine="BLENDER_WORKBENCH"
+ sc.render.engine="CYCLES"
+ sc.cycles.device="CPU"
+ sc.cycles.samples=1
  sc.render.resolution_x=320;sc.render.resolution_y=180;sc.render.resolution_percentage=100
  sc.render.image_settings.file_format="PNG"
  sc.frame_set(0)
