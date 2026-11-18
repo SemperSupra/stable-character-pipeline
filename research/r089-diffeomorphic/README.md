@@ -1,0 +1,7 @@
+# R089 — Existing Diffeomorphic MakeHuman BVH Retargeter integration
+
+Independent free public original-only experiment stacking on source-qualified real captures R088 #652, official CC0 MPFB R078 #640, and leg topology R087 #648. Run third-party Diffeomorphic's genuine `bpy.ops.mcp.load_and_retarget` operator from exact `Diffeomorphic/retarget_bvh@a4f2a394901d043457a9426f0d9e2ade9cda702c` (GPL-2.0-or-later tool; source code held in GHA temp only), whose `known_rigs/makehuman.json` describes actual subdivided MakeHuman bones. Its manifest declares Blender min 4.2; real installed version compatibility must be demonstrated, not inferred.
+
+Acquire actual source 100STYLE-derived CC-BY-4.0 `Neutral_FW.bvh` at fixed commit/blob, trim an independently checked 72-frame window without synthesizing motion, run real source mapping plus retarget onto both original-only weighted 163-bone Aster/Juniper MPFB armatures, check action presence and sampled moving evaluated body vertices and rig pose, save candidate and independently reload in fresh Blender process. No source files or binary output published. All green must remain **STRUCTURAL_NATIVE_RETARGET_ONLY**, never correct sole contact, visual naturalness, source identities, MVP, or release. If upstream operator cannot map the unusual MPFB hierarchy, persist real first RED; do not replace source with fake or claim compatibility.
+
+DLE public #349 #29 #272, existing gait critics #645 #646, measured native hierarchy #648, private protected original film #23. Keep draft/unmerged and $0 public-only.

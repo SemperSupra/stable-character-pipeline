@@ -1,0 +1,83 @@
+name: R089 real Diffeomorphic BVH retarget to official MPFB native rigs
+on:
+  push:
+    branches: [research/r089-diffeomorphic-real-mpfb-retarget-20261118]
+    paths:
+      - 'research/r089-diffeomorphic/**'
+      - '.github/workflows/r089-diffeomorphic-real.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r089-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actual-thirdparty-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Strict source-only real BVH controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/r088-motion-real -p 'test_bvh_preflight.py' -v
+          python3 -m py_compile research/r089-diffeomorphic/real_retarget.py
+      - name: Exact official Blender 4.5.16 headless native binary
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r089-blender"
+          cd "$RUNNER_TEMP/r089-blender"
+          base="https://download.blender.org/release/Blender4.5"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-4.5.16.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-4.5.16-linux-x64.tar.xz" -o blender-4.5.16-linux-x64.tar.xz
+          hash="$(grep -F blender-4.5.16-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "$(printf '%s' "$hash" | wc -c)" -eq 64
+          printf '%s  %s\n' "$hash" blender-4.5.16-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-4.5.16-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r089-blender" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+      - name: Source-authenticated GPL Diffeomorphic retargeter and CC0 native MPFB
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2" "$RUNNER_TEMP/retarget_bvh"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = d26635e9326e3cca30778fd7b9c00062b03cce09
+          git -C "$RUNNER_TEMP/retarget_bvh" init -q
+          git -C "$RUNNER_TEMP/retarget_bvh" remote add origin https://github.com/Diffeomorphic/retarget_bvh.git
+          git -C "$RUNNER_TEMP/retarget_bvh" -c protocol.version=2 fetch -q --depth 1 origin a4f2a394901d043457a9426f0d9e2ade9cda702c
+          git -C "$RUNNER_TEMP/retarget_bvh" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/retarget_bvh" rev-parse HEAD)" = a4f2a394901d043457a9426f0d9e2ade9cda702c
+          grep -q 'blender_version_min = "4.2.0"' "$RUNNER_TEMP/retarget_bvh/blender_manifest.toml"
+          grep -q 'SPDX:GPL-2.0-or-later' "$RUNNER_TEMP/retarget_bvh/blender_manifest.toml"
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension build --source-dir "$RUNNER_TEMP/retarget_bvh" --output-filepath "$RUNNER_TEMP/retarget-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/retarget-pinned.zip"
+          blender -b -t 2 --python-exit-code 12 --python research/r078-r009-mpfb-pair/makehuman_pair.py -- --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r078"
+      - name: Actual source capture operated by real third-party retargeter on real target rigs
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r089-native"
+          src="$RUNNER_TEMP/r089-native/Neutral_FW.bvh"
+          curl --retry 2 --connect-timeout 12 --max-time 60 -fLsS "https://raw.githubusercontent.com/tomcatmew/simple_motion_matching/10938b4881b55c5801faded89e427407ddf14bce/data/100style/Neutral_FW.bvh" -o "$src"
+          test "$(git hash-object "$src")" = a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61
+          scene="$RUNNER_TEMP/r078/aster-juniper-official-mpfb.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/r089-diffeomorphic/real_retarget.py -- --stage build --scene "$scene" --sha "$sha" --source "$src" --clip "$RUNNER_TEMP/r089-native/clip.bvh" --out "$RUNNER_TEMP/r089-native/report.json"
+          blender -b "$RUNNER_TEMP/r089-native/report.blend" -t 2 --python-exit-code 12 --python research/r089-diffeomorphic/real_retarget.py -- --stage verify --out "$RUNNER_TEMP/r089-native/report.json"
+      - name: Upload native evidence JSON only (no source motion, Blend or human assets)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r089-thirdparty-native-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/r089-native/report.json
+          retention-days: 3
+          if-no-files-found: ignore
