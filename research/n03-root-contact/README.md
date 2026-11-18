@@ -1,0 +1,11 @@
+# N03 — actual MPFB shoe surface vs contact root-only feasibility
+
+**Stacked on R084 #645 exact SHA `a3885a8879dea68cfd24fd20afb3f230ec3191e4`**, retaining the R078 original-fictional MakeHuman pair, R082 source-hash-pinned CC0 clothes/shoes, original 72 frames at 12fps and R084 actual Blender evaluated shoe soles. No protected Naomi/Alison data, paid GHA or private Actions. All downloaded source and scenes are ephemeral; output only aggregate JSON.
+
+The baseline had observed Aster sole -0.07216m and Juniper -0.029447m; Juniper measured foot skate ~1.14m/s. This experiment DOES NOT claim that globally moving the body repairs gait. Instead it measures a **root-only correction feasibility bound**, rerenders/re-evaluates actual rigged shoe geometry in memory after per-frame bounded root translations, and quantifies contact height, foot-skate, simultaneous contact conflicts, maximum root translation, and correction discontinuity. It refuses any geometry drift unexpected for a pure root transform and never saves a corrected Blend. It is a falsification gate to demonstrate whether root-only motion can work, before funding per-leg IK/window solver.
+
+A global root transform cannot in general satisfy two simultaneously planted feet with different contact translations. A bound on the simultaneous-contact root conflict is half the separation of competing XY offsets. Source shoe partition labels follow the parent R084 **world-X partition** and are *not* anatomically verified left/right. The provisional centroid is not a force/contact-pressure observation. The outputs are never accepted on their own.
+
+The single public Ubuntu native CPU job downloads a SHA-verified standalone Blender 4.5.16, exact MPFB2 upstream and exact CC0 assets, then reproduces R078/R082 original scenes in a fresh process. Source-only contract/negative test job executes independently. No production files are touched, no private hooks or AI agents, no expensive GPUs. Parent R084 #645 remains independently draft; public numerical DLE #650 and private R033 #168 retain decisions.
+
+Post-run: inspect exact-hosted logs and JSON, preserve any RED. A PASS of the script would only prove *measurement of this failure mode*, not solved gait. Next genuinely mechanical challenger: contact-windowed per-leg IK with source joint/foot support constraints and native evaluation.
