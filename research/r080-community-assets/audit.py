@@ -22,12 +22,19 @@ def validate_zip(data,pack):
   assets=sorted(i.filename for i in items if i.filename.lower().endswith(".mhclo"))
   # Inspect exactly the proposed wardrobe .mhclo metadata only; not geometry or textures.
   license_headers={}
-  for s in CATALOG[pack]["candidates"]:
-   matched=[n for n in assets if s in n.lower()]
-   if matched:
-    lines=z.read(matched[0]).decode("utf8","replace").splitlines()[:80]
-    license_headers[s]=[line.strip()[:180] for line in lines if "license" in line.lower()][:4]
-  return {"candidate_license_headers":license_headers,"file_count":len(items),"expanded_bytes":total,"mhclo_count":len(assets),
+  conflicts=[]
+  for n in assets:
+   stem=pathlib.PurePosixPath(n).stem
+   lines=z.read(n).decode("utf8","replace").splitlines()[:80]
+   headers=[line.strip()[:180] for line in lines if "license" in line.lower()][:4]
+   license_headers[stem]=headers
+   if any("AGPL" in line.upper() or "GPL" in line.upper() for line in headers):
+    conflicts.append(stem)
+  return {"candidate_license_headers":license_headers,
+          "catalog_vs_embedded_license_conflicts":sorted(conflicts),
+          "license_conflict_hold":bool(conflicts),
+          "admission":"HOLD_CATALOG_VS_EMBEDDED_LICENSE" if conflicts else "HOLD_PER_FILE_LICENSE_VALIDATION",
+          "file_count":len(items),"expanded_bytes":total,"mhclo_count":len(assets),
           "selected_asset_present":{s:any(s in p.lower() for p in assets) for s in CATALOG[pack]["candidates"]},
           "sample_mhclo_paths":assets[:20],"per_file_license_admitted":False}
 def download(pack):
