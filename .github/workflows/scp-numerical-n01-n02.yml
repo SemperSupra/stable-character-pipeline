@@ -1,0 +1,48 @@
+name: SCP numerical N01-N02 public synthetic
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'research/numerical-bakeoff-r1/**'
+      - '.github/workflows/scp-numerical-n01-n02.yml'
+permissions:
+  contents: read
+jobs:
+  n01-spring:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: N01 independent numerical experiment
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          python3 -m unittest discover -s research/numerical-bakeoff-r1 -p test_bakeoff.py -v
+          python3 research/numerical-bakeoff-r1/bakeoff.py --lane n01 > receipts/n01.json
+          python3 -m json.tool receipts/n01.json >/dev/null
+          cat receipts/n01.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scp-n01-source-safe
+          path: receipts/n01.json
+          if-no-files-found: error
+          retention-days: 3
+  n02-semantic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: N02 independent semantic experiment
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          python3 -m unittest discover -s research/numerical-bakeoff-r1 -p test_bakeoff.py -v
+          python3 research/numerical-bakeoff-r1/bakeoff.py --lane n02 > receipts/n02.json
+          python3 -m json.tool receipts/n02.json >/dev/null
+          cat receipts/n02.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scp-n02-source-safe
+          path: receipts/n02.json
+          if-no-files-found: error
+          retention-days: 3
