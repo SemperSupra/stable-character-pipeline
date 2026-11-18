@@ -29,24 +29,32 @@ jobs:
           test "${{ github.event.repository.private }}" = "false"
           test -f tests/rdte/r97_public_blender_csg.py
           python3 -m py_compile tests/rdte/r97_public_blender_csg.py tests/rdte/r97_public_reopen_native.py
-      - name: Install signed distro Blender donor
+      - name: Qualify official pinned Blender 5.2.4 LTS donor
         shell: bash
         run: |
           set -euo pipefail
-          # Stale runner apt lists can reference packages already removed by mirrors.
-          # Refresh with bounded retries, then use a bounded install.
-          timeout 150s sudo apt-get -o Acquire::Retries=2 update -qq
-          timeout 180s sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2 install -y --no-install-recommends blender python3-numpy
-          blender --version | head -n 3
-          blender --background --factory-startup --disable-autoexec --python-expr 'import numpy; print("BLENDER NUMPY", numpy.__version__)'
+          artifact="blender-5.2.4-linux-x64.tar.xz"
+          expected="2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86"
+          url="https://download.blender.org/release/Blender5.2/${artifact}"
+          root="${RUNNER_TEMP}/r97-blender"
+          mkdir -p "${root}"
+          timeout 300s curl --fail --location --show-error --silent --retry 3 --retry-all-errors --connect-timeout 15 --max-time 240 "${url}" --output "${root}/${artifact}"
+          printf '%s  %s\n' "${expected}" "${root}/${artifact}" | sha256sum --check --status
+          echo "Verified official Blender 5.2.4 archive SHA256 ${expected}"
+          timeout 150s tar -xf "${root}/${artifact}" -C "${root}"
+          binary="${root}/blender-5.2.4-linux-x64/blender"
+          test -x "${binary}"
+          echo "BLENDER_BIN=${binary}" >> "${GITHUB_ENV}"
+          "${binary}" --version | head -n 3
+          "${binary}" --background --factory-startup --disable-autoexec --python-expr 'import numpy; print("BLENDER NUMPY", numpy.__version__)'
       - name: Execute original synthetic Boolean/transform/topology fixture
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "${RUNNER_TEMP}/r97"
-          blender --background --factory-startup --disable-autoexec -t 2 \
+          "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 \
             --python tests/rdte/r97_public_blender_csg.py -- "${RUNNER_TEMP}/r97/output"
-          blender --background --factory-startup --disable-autoexec -t 2 \
+          "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 \
             --python tests/rdte/r97_public_reopen_native.py -- "${RUNNER_TEMP}/r97/output"
           test -s "${RUNNER_TEMP}/r97/output/synthetic-csg.glb"
       - name: Independent glTF consumer topology check
