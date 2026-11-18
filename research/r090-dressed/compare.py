@@ -8,9 +8,9 @@ def run(a,b):
  for x,y in zip(a["actors"],b["actors"]):
   if x["actor"]!=y["actor"] or x["shoe"]!=y["shoe"]:raise ValueError("WRONG_SHOE_ASSET")
   feet=[]
-  for side in ("x_negative","x_positive"):
-   orig=x["world_x_partitions"][side];new=y["world_x_partitions"][side]
-   feet.append({"side_partition_world_x":side,
+  for side in ("rest_local_x_negative","rest_local_x_positive"):
+   orig=x["rest_local_x_partitions"][side];new=y["rest_local_x_partitions"][side]
+   feet.append({"side_partition_static_rest_local_x":side,
     "authored_penetration_m":orig["penetration_m"],"recorded_penetration_m":new["penetration_m"],
     "penetration_delta_m":round(new["penetration_m"]-orig["penetration_m"],6),
     "authored_slip_mps":orig["maximum_contact_slip_m_per_s"],"recorded_slip_mps":new["maximum_contact_slip_m_per_s"],

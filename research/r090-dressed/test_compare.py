@@ -4,7 +4,7 @@ sys.path.insert(0,str(Path(__file__).parent))
 from compare import run
 def clip(mode,sha="a"*64):
  return {"schema":"scp.r090.72f-real-shoe-contact.v1","mode":mode,"wardrobe_base_sha256":sha,"fps":12,"frames":72,
- "actors":[{"actor":"AsterOriginal","shoe":"CC0shoe","world_x_partitions":{k:{"penetration_m":0.07,"maximum_contact_slip_m_per_s":.35,"contact_frames":10,"flags":["PENETRATION"]} for k in ("x_negative","x_positive")}}]}
+ "actors":[{"actor":"AsterOriginal","shoe":"CC0shoe","rest_local_x_partitions":{k:{"penetration_m":0.07,"maximum_contact_slip_m_per_s":.35,"contact_frames":10,"flags":["PENETRATION"]} for k in ("rest_local_x_negative","rest_local_x_positive")}}]}
 class Contract(unittest.TestCase):
  def test_valid(self):self.assertEqual(len(run(clip("authored"),clip("recorded"))["actors"]),1)
  def test_wrong_clock(self):
