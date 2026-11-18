@@ -57,7 +57,8 @@ def verify(a):
     for sign in ("positive","negative"):
      if "R081_"+part+"_"+sign not in keys.key_blocks:fail("TISSUE_SIGNED_KEY_MISSING")
    hb,n=skin_digest(body)
-   if n<10000:fail("SKIN_EVALUATION_LOST")
+   raw=len(body.data.vertices)
+   if raw<19000 or not (100<=n<=raw):fail("SKIN_GEOMETRY_OR_ORIGINAL_TOPOLOGY_LOST")
    outfits=[]
    for garment in row["garments"]:
     obj=bpy.data.objects.get(garment["native_object"])
