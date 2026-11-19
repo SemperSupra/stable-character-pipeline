@@ -1,0 +1,9 @@
+# Blender runtime compatibility — original synthetic core rig/GLB matrix
+
+Independent public free-tier source-safe matrix for official **4.5.16 LTS (reference), 5.2.4 LTS (promotion candidate), 5.3.0 stable (forward challenger)**. This is deliberately separate from the actual source-bound MPFB/CC0/Diffeomorphic R090 version matrix in stacked draft PR #666. We do not silently replace the official 4.5.16 project reference.
+
+Original six-vertex/two-face strip, two-bone hierarchy, shape key deformation, UV map, bone weights, 25 frames at 12fps (3 sample frames). Actual native Blender evaluates rig+shape; saves `.blend`, reopens it in a **fresh Blender process**; exports binary GLB and independently inspects its glTF JSON for skins, morph targets, and animations. Strict SHA/geometry/clock/rights guards, six source-only hostile JSON/GLB cases, no 3D character assets, real-person media or private tools, no paid/cloud GPUs. Native runner-only .blend/.glb never uploaded; JSON + exact tar manifest digest retained for 3 days.
+
+A PASS here proves only original synthetic core `bpy`, evaluated mesh, Blender save/read and glTF packaging on a given runtime. It does not prove MPFB2/Diffeomorphic plugin compatibility, semantic body morphology, actual native CC0 garment capture, render fidelity, GPU/Metal/CUDA, physical gait or MVP. Promotion to Blender 5.2.4 LTS across actor-owned pipelines must wait for same-source native motion/skin/wardrobe/rig/GLB/FFmpeg/visual parity and full provenance; 5.3 remains opt-in. The official Blender 5.2 release includes Geometry Nodes RNA modifier socket changes; 5.3 changes macOS minimum to 13 and asset/GPU APIs. Never back-save an original reference scene in a newer Blender version.
+
+Source authority: public numerical DLE #650 / source-safe roadmap #662 and private R009 #23 / R033 #168. Each PR stays separate draft, first RED preserved, finite numeric receipts, no merge/release.
