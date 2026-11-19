@@ -1,0 +1,104 @@
+name: R094 true forward-read of Blender4.5 real CC0 dressed rigs in 5.2 and 5.3
+on:
+  push:
+    branches: [research/r094-blender45-to52-53-real-scene-bridge-20261119]
+    paths:
+      - 'research/r094-forward-blend/**'
+      - '.github/workflows/r094-forward-native-blend.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r094-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-source-4-5-forward-open:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: '5.2.4'
+            release: Blender5.2
+          - version: '5.3.0'
+            release: Blender5.3
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Source-only version bridge hostile controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/r094-forward-blend -p 'test_bridge.py' -v
+          python3 -m py_compile research/r094-forward-blend/bridge.py research/r094-forward-blend/bridge_contract.py
+          python3 -m unittest discover -s research/r082-mpfb-native-wardrobe -p 'test_wardrobe_contract.py' -v
+      - name: Download both official Blender releases and validate immutable SHA manifests
+        env:
+          TARGET_VERSION: ${{ matrix.version }}
+          TARGET_RELEASE: ${{ matrix.release }}
+        run: |
+          set -euo pipefail
+          for pair in '4.5.16:Blender4.5:old' "$TARGET_VERSION:$TARGET_RELEASE:new"; do
+            IFS=: read -r ver release label <<< "$pair"
+            mkdir -p "$RUNNER_TEMP/r094-$label"
+            cd "$RUNNER_TEMP/r094-$label"
+            url="https://download.blender.org/release/$release"
+            curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$url/blender-$ver.sha256" -o upstream.sha256
+            curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$url/blender-$ver-linux-x64.tar.xz" -o "blender-$ver-linux-x64.tar.xz"
+            hash="$(grep -F "blender-$ver-linux-x64.tar.xz" upstream.sha256 | awk '{print $1}')"
+            test "${#hash}" -eq 64
+            printf '%s  %s\n' "$hash" "blender-$ver-linux-x64.tar.xz" | sha256sum --check
+            tar -xJf "blender-$ver-linux-x64.tar.xz"
+            bin="$(find "$RUNNER_TEMP/r094-$label" -maxdepth 2 -type f -name blender | head -1)"
+            test -x "$bin"
+            printf '%s\n' "$bin" > "$RUNNER_TEMP/r094-$label-binary.txt"
+            "$bin" -b --python-exit-code 12 --python-expr "import bpy; assert bpy.app.version_string.startswith('$ver'); print('R094_PINNED',bpy.app.version_string)"
+          done
+      - name: Exact pinned official MPFB extension and community CC0 clothes
+        env: {GIT_TERMINAL_PROMPT: '0'}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2" "$RUNNER_TEMP/wardrobe"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = d26635e9326e3cca30778fd7b9c00062b03cce09
+          old="$(cat "$RUNNER_TEMP/r094-old-binary.txt")"
+          "$old" --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          "$old" --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+          for pack in shirts01 pants01 shoes01; do
+            curl --retry 2 --connect-timeout 15 --max-time 180 -fLsS "https://files.makehumancommunity.org/asset_packs/$pack/${pack}_cc0.zip" -o "$RUNNER_TEMP/wardrobe/${pack}_cc0.zip"
+          done
+          echo 'a5a723b0e84a109bb190fcfeac7f1de4138d875da3e30fe5b3340eac9f38bcd3  '"$RUNNER_TEMP/wardrobe/shirts01_cc0.zip" | sha256sum -c -
+          echo 'e4e0ec60db34f279be291a83cfd7b342a7c5cf09bb7676682a5f39f4f6ac4ad9  '"$RUNNER_TEMP/wardrobe/pants01_cc0.zip" | sha256sum -c -
+          echo 'ded3f70428505eabbf1f6d7b5f61196a7366ef20757103d276ad0ed336c35ada  '"$RUNNER_TEMP/wardrobe/shoes01_cc0.zip" | sha256sum -c -
+      - name: Save one real MPFB dressed source scene from Blender 4.5.16
+        run: |
+          set -euo pipefail
+          old="$(cat "$RUNNER_TEMP/r094-old-binary.txt")"
+          "$old" -b -t 2 --python-exit-code 12 --python research/r078-r009-mpfb-pair/makehuman_pair.py -- --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r078"
+          scene="$RUNNER_TEMP/r078/aster-juniper-official-mpfb.blend"
+          srcsha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          "$old" -b "$scene" -t 2 --python-exit-code 12 --python research/r082-mpfb-native-wardrobe/native_wardrobe.py -- --stage build --packs "$RUNNER_TEMP/wardrobe" --baseline-sha "$srcsha" --out "$RUNNER_TEMP/r082"
+          mkdir -p "$RUNNER_TEMP/r094-receipts"
+          source="$RUNNER_TEMP/r082/aster-juniper-cc0-native-wardrobe.blend"
+          "$old" -b "$source" -t 2 --python-exit-code 12 --python research/r094-forward-blend/bridge.py -- --stage baseline --scene "$source" --out "$RUNNER_TEMP/r094-receipts/source.json"
+      - name: Open exactly same 4.5 source in new Blender and verify native rig and CC0 clothes and CPU Cycles
+        env: {TARGET_VERSION: '${{ matrix.version }}'}
+        run: |
+          set -euo pipefail
+          newer="$(cat "$RUNNER_TEMP/r094-new-binary.txt")"
+          source="$RUNNER_TEMP/r082/aster-juniper-cc0-native-wardrobe.blend"
+          newercheck="$RUNNER_TEMP/r094-receipts/forward-$TARGET_VERSION.json"
+          "$newer" -b "$source" -t 2 --python-exit-code 12 --python research/r094-forward-blend/bridge.py -- --stage forward --scene "$source" --baseline "$RUNNER_TEMP/r094-receipts/source.json" --target-version "$TARGET_VERSION" --out "$newercheck"
+          test -s "$newercheck"
+      - name: JSON receipts only; forbid binary Blender and render uploads
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r094-forward-native-${{ matrix.version }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/r094-receipts/*.json
+          retention-days: 3
+          if-no-files-found: ignore
