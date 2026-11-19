@@ -74,6 +74,7 @@ def inspect(obj):
             return {
                 'vertices': len(bm.verts), 'faces': len(bm.faces),
                 'components': len(groups), 'component_vertices': sorted(groups),
+                'euler_number': len(bm.verts) - len(bm.edges) + len(bm.faces),
                 'volume': volume, 'lo': lo, 'hi': hi,
             }
         finally:
@@ -109,6 +110,18 @@ def main(out_dir):
     negative = inspect(wrong)
     check(abs(negative['volume'] - 8.0) < .015,
           'Negative control no longer distinguishes misplaced cutter')
+    # A sideways through-hole is a genus-one, same-volume false-positive for
+    # purely volume/bounds/Euler-based acceptance of the intended Z-axis hole.
+    wrong_axis_left = cube('wrong_axis_cube', t)
+    wrong_axis_cutter = cylinder(
+        'wrong_axis_cylinder',
+        t @ Matrix.Rotation(math.pi / 2, 4, 'Y'))
+    wrong_axis = boolean(wrong_axis_left, wrong_axis_cutter,
+                         'DIFFERENCE', 'horizontal_hole_negative')
+    sideways = inspect(wrong_axis)
+    check(abs(sideways['volume'] - target) < .015 and
+          sideways['components'] == 1 and sideways['euler_number'] == 0,
+          'Horizontal-hole negative control did not reproduce false-positive shape: ' + str(sideways))
     # A tiny detached component must survive the Boolean union.
     large = sphere('large', 1.0, Matrix.Identity(4))
     tiny = sphere('tiny', .01, Matrix.Translation(Vector((1.8, 0, 0))))
@@ -143,6 +156,7 @@ def main(out_dir):
         'blender_version': bpy.app.version_string,
         'translated_difference': observed,
         'known_wrong_negative': negative,
+        'wrong_axis_negative': sideways,
         'tiny_sphere_union': result,
         'hidden_operand_union': after_hide,
         'native_blend_bytes': blend.stat().st_size,
