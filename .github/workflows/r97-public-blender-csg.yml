@@ -91,3 +91,31 @@ jobs:
           if test -f "${RUNNER_TEMP}/r97/output/receipt.json"; then
             cat "${RUNNER_TEMP}/r97/output/receipt.json"
           fi
+
+  candidate-53-provenance:
+    name: Resolve official Blender 5.3.0 checksum (NO execution)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - name: Fetch official release checksum manifest without downloading or executing Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_file="blender-5.3.0-linux-x64.tar.xz"
+          manifest="${RUNNER_TEMP}/blender-5.3.0.sha256"
+          timeout 100s curl --fail --location --silent --show-error --retry 2 --connect-timeout 12 --max-time 75 \
+            "https://download.blender.org/release/Blender5.3/blender-5.3.0.sha256" --output "${manifest}"
+          python3 - "${manifest}" "${expected_file}" <<'PY'
+          import pathlib, re, sys
+          data = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+          name = sys.argv[2]
+          matches = []
+          for line in data.splitlines():
+              m = re.fullmatch(r"\s*([a-fA-F0-9]{64})\s+\*?(.+?)\s*", line)
+              if m and m.group(2).rsplit("/", 1)[-1] == name:
+                  matches.append(m.group(1).lower())
+          if len(matches) != 1:
+              raise SystemExit(f"REJECT: expected one vendor manifest SHA256 for {name}, found {len(matches)}")
+          print(f"R123 BLENDER 5.3.0 VENDOR MANIFEST SHA256 {matches[0]} {name}")
+          print("R123 STATUS CHECKSUM_DISCOVERY_ONLY; BINARY_NOT_DOWNLOADED; BLENDER_NOT_EXECUTED")
+          PY
