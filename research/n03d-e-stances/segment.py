@@ -19,7 +19,7 @@ def validate(samples):
   t=sample["t_s"];z=sample["z_m"];v=sample["v_mps"]
   if type(t) not in (float,int) or not math.isfinite(t):
    raise ValueError("CLOCK_NONFINITE")
-  if times and (t-times[-1])<=0 or (t-times[-1])>1.:
+  if times and ((t-times[-1])<=0 or (t-times[-1])>1.):
    raise ValueError("CLOCK_NONMONOTONIC_OR_GAP")
   times.append(t)
   if z is None or v is None:continue
