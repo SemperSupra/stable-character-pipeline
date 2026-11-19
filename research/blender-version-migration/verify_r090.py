@@ -32,8 +32,11 @@ def run(paths):
     check("INVALID_SAMPLES",value.get("samples")==72 and value.get("gait_contact_accepted") is False)
     for key in ("penetration_m","minimum_z_m","maximum_z_m"):
      check("NONFINITE_GEOMETRY",isinstance(value.get(key),(float,int)) and math.isfinite(value[key]))
- check("COMPARISON_NOT_JSON",not isinstance(cmp,dict))
- # Comparison schema may evolve. Its presence and bytes are recorded, but it never issues release authority.
+ check("COMPARISON_SCHEMA",isinstance(cmp,dict) and cmp.get("schema")=="scp.r090.measured-sole-gait-bakeoff.v1")
+ check("COMPARISON_ACTORS",sorted(a["actor"] for a in cmp.get("actors",[]))==["AsterOriginal","JuniperOriginal"])
+ check("COMPARISON_NOT_GAIT_ACCEPTED",cmp.get("admission")=="MEASURED_CONTACT_DIAGNOSTIC_NOT_GAIT_ACCEPTED"
+       and cmp.get("natural_gait_accepted") is False and cmp.get("mvp_accepted") is False
+       and cmp.get("visual_critic_passed") is False)
  return {"schema":"scp.blender5x.mpfb-retarget-admission.v1",
          "source_blender_expected":version,"recorded_compared_to_same-version_authored":True,
          "authored_sha256":ah,"recorded_sha256":rh,"comparison_sha256":ch,
