@@ -32,8 +32,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          url="https://download.blender.org/release/${{ matrix.folder }}/blender-${{ matrix.version }}-linux-x64.tar.xz"
+          url="https://mirror.blender.org/release/${{ matrix.folder }}/blender-${{ matrix.version }}-linux-x64.tar.xz"
+          curl --fail --location --retry 2 --connect-timeout 20 --max-time 480 --output /tmp/blender.sha256 "https://mirror.blender.org/release/${{ matrix.folder }}/blender-${{ matrix.version }}.sha256"
           curl --fail --location --retry 2 --connect-timeout 20 --max-time 480 --output /tmp/blender.tar.xz "$url"
+          expected="$(grep -F "blender-${{ matrix.version }}-linux-x64.tar.xz" /tmp/blender.sha256 | awk '{print $1}')"
+          test "${#expected}" -eq 64
+          echo "$expected  /tmp/blender.tar.xz" | sha256sum --check
           sha256sum /tmp/blender.tar.xz
           mkdir -p /tmp/r092-version
           tar -xf /tmp/blender.tar.xz --strip-components=1 -C /tmp/r092-version
