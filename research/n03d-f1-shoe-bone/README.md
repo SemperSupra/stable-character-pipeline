@@ -1,0 +1,9 @@
+# N03D-F1 — real CC0 shoe partition to five-bone rig-side influence calibration
+
+This is the dependency between actual source-bound 24Hz CC0 shoe sole measurements N03D-D #673 and any N03D-F five-bone planted-foot solver. Source R090 #656, actual 163-bone MakeHuman Aster+Juniper 6 CC0 garments and real CC-BY-4.0 recorded 100STYLE motion retarget, exact saved source scene SHA and independent 24Hz trace JOIN. Reuse existing native workcells, no invented or protected source. Public free-tier Blender 5.2.4 LTS GHA only.
+
+Examine genuine Blender vertex-group bone weights in both real CC0 shoe meshes. For each immutable rest-local-X partition, aggregate positive source weight mass assigned to verified native foot/lowerleg/upperleg/tail toe .L/.R named rig bone groups, classify only when strong weight separation exists, else UNKNOWN. At actual frames 0,12,35,60,71, independently evaluate source geometry and real pose foot.L/R tail positions, report each side's world-foot-tail distance and foot-tail-minus-sole offset variance. This provides a structural/mechanical mapping proposal for IK and avoids assuming rest-mesh X-sign equals a named anatomical side. No weights, missing groups or inconsistent geometry are explicit HOLD, not a fabricated map.
+
+**Explicit holds:** A high source vertex-group influence score proves only named rig side correspondence, not biological anatomical left/right. Foot bone tail is not shoe sole or heel/forefoot support, and source heel/toe rig axes/limit constraints and joint anatomy are unvalidated. No persistent FK/IK, no physical gait acceptance, no photorealism or Naomi/Alison identity. All source binaries remain ephemeral; only JSON receipts public, 3-day retention, no private minutes or release.
+
+DLE public N03D #662, numerical #650 and private R009 #23. Draft stacked on exact N03D-D source. Physical contact still RED until support-patch-aware 5-bone IK is applied then independently reobserved at 24Hz+.
