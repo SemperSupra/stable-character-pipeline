@@ -35,7 +35,9 @@ if mode == "build":
     direction=-cam.location
     cam.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
     bpy.context.scene.camera=cam
-    bpy.context.scene.render.engine="BLENDER_WORKBENCH"
+    bpy.context.scene.render.engine="CYCLES"
+    bpy.context.scene.cycles.device="CPU"
+    bpy.context.scene.cycles.samples=4
     bpy.context.scene.render.resolution_x=64
     bpy.context.scene.render.resolution_y=64
     bpy.context.scene.render.resolution_percentage=100
