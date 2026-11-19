@@ -1,0 +1,121 @@
+name: R97 Public-Safe Blender CSG Donor Qualification
+
+on:
+  push:
+    branches:
+      - rdte/r97-public-blender-csg-frame-falsifier
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r97-blender-csg-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-csg:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Source-safe checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Assert public-only isolated fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = "false"
+          test -f tests/rdte/r97_public_blender_csg.py
+          python3 -m py_compile tests/rdte/r97_public_blender_csg.py tests/rdte/r97_public_reopen_native.py
+      - name: Qualify official pinned Blender 5.2.4 LTS donor
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact="blender-5.2.4-linux-x64.tar.xz"
+          expected="2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86"
+          url="https://download.blender.org/release/Blender5.2/${artifact}"
+          root="${RUNNER_TEMP}/r97-blender"
+          mkdir -p "${root}"
+          timeout 300s curl --fail --location --show-error --silent --retry 3 --retry-all-errors --connect-timeout 15 --max-time 240 "${url}" --output "${root}/${artifact}"
+          printf '%s  %s\n' "${expected}" "${root}/${artifact}" | sha256sum --check --status
+          echo "Verified official Blender 5.2.4 archive SHA256 ${expected}"
+          timeout 150s tar -xf "${root}/${artifact}" -C "${root}"
+          binary="${root}/blender-5.2.4-linux-x64/blender"
+          test -x "${binary}"
+          echo "BLENDER_BIN=${binary}" >> "${GITHUB_ENV}"
+          "${binary}" --version | head -n 3
+          "${binary}" --background --factory-startup --disable-autoexec --python-expr 'import numpy; print("BLENDER NUMPY", numpy.__version__)'
+      - name: Execute original synthetic Boolean/transform/topology fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/r97"
+          "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 \
+            --python tests/rdte/r97_public_blender_csg.py -- "${RUNNER_TEMP}/r97/output"
+          "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 \
+            --python tests/rdte/r97_public_reopen_native.py -- "${RUNNER_TEMP}/r97/output"
+          test -s "${RUNNER_TEMP}/r97/output/synthetic-csg.glb"
+      - name: Independent glTF consumer topology check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "${RUNNER_TEMP}/r97/venv"
+          "${RUNNER_TEMP}/r97/venv/bin/python" -m pip install --no-input --disable-pip-version-check 'trimesh==4.11.1' 'numpy==2.1.3' 'networkx==3.4.2'
+          "${RUNNER_TEMP}/r97/venv/bin/python" - "${RUNNER_TEMP}/r97/output/synthetic-csg.glb" <<'PY'
+          import sys, trimesh, json
+          asset = trimesh.load(sys.argv[1], force='scene', process=False)
+          meshes = [m for m in asset.dump() if isinstance(m, trimesh.Trimesh)]
+          assert meshes, "GLB contained no visible geometry"
+          # glTF may store a single result in multiple mesh primitives.
+          # Test actual geometry, not arbitrary exporter packing.
+          mesh = trimesh.util.concatenate(meshes)
+          source_vertices = len(mesh.vertices)
+          mesh.merge_vertices(digits_vertex=7)
+          parts = mesh.split(only_watertight=False)
+          assert len(parts) == 2, f"GLB lost/duplicated components: {len(parts)}; meshes={len(meshes)}"
+          assert mesh.bounds[1][0] > 1.809, mesh.bounds
+          assert all(part.is_watertight for part in parts), "GLB components not watertight"
+          assert abs(mesh.volume - 4.1719986) < .03, f"GLB geometry unexpected volume: {mesh.volume}"
+          print("R97 INDEPENDENT GLB PASS", json.dumps({
+              "meshes": len(meshes), "components": len(parts),
+              "vertices": len(mesh.vertices), "unwelded_vertices": source_vertices, "faces": len(mesh.faces),
+              "bounds": mesh.bounds.tolist(),
+          }, sort_keys=True))
+          PY
+      - name: Print source-safe receipt
+        if: always()
+        shell: bash
+        run: |
+          if test -f "${RUNNER_TEMP}/r97/output/receipt.json"; then
+            cat "${RUNNER_TEMP}/r97/output/receipt.json"
+          fi
+
+  candidate-53-provenance:
+    name: Resolve official Blender 5.3.0 checksum (NO execution)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - name: Fetch official release checksum manifest without downloading or executing Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_file="blender-5.3.0-linux-x64.tar.xz"
+          manifest="${RUNNER_TEMP}/blender-5.3.0.sha256"
+          timeout 100s curl --fail --location --silent --show-error --retry 2 --connect-timeout 12 --max-time 75 \
+            "https://download.blender.org/release/Blender5.3/blender-5.3.0.sha256" --output "${manifest}"
+          python3 - "${manifest}" "${expected_file}" <<'PY'
+          import pathlib, re, sys
+          data = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+          name = sys.argv[2]
+          matches = []
+          for line in data.splitlines():
+              m = re.fullmatch(r"\s*([a-fA-F0-9]{64})\s+\*?(.+?)\s*", line)
+              if m and m.group(2).rsplit("/", 1)[-1] == name:
+                  matches.append(m.group(1).lower())
+          if len(matches) != 1:
+              raise SystemExit(f"REJECT: expected one vendor manifest SHA256 for {name}, found {len(matches)}")
+          print(f"R123 BLENDER 5.3.0 VENDOR MANIFEST SHA256 {matches[0]} {name}")
+          print("R123 STATUS CHECKSUM_DISCOVERY_ONLY; BINARY_NOT_DOWNLOADED; BLENDER_NOT_EXECUTED")
+          PY
