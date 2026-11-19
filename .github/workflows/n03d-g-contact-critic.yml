@@ -1,0 +1,36 @@
+name: N03D G source-independent shoe contact acceptance hard gate
+on:
+  push:
+    branches: [research/n03d-g-independent-contact-gates-20261120]
+    paths:
+      - 'research/n03d-g-contact-critic/**'
+      - '.github/workflows/n03d-g-contact-critic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-g-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  fail-closed-independent-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: No external packages, hostile independent source-bound gates
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/n03d-g-contact-critic/*.py
+          python3 -m unittest discover -s research/n03d-g-contact-critic -p 'test_gate.py' -v
+          cd research/n03d-g-contact-critic
+          python3 run_critic.py
+          test -s n03d-g-evidence.json
+      - name: Synthetic metadata-only acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-g-contact-critic-json-${{ github.run_id }}
+          path: research/n03d-g-contact-critic/n03d-g-evidence.json
+          retention-days: 3
+          if-no-files-found: ignore

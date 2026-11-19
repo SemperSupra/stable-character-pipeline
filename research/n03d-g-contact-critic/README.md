@@ -1,0 +1,9 @@
+# N03D-G — source-independent post-IK contact acceptance, fail closed
+
+This workcell measures **actual time-stamped evaluated shoe-world centroid traces** (once produced by independent N03D-D), not self-declared raw labels or a root/foot-tail target receipt. Requires 143+ source-bound 24Hz samples per shoe partition, finite z/XY, monotonic sampled time, original-only rights/sha, 163-bone source rig and action SHA (the latter through checked report metadata), and two actual CC0 dress-bound actors. A source declaring its own PASS is never authoritative. Recompute penetration from original z values; recompute near-ground shoe speed from world XY and time. No support frames = **UNKNOWN / HOLD**, not zero skating.
+
+Numeric narrow thresholds taken from R084: penetration <=10mm and near-ground sliding <=.08m/s; at least 4 support samples and 3 adjacent pairs per partition; root correction <=50mm, anatomy partition independently verified, post-IK rig and visual review checked. These are intentionally demanding falsifiers, **not** certification of biology or original Naomi/Alison likeness. All measurement and numerical passes still yield MVP=False, release=False and physical-human gait naturalness=False. Source rights and camera/visual gate separate.
+
+Public-standard free GHA, stdlib only, 13 negative/positive tests: source spoof, missing temporal samples, clock, NaN, hover, slide, penetration, fake anatomy, root lift, visual waiver, unverified IK. No protected files, paid minutes, raw binaries. Three classes: (1) HOLD for all actual R090/N03C physical traces until solved; (2) positive synthetic narrow test; (3) explicit bad fixtures. Independent from N03D-E algorithm selection to avoid shared erroneous thresholds. Incorporate through a later source-sha-bound replay on the generated N03D-D native 24Hz receipt; do not authorize a fabricated JSON to promote real motion.
+
+DLE public #662 and #650; private R009 #23. Draft/unmerged.
