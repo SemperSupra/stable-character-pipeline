@@ -2,6 +2,7 @@
 import argparse,hashlib,json,math,struct,sys
 from pathlib import Path
 import bpy
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 from bridge_contract import check_observation,compare,FRAMES,ACTORS
 def sha(p):
  h=hashlib.sha256()
