@@ -1,0 +1,36 @@
+name: N03D E three independent stance segmentation algorithms free CPU
+on:
+  push:
+    branches: [research/n03d-e-temporal-stance-bakeoff-20261120]
+    paths:
+      - 'research/n03d-e-stances/**'
+      - '.github/workflows/n03d-e-stances.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-e-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-only-numeric-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Exact stdlib hostile controls and three segmentation schemes
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/n03d-e-stances/*.py
+          python3 -m unittest discover -s research/n03d-e-stances -p 'test_segment.py' -v
+          cd research/n03d-e-stances
+          python3 run_bakeoff.py
+          test -s n03d-evidence.json
+      - name: Upload synthetic JSON only, no source samples or private subjects
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-e-synthetic-contacts-${{ github.run_id }}
+          path: research/n03d-e-stances/n03d-evidence.json
+          if-no-files-found: ignore
+          retention-days: 3
