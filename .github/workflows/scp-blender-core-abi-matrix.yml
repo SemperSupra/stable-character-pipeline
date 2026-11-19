@@ -1,0 +1,82 @@
+name: SCP Blender core rig and GLB 4.5 5.2 5.3 migration matrix
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'research/blender-abi-matrix/**'
+      - '.github/workflows/scp-blender-core-abi-matrix.yml'
+permissions:
+  contents: read
+jobs:
+  independent-glb-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Original GLB tamper controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/blender-abi-matrix -p test_glb_contract.py -v
+  native-blender-matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: '4.5.16'
+            series: '4.5'
+            expected_sha256: '23432b064977908beb1ab4b7f32f024e7331105c875c187dce002aff84b10c11'
+          - version: '5.2.4'
+            series: '5.2'
+            expected_sha256: '2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86'
+          - version: '5.3.0'
+            series: '5.3'
+            expected_sha256: 'dacb8264197a3f7fda6001285a5a506fc97ee943881261c2c3bd63c882f22e05'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Fetch and verify official Blender tar and published SHA manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          ver="${{ matrix.version }}"
+          base="https://download.blender.org/release/Blender${{ matrix.series }}"
+          mkdir -p "$RUNNER_TEMP/blender" "$RUNNER_TEMP/abi"
+          cd "$RUNNER_TEMP/blender"
+          curl --retry 2 --connect-timeout 20 --max-time 240 -fLsS "$base/blender-${ver}.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-${ver}-linux-x64.tar.xz" -o blender-${ver}-linux-x64.tar.xz
+          hash="$(grep -F "blender-${ver}-linux-x64.tar.xz" blender.sha256 | awk '{print $1}')"
+          test "$(printf '%s' "$hash" | wc -c)" -eq 64
+          expected="${{ matrix.expected_sha256 }}"
+          if [[ -n "$expected" ]]; then test "$hash" = "$expected"; fi
+          printf '%s  %s\n' "$hash" "blender-${ver}-linux-x64.tar.xz" | sha256sum --check
+          echo "BLENDER_SOURCE_VERSION=$ver sha256=$hash"
+          tar -xJf "blender-${ver}-linux-x64.tar.xz"
+          bin="$(find "$RUNNER_TEMP/blender" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+          printf '%s\n' "$hash" > "$RUNNER_TEMP/abi/source-blender-archive-sha256.txt"
+      - name: Original synthetic rig, morph, frame clock and GLB export
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b -t 2 --python-exit-code 12 --python research/blender-abi-matrix/native.py -- --stage build --out "$RUNNER_TEMP/abi"
+      - name: Independent fresh-process native scene readback and GLB validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/abi/synthetic-reference.blend" -t 2 --python-exit-code 12 --python research/blender-abi-matrix/native.py -- --stage verify --out "$RUNNER_TEMP/abi"
+          python3 -m json.tool "$RUNNER_TEMP/abi/qualified.json" >/dev/null
+          cat "$RUNNER_TEMP/abi/qualified.json"
+      - name: Upload metadata receipt only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: blender-core-abi-${{ matrix.version }}-receipt
+          path: |
+            ${{ runner.temp }}/abi/qualified.json
+            ${{ runner.temp }}/abi/source-blender-archive-sha256.txt
+          retention-days: 3
+          if-no-files-found: ignore
