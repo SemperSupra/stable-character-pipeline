@@ -71,9 +71,12 @@ def main():
  else:
   origin=json.loads(Path(a.baseline).read_text())
   compare(origin,obs,source_sha)
+  print("R094_FORWARD_NATIVE_GEOMETRY_COMPARE_PASS",source_sha,version,flush=True)
   sc=bpy.context.scene
   if sc.camera is None or sc.camera.type!="CAMERA":reject("RENDER_CAMERA_FROM_SOURCE_MISSING")
-  sc.render.engine="BLENDER_WORKBENCH"
+  sc.render.engine="CYCLES"
+  sc.cycles.device="CPU"
+  sc.cycles.samples=4
   sc.render.image_settings.file_format="PNG"
   sc.render.resolution_x=320;sc.render.resolution_y=180;sc.render.resolution_percentage=100
   sc.frame_set(35)
@@ -85,7 +88,7 @@ def main():
   out={"schema":"scp.r094.blender-4-5-to-new-native-scene-forward.v1","scene_sha256":source_sha,
    "source_blender":"4.5.16","target_blender":version,"actors":list(ACTORS),
    "frame_count":len(FRAMES),"all_native_body_and_cc0_garment_meshes_bit_equal":True,
-   "rig_pose_samples_bit_equal":True,"native_workbench_render_succeeded":True,
+   "rig_pose_samples_bit_equal":True,"native_cycles_cpu_render_succeeded":True,
    "renderer_png_source_published":False,"backward_read_to_4_5_tested":False,
    "full_visual_equivalence_accepted":False,"natural_gait_accepted":False,
    "source_licensing":"CC0_MPF_AND_GARMENTS",

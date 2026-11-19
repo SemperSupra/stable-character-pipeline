@@ -85,7 +85,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/r094-receipts"
           source="$RUNNER_TEMP/r082/aster-juniper-cc0-native-wardrobe.blend"
           "$old" -b "$source" -t 2 --python-exit-code 12 --python research/r094-forward-blend/bridge.py -- --stage baseline --scene "$source" --out "$RUNNER_TEMP/r094-receipts/source.json"
-      - name: Open exactly same 4.5 source in new Blender and verify native rig and CC0 clothes and Workbench
+      - name: Open exactly same 4.5 source in new Blender and verify native rig and CC0 clothes and CPU Cycles
         env: {TARGET_VERSION: '${{ matrix.version }}'}
         run: |
           set -euo pipefail

@@ -7,7 +7,7 @@ This workcell runs two independent disposable free public GitHub Actions jobs (n
 2. Fetch hash-pinned upstream official MPFB code + original-female MakeHuman CC0 core, build the genuine two 163-bone Aster/Juniper source scene under **4.5.16**.
 3. Acquire exactly hash-pinned CC0 shirts/pants/shoes and attach 3 real skinned garments each using MPFB HumanService; save original .blend under 4.5.16 only.
 4. Record at 4.5.16 actual evaluated body/garment vertex arrays' SHA256 and 163-bone pose matrices at frames 0/35/71, including 3 CC0 garments per actor and scene/source SHA.
-5. In a separate headless **5.2.4/5.3.0 process**, open the **identical** .blend file, independently resample all that geometry and poses, verify exact bitwise agreement and source file hash, verify a Workbench camera-based render produces non-empty PNG. Fail closed on altered morphs, garment topology, action clock, or missing source.
+5. In a separate headless **5.2.4/5.3.0 process**, open the **identical** .blend file, independently resample all that geometry and poses, verify exact bitwise agreement and source file hash, verify a CPU Cycles camera-based render produces non-empty PNG. Fail closed on altered morphs, garment topology, action clock, or missing source.
 6. Publish only JSON receipts, not raw .blend, CC0 meshes, source BVH, or rendered images.
 
 **HOLD:** This is read-only forward-opening; saving from newer Blender and reopening under 4.5.16 (backward-read), EEVEE/Cycles visual equivalence, exact cloth physics, contact IK, photorealism, protected Naomi/Alison fit, and MVP remain NOT TESTED. Both 5.2 and 5.3 are fully qualified only for the operations exercised. Current 4.5.16 rollback anchor is immutable.
