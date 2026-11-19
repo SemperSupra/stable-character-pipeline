@@ -1,0 +1,166 @@
+name: SCP Blender 5.2/5.3 real dressed MPFB 144-frame film
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'research/blender-r083-version-film/**'
+      - '.github/workflows/scp-blender-5x-r083-film.yml'
+permissions:
+  contents: read
+concurrency:
+  group: blender5x-r083-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-rights-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - run: |
+          set -euo pipefail
+          cd research/r082-mpfb-native-wardrobe
+          python3 -m unittest -v test_wardrobe_contract
+          python3 -m py_compile wardrobe_contract.py native_wardrobe.py
+          cd ../r081-mpfb-fine-motion
+          python3 -m unittest -v test_fine_motion
+          python3 -m py_compile fine_motion.py native_fine_tissue.py
+          python3 -m py_compile ../r083-mpfb-dressed-fine-motion/integrated_verify.py
+          cd ../blender-r083-version-film
+          python3 -m unittest -v test_admit
+          python3 -m py_compile admit.py
+  native-dressed-144f:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: '5.2.4'
+            series: '5.2'
+            expected_sha256: '2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86'
+          - version: '5.3.0'
+            series: '5.3'
+            expected_sha256: 'dacb8264197a3f7fda6001285a5a506fc97ee943881261c2c3bd63c882f22e05'
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Pinned official Blender 5.2/5.3 for headless CPU Cycles (no apt)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r083-standalone"
+          cd "$RUNNER_TEMP/r083-standalone"
+          base="https://download.blender.org/release/Blender${{ matrix.series }}"
+          ver="${{ matrix.version }}"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-${ver}.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-${ver}-linux-x64.tar.xz" -o blender-${ver}-linux-x64.tar.xz
+          hash="$(grep -F blender-${ver}-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "$(printf '%s' "$hash" | wc -c)" -eq 64
+          test "$hash" = "${{ matrix.expected_sha256 }}"
+          echo "BLENDER_R083_OFFICIAL_SOURCE_VERSION=$ver sha256=$hash"
+          printf '%s  %s\n' "$hash" blender-${ver}-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-${ver}-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r083-standalone" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          "$bin" --background --python-expr "import numpy,bpy; assert bpy.app.version_string.startswith('${ver}'),bpy.app.version_string; print('R083_HEADLESS_CPU',bpy.app.version_string,'numpy',numpy.__version__)"
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+      - name: Exact original official MakeHuman/MPFB code and CC0 core
+        env:
+          SOURCE: 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin "$SOURCE"
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = "$SOURCE"
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = d26635e9326e3cca30778fd7b9c00062b03cce09
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+      - name: Exact pinned source archive retrieval (ephemeral only)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wardrobe"
+          curl -fLsS --retry 2 --max-time 140 https://files.makehumancommunity.org/asset_packs/shirts01/shirts01_cc0.zip -o "$RUNNER_TEMP/wardrobe/shirts01_cc0.zip"
+          curl -fLsS --retry 2 --max-time 140 https://files.makehumancommunity.org/asset_packs/pants01/pants01_cc0.zip -o "$RUNNER_TEMP/wardrobe/pants01_cc0.zip"
+          curl -fLsS --retry 2 --max-time 140 https://files.makehumancommunity.org/asset_packs/shoes01/shoes01_cc0.zip -o "$RUNNER_TEMP/wardrobe/shoes01_cc0.zip"
+          echo 'a5a723b0e84a109bb190fcfeac7f1de4138d875da3e30fe5b3340eac9f38bcd3  '"$RUNNER_TEMP/wardrobe/shirts01_cc0.zip" | sha256sum -c -
+          echo 'e4e0ec60db34f279be291a83cfd7b342a7c5cf09bb7676682a5f39f4f6ac4ad9  '"$RUNNER_TEMP/wardrobe/pants01_cc0.zip" | sha256sum -c -
+          echo 'ded3f70428505eabbf1f6d7b5f61196a7366ef20757103d276ad0ed336c35ada  '"$RUNNER_TEMP/wardrobe/shoes01_cc0.zip" | sha256sum -c -
+      - name: Reproduce genuine 72-frame native two-body baseline
+        run: |
+          set -euo pipefail
+          blender -b -t 2 --python-exit-code 12 --python research/r078-r009-mpfb-pair/makehuman_pair.py -- --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r078"
+      - name: Fit original CC0 garment meshes and rig each asset to native bodies
+        run: |
+          set -euo pipefail
+          base="$RUNNER_TEMP/r078/aster-juniper-official-mpfb.blend"
+          base_sha="$(sha256sum "$base" | cut -d ' ' -f1)"
+          blender -b "$base" -t 2 --python-exit-code 12 --python research/r082-mpfb-native-wardrobe/native_wardrobe.py -- --stage build --packs "$RUNNER_TEMP/wardrobe" --baseline-sha "$base_sha" --out "$RUNNER_TEMP/r082"
+      - name: Rebuild qualified 144-frame native tissue and gait on dressed MPFB actors
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r082/aster-juniper-cc0-native-wardrobe.blend"
+          baseline_sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/r081-mpfb-fine-motion/native_fine_tissue.py -- --stage build --baseline-sha "$baseline_sha" --out "$RUNNER_TEMP/r083"
+      - name: Fresh-process complete 144 native body and garment frame render
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r083/aster-juniper-r081-fine-tissue.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/r081-mpfb-fine-motion/native_fine_tissue.py -- --stage verify --scene "$scene" --scene-sha "$sha" --out "$RUNNER_TEMP/r083" --full-video
+          test "$(find "$RUNNER_TEMP/r083/frames" -name 'frame_*.png' | wc -l)" -eq 144
+      - name: Third independent Blender process checks simultaneous garment/body/tissue/rig across actors
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r083/aster-juniper-r081-fine-tissue.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/r083-mpfb-dressed-fine-motion/integrated_verify.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --fine "$RUNNER_TEMP/r083/build.json" --out "$RUNNER_TEMP/r083"
+      - name: Pinned wheel FFmpeg and independent native frame/video decode
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r083-wheels" "$RUNNER_TEMP/r083-ffmpeg"
+          python3 -m pip download -q --disable-pip-version-check --no-deps --only-binary=:all: --dest "$RUNNER_TEMP/r083-wheels" imageio-ffmpeg==0.6.0
+          test "$(sha256sum "$RUNNER_TEMP/r083-wheels"/*.whl | awk '{print $1}')" = "c7e46fcec401dd990405049d2e2f475e2b397779df2519b544b8aab515195282"
+          python3 -m pip install -q --disable-pip-version-check --no-deps --no-index --find-links "$RUNNER_TEMP/r083-wheels" --target "$RUNNER_TEMP/r083-ffmpeg" imageio-ffmpeg==0.6.0
+          export PYTHONPATH="$RUNNER_TEMP/r083-ffmpeg"
+          ffmpeg="$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
+          test -x "$ffmpeg"
+          "$ffmpeg" -hide_banner -loglevel error -y -framerate 24 -i "$RUNNER_TEMP/r083/frames/frame_%04d.png" -c:v libx264 -pix_fmt yuv420p "$RUNNER_TEMP/r083/original-fictional-dressed-gait.mp4"
+          "$ffmpeg" -hide_banner -i "$RUNNER_TEMP/r083/original-fictional-dressed-gait.mp4" -vf showinfo -an -f null - >/dev/null 2>"$RUNNER_TEMP/r083/decode.log"
+          python3 - "$RUNNER_TEMP/r083" "$RUNNER_TEMP/r083-wheels" <<'PY'
+          import hashlib,json,pathlib,re,sys
+          p=pathlib.Path(sys.argv[1]);v=p/"original-fictional-dressed-gait.mp4"
+          log=(p/"decode.log").read_text(errors="replace")
+          seq=[int(x) for x in re.findall(r"showinfo[^\n]*?\bn:\s*(\d+)\b",log)]
+          if seq!=list(range(144)):raise SystemExit("R083_VIDEO_FRAME_COUNT_MISMATCH: "+str(seq[-3:]))
+          wheels=list(pathlib.Path(sys.argv[2]).glob("*.whl"))
+          if len(wheels)!=1:raise SystemExit("R083_WHEEL_CUSTODY_RED")
+          wheel=wheels[0]
+          r={"schema":"scp.r083.dressed-144f-h264.v1","source_class":"ORIGINAL_FICTIONAL_MPFBCORE_CC0",
+             "frames_decoded":len(seq),"fps":24,"video_sha256":hashlib.sha256(v.read_bytes()).hexdigest(),
+             "ffmpeg_wheel":wheel.name,"ffmpeg_wheel_sha256":hashlib.sha256(wheel.read_bytes()).hexdigest(),
+             "same_scene_dressed_motion":True,"actual_source_reference_match":False,
+             "biomechanics_accepted":False,"cloth_dynamics_accepted":False,"mvp_accepted":False,"release_authorized":False}
+          (p/"video.json").write_text(json.dumps(r,sort_keys=True,indent=2)+"\n")
+          print("R083_DRESSED_144F_H264",json.dumps(r,sort_keys=True))
+          PY
+      - name: Original-source exact versioned 144 frame evidence gate
+        run: |
+          set -euo pipefail
+          python3 research/blender-r083-version-film/admit.py "$RUNNER_TEMP/r083/build.json" "$RUNNER_TEMP/r083/video.json" "${{ matrix.version }}" > "$RUNNER_TEMP/r083/version-film-admission.json"
+          python3 -m json.tool "$RUNNER_TEMP/r083/version-film-admission.json" >/dev/null
+          cat "$RUNNER_TEMP/r083/version-film-admission.json"
+      - name: Metadata-only receipts, no images, models, copyrighted source, or H264 published
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: blender5x-r083-film-${{ matrix.version }}-json-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r083/*.json
+            ${{ runner.temp }}/r082/*.json
+          retention-days: 3
+          if-no-files-found: ignore
