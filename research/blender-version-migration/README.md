@@ -4,7 +4,7 @@
 
 Parallel 2-job public standard Ubuntu matrix:
 - `5.2.4` LTS: official manifest AND prior independently pinned official tar SHA256 `2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86`; prior unrelated R97 public native Blender 5.2 proof was green
-- `5.3.0`: official release manifest SHA256, recorded in logs; cannot label artifact content securely pinned independently until manifest SHA corroborated
+- `5.3.0`: official release manifest SHA256, recorded in logs; official manifest observed, tar SHA `dacb8264197a3f7fda6001285a5a506fc97ee943881261c2c3bd63c882f22e05` independently recorded from initial hosted run #44629076871 and now pinned exact
 - baseline 4.5.16 LTS native workflow #44267274270 already passed for R090 structural execution and has real **contact RED**, not repeated to waste public resources
 
 For each candidate reproduce and compare *same version* authored and actual retargeted skinned CC0 native scenes; independent source/clock/rights, frames, motion/geometry, no-spurious-physical-PASS gate. Upload only small JSON source receipts (3-day retention); never publish scenes, motion source, protected Naomi/Alison media, addon binaries, private code or credentials. If a new Blender build cannot load/pin official upstream extensions, that is a compatibility **RED**, not authorization to patch, skip source checks or change asset rights.

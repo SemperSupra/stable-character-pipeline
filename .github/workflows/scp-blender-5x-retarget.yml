@@ -23,7 +23,7 @@ jobs:
             expected_sha256: '2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86'
           - version: '5.3.0'
             series: '5.3'
-            expected_sha256: ''
+            expected_sha256: 'dacb8264197a3f7fda6001285a5a506fc97ee943881261c2c3bd63c882f22e05'
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -35,6 +35,7 @@ jobs:
           python3 -m unittest discover -s research/r082-mpfb-native-wardrobe -p 'test_wardrobe_contract.py' -v
           python3 -m unittest discover -s research/r084-shoe-contact -p 'test_shoe_contact.py' -v
           python3 -m unittest discover -s research/r090-dressed -p 'test_compare.py' -v
+          python3 -m unittest discover -s research/blender-version-migration -p 'test_version.py' -v
           python3 -m py_compile research/r090-dressed/real_retarget.py research/r090-dressed/measure.py research/r090-dressed/compare.py
       - name: Exact official Blender 5.x headless native binary
         run: |
