@@ -7,3 +7,7 @@ Everything remains technical/source-safe: protected Naomi/Alison references, pri
 5.2.4 exact Blender Linux archive SHA256: `2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86`. 5.3.0 exact SHA256 `dacb8264197a3f7fda6001285a5a506fc97ee943881261c2c3bd63c882f22e05`. Read-only checkout and SHA-pinned assets; 4.5 immutable reference GHA #44233309774 and earlier #44230246371.
 
 **Promotion:** PASS_NARROW original filmed native clip only. Human identity and biomechanical contact unaccepted; film H264 source hash need not match older version because encoding/render algorithms change. Real natural motion and protected originals remain private R009 authority #23; overall Blender version policy DLE #669. Leave draft/unmerged, save first RED and exact hosted receipts.
+
+## Preserved first RED: upstream official CDN HTTP 403
+
+First [GHA run #44630837040](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44630837040) at head `3cb6eb022b5bbba3df7ef686cae5492f918b6f75`: 5.3.0 real 144-frame/24fps full native Blender render and source-pinned independent H264 decode completed PASS_NARROW; 5.2.4 attempt was rejected at the **official Blender archive download HTTP 403**, *before* MPFB/source/render execution (not a Blender compatibility failure). This next exact head adds bounded `curl --retry-all-errors` with 10s retry delay and 150s total retry cap, retaining independent fixed tar SHA256 and fail-closed source checks. No unverified fallback, archive mirror or altered URL is admitted. Preserve the original RED even if a later run passes.

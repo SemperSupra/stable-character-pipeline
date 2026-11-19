@@ -53,8 +53,8 @@ jobs:
           cd "$RUNNER_TEMP/r083-standalone"
           base="https://download.blender.org/release/Blender${{ matrix.series }}"
           ver="${{ matrix.version }}"
-          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-${ver}.sha256" -o blender.sha256
-          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-${ver}-linux-x64.tar.xz" -o blender-${ver}-linux-x64.tar.xz
+          curl --retry 6 --retry-all-errors --retry-delay 10 --retry-max-time 150 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-${ver}.sha256" -o blender.sha256
+          curl --retry 6 --retry-all-errors --retry-delay 10 --retry-max-time 150 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-${ver}-linux-x64.tar.xz" -o blender-${ver}-linux-x64.tar.xz
           hash="$(grep -F blender-${ver}-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
           test "$(printf '%s' "$hash" | wc -c)" -eq 64
           test "$hash" = "${{ matrix.expected_sha256 }}"
