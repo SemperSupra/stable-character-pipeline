@@ -27,7 +27,15 @@ if mode == "build":
             v.co.x *= 1.04
     for f,val in ((1,0.0),(12,1.0),(24,0.0)):
         key.value=val;key.keyframe_insert(data_path="value",frame=f)
-    # Explicit camera required by headless Blender render on every tested version.\n    cam_data=bpy.data.cameras.new("WitnessCamera")\n    cam=bpy.data.objects.new("WitnessCamera",cam_data)\n    bpy.context.scene.collection.objects.link(cam)\n    cam.location=(4.0,-6.0,3.0)\n    direction=-cam.location\n    cam.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()\n    bpy.context.scene.camera=cam\n    bpy.context.scene.render.engine="BLENDER_WORKBENCH"
+    # Explicit camera required by headless Blender render on every tested version.
+    cam_data=bpy.data.cameras.new("WitnessCamera")
+    cam=bpy.data.objects.new("WitnessCamera",cam_data)
+    bpy.context.scene.collection.objects.link(cam)
+    cam.location=(4.0,-6.0,3.0)
+    direction=-cam.location
+    cam.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
+    bpy.context.scene.camera=cam
+    bpy.context.scene.render.engine="BLENDER_WORKBENCH"
     bpy.context.scene.render.resolution_x=64
     bpy.context.scene.render.resolution_y=64
     bpy.context.scene.render.resolution_percentage=100
