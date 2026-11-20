@@ -36,7 +36,7 @@ class ContactOracle(unittest.TestCase):
   self.assertTrue(v["energy_nonincreasing"])
   self.assertFalse(v["actual_native_after_correction_measured"])
  def test_timebase_mismatch(self):
-  a=pair();a[SIDES[1]].pop()
+  a=pair(5);a[SIDES[1]].pop()
   with self.assertRaisesRegex(ValueError,"SIDE_TIMEBASE"):solve(a,"joint")
  def test_nan_fails(self):
   a=pair();a[SIDES[0]][0][0]=math.nan
