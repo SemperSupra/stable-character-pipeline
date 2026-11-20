@@ -1,0 +1,57 @@
+name: N03D AD contact-state reference and independent synthetic physics
+on:
+  push:
+    branches: [research/n03d-ad-contact-reference-20261120]
+    paths:
+      - 'research/n03d-ad-contact-reference/**'
+      - '.github/workflows/n03d-ad-contact-reference.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-ad-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-adversarial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Prove hostile contact/physics/rights cases reject
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-ad-contact-reference -p 'test_reference.py' -v
+          python3 -m py_compile research/n03d-ad-contact-reference/*.py
+  independent-reference-critic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Produce source-original 60Hz physics trace with independent heldout acceptance
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import sys,os,json
+          from pathlib import Path
+          sys.path.insert(0,"research/n03d-ad-contact-reference")
+          from reference import synthetic,assess
+          source=synthetic()
+          decision=assess(source)
+          assert decision["reference_result"]=="PASS_NARROW" and not decision["mvp_accepted"]
+          assert decision["state_counts"]=={"SWING":24,"HEEL":12,"FLAT":12,"TOE":12}
+          target=Path(os.environ["RUNNER_TEMP"])/"n03d-ad-analytic-reference.json"
+          target.write_text(json.dumps({"source":source,"decision":decision},allow_nan=False,sort_keys=True)+"\n")
+          checked=json.loads(target.read_text())
+          assert checked["decision"]==assess(checked["source"]), "INDEPENDENT_REPLAY"
+          print("N03D_AD_GROUND_TRUTH_SYNTHETIC_ONLY",json.dumps(decision,sort_keys=True))
+          PY
+      - name: Upload only original analytic JSON
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-ad-original-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/n03d-ad-analytic-reference.json
+          if-no-files-found: ignore
+          retention-days: 3
