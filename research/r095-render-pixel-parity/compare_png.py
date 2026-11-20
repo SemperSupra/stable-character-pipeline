@@ -73,11 +73,11 @@ def main():
     a=p.parse_args()
     root=Path(a.root)
     assert 0<=a.max_rmse<1
-    assert all((root/version).is_dir() for version in ("4.5.16","5.2.4","5.3.0"))
+    assert all((root/("r095-"+version)).is_dir() for version in ("4.5.16","5.2.4","5.3.0"))
     rows=[]
     for challenger in ("5.2.4","5.3.0"):
         for frame in (1,12,24):
-            metrics=compare(root/"4.5.16"/("frame_%04d.png"%frame),root/challenger/("frame_%04d.png"%frame))
+            metrics=compare(root/"r095-4.5.16"/("frame_%04d.png"%frame),root/("r095-"+challenger)/("frame_%04d.png"%frame))
             rows.append({"control":"4.5.16","challenger":challenger,"frame":frame,**metrics})
     result={"schema":"scp.r095.render-parity.v1","scope":"original-synthetic-cpu-cycles",
             "threshold_rmse":a.max_rmse,"measurements":rows,
