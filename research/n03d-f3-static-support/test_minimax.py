@@ -19,6 +19,11 @@ class Minimax(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,"XY_NOT_FINITE"):enclosing_disk([[0,0],[float("nan"),0]])
  def test_bounded_input(self):
   with self.assertRaisesRegex(ValueError,"WINDOW_BOUNDS"):enclosing_disk([[0,0]]*33)
+ def test_nested_window_radius_cannot_shrink(self):
+  pts=[[0,0],[.01,.005],[.05,0],[.09,.05],[.11,.1]]
+  short=enclosing_disk(pts[:3])["minimax_radius_m"]
+  long=enclosing_disk(pts)["minimax_radius_m"]
+  self.assertGreaterEqual(long+1e-8,short)
  def test_no_false_contact(self):
   self.assertFalse(enclosing_disk([[0,0],[0,0]])["stationary_support_proven"])
 if __name__=="__main__":unittest.main()
