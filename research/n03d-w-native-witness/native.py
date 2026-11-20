@@ -56,19 +56,26 @@ def main():
   for start in (24,48):
    points={s:[[float(q["xy_m"][0]),float(q["xy_m"][1]),float(q["z_m"])] for q in person["sides"][s]["samples"][start:start+4]] for s in SIDES}
    baseline=[]
-   for k in range(4):
-    sample=start+k
+   # Match D's actual sequential 0..143 evaluated-frame history rather than
+   # random-accessing subframes from a saved source scene or prior IK mode.
+   rig.matrix_world=original.copy()
+   sc.frame_set(0)
+   for sample in range(start+4):
     sc.frame_set(sample//2,subframe=(sample%2)*.5)
     rig.matrix_world=original.copy();bpy.context.view_layer.update()
-    baseline.append({"sole":stable_sole_sample(shoe),
+    observed=stable_sole_sample(shoe)
+    if sample<start:
+     continue
+    baseline.append({"sole":observed,
       "hip":worldbone(rig,"pelvis.L").lerp(worldbone(rig,"pelvis.R"),.5).copy(),
       "tails":{side:worldbone(rig,"foot."+side,True).copy() for side in ("L","R")}})
    # Null-actuator source equality before any temporary constraints or matrix movement.
    for k in range(4):
     for part in SIDES:
      base=shoe_xyz(baseline[k]["sole"][part])
-     if math.dist(base,points[part][k])>0.0005:
-      raise RuntimeError("SOURCE_NULL_ACTUATOR_TRACE_DRIFT_"+name+"_"+part)
+     delta=math.dist(base,points[part][k])
+     if delta>0.0005:
+      raise RuntimeError("SOURCE_NULL_ACTUATOR_TRACE_DRIFT_"+name+"_"+part+"_sample_"+str(start+k)+"_distance_m_"+str(round(delta,6))+"_base_"+str(base)+"_trace_"+str(points[part][k]))
    outcomes=[]
    for mode in ("root_only","foot_only","joint"):
     result=solve(points,mode);validate(result)
