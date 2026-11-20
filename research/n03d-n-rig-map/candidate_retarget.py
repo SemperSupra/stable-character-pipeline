@@ -79,11 +79,14 @@ def build(args):
   if not info or len(rig.data.bones)!=163:abort("UNKNOWN_UPSTREAM_MAKEHUMAN_RIG")
   source_mapping=dict(info.bones)
   if (source_mapping.get("upperleg02.L")!="thigh_twist.L" or
-      "upperleg02.R" in source_mapping or
       source_mapping.get("upperleg01.R")!="thigh.R" or
       rig.pose.bones.get("upperleg02.R") is None):
    abort("UPSTREAM_MAP_PRECONDITION_DRIFT")
-  info.bones.append(("upperleg02.R","thigh_twist.R"))
+  right=source_mapping.get("upperleg02.R")
+  if right is None:
+   info.bones.append(("upperleg02.R","thigh_twist.R"))
+  elif right!="thigh_twist.R":
+   abort("UPSTREAM_MAP_PRECONDITION_DRIFT")
   from bl_ext.user_default.retarget_bvh.utils import canonicalName
   info.boneNames[canonicalName("upperleg02.R")]="thigh_twist.R"
   if dict(info.bones).get("upperleg02.R")!="thigh_twist.R":
