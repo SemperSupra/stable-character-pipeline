@@ -79,8 +79,12 @@ def main():
         for frame in (1,12,24):
             metrics=compare(root/"r095-4.5.16"/("frame_%04d.png"%frame),root/("r095-"+challenger)/("frame_%04d.png"%frame))
             rows.append({"control":"4.5.16","challenger":challenger,"frame":frame,**metrics})
+    adjacent=[]
+    for frame in (1,12,24):
+        metrics=compare(root/"r095-5.2.4"/("frame_%04d.png"%frame),root/"r095-5.3.0"/("frame_%04d.png"%frame))
+        adjacent.append({"control":"5.2.4","challenger":"5.3.0","frame":frame,**metrics})
     result={"schema":"scp.r095.render-parity.v1","scope":"original-synthetic-cpu-cycles",
-            "threshold_rmse":a.max_rmse,"measurements":rows,
+            "threshold_rmse":a.max_rmse,"measurements":rows,"adjacent_version_diagnostic":adjacent,
             "compatible":all(row["rmse"]<=a.max_rmse for row in rows),
             "mpfb":"HOLD","protected-character-identity":"HOLD","gait-physics":"HOLD","release":"HOLD"}
     print("R095_PIXEL_PARITY",json.dumps(result,sort_keys=True))
