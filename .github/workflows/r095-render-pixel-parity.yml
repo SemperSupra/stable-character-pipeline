@@ -45,7 +45,9 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: r095-${{ matrix.version }}
-          path: /tmp/r095-render/frame_*.png
+          path: |
+            /tmp/r095-render/frame_*.png
+            /tmp/r095-render/emission_0012.png
           retention-days: 1
           if-no-files-found: error
   compare:
