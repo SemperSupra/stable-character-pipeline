@@ -6,6 +6,7 @@ import math
 import struct
 import zlib
 from pathlib import Path
+from material_contract import validate_files
 
 def png_pixels(path):
     src=Path(path).read_bytes()
@@ -74,6 +75,7 @@ def main():
     root=Path(a.root)
     assert 0<=a.max_rmse<1
     assert all((root/("r095-"+version)).is_dir() for version in ("4.5.16","5.2.4","5.3.0"))
+    validate_files(root)
     rows=[]
     for challenger in ("5.2.4","5.3.0"):
         for frame in (1,12,24):
