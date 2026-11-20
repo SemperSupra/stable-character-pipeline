@@ -68,6 +68,8 @@ def probe_window(rig,shoe,part,side,start=12,end=18):
     "actual_cc0_sole_z_before_after":valid,
     "initial_foot_tail_support_is_not_surface_contact":True,
     "candidate_sole_contact_not_verified":True,
+    "fixed_target_is_not_measured_support_anchor":True,
+    "actual_support_hoverbias_m":max(0.,min(z["min_z_m"] for z in after)),
     "anatomical_joint_axes_verified":False,
     "stance_window_is_forced_hypothesis_not_detected_plant":True,
     "physical_gait_accepted":False,"before":before_json(before),

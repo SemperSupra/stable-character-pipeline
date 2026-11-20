@@ -13,11 +13,17 @@ class SupportBounds(unittest.TestCase):
  def test_improve_not_green(self):
   v=outcome([-.09]*7,[-.05]*7,0,.04)
   self.assertAlmostEqual(v["penetration_improvement_m"],.04)
-  self.assertFalse(v["after_sole_support_height_meets_10mm"])
+  self.assertFalse(v["after_lowest_shoe_in_ground_band"])
   self.assertFalse(v["post_ik_natural_gait_accepted"])
  def test_worse_propagates(self):
   v=outcome([-.02]*7,[-.04]*7,0,.02)
   self.assertLess(v["penetration_improvement_m"],0)
+ def test_hover_not_false_positive(self):
+  v=outcome([-.09]*7,[.042]*7,0,.04)
+  self.assertTrue(v["after_penetration_below_10mm"])
+  self.assertTrue(v["after_all_sampled_frames_hover_above_10mm"])
+  self.assertFalse(v["after_lowest_shoe_in_ground_band"])
+  self.assertEqual(v["near_ground_sample_count"],0)
  def test_missing_samples(self):
   with self.assertRaisesRegex(ValueError,"INSUFFICIENT"):outcome([-.02],[0],0,.02)
  def test_target_clamp_too_large(self):

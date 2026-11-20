@@ -17,5 +17,8 @@ def outcome(before,after,root_drift,correction):
    "after_max_penetration_m":round(max(0.,-a),6),
    "before_min_sole_z_m":round(b,6),"after_min_sole_z_m":round(a,6),
    "penetration_improvement_m":round(max(0.,-b)-max(0.,-a),6),
-   "after_sole_support_height_meets_10mm":a>=-.01,
+   "after_penetration_below_10mm":a>=-.01,
+   "after_lowest_shoe_in_ground_band":-.01<=a<=.01,
+   "after_all_sampled_frames_hover_above_10mm":all(z>.01 for z in after),
+   "near_ground_sample_count":sum(1 for z in after if -.012<=z<=.012),
    "post_ik_natural_gait_accepted":False}
