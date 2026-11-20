@@ -1,4 +1,7 @@
 """Select BVH-to-retarget clock offset exclusively by train root error."""
+import sys
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).parent.parent/"n03d-s-planar-align"))
 from planar import fit,transform,error
 def qualify(source,target,train_start=12,train_end=70,test_start=71,test_end=130,lag_limit=12):
  if len(source)!=len(target) or len(source)!=143:raise ValueError("SOURCE_SAMPLE_CLOCK")
