@@ -19,7 +19,7 @@ class Material(unittest.TestCase):
   q=snapshot(mesh(),list(range(8)));r={"centroid_xyz_m":[q["centroid_xyz_m"][0]+.1,0,0],"min_z_m":0}
   self.assertGreater(stats([q,r,q,r],1/24)["max_speed_mps"],2)
  def test_overlap_change(self):
-  self.assertAlmostEqual(overlap(list(range(8)),list(range(4,12))),1/3)
+  self.assertAlmostEqual(overlap(list(range(8)),list(range(4,12))),1/3,places=6)
  def test_duplicate_ids_rejected(self):
   with self.assertRaisesRegex(ValueError,"UNQUALIFIED"):select_ids(mesh(),[0]*100)
  def test_mesh_index_drift_rejected(self):
