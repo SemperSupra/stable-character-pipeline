@@ -1,0 +1,29 @@
+name: N03D contact DoE synthetic screening
+on:
+  push:
+    branches:
+      - research/n03d-doe-contact-critic-20261120
+  pull_request:
+    paths:
+      - 'research/n03d-doe/**'
+      - '.github/workflows/scp-n03d-contact-doe.yml'
+permissions:
+  contents: read
+jobs:
+  contact-screen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Hostile critic oracles
+        run: python3 -m unittest discover -s research/n03d-doe -p 'test_*.py' -v
+      - name: Self-test and DoE receipt
+        run: |
+          python3 research/n03d-doe/contact_doe.py --test
+          python3 research/n03d-doe/contact_doe.py --output n03d-doe-receipt.json
+          python3 -c 'import json; r=json.load(open("n03d-doe-receipt.json")); assert len(r["observations"])==27; assert r["qualification"]=="RESEARCH_ONLY_NOT_NATIVE_GAIT"'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: n03d-synthetic-receipt
+          path: n03d-doe-receipt.json
+          retention-days: 3
