@@ -63,12 +63,20 @@ def main():
     baseline.append({"sole":stable_sole_sample(shoe),
       "hip":worldbone(rig,"pelvis.L").lerp(worldbone(rig,"pelvis.R"),.5).copy(),
       "tails":{side:worldbone(rig,"foot."+side,True).copy() for side in ("L","R")}})
+   # Null-actuator source equality before any temporary constraints or matrix movement.
+   for k in range(4):
+    for part in SIDES:
+     base=shoe_xyz(baseline[k]["sole"][part])
+     if math.dist(base,points[part][k])>0.0005:
+      raise RuntimeError("SOURCE_NULL_ACTUATOR_TRACE_DRIFT_"+name+"_"+part)
    outcomes=[]
    for mode in ("root_only","foot_only","joint"):
     result=solve(points,mode);validate(result)
     created=[];constraints=[]
     try:
      for side in ("L","R"):
+      if mode=="root_only":
+       continue  # Isolation: root-only MUST have zero IK constraints.
       obj=bpy.data.objects.new("N03D_W_ephemeral_"+name+"_"+side,None)
       sc.collection.objects.link(obj);created.append(obj)
       foot=rig.pose.bones["foot."+side]
