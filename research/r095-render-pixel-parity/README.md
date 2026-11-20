@@ -1,0 +1,7 @@
+# R095 — public-safe cross-version CPU Cycles pixel drift
+
+Adds a **different** gate from PR #663 (basic animated native smoke), #664/#665 (MPFB/CC0/BVH functional), #668 (forward .blend load), and #670 (144-frame H264 decoded film). This gate detects **actual final pixel drift** on an original synthetic colored moving surface and floor across 4.5.16, 5.2.4 LTS, and 5.3.0. No protected Naomi/Alison imagery or parameterization used.
+
+Three independent hosted CPU Blender renders, then a fourth independent read-only comparison job. Each uses exact official release SHA metadata before executing. Render 96x96 8-spp CPU Cycles under explicit Standard color transform at frames 1, 12, 24. One-day synthetic-only PNG artifacts are downloaded to a join job and analyzed by a CRC-checking stdlib 8-bit RGB/RGBA PNG decoder. Report per-frame RMSE, 99th percentile absolute channel error, max error and changed-pixel count. Initial preregistered FAIL threshold: normalized RGB RMSE >0.06 on any frame; this is a coarse regression detector, **not** human-quality visual equivalence. Retain first REDs.
+
+**Strict admission**: PASS_SYNTHETIC_PIXEL_ONLY if job and threshold succeed. Even then protected-source skin, hair, subsurface scattering, realistic cloth, Cycles feature parity, MPFB production scenes, actual morphology, contact, Linux vs Metal/CUDA/Windows and MVP remain HOLD. Do not merge, change default pins or release. Public Blender version DLE issue #669 and private R009/R033 remain governing records. Report exact commit, job status and failed fixture evidence.
