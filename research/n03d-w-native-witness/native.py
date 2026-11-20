@@ -58,15 +58,15 @@ def main():
    baseline=[]
    # Match D's actual sequential 0..143 evaluated-frame history rather than
    # random-accessing subframes from a saved source scene or prior IK mode.
-   rig.matrix_world=original.copy()
+   # Frame-local root/world transform is action-dependent. Never freeze saved-frame matrix.
    sc.frame_set(0)
    for sample in range(start+4):
     sc.frame_set(sample//2,subframe=(sample%2)*.5)
-    rig.matrix_world=original.copy();bpy.context.view_layer.update()
+    bpy.context.view_layer.update()
     observed=stable_sole_sample(shoe)
     if sample<start:
      continue
-    baseline.append({"sole":observed,
+    baseline.append({"sole":observed,"frame_rig_world":rig.matrix_world.copy(),
       "hip":worldbone(rig,"pelvis.L").lerp(worldbone(rig,"pelvis.R"),.5).copy(),
       "tails":{side:worldbone(rig,"foot."+side,True).copy() for side in ("L","R")}})
    # Null-actuator source equality before any temporary constraints or matrix movement.
@@ -96,7 +96,7 @@ def main():
       sample=start+k
       sc.frame_set(sample//2,subframe=(sample%2)*.5)
       root=Vector(result["root_corrections_m"][k])
-      rig.matrix_world=Matrix.Translation(root) @ original
+      rig.matrix_world=Matrix.Translation(root) @ baseline[k]["frame_rig_world"]
       for side,obj in zip(("L","R"),created):
        part="rest_local_x_positive" if side=="L" else "rest_local_x_negative"
        foot=Vector(result["foot_corrections_m"][part][k])
@@ -122,7 +122,7 @@ def main():
     finally:
      for foot,constraint in constraints:foot.constraints.remove(constraint)
      for obj in created:bpy.data.objects.remove(obj,do_unlink=True)
-     rig.matrix_world=original.copy()
+     rig.matrix_world=baseline[-1]["frame_rig_world"].copy()
      bpy.context.view_layer.update()
    windows.append({"start_24hz":start,"outcomes":outcomes})
   actors.append({"actor":name,"windows":windows})
