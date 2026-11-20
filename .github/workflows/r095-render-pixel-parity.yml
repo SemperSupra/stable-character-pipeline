@@ -48,6 +48,7 @@ jobs:
           path: |
             /tmp/r095-render/frame_*.png
             /tmp/r095-render/emission_0012.png
+            /tmp/r095-render/diffuse_0012.png
           retention-days: 1
           if-no-files-found: error
   compare:
