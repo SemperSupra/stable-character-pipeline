@@ -2,6 +2,7 @@
 import bpy
 import json
 import os
+import sys
 from pathlib import Path
 from math import radians
 out = Path(os.environ.get("R095_OUT", "/tmp/r095-render"))
@@ -85,6 +86,7 @@ def inspect_material(mesh_object):
 manifest={"schema":"scp.r095.materials.v1","version":version,"render":"CYCLES_CPU_8SPP",
           "view_transform":bpy.context.scene.view_settings.view_transform,
           "objects":{"SyntheticMovingSkin":inspect_material(obj),"SyntheticFloor":inspect_material(plane)}}
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 from material_contract import validate_manifest
 validate_manifest(manifest,version)
 (out/"material_manifest.json").write_text(json.dumps(manifest,sort_keys=True,indent=2)+"\n",encoding="utf-8")
