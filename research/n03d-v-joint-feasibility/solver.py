@@ -104,6 +104,7 @@ def solve(points,mode,bound=.04,iterations=320):
    "objective_initial":round(before,8),"objective_final":round(hist[-1],8),
    "energy_nonincreasing":True,"solver_iterations":iterations,
    "max_root_correction_m":round(maxroot,6),"max_foot_correction_m":round(maxfoot,6),
+   "root_corrections_m":st["root"],"foot_corrections_m":st["foot"],
    "max_xy_stationary_proxy_residual_m":max(x["xy_stationary_error_m"] for x in residual),
    "max_ground_proxy_penetration_m":max(0.,-min(x["z_ground_error_m"] for x in residual)),
    "max_ground_proxy_hover_m":max(0.,max(x["z_ground_error_m"] for x in residual)),
