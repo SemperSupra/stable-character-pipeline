@@ -30,6 +30,13 @@ plane=bpy.context.object
 plane.name="SyntheticFloor"
 floor=bpy.data.materials.new("GreyFloor")
 floor.diffuse_color=(0.44,0.44,0.44,1)
+# Previous baseline left this floor non-node and depended on Blender version defaults.
+# Make both floor and object Principled explicitly authored, without relaxing acceptance.
+floor.use_nodes=True
+floor_bsdf=floor.node_tree.nodes.get("Principled BSDF")
+assert floor_bsdf is not None
+floor_bsdf.inputs["Base Color"].default_value=(0.44,0.44,0.44,1)
+floor_bsdf.inputs["Roughness"].default_value=0.58
 plane.data.materials.append(floor)
 camera_data=bpy.data.cameras.new("ParityCamera")
 cam=bpy.data.objects.new("ParityCamera",camera_data)
