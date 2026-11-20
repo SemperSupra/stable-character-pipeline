@@ -1,0 +1,40 @@
+name: N03D P source-first pinned Diffeomorphic MakeHuman leg mapping asymmetry
+on:
+  push:
+    branches: [research/n03d-p-upstream-makehuman-map-audit-20261120]
+    paths:
+      - 'research/n03d-p-target-map/**'
+      - '.github/workflows/n03d-p-source-map-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-p-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  upstream-map-falsifiers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Offline bounded structural contracts
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-p-target-map -p 'test_audit.py' -v
+          python3 -m py_compile research/n03d-p-target-map/*.py
+      - name: Acquire exact committed upstream GPL target map with Git blob pin
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/n03d-p"
+          curl --retry 2 --connect-timeout 12 --max-time 60 -fLsS "https://raw.githubusercontent.com/Diffeomorphic/retarget_bvh/a4f2a394901d043457a9426f0d9e2ade9cda702c/known_rigs/makehuman.json" -o "$RUNNER_TEMP/n03d-p/makehuman.json"
+          test "$(git hash-object "$RUNNER_TEMP/n03d-p/makehuman.json")" = 65a49435cc726f2089373caa34373909ff0f2a8e
+          python3 research/n03d-p-target-map/audit.py --source "$RUNNER_TEMP/n03d-p/makehuman.json" --out "$RUNNER_TEMP/n03d-p/receipt.json"
+      - name: Metadata only; mapping code remains upstream GPL-owned
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-p-upstream-map-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/n03d-p/receipt.json
+          retention-days: 3
+          if-no-files-found: ignore

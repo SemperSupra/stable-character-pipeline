@@ -1,0 +1,7 @@
+# N03D-P — exact upstream Diffeomorphic MakeHuman five-bone leg map audit
+
+Source first: static truth from published GPL-2.0+ Diffeomorphic/retarget_bvh @a4f2a394901d043457a9426f0d9e2ade9cda702c `known_rigs/makehuman.json` exact Git blob 65a49435cc726f2089373caa34373909ff0f2a8e. Actual original MPFB 163-bone five-link native rig chain per R087 foot -> lowerleg02 -> lowerleg01 -> upperleg02 -> upperleg01 -> pelvis. Actual source Neutral_FW ankle/toe movement is low near-minimum, target foot heads 12–21x faster and shoes skate severely per #682.
+
+Author map only maps upperleg02.L to canonical thigh_twist.L; its upperleg02.R equivalent missing. lowerleg02.L and lowerleg02.R both omitted, though foot bone is a child of lowerleg02. The published file is not directly a complete five-bone native mapping; it may be intentionally normalized via canonical parent traversal but this must be empirically qualified. Missing mapping alone does NOT prove retarget stationarity fault.
+
+Six stdlib negative/positive controls verify source asymmetry, supported side symmetry, missing distal shin, duplicate semantically mapped leg path rejection, false source, and no gait promotion. Run in free public GHA with source Git blob pin, JSON-only, no raw vendor GPL tool files published. No automatic upstream patch, no protected subject material or paid minutes. Results should inform a separate actual native A/B rig map patch/adapter test after #684 source normalization bakeoff. All PRs draft/unmerged, physical gait and MVP HOLD.
