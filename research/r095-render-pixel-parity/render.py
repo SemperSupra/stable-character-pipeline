@@ -66,6 +66,28 @@ bpy.context.scene.render.film_transparent=False
 bpy.context.scene.render.image_settings.compression=15
 bpy.context.scene.view_settings.view_transform="Standard"
 bpy.context.scene.view_settings.look="Medium High Contrast" if "Medium High Contrast" in [x.name for x in bpy.types.ColorManagedViewSettings.bl_rna.properties["look"].enum_items] else "Medium High Contrast"
+# Fail-closed manifest is captured before diagnostic shader substitution.
+# The independent consumer validates explicit nodes and typed parameters.
+def inspect_material(mesh_object):
+    material=mesh_object.active_material
+    if material is None or not material.use_nodes:
+        raise RuntimeError("R095_MATERIAL_IMPLICIT_FALLBACK")
+    nodes=material.node_tree.nodes
+    shader=nodes.get("Principled BSDF")
+    if shader is None or shader.bl_idname!="ShaderNodeBsdfPrincipled":
+        raise RuntimeError("R095_PRINCIPLED_REQUIRED")
+    connected=any(link.from_node==shader and link.to_node.type=="OUTPUT_MATERIAL" and link.to_socket.name=="Surface"
+                  for link in material.node_tree.links)
+    return {"material":material.name,"use_nodes":bool(material.use_nodes),
+            "shader":shader.bl_idname,"surface_connected":bool(connected),
+            "color":[float(v) for v in shader.inputs["Base Color"].default_value],
+            "roughness":float(shader.inputs["Roughness"].default_value)}
+manifest={"schema":"scp.r095.materials.v1","version":version,"render":"CYCLES_CPU_8SPP",
+          "view_transform":bpy.context.scene.view_settings.view_transform,
+          "objects":{"SyntheticMovingSkin":inspect_material(obj),"SyntheticFloor":inspect_material(plane)}}
+from material_contract import validate_manifest
+validate_manifest(manifest,version)
+(out/"material_manifest.json").write_text(json.dumps(manifest,sort_keys=True,indent=2)+"\n",encoding="utf-8")
 for frame in (1,12,24):
     bpy.context.scene.frame_set(frame)
     bpy.context.scene.render.filepath=str(out/("frame_%04d.png"%frame))
