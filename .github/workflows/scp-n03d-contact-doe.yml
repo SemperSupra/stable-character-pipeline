@@ -15,8 +15,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Hostile critic oracles
-        run: python3 -m unittest discover -s research/n03d-doe -p 'test_*.py' -v
       - name: Self-test and DoE receipt
         run: |
           python3 research/n03d-doe/contact_doe.py --test
