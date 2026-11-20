@@ -68,7 +68,17 @@ def rotation(rig, chain):
 
 
 def bound_angle(baseline, other):
-    return max(baseline[k].rotation_difference(other[k]).angle for k in baseline)
+    # q and -q encode the same physical orientation. Raw quaternion angle
+    # can be 2*pi for a sign flip; do not mistake that for a joint rotation.
+    angles = []
+    for k in baseline:
+        qa, qb = baseline[k], other[k]
+        na = math.sqrt(sum(qa[i]*qa[i] for i in range(4)))
+        nb = math.sqrt(sum(qb[i]*qb[i] for i in range(4)))
+        require(na > 1e-12 and nb > 1e-12, "INVALID_POSE_QUATERNION")
+        dot = abs(sum(qa[i]*qb[i] for i in range(4)) / (na*nb))
+        angles.append(2*math.acos(min(1.0, max(0.0, dot))))
+    return max(angles)
 
 
 def observed(t, xyz, min_z, delta, angle, gap):
@@ -246,8 +256,9 @@ def main():
         "physical_contact_accepted": False, "mvp_accepted": False,
         "windows": windows
     }
-    critic = assess(report)
+    # Preserve exact original native witness even if independent critic REDs.
     Path(args.out).write_text(json.dumps(report, sort_keys=True, indent=2, allow_nan=False)+"\n")
+    critic = assess(report)
     Path(args.out).with_name("n03d-ab-independent-critic.json").write_text(
         json.dumps(critic, sort_keys=True, indent=2, allow_nan=False)+"\n")
     print("N03D_AB_ACTUAL_NATIVE_TEMPORAL_WITNESS",
