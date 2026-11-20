@@ -1,0 +1,45 @@
+name: N03D K source-safe heel-toe five-link optimization CPU
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'research/n03d-k-synthetic-support/**'
+      - '.github/workflows/n03d-k-heel-toe.yml'
+permissions:
+  contents: read
+jobs:
+  independent-jacobian-oracle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Nine independent analytic derivative/geometry controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-k-synthetic-support -p test_planar_support.py -v
+  real-scipy-bakeoff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Pinned public CPU libraries
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/n03dk"
+          "$RUNNER_TEMP/n03dk/bin/python" -m pip install --only-binary=:all: --no-cache-dir numpy==2.2.6 scipy==1.15.3
+      - name: Seven-frame contact-driven comparison and oracle receipt
+        run: |
+          set -euo pipefail
+          mkdir -p receipts
+          "$RUNNER_TEMP/n03dk/bin/python" research/n03d-k-synthetic-support/bakeoff.py > receipts/n03dk.json
+          python3 -m json.tool receipts/n03dk.json >/dev/null
+          cat receipts/n03dk.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: n03d-k-original-synthetic-heel-toe
+          path: receipts/n03dk.json
+          retention-days: 3
+          if-no-files-found: ignore
