@@ -49,6 +49,7 @@ jobs:
             /tmp/r095-render/frame_*.png
             /tmp/r095-render/emission_0012.png
             /tmp/r095-render/diffuse_0012.png
+            /tmp/r095-render/material_manifest.json
           retention-days: 1
           if-no-files-found: error
   compare:
