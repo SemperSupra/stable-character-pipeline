@@ -1,0 +1,11 @@
+# N03D-L — independent true source motion vs transferred shoe contact diagnostic
+
+Critical concern: actual source-safe 100STYLE-derived recorded motion successfully retargets via Diffeomorphic onto MakeHuman/MPFB 163-bone original-character rigs, but their actual CC0 worn shoes skate by 3–5 m/s near ground. N03D-J finds no 24Hz low-velocity stance candidates and F3 shows only some 125ms proxy windows fit a 40mm static anchor. We need to distinguish source actor dynamics from target mapping/scaling, rather than force a false foot-lock.
+
+Three truly parallel free public GitHub Actions jobs retrieve exact three SHA-pinned CC-BY-4.0 Ian Mason 100STYLE derivative BVHs (Neutral_FW, Neutral_TR1, Old_FW) at previously R088-verified Git commit. Existing source-first stdlib BVH parser forward-kinematics computes original hips, ankles, toes at **full source 60Hz over frames120..479** (source cm/Y up converted meters). For each joint report near-minimum-Y (+20mm) candidate frames, adjacent 60Hz horizontal world speeds median and 95th percentile, and runs of >=3 consecutive near-ground/low-velocity (<0.08m/s) pairs; compare source root motion travel. These are ankle/toe CONTACT CANDIDATES only—source anatomical ankle/toe aren't actual shoe material soles, global minimum joint height may be above floor, and authors did not provide force plates or true contact labels.
+
+Eight adversarial synthetic source-only controls include static, skate, apparently hover, episode, sample limits, NaNs, clock; upstream R088 11 more. No Blender, GPU, private minutes, source image or protected actual Naomi/Alison; no raw BVH published, JSON evidence only, licenses respected.
+
+Use result as a diagnostic decision: if the **original source toes** exhibit sustained low world-speed intervals but target shoes do not, investigate coordinate convention, scale, root/lower-limb retargeting or foot roll; if source itself lacks stance indicators, try alternative approved motion windows and source style before expensive native post-hoc IK. Either way no automatic naturalness, identity, physical contact, production or MVP acceptance. DLE public #662/#349/#650 and private #23.
+
+Draft/unmerged, no release.

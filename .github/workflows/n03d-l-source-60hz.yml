@@ -1,0 +1,54 @@
+name: N03D L three free independent original 100STYLE 60Hz source FK contact probes
+on:
+  push:
+    branches: [research/n03d-l-source-100style-60hz-contact-census-20261120]
+    paths:
+      - 'research/n03d-l-source-motion/**'
+      - '.github/workflows/n03d-l-source-60hz.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-l-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  full-rate-original-kinematics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Neutral_FW.bvh
+            sha1: a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61
+          - name: Neutral_TR1.bvh
+            sha1: 1b7af92a4df47d4f5e12db32bac90a968a03e0b9
+          - name: Old_FW.bvh
+            sha1: a3b13a437de7d2151f3c9743d51b5ccfe332b3bd
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Source FK negative and finite numeric controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/r088-motion-real -p 'test_bvh_preflight.py' -v
+          python3 -m unittest discover -s research/n03d-l-source-motion -p 'test_source_contact.py' -v
+          python3 -m py_compile research/n03d-l-source-motion/*.py
+      - name: Original recorded source pinned bytes in ephemeral runner only
+        env:
+          SOURCE_NAME: ${{ matrix.name }}
+          SOURCE_HASH: ${{ matrix.sha1 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/n03d-l"
+          curl --retry 2 --connect-timeout 12 --max-time 100 -fLsS "https://raw.githubusercontent.com/tomcatmew/simple_motion_matching/10938b4881b55c5801faded89e427407ddf14bce/data/100style/$SOURCE_NAME" -o "$RUNNER_TEMP/n03d-l/$SOURCE_NAME"
+          test "$(git hash-object "$RUNNER_TEMP/n03d-l/$SOURCE_NAME")" = "$SOURCE_HASH"
+          python3 research/n03d-l-source-motion/actual.py --source "$RUNNER_TEMP/n03d-l/$SOURCE_NAME" --sha1 "$SOURCE_HASH" --out "$RUNNER_TEMP/n03d-l/receipt.json"
+      - name: JSON metadata only; never publish licensed source BVH
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-l-source-fk-${{ matrix.name }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/n03d-l/receipt.json
+          if-no-files-found: ignore
+          retention-days: 3
