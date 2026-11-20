@@ -4,6 +4,7 @@ from pathlib import Path
 import bpy
 from mathutils import Vector
 sys.path.insert(0,str(Path(__file__).parent))
+sys.path.insert(0,str(Path(__file__).parent.parent/"n03d-x-sole-jacobian"))
 from jacobian import jacobian,update
 sys.path.insert(0,str(Path(__file__).parent))
 from policy import screen,select
