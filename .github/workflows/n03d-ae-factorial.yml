@@ -1,0 +1,275 @@
+name: N03D AE actual source root-vs-leg heldout 2x2 DoE
+on:
+  push:
+    branches: [research/n03d-ae-retarget-factorial-20261120]
+    paths:
+      - 'research/n03d-ae-factorial/**'
+      - '.github/workflows/n03d-ae-factorial.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-ae-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  synthetic-math-falsifiers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Independent stdlib finite and heldout alignment controls
+        run: |
+          python3 -m unittest discover -s research/n03d-s-planar-align -p 'test_planar.py' -v
+          python3 -m py_compile research/n03d-s-planar-align/*.py
+          python3 -m unittest discover -s research/n03d-u-relative-ankle -p 'test_target.py' -v
+          python3 -m py_compile research/n03d-u-relative-ankle/*.py
+          python3 -m unittest discover -s research/n03d-v-joint-feasibility -p 'test_solver.py' -v
+          python3 -m py_compile research/n03d-v-joint-feasibility/*.py
+          python3 -m unittest discover -s research/n03d-w-native-witness -p 'test_boundary.py' -v
+          python3 -m py_compile research/n03d-w-native-witness/*.py
+          python3 -m unittest discover -s research/n03d-x-sole-jacobian -p 'test_jacobian.py' -v
+          python3 -m py_compile research/n03d-x-sole-jacobian/*.py
+          python3 -m unittest discover -s research/n03d-y-material -p 'test_material.py' -v
+          python3 -m py_compile research/n03d-y-material/*.py
+          python3 -m unittest discover -s research/n03d-aa-fixed-jacobian -p 'test_compare.py' -v
+          python3 -m py_compile research/n03d-aa-fixed-jacobian/*.py
+          python3 -m unittest discover -s research/n03d-ab-temporal-material -p 'test_policy.py' -v
+          python3 -m py_compile research/n03d-ab-temporal-material/*.py
+          python3 -m unittest discover -s research/n03d-ac-causal -p 'test_trace.py' -v
+          python3 -m py_compile research/n03d-ac-causal/*.py
+          python3 -m unittest discover -s research/n03d-ae-factorial -p 'test_factorial.py' -v
+          python3 -m py_compile research/n03d-ae-factorial/*.py
+  actual-thirdparty-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Strict source-only real BVH controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/r088-motion-real -p 'test_bvh_preflight.py' -v
+          python3 -m unittest discover -s research/r082-mpfb-native-wardrobe -p 'test_wardrobe_contract.py' -v
+          python3 -m unittest discover -s research/r084-shoe-contact -p 'test_shoe_contact.py' -v
+          python3 -m unittest discover -s research/r090-dressed -p 'test_compare.py' -v
+          python3 -m py_compile research/r090-dressed/real_retarget.py research/r090-dressed/measure.py research/r090-dressed/compare.py
+          python3 -m unittest discover -s research/n03d-g-contact-critic -p 'test_gate.py' -v
+          python3 -m py_compile research/n03d-d-native-trace/*.py research/n03d-g-contact-critic/gate.py
+          python3 -m unittest discover -s research/n03d-f1-shoe-bone -p 'test_correspondence.py' -v
+          python3 -m py_compile research/n03d-f1-shoe-bone/*.py
+          python3 -m unittest discover -s research/n03d-m-source-target -p 'test_alignment.py' -v
+          python3 -m py_compile research/n03d-m-source-target/*.py research/n03d-l-source-motion/source_contact.py
+          python3 -m unittest discover -s research/n03d-s-planar-align -p 'test_planar.py' -v
+          python3 -m py_compile research/n03d-s-planar-align/*.py
+      - name: Exact official Blender 5.2.4 headless native binary
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r092-blender"
+          cd "$RUNNER_TEMP/r092-blender"
+          base="https://mirror.blender.org/release/Blender5.2"
+          fallback="https://download.blender.org/release/Blender5.2"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256 || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
+          hash="$(grep -F blender-5.2.4-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "$(printf '%s' "$hash" | wc -c)" -eq 64
+          printf '%s  %s\n' "$hash" blender-5.2.4-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-5.2.4-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/r092-blender" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+      - name: Verify real downloaded Blender version is exactly 5.2.4
+        run: |
+          set -euo pipefail
+          blender --background --python-exit-code 12 --python-expr 'import bpy; assert bpy.app.version == (5,2,4), (bpy.app.version, "VERSION_NOT_EXACT"); print("BQS_PINNED_VERSION", bpy.app.version_string)'
+      - name: Source-authenticated GPL Diffeomorphic retargeter and CC0 native MPFB
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mpfb2" "$RUNNER_TEMP/retarget_bvh"
+          git -C "$RUNNER_TEMP/mpfb2" init -q
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = d26635e9326e3cca30778fd7b9c00062b03cce09
+          git -C "$RUNNER_TEMP/retarget_bvh" init -q
+          git -C "$RUNNER_TEMP/retarget_bvh" remote add origin https://github.com/Diffeomorphic/retarget_bvh.git
+          git -C "$RUNNER_TEMP/retarget_bvh" -c protocol.version=2 fetch -q --depth 1 origin a4f2a394901d043457a9426f0d9e2ade9cda702c
+          git -C "$RUNNER_TEMP/retarget_bvh" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/retarget_bvh" rev-parse HEAD)" = a4f2a394901d043457a9426f0d9e2ade9cda702c
+          grep -q 'blender_version_min = "4.2.0"' "$RUNNER_TEMP/retarget_bvh/blender_manifest.toml"
+          grep -q 'SPDX:GPL-2.0-or-later' "$RUNNER_TEMP/retarget_bvh/blender_manifest.toml"
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension build --source-dir "$RUNNER_TEMP/retarget_bvh" --output-filepath "$RUNNER_TEMP/retarget-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/retarget-pinned.zip"
+          blender -b -t 2 --python-exit-code 12 --python research/r078-r009-mpfb-pair/makehuman_pair.py -- --stage build --source "$RUNNER_TEMP/mpfb2" --out "$RUNNER_TEMP/r078"
+      - name: Acquire exact original community CC0 clothing source archives
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wardrobe"
+          for pack in shirts01 pants01 shoes01; do
+            curl --retry 2 --connect-timeout 15 --max-time 180 -fLsS "https://files.makehumancommunity.org/asset_packs/$pack/${pack}_cc0.zip" -o "$RUNNER_TEMP/wardrobe/${pack}_cc0.zip"
+          done
+          echo 'a5a723b0e84a109bb190fcfeac7f1de4138d875da3e30fe5b3340eac9f38bcd3  '"$RUNNER_TEMP/wardrobe/shirts01_cc0.zip" | sha256sum -c -
+          echo 'e4e0ec60db34f279be291a83cfd7b342a7c5cf09bb7676682a5f39f4f6ac4ad9  '"$RUNNER_TEMP/wardrobe/pants01_cc0.zip" | sha256sum -c -
+          echo 'ded3f70428505eabbf1f6d7b5f61196a7366ef20757103d276ad0ed336c35ada  '"$RUNNER_TEMP/wardrobe/shoes01_cc0.zip" | sha256sum -c -
+      - name: Real native CC0 garment fitting and measured source baseline
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/r090-native"
+          scene="$RUNNER_TEMP/r078/aster-juniper-official-mpfb.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/r082-mpfb-native-wardrobe/native_wardrobe.py -- --stage build --packs "$RUNNER_TEMP/wardrobe" --baseline-sha "$sha" --out "$RUNNER_TEMP/r082"
+          source="$RUNNER_TEMP/r082/aster-juniper-cc0-native-wardrobe.blend"
+          sum="$(sha256sum "$source" | cut -d ' ' -f1)"
+          blender -b "$source" -t 2 --python-exit-code 12 --python research/r090-dressed/measure.py -- --scene "$source" --sha "$sum" --wardrobe "$RUNNER_TEMP/r082/build.json" --out "$RUNNER_TEMP/r090-native/authored.json"
+      - name: Actual 360-frame source capture genuine third-party retarget onto CC0-dressed rigs
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/r090-native/Neutral_FW.bvh"
+          curl --retry 2 --connect-timeout 12 --max-time 60 -fLsS "https://raw.githubusercontent.com/tomcatmew/simple_motion_matching/10938b4881b55c5801faded89e427407ddf14bce/data/100style/Neutral_FW.bvh" -o "$src"
+          test "$(git hash-object "$src")" = a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61
+          scene="$RUNNER_TEMP/r082/aster-juniper-cc0-native-wardrobe.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/r090-dressed/real_retarget.py -- --stage build --scene "$scene" --sha "$sha" --source "$src" --clip "$RUNNER_TEMP/r090-native/clip.bvh" --out "$RUNNER_TEMP/r090-native/report.json"
+          blender -b "$RUNNER_TEMP/r090-native/report.blend" -t 2 --python-exit-code 12 --python research/r090-dressed/real_retarget.py -- --stage verify --out "$RUNNER_TEMP/r090-native/report.json"
+          target="$RUNNER_TEMP/r090-native/report.blend"
+          sum="$(sha256sum "$target" | cut -d ' ' -f1)"
+          blender -b "$target" -t 2 --python-exit-code 12 --python research/r090-dressed/measure.py -- --scene "$target" --sha "$sum" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --out "$RUNNER_TEMP/r090-native/recorded.json"
+          python3 research/r090-dressed/compare.py "$RUNNER_TEMP/r090-native/authored.json" "$RUNNER_TEMP/r090-native/recorded.json" "$RUNNER_TEMP/r090-native/comparison.json"
+      - name: Evaluate real native 24Hz shoe geometry (no source binary saved or published)
+        run: |
+          set -euo pipefail
+          target="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$target" | cut -d ' ' -f1)"
+          blender -b "$target" -t 2 --python-exit-code 12 --python research/n03d-d-native-trace/native_trace.py -- --scene "$target" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --out "$RUNNER_TEMP/r090-native/n03d-native-trace.json"
+          python3 research/n03d-d-native-trace/evaluate.py --source "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --out "$RUNNER_TEMP/r090-native/n03d-critic.json"
+      - name: Read-only actual CC0 shoe weighted source bone correspondence and foot-tail offset calibration
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-f1-shoe-bone/native_correspondence.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --out "$RUNNER_TEMP/r090-native/n03d-foot-bone-correspondence.json"
+      - name: Compare source full FK ankle/toe versus actual target 163-bone foot and deformed CC0 shoe
+        run: |
+          set -euo pipefail
+          target="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$target" | cut -d ' ' -f1)"
+          blender -b "$target" -t 2 --python-exit-code 12 --python research/n03d-m-source-target/native_compare.py -- --scene "$target" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --correspondence "$RUNNER_TEMP/r090-native/n03d-foot-bone-correspondence.json" --source "$RUNNER_TEMP/r090-native/Neutral_FW.bvh" --out "$RUNNER_TEMP/r090-native/n03d-source-to-target-foot.json"
+      - name: Independent full FK and source to native heldout root and ankle fit
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-s-planar-align/native.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --source "$RUNNER_TEMP/r090-native/Neutral_FW.bvh" --out "$RUNNER_TEMP/r090-native/n03d-s-heldout-fit.json"
+      - name: Actual source-relative 3D ankle targets and temporary bounded five-bone native IK
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-u-relative-ankle/native.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --source "$RUNNER_TEMP/r090-native/Neutral_FW.bvh" --out "$RUNNER_TEMP/r090-native/n03d-u-source-relative-ik.json"
+      - name: Run bounded joint root and foot temporal objective on actual CC0 shoe contact trace
+        run: |
+          set -euo pipefail
+          python3 research/n03d-v-joint-feasibility/actual.py --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --out "$RUNNER_TEMP/r090-native/n03d-v-joint-contact-feasibility.json"
+      - name: Genuine actual CC0 skinned shoe nonlinear IK plus root corrections source-bound witness
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-w-native-witness/native.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --correspondence "$RUNNER_TEMP/r090-native/n03d-foot-bone-correspondence.json" --out "$RUNNER_TEMP/r090-native/n03d-w-actual-mesh-witness.json"
+      - name: Source-joined native fivebone IK finite difference CC0 shoe point Jacobian and trust probe
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-x-sole-jacobian/native.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --correspondence "$RUNNER_TEMP/r090-native/n03d-foot-bone-correspondence.json" --out "$RUNNER_TEMP/r090-native/n03d-x-native-contact-jacobian.json"
+      - name: Actual 24Hz unchanging source shoe material vertex identity and dynamic support switches
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-y-material/native.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --out "$RUNNER_TEMP/r090-native/n03d-y-material-contact.json"
+      - name: Actual fivebone IK on exact shoe material cohort versus switching patch nonlinear Jacobian
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-aa-fixed-jacobian/native.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --correspondence "$RUNNER_TEMP/r090-native/n03d-foot-bone-correspondence.json" --out "$RUNNER_TEMP/r090-native/n03d-aa-fixed-material-jacobian.json"
+      - name: Actual bounded four-frame source-relative IK and 24/60Hz world-shoe material replay
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-ab-temporal-material/native.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --correspondence "$RUNNER_TEMP/r090-native/n03d-foot-bone-correspondence.json" --out "$RUNNER_TEMP/r090-native/n03d-ab-native-temporal.json"
+      - name: Independently verify fail-closed real native temporal witness and source custody
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-ab-temporal-material -p 'test_policy.py' -v
+          python3 - <<'PY'
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,"research/n03d-ab-temporal-material")
+          from policy import assess
+          root=Path(__import__("os").environ["RUNNER_TEMP"])/"r090-native"
+          witness=json.loads((root/"n03d-ab-native-temporal.json").read_text())
+          critic=json.loads((root/"n03d-ab-independent-critic.json").read_text())
+          independent=assess(witness)
+          assert independent==critic, "INDEPENDENT_CRITIC_MISMATCH"
+          assert independent["status"]=="HOLD" and not independent["physical_contact_accepted"], "CONTACT_GATE_BYPASS"
+          print("N03D_AB_INDEPENDENT_HOLD", len(independent["windows"]))
+          PY
+      - name: Exact full 60Hz paired original BVH and real MPFB bone + worn CC0 shoe causal witness
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-ac-causal/native.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --source "$RUNNER_TEMP/r090-native/Neutral_FW.bvh" --out "$RUNNER_TEMP/r090-native/n03d-ac-causal.json"
+      - name: Independent exact-source diagnostic replay and physical HOLD verifier
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-ac-causal -p 'test_trace.py' -v
+          python3 - <<'PY'
+          import json,sys,os
+          from pathlib import Path
+          sys.path.insert(0,"research/n03d-ac-causal")
+          from trace import assess
+          path=Path(os.environ["RUNNER_TEMP"])/"r090-native"/"n03d-ac-causal.json"
+          report=json.loads(path.read_text())
+          truth=json.loads(path.with_suffix(".diagnosis.json").read_text())
+          calculated=assess(report)
+          assert truth==calculated, "CAUSAL_CRITIC_DISAGREE"
+          assert truth["status"]=="HOLD" and len(truth["results"])==4
+          print("N03D_AC_INDEPENDENT_FULL_CLIP_HOLD",json.dumps(truth["results"],sort_keys=True))
+          PY
+      - name: Original source-to-real native observed root-versus-relative-leg 2x2 heldout ablation
+        run: |
+          set -euo pipefail
+          python3 research/n03d-ae-factorial/factorial.py --trace "$RUNNER_TEMP/r090-native/n03d-ac-causal.json" --out "$RUNNER_TEMP/r090-native/n03d-ae-root-leg-factorial.json"
+      - name: Independent real native-source factorial replay and non-promotion gate
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-ae-factorial -p 'test_factorial.py' -v
+          python3 - <<'PY'
+          import json,sys,os
+          from pathlib import Path
+          sys.path.insert(0,"research/n03d-ae-factorial")
+          from factorial import evaluate,independent
+          root=Path(os.environ["RUNNER_TEMP"])/"r090-native"
+          summary=json.loads((root/"n03d-ae-root-leg-factorial.json").read_text())
+          source=json.loads((root/"n03d-ac-causal.json").read_text())
+          assert summary==evaluate(source), "FACTORIAL_INDEPENDENT_REPLAY_MISMATCH"
+          assert independent(summary)=="HOLD" and not summary["mvp_accepted"],"FALSE_NATIVE_GAIT_PASS"
+          print("N03D_AE_HELDOUT_2X2_HOLD",summary["status"], len(summary["actors"]))
+          PY
+      - name: Upload native evidence JSON only (no source motion, Blend or human assets)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-ae-factorial-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/r090-native/*.json
+          retention-days: 3
+          if-no-files-found: ignore
