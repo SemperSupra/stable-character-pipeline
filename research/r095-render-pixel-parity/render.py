@@ -78,4 +78,16 @@ bpy.context.scene.frame_set(12)
 bpy.context.scene.render.filepath=str(out/"emission_0012.png")
 bpy.ops.render.render(write_still=True)
 assert (out/"emission_0012.png").stat().st_size>100
+# Controlled diffuse-only path: tests whether the large difference is Principled-specific.
+for material, rgba in ((mat,(0.62,0.24,0.12,1)),(floor,(0.44,0.44,0.44,1))):
+    nodes=material.node_tree.nodes
+    nodes.clear()
+    output=nodes.new("ShaderNodeOutputMaterial")
+    diffuse=nodes.new("ShaderNodeBsdfDiffuse")
+    diffuse.inputs["Color"].default_value=rgba
+    diffuse.inputs["Roughness"].default_value=0.0
+    material.node_tree.links.new(diffuse.outputs["BSDF"],output.inputs["Surface"])
+bpy.context.scene.render.filepath=str(out/"diffuse_0012.png")
+bpy.ops.render.render(write_still=True)
+assert (out/"diffuse_0012.png").stat().st_size>100
 print("R095_RENDER",json.dumps({"version":version,"frames":[1,12,24],"resolution":[96,96],"render":"cycles-cpu-8spp","source":"original-synthetic"}))
