@@ -1,0 +1,64 @@
+name: R095 independent three-version CPU Cycles pixel parity
+on:
+  pull_request:
+    paths:
+      - "research/r095-render-pixel-parity/**"
+      - ".github/workflows/r095-render-pixel-parity.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: "4.5.16"
+            folder: Blender4.5
+          - version: "5.2.4"
+            folder: Blender5.2
+          - version: "5.3.0"
+            folder: Blender5.3
+    env:
+      R095_VERSION: ${{ matrix.version }}
+      R095_OUT: /tmp/r095-render
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Official checksum verified Blender acquisition
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://mirror.blender.org/release/${{ matrix.folder }}"
+          curl -fLsS --retry 4 --retry-all-errors --retry-delay 5 --max-time 480 "$base/blender-${{ matrix.version }}.sha256" -o /tmp/source.sha256
+          curl -fLsS --retry 4 --retry-all-errors --retry-delay 5 --max-time 480 "$base/blender-${{ matrix.version }}-linux-x64.tar.xz" -o /tmp/blender.tar.xz
+          expected="$(grep -F "blender-${{ matrix.version }}-linux-x64.tar.xz" /tmp/source.sha256 | awk '{print $1}')"
+          test "${#expected}" -eq 64
+          echo "$expected  /tmp/blender.tar.xz" | sha256sum -c -
+          mkdir /tmp/blender-native
+          tar -xf /tmp/blender.tar.xz -C /tmp/blender-native --strip-components=1
+      - name: Native CPU Cycles samples and original synthetic scene
+        run: /tmp/blender-native/blender --background --factory-startup --python-exit-code 12 --python research/r095-render-pixel-parity/render.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r095-${{ matrix.version }}
+          path: /tmp/r095-render/frame_*.png
+          retention-days: 1
+          if-no-files-found: error
+  compare:
+    needs: render
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: r095-*
+          path: /tmp/r095-pixels
+      - run: python3 -m unittest discover -s research/r095-render-pixel-parity -p "test_*.py" -v
+      - run: python3 research/r095-render-pixel-parity/compare_png.py --root /tmp/r095-pixels --max-rmse 0.06
