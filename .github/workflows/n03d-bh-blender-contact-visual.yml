@@ -1,0 +1,113 @@
+name: N03D BH original same body 60Hz heel ball region and real dual-camera Blender witness
+on:
+  push:
+    branches: [research/n03d-bh-blender-contact-visual-20261121]
+    paths:
+      - 'research/n03d-bh-blender-contact-visual/**'
+      - '.github/workflows/n03d-bh-blender-contact-visual.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-bh-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-heel-ball-and-genuine-raster:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        actor: [AsterOriginal, JuniperOriginal]
+        rig: [default, game_engine]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Hostile actual source original vertex, fixed heel ball regions, physical and PNG spoof controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-bh-blender-contact-visual -p 'test_critic.py' -v
+          python3 -m unittest discover -s research/r088-motion-real -p 'test_bvh_preflight.py' -v
+          python3 -m py_compile research/n03d-bh-blender-contact-visual/*.py
+      - name: Original official authenticated Blender5.2.4 LTS source
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/official-blender"
+          cd "$RUNNER_TEMP/official-blender"
+          base="https://mirror.blender.org/release/Blender5.2"
+          fallback="https://download.blender.org/release/Blender5.2"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256 || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
+          hash="$(grep -F blender-5.2.4-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "$hash" = 2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86
+          printf '%s  %s\n' "$hash" blender-5.2.4-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-5.2.4-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/official-blender" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+      - name: Original source-safe Workbench CPU-only Mesa EGL offscreen renderer libraries
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1-mesa-dri libgl1 libopengl0 xvfb
+          test -e /usr/lib/x86_64-linux-gnu/libEGL.so.1
+      - name: Authentic original public MakeHuman MPFB source/rig/weights and extension load
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = d26635e9326e3cca30778fd7b9c00062b03cce09
+          test -s "$RUNNER_TEMP/mpfb2/src/mpfb/data/rigs/standard/weights.${{ matrix.rig }}.json"
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-original.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-original.zip"
+      - name: Original CC BY4 exact git blob source 100STYLE 360 frames @60Hz
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/n03d-bh"
+          curl -fLsS --retry 2 --max-time 120 "https://raw.githubusercontent.com/tomcatmew/simple_motion_matching/10938b4881b55c5801faded89e427407ddf14bce/data/100style/Neutral_FW.bvh" -o "$RUNNER_TEMP/n03d-bh/Neutral_FW.bvh"
+          test "$(git hash-object "$RUNNER_TEMP/n03d-bh/Neutral_FW.bvh")" = a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61
+      - name: Real native fixed source material 360x60Hz bilateral heel and ball regions plus 6 original front and side PNG
+        run: |
+          set -euo pipefail
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+          export EGL_PLATFORM=surfaceless
+          xvfb-run -a blender -b -t 2 --python-exit-code 12 --python research/n03d-bh-blender-contact-visual/native.py -- \
+            --actor '${{ matrix.actor }}' --rig '${{ matrix.rig }}' --motion "$RUNNER_TEMP/n03d-bh/Neutral_FW.bvh" \
+            --out "$RUNNER_TEMP/n03d-bh/native.json" --images "$RUNNER_TEMP/n03d-bh/original-public-stills"
+      - name: Separate numeric and original-only actual two camera visual critic
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,sys,json,pathlib,hashlib
+          sys.path.insert(0,"research/n03d-bh-blender-contact-visual")
+          from critic import check
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])/"n03d-bh"
+          d=json.loads((root/"native.json").read_text())
+          assert d["actor"]=="${{ matrix.actor }}" and d["rig"]=="${{ matrix.rig }}"
+          assert check(d)=="HOLD"
+          for row in d["genuine_blender_workbench_original_source_stills"]:
+              pic=(root/"original-public-stills"/row["png"]).read_bytes()
+              assert hashlib.sha256(pic).hexdigest()==row["png_sha256"]
+              assert pic[:8]==b"\x89PNG\r\n\x1a\n"
+          print("N03D_BH_INDEPENDENT_REAL_NATIVE_SKIN_AND_ORIGINAL_RASTER",json.dumps({
+              "actor":d["actor"],"rig":d["rig"],"source_shape_sha":d["body_actual_evaluated_shape_sha256"],
+              "metrics":d["material_results"],"frames":len(d["genuine_blender_workbench_original_source_stills"]),
+              "status":d["status"]},sort_keys=True))
+          PY
+      - name: Only original nonprotected 320px MakeHuman PNG and numeric JSON receipts retained 3 days
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-bh-${{ matrix.actor }}-${{ matrix.rig }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/n03d-bh/native.json
+            ${{ runner.temp }}/n03d-bh/original-public-stills/*.png
+          if-no-files-found: ignore
+          retention-days: 3
