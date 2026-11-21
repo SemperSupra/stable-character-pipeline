@@ -1,0 +1,90 @@
+name: N03D BA source-exact public rigged model native Blender admission
+on:
+  push:
+    branches: [research/n03d-ba-asset-native-20261121]
+    paths:
+      - 'research/n03d-ba-asset-native/**'
+      - '.github/workflows/n03d-ba-asset-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-ba-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-source-and-real-blender:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        candidate: [piston, vsim, cc, rigify]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Strict malformed rig, license and false gait source controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-ba-asset-native -p 'test_source.py' -v
+          python3 -m py_compile research/n03d-ba-asset-native/*.py
+      - name: Acquire exact upstream commit and Git-blob-pinned actual human model
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/n03d-ba-asset"
+          python3 research/n03d-ba-asset-native/source.py --registry research/n03d-ba-asset-native/registry.json --candidate '${{ matrix.candidate }}' --work "$RUNNER_TEMP/n03d-ba-asset" --output "$RUNNER_TEMP/n03d-ba-source.json"
+          python3 - <<'PY'
+          import json,sys,os
+          sys.path.insert(0,"research/n03d-ba-asset-native")
+          from source import independent
+          d=json.load(open(os.environ["RUNNER_TEMP"]+"/n03d-ba-source.json"))
+          assert independent(d)=="HOLD"
+          print("N03D_BA_INDEPENDENT_RECEIPT",d["candidate"],d["source_commit"],d["assets"])
+          PY
+      - name: Exact source SHA authenticated official Blender 5.2.4 LTS headless
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/official-blender"
+          cd "$RUNNER_TEMP/official-blender"
+          base="https://mirror.blender.org/release/Blender5.2"
+          fallback="https://download.blender.org/release/Blender5.2"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256 || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
+          hash="$(grep -F blender-5.2.4-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "$hash" = '2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86'
+          printf '%s  %s\n' "$hash" blender-5.2.4-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-5.2.4-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/official-blender" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+      - name: Genuine Blender rig, skin, action and evaluated animation witness
+        run: |
+          set -euo pipefail
+          export SCP_CANDIDATE='${{ matrix.candidate }}'
+          model="$(python3 - <<'PY'
+          import json,os,pathlib
+          r=json.load(open("research/n03d-ba-asset-native/registry.json"))
+          s=next(x for x in r["candidates"] if x["id"]==os.environ["SCP_CANDIDATE"])
+          print(pathlib.Path(os.environ["RUNNER_TEMP"])/"n03d-ba-asset"/pathlib.Path(s["model"]).name)
+          PY
+          )"
+          test -s "$model"
+          blender --background --python-exit-code 12 --python research/n03d-ba-asset-native/native.py -- --candidate "$SCP_CANDIDATE" --model "$model" --source-audit "$RUNNER_TEMP/n03d-ba-source.json" --output "$RUNNER_TEMP/n03d-ba-native.json"
+          python3 - <<'PY'
+          import os,json
+          d=json.load(open(os.environ["RUNNER_TEMP"]+"/n03d-ba-native.json"))
+          assert d["candidate"]==os.environ["SCP_CANDIDATE"] and d["blender_version"]==[5,2,4]
+          assert not d["mvp_accepted"] and not d["physical_gait_accepted"]
+          print("N03D_BA_NATIVE_HARD_HOLD",json.dumps({k:v for k,v in d.items() if k not in ("telemetry","foot_named_bones")},sort_keys=True))
+          PY
+      - name: Only short-retention source-exact JSON receipts, no model or motion binaries
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-ba-${{ matrix.candidate }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/n03d-ba-source.json
+            ${{ runner.temp }}/n03d-ba-native.json
+          if-no-files-found: ignore
+          retention-days: 3
