@@ -1,0 +1,101 @@
+name: N03D BB real Rigify and Mixamo-style original CC0 60Hz procedural locomotion
+on:
+  push:
+    branches: [research/n03d-bb-controller-20261121]
+    paths:
+      - 'research/n03d-bb-controller/**'
+      - '.github/workflows/n03d-bb-controller.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-bb-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  real-controller-kinematics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        rig:
+          - {id: rigify, model: modelos/human.glb, mapping: rigify, blob: d3327b94c302278b5471c24d712ef5dc49f0d682}
+          - {id: named, model: modelos/human_mix_propio.glb, mapping: mixamo, blob: 2f86c50b2938f0f7d78df7ff9835864d6af0fd4a}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+      - name: Authenticate exact public MIT source and real Blender Studio CC0 rigged GLB
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/upstream-three"
+          git -C "$RUNNER_TEMP/upstream-three" remote add origin https://github.com/PabloMesquida/three-procedural-locomotion.git
+          git -C "$RUNNER_TEMP/upstream-three" -c protocol.version=2 fetch --quiet --depth 1 origin 3f5b4896f1b28501b40aa9c408e47dba51322443
+          git -C "$RUNNER_TEMP/upstream-three" checkout -q FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/upstream-three" rev-parse HEAD)" = 3f5b4896f1b28501b40aa9c408e47dba51322443
+          test "$(git -C "$RUNNER_TEMP/upstream-three" hash-object '${{ matrix.rig.model }}')" = '${{ matrix.rig.blob }}'
+          grep -q "MIT License" "$RUNNER_TEMP/upstream-three/LICENSE"
+          grep -q 'Blender Studio, CC0' "$RUNNER_TEMP/upstream-three/README.md"
+          sha256sum "$RUNNER_TEMP/upstream-three/${{ matrix.rig.model }}"
+      - name: Verified CPU Node 22 full dependency locked installation and upstream walking tests
+        env:
+          PH_MODEL: '${{ matrix.rig.model }}'
+          PH_MAPPING: '${{ matrix.rig.mapping }}'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/upstream-three"
+          node --version
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test -- walk
+          npm test -- naturalness
+          npm test -- ik
+          npm test -- ground
+      - name: NEW actual real source-controlled six-second 60Hz procedural gait execution
+        env:
+          PH_MODEL: '${{ matrix.rig.model }}'
+          PH_MAPPING: '${{ matrix.rig.mapping }}'
+          SCP_UPSTREAM_COMMIT: 3f5b4896f1b28501b40aa9c408e47dba51322443
+          SCP_OUT: ${{ runner.temp }}/n03d-bb-controller.json
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/upstream-three"
+          cp "$GITHUB_WORKSPACE/research/n03d-bb-controller/bridge.test.ts" tests/scp-bridge.test.ts
+          npm test -- scp-bridge
+          python3 - <<'PY'
+          import os,json,math
+          p=os.environ["SCP_OUT"]
+          x=json.load(open(p))
+          assert x["schema"]=="scp.n03d-bb.kinematic-three-original-cc0.v1"
+          assert x["model"]==os.environ["PH_MODEL"] and x["mapping"]==os.environ["PH_MAPPING"]
+          assert x["actual_native_three60hz_frames"]==360
+          assert not x["render_or_blender_native_shoe"] and not x["mvp_accepted"]
+          assert not x["model_ground_force_measured"] and not x["measured_physics_accepted"]
+          assert all(math.isfinite(x[k]) for k in ("planted_target_slip_m","native_three_stance_ik_max_error_m","native_three_swing_toe_clearance_m"))
+          print("N03D_BB_INDEPENDENT_TRUE_RUNTIME_WITNESS",json.dumps(x,sort_keys=True))
+          PY
+      - name: CPU quick benchmark is kinematic only, not matched physics
+        env:
+          PH_MODEL: '${{ matrix.rig.model }}'
+          PH_MAPPING: '${{ matrix.rig.mapping }}'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/upstream-three"
+          npm run bench -- --quick > "$RUNNER_TEMP/n03d-bb-bench.txt" 2>&1
+          tail -80 "$RUNNER_TEMP/n03d-bb-bench.txt"
+      - name: Short-retention JSON and small log only, no model or source binaries
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-bb-${{ matrix.rig.id }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/n03d-bb-controller.json
+            ${{ runner.temp }}/n03d-bb-bench.txt
+          if-no-files-found: ignore
+          retention-days: 3
