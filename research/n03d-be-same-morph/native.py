@@ -119,7 +119,11 @@ def actuate(actor,bvh,mapped_nodes):
     for rig_name,variant in actor["versions"].items():
         rig=variant["rig"];body=variant["body"]
         mapping=MAP[rig_name]
-        need(all(t in rig.pose.bones for t in mapping.values()),"SOURCE_TARGET_BONE_NOT_PRESENT_"+rig_name)
+        missing=[(s,t) for s,t in mapping.items() if t not in rig.pose.bones]
+        if missing:
+            print("N03D_BE_SOURCE_MAP_REJECT",json.dumps({"actor":actor["actor"],"rig":rig_name,
+                  "missing":missing,"all_bone_names":sorted(b.name for b in rig.pose.bones)}),flush=True)
+        need(not missing,"SOURCE_TARGET_BONE_NOT_PRESENT_"+rig_name)
         orig_mat=rig.matrix_world.copy()
         leg_src=(Vector(mapped_nodes["LeftKnee"]["offset"]).length+
                  Vector(mapped_nodes["LeftAnkle"]["offset"]).length)*.01
