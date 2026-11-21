@@ -59,7 +59,7 @@ jobs:
           PH_MODEL: '${{ matrix.model.file }}'
           PH_MAPPING: '${{ matrix.model.mapping }}'
           SCP_UPSTREAM_COMMIT: 3f5b4896f1b28501b40aa9c408e47dba51322443
-          SCP_BF_OUT: __TEMPDIR__/n03d-bf-three-live-pose.json
+          SCP_BF_OUT: ${{ runner.temp }}/n03d-bf-three-live-pose.json
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/upstream-three"
