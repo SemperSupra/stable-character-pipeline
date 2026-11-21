@@ -75,9 +75,11 @@ class AI(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"SOURCE_AC_JOIN"):evaluate(t,a)
     def test_timebase_changed(self):
         t,a=fixture();t["actors"][0]["sides"][SIDES[0]]["samples"][3]["t_s"]+=.02
+        a["source_shoe_trace_sha256"]=hashlib.sha256((json.dumps(t,sort_keys=True,indent=2,allow_nan=False)+"\n").encode()).hexdigest()
         with self.assertRaisesRegex(ValueError,"SOURCE_SHOE_TIMEBASE"):evaluate(t,a)
     def test_missing_shoe_side(self):
         t,a=fixture();del t["actors"][0]["sides"][SIDES[1]]
+        a["source_shoe_trace_sha256"]=hashlib.sha256((json.dumps(t,sort_keys=True,indent=2,allow_nan=False)+"\n").encode()).hexdigest()
         with self.assertRaisesRegex(ValueError,"SHOE_ACTOR_OR_SIDE"):evaluate(t,a)
     def test_forged_release(self):
         r=evaluate(*fixture());r["mvp_accepted"]=True
