@@ -16,7 +16,9 @@ def check(doc):
          doc.get("motion_git_blob")=="a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61" and
          doc.get("source_60hz_frames")==[120,479] and
          doc.get("real_blender_5_2_4_version")==[5,2,4] and
-         doc.get("reference_cameras_are_static_per_view") is True and
+         doc.get("reference_cameras_are_static_per_view") is False and
+         doc.get("reference_camera_angles_fixed_but_track_root") is True and
+         doc.get("all_images_contain_subject_foreground") is True and
          doc.get("characters_wear_real_CC0_shoes") is False and
          doc.get("true_anatomical_heel_ball_semantics_calibrated") is False and
          doc.get("real_force_grf") is False and
@@ -74,6 +76,12 @@ def check(doc):
         need(v.get("body_source_only_CC0_not_photo") is True and
              isinstance(v.get("png_sha256"),str) and len(v["png_sha256"])==64 and
              type(v.get("bytes")) is int and v["bytes"]>2000 and
+             type(v.get("visible_nonblack_character_pixels")) is int and
+             v["visible_nonblack_character_pixels"]>=300 and
+             0.002<=scalar(v.get("visible_nonblack_character_fraction"))<=.80 and
+             v.get("camera_follows_original_actor_root") is True and
+             isinstance(v.get("camera_target_m"),list) and len(v["camera_target_m"])==3 and
+             all(type(z) in (float,int) and math.isfinite(z) for z in v["camera_target_m"]) and
              v.get("png")==f'{doc["actor"]}_{doc["rig"]}_{v["view"]}_{v["source_index_60hz"]:03d}.png',
              "FAKE_WORKBENCH_PNG_OR_SOURCE")
     return "HOLD"
