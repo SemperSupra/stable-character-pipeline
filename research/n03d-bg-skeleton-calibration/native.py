@@ -132,18 +132,39 @@ def main():
          fit["fixed_yup_to_zup_axis_only"]["train"]["rms_m"]+1e-5,
          "SIM3_TRAIN_FIT_LOST_TO_AXIS_CONTROL")
     frames=doc["frames"]
+    base_rig_world=rig.matrix_world.copy()
+    original_mesh_world={obj.name:obj.matrix_world.copy() for obj in meshes}
+    # Original real GLB armature modifier, whether actually effective and coupled.
+    native_armature_modifiers=[{"mesh":obj.name,"parent":obj.parent.name if obj.parent else None,
+                                "mods":[{"name":mod.name,"enabled":bool(mod.show_viewport),
+                                         "armature_match":mod.object==rig}
+                                        for mod in obj.modifiers if mod.type=="ARMATURE"]}
+                               for obj in meshes]
+    need(all(any(m["enabled"] and m["armature_match"] for m in d["mods"])
+                 for d in native_armature_modifiers),"SKINNED_MESH_MODIFIER_DISABLED_OR_NOT_BOUND")
     invrest={key:SRC[key].inverted_safe() for key in ORDER}
     native_rest={key:TGT[key].copy() for key in ORDER}
     co=bf.foot_groups(meshes,rig,mapping)
     result=[]
-    for mode,A in A_modes.items():
+    # Independent calibration experiment and a 3rd counterfactual separating
+    # root rigid-body transport from per-bone pose. The first 2 modes retain
+    # the exact earlier BG experimental control for comparison.
+    trial_modes=[("fixed_yup_to_zup_axis_only",AA,False),
+                 ("five_landmark_rest_similarity",AF,False),
+                 ("five_landmark_rest_similarity_with_model_root",AF,True)]
+    for mode,A,drive_root in trial_modes:
         for b in rig.pose.bones:
             b.rotation_mode="QUATERNION"
             b.rotation_quaternion=(1,0,0,0)
             b.location=(0,0,0)
-        rig.matrix_world=rig.matrix_world.copy()
+        rig.matrix_world=base_rig_world.copy()
+        for obj in meshes:obj.matrix_world=original_mesh_world[obj.name].copy()
         bpy.context.view_layer.update()
         records={"L":[],"R":[]}
+        coupling={"L":[],"R":[]}
+        toe_local_digest=[]
+        initial_bone_xy={}
+        initial_material_xy={}
         err={key:[] for key in ("LeftAnkle","RightAnkle","LeftToe","RightToe")}
         source_target_displacements={key:[] for key in err}
         # This is the actual per-bone source world motion, including global target movement,
@@ -151,6 +172,15 @@ def main():
         for frame in frames:
             need(frame["i"]==len(records["L"]),"ACTUAL_FRAME_ORDER")
             now={key:mat(frame["pose_world_matrix_column_major"][key]) for key in ORDER}
+            root_motion=A@now["Hips"]@invrest["Hips"]@A.inverted_safe()
+            if drive_root:
+                rig.matrix_world=root_motion@base_rig_world
+                # Many glTF importers place skinned mesh objects beside the
+                # armature, not as its child; explicitly transport only siblings.
+                for obj in meshes:
+                    if obj.parent != rig:
+                        obj.matrix_world=root_motion@original_mesh_world[obj.name]
+                bpy.context.view_layer.update()
             for key in ORDER:
                 D=A@now[key]@invrest[key]@A.inverted_safe()
                 desired=D@native_rest[key]
@@ -164,8 +194,44 @@ def main():
                 target_base=native_rest[key].translation
                 expect=target_base+(source_expected-initial)
                 err[key].append((actual-expect).length)
-            for side in ("L","R"):records[side].append(bf.observe(co[side]))
+            for side,key in (("L","LeftAnkle"),("R","RightAnkle")):
+                sample=bf.observe(co[side])
+                records[side].append(sample)
+                bhead=rig.matrix_world@rig.pose.bones[mapping[key]].head
+                bxy=(float(bhead.x),float(bhead.y))
+                if len(records[side])==1:
+                    initial_bone_xy[side]=bxy
+                    initial_material_xy[side]=sample["xy"]
+                dskin=(sample["xy"][0]-initial_material_xy[side][0],
+                       sample["xy"][1]-initial_material_xy[side][1])
+                dbone=(bxy[0]-initial_bone_xy[side][0],
+                       bxy[1]-initial_bone_xy[side][1])
+                coupling[side].append(math.dist(dskin,dbone))
+            if frame["i"] in (0,80,160,240,359):
+                # Full root-independent evaluated mesh local shape sample catches
+                # the earlier BE REST-only false-gait scenario.
+                obj=co["L"][0]["object"]
+                ev=obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                sk=ev.to_mesh()
+                try:
+                    hh=hashlib.sha256()
+                    for i in range(0,len(sk.vertices),max(1,len(sk.vertices)//256)):
+                        hh.update(str(tuple(round(float(q),6) for q in sk.vertices[i].co)).encode())
+                    toe_local_digest.append(hh.hexdigest())
+                finally:ev.to_mesh_clear()
+        coupling_metric={side:{"p50_skin_bone_xy_displacement_m":round(statistics.median(coupling[side]),6),
+                               "max_skin_bone_xy_displacement_m":round(max(coupling[side]),6),
+                               "end_skin_bone_xy_displacement_m":round(coupling[side][-1],6)}
+                         for side in ("L","R")}
+        local_deformation_verified=len(set(toe_local_digest))>=3
+        coupled=all(m["max_skin_bone_xy_displacement_m"]<.25
+                    for m in coupling_metric.values())
         trials={"mode":mode,"actual_native_blender_frames":360,
+                "root_trajectory_applied_to_armature_object":drive_root,
+                "real_skin_bone_displacement_coupling":coupling_metric,
+                "root_independent_local_skin_sha256_samples":toe_local_digest,
+                "native_nonrigid_skin_deformation_verified":local_deformation_verified,
+                "bilateral_real_skin_tracks_bone":coupled,
                 "actual_native_skin_mesh_count":len(meshes),
                 "source_controller_phases_are_not_true_contact":True,
                 "real_native_foot_material":{side:compare(records[side],
@@ -187,11 +253,20 @@ def main():
          "out_of_sample_calibration_joints":list(HOLD),
          "calibration_orthogonal_no_reflection":True,
          "calibration_rest_landmark_results":fit,
+         "native_original_armature_modifiers":native_armature_modifiers,
+         "three_source_root_distance_m":round(
+              (Vector(frames[-1]["root_y_up"])-Vector(frames[0]["root_y_up"])).length,6),
+         "real_bone_skin_coupling_limited_or_stalled":not all(
+              t["bilateral_real_skin_tracks_bone"] and
+              t["native_nonrigid_skin_deformation_verified"] for t in result),
          "retarget_models":result,
          "source_and_native_same_public_GLBFIle":True,
          "measured_ground_force":False,"body_style_or_actor_identity_accepted":False,
          "true_sole_contact_accepted":False,"mvp_accepted":False,
-         "status":"PASS_NARROW_SOURCE_TO_NATIVE_WORLD_MATCH_HOLD_PHYSICS"}
+         "status":"HOLD_BIND_SKIN_DISPLACEMENT_DECOUPLING" if
+            any(not t["bilateral_real_skin_tracks_bone"] or
+                not t["native_nonrigid_skin_deformation_verified"] for t in result)
+            else "PASS_NARROW_SOURCE_TO_NATIVE_WORLD_MATCH_HOLD_PHYSICS"}
     need(out["measured_ground_force"] is False and out["mvp_accepted"] is False,
          "FALSE_SOURCE_GROUND_RELEASE")
     Path(args.out).write_text(json.dumps(out,sort_keys=True,indent=2,allow_nan=False)+"\n")
