@@ -78,6 +78,26 @@ def measure_pair(actor,source,path):
     need(rigs["default"]["sha"]==rigs["game_engine"]["sha"],"NOT_IDENTICAL_SOURCE_MORPHOLOGY")
     need(rigs["default"]["original_vertices"]==rigs["game_engine"]["original_vertices"],
          "BODY_TOPOLOGY_NOT_IDENTICAL")
+    # Critical first-RED: MPFB native body has topology-changing display mask modifiers,
+    # so evaluated topology is NOT the original material vertex index domain. For this
+    # research-only comparative skin witness disable all nonarmature modifiers, retain
+    # original armature deformation and verify evaluated count exactly equals source.
+    # This *is not* production costume, mask, visual or sole material proof.
+    ignored_modifiers={}
+    for kind in ("default","game_engine"):
+        body=rigs[kind]["body"]
+        ignored_modifiers[kind]=[{"name":m.name,"type":m.type}
+                                  for m in body.modifiers
+                                  if m.type!="ARMATURE" and m.show_viewport]
+        for m in body.modifiers:
+            if m.type!="ARMATURE":m.show_viewport=False
+        bpy.context.view_layer.update()
+        ev=body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        geom=ev.to_mesh()
+        try:
+            need(len(geom.vertices)==len(body.data.vertices),
+                 "RESEARCH_ARMATURE_ONLY_MESH_TOPOLOGY_DRIFT")
+        finally:ev.to_mesh_clear()
     max_joint_delta={}
     for k in rigs["default"]["landmarks"]:
         a=Vector(rigs["default"]["landmarks"][k])
@@ -145,6 +165,8 @@ def measure_pair(actor,source,path):
          "source_360_frame_clock_hz":60,"same_morphology_before_rig":True,
          "exact_source_body_mesh_sha256":rigs["default"]["sha"],
          "same_body_vertex_count":rigs["default"]["original_vertices"],
+         "non_armature_display_modifiers_excluded":ignored_modifiers,
+         "actual_material_scope":"SOURCE_BODY_ARMATURE_ONLY_FIXED_VERTEX_IDS_NOT_RENDER_MASK",
          "named_rig_joint_head_differences_m":max_joint_delta,
          "results":out,"shoe_heels_or_toe_force_verified":False,
          "true_floor_known":False,"body_anatomical_joint_centers_proven":False,
