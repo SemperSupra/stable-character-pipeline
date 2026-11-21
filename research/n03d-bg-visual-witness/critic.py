@@ -80,4 +80,4 @@ def validate(report,root,allow_decoding=True):
             "camera_proofs":stats,"actual_gait_visual_reviewed_by_human":False,
             "actual_source_bvh_ground_calibrated":False,
             "physical_gait_accepted":False,"mvp_accepted":False,
-            "status":"PASS_NARROW_VIDEO_FORMAT_AND_PIXEL_CHANGE_HOLD_GAIT"}
+            "status":"PASS_NARROW_VIDEO_FORMAT_AND_PIXEL_CHANGE_HOLD_GAIT" if allow_decoding else "HOLD_METADATA_ONLY_NO_VIDEO_DECODING"}
