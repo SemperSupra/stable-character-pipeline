@@ -46,6 +46,12 @@ jobs:
           bin="$(find "$RUNNER_TEMP/official-blender" -maxdepth 2 -type f -name blender | head -1)"
           test -x "$bin"
           echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+      - name: Original source-safe Workbench CPU-only Mesa EGL offscreen renderer libraries
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libegl1 libgl1-mesa-dri libgl1 libopengl0 xvfb
+          test -e /usr/lib/x86_64-linux-gnu/libEGL.so.1
       - name: Authentic original public MakeHuman MPFB source/rig/weights and extension load
         env:
           GIT_TERMINAL_PROMPT: '0'
@@ -69,7 +75,10 @@ jobs:
       - name: Real native fixed source material 360x60Hz bilateral heel and ball regions plus 6 original front and side PNG
         run: |
           set -euo pipefail
-          blender -b -t 2 --python-exit-code 12 --python research/n03d-bh-blender-contact-visual/native.py -- \
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+          export EGL_PLATFORM=surfaceless
+          xvfb-run -a blender -b -t 2 --python-exit-code 12 --python research/n03d-bh-blender-contact-visual/native.py -- \
             --actor '${{ matrix.actor }}' --rig '${{ matrix.rig }}' --motion "$RUNNER_TEMP/n03d-bh/Neutral_FW.bvh" \
             --out "$RUNNER_TEMP/n03d-bh/native.json" --images "$RUNNER_TEMP/n03d-bh/original-public-stills"
       - name: Separate numeric and original-only actual two camera visual critic
