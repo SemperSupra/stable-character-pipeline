@@ -23,7 +23,7 @@ RIGS=("default","game_engine")
 NAMES=("AsterOriginal","JuniperOriginal")
 MODES=("direct_canonical","rest_frame_conjugated")
 MAP={
-"default":{"Hips":"pelvis","LeftHip":"upperleg01.L","LeftKnee":"lowerleg01.L",
+"default":{"Hips":"root","LeftHip":"upperleg01.L","LeftKnee":"lowerleg01.L",
            "LeftAnkle":"foot.L","RightHip":"upperleg01.R",
            "RightKnee":"lowerleg01.R","RightAnkle":"foot.R"},
 "game_engine":{"Hips":"pelvis","LeftHip":"thigh_l","LeftKnee":"calf_l",
