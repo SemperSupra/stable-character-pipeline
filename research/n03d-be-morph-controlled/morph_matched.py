@@ -226,7 +226,10 @@ def measure_pair(actor,source,path):
                                                for s in ("L","R")},
                         "leg_scale_ratio":round(scale,7),
                         "own_low_height_reference_not_authenticated_ground":True,
-                        "actual_material":measurements,
+                        "actual_blender_pose_position":"POSE",
+                         "native_deformed_body_local_sha256_frames":local_digest_samples,
+                         "actual_local_deformed_skin_moved":True,
+                         "actual_material":measurements,
                         "gait_contact_accepted":False})
     doc={"schema":"scp.n03d-be.exact-identical-morph-53-163-v1",
          "source_class":"ORIGINAL_FICTIONAL_MPFBCORE_CC0",
