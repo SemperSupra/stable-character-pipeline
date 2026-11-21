@@ -60,7 +60,7 @@ class Controls(unittest.TestCase):
         d=fixture();d["calibration_rest_landmark_results"]["five_landmark_rest_similarity"]["heldout"]["by_joint_m"].pop("LeftToe")
         with self.assertRaisesRegex(ValueError,"TRAIN_TEST_SET_CHANGED"):check(d)
     def test_forge_no_svd(self):
-        d=fixture();d["calibration_rest_landmark_results"]["five_landmark_rest_similarity"]["train"]["rms_m"]=100
+        d=fixture();d["calibration_rest_landmark_results"]["five_landmark_rest_similarity"]["train"]["rms_m"]=.8
         with self.assertRaisesRegex(ValueError,"TRAIN_FIT_IS_NOT_OPTIMAL"):check(d)
     def test_nonfinite_matrix(self):
         d=fixture();d["calibration_rest_landmark_results"]["five_landmark_rest_similarity"]["matrix_source_world_to_native_world_colmajor"][0]=math.nan
