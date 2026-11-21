@@ -11,6 +11,11 @@ def example():
        "source_100style_sha256":"a"*64,"source_360_frame_clock_hz":60,
        "same_morphology_before_rig":True,"exact_source_body_mesh_sha256":"b"*64,
        "same_body_vertex_count":19158,
+       "underlying_core_mesh_sha256":"f"*64,
+       "actual_evaluated_macro_shape":{"sha256":"b"*64,"vertices":19158},
+       "shape_key_profile_fingerprint":{"shape_key_weight_sha256":"c"*64,
+           "active_shape_key_count":37,"all_shape_key_count":88},
+       "evaluated_morphology_matched_before_rigging":True,
        "actual_material_scope":"SOURCE_BODY_ARMATURE_ONLY_FIXED_VERTEX_IDS_NOT_RENDER_MASK",
        "non_armature_display_modifiers_excluded":{"default":[{"name":"TopologyMask","type":"MASK"}],"game_engine":[{"name":"TopologyMask","type":"MASK"}]},
        "named_rig_joint_head_differences_m":{s+n:0.01 for s in ("Left","Right")
@@ -64,6 +69,12 @@ class Critical(unittest.TestCase):
     def test_rig_count(self):
         d=example();d["results"][0]["bone_count"]=161
         with self.assertRaisesRegex(ValueError,"SOURCE_NATIVE_FACTOR_MISMATCH"):check(d)
+    def test_falsified_evaluated_shape(self):
+        d=example();d["actual_evaluated_macro_shape"]["sha256"]="a"*64
+        with self.assertRaisesRegex(ValueError,"UNEVALUATED_SOURCE_MORPHOLOGY_NOT_AUTHORITY"):check(d)
+    def test_shape_key_absent(self):
+        d=example();d["shape_key_profile_fingerprint"]["active_shape_key_count"]=0
+        with self.assertRaisesRegex(ValueError,"UNEVALUATED_SOURCE_MORPHOLOGY_NOT_AUTHORITY"):check(d)
     def test_false_render_mask(self):
         d=example();d["actual_material_scope"]="FULL_RENDERED_CLOTHES"
         with self.assertRaisesRegex(ValueError,"UNDECLARED_SOURCE_MESH_MODIFIER_PROJECTION"):check(d)
