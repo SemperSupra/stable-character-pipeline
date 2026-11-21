@@ -6,6 +6,7 @@ TEST={"LeftAnkle","RightAnkle","LeftToe","RightToe"}
 MORPH={"AsterOriginal":"9156e167a19083500fc5323155166abd3daa2a93510bacb8beeb7de8c83c4a4b",
        "JuniperOriginal":"8dfa35c38f3df7cbff4601232d4a8b7dcc1d0ee74f34ead424c787cf638aa918"}
 MODES={"direct_canonical","rest_frame_conjugated"}
+ROOT_METHODS={"legacy_fixed_axis_root","five_landmark_sim3_root"}
 def need(x,why):
     if not x:raise ValueError(why)
 def num(x):
@@ -53,11 +54,13 @@ def check(x):
              "REST_FITTING_SOURCE_JOINTS_MISSING")
         for residual in row["source_to_native_walkfirst_rest_alignment_errors_m"].values():num(residual)
         modes=row.get("modes")
-        need(isinstance(modes,list) and len(modes)==2 and
-             {m.get("mode") for m in modes}==MODES,
-             "NATIVE_DIRECT_VS_BASIS_ABLATION_MISSING")
+        need(isinstance(modes,list) and len(modes)==4 and
+             {(m.get("mode"),m.get("root_method")) for m in modes}==
+             {(m,r) for m in MODES for r in ROOT_METHODS},
+             "NATIVE_POSE_VS_PROPER_SIM3_ROOT_FACTOR_ABLATION_MISSING")
         for m in modes:
             need(m.get("rig")==row["rig"] and
+                 m.get("root_method") in ROOT_METHODS and
                  m.get("actual_native_60hz_frames")==360 and
                  m.get("source_fk_motion_world_samples")==360 and
                  m.get("actual_deformed_skin_verified") is True and
