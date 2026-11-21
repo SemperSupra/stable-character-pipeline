@@ -39,6 +39,9 @@ def example():
        "source_ground_is_known":False,"true_force_contact_measured":False}
     r["results"]=[{"rig":rig,"mode":mode,"bone_count":163 if rig=="default" else 53,
                   "original_body_SHA256":"b"*64,"n_real_60hz_frames":360,
+                  "actual_blender_pose_position":"POSE",
+                  "actual_local_deformed_skin_moved":True,
+                  "native_deformed_body_local_sha256_frames":{str(k):str(k)*64 for k in (0,80,160,240,359)},
                   "source_frame_interval":[120,479],"own_low_height_reference_not_authenticated_ground":True,
                   "gait_contact_accepted":False,"leg_scale_ratio":1.0,
                   "skin_vertex_cohorts":{"L":55,"R":55},
@@ -75,6 +78,12 @@ class Critical(unittest.TestCase):
     def test_nonfinite(self):
         d=example();d["results"][1]["actual_material"]["R"]["minimum_skin_z_m"]=math.nan
         with self.assertRaisesRegex(ValueError,"NONFINITE_NATIVE_MATERIAL"):check(d)
+    def test_rest_mode_harness_false_positive(self):
+        d=example();d["results"][0]["actual_blender_pose_position"]="REST"
+        with self.assertRaisesRegex(ValueError,"FALSE_REST_MODE_OR_UNDEFORMED_SKIN"):check(d)
+    def test_rigid_root_only_false_positive(self):
+        d=example();d["results"][0]["native_deformed_body_local_sha256_frames"]={str(k):"a"*64 for k in (0,80,160,240,359)}
+        with self.assertRaisesRegex(ValueError,"FALSE_REST_MODE_OR_UNDEFORMED_SKIN"):check(d)
     def test_rig_count(self):
         d=example();d["results"][0]["bone_count"]=161
         with self.assertRaisesRegex(ValueError,"SOURCE_NATIVE_FACTOR_MISMATCH"):check(d)
