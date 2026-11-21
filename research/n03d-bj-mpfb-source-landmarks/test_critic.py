@@ -22,7 +22,9 @@ def fixture():
     for rig,count in (("default",163),("game_engine",53)):
         modes=[]
         for mode in ("direct_canonical","rest_frame_conjugated"):
-            modes.append({"rig":rig,"mode":mode,"actual_native_60hz_frames":360,
+            for root_method in ("legacy_fixed_axis_root","five_landmark_sim3_root"):
+                modes.append({"rig":rig,"mode":mode,"root_method":root_method,
+             "actual_native_60hz_frames":360,
              "source_fk_motion_world_samples":360,"actual_deformed_skin_verified":True,
              "native_real_body_local_shape_sha_samples":[str(i).zfill(64) for i in (0,80,160,240,359)],
              "true_ground_or_force_proven":False,"mvp_accepted":False,
@@ -56,6 +58,9 @@ class Controls(unittest.TestCase):
     def test_heldout_leak(self):self.alter(lambda d,v:d["rigs"][1]["five_training_joints"].append(v),"LeftAnkle","SOURCE_MORPHOLOGY")
     def test_fake_360(self):self.alter(lambda d,v:d["rigs"][0]["modes"][1].update(actual_native_60hz_frames=v),72,"SOURCE_NATIVE_60HZ")
     def test_missed_pose(self):self.alter(lambda d,v:d["rigs"][0]["modes"][1].update(native_real_body_local_shape_sha_samples=v),["a"*64]*5,"FALSE_RIGID_ROOT")
+    def test_sim3_root_factor_missing(self):
+        self.alter(lambda d,v:d["rigs"][0]["modes"][0].update(root_method=v),
+                   "five_landmark_sim3_root","NATIVE_POSE_VS_PROPER_SIM3_ROOT")
     def test_nonfinite(self):self.alter(lambda d,v:d["rigs"][0]["modes"][0]["source_fk_to_native_dynamic_residuals"]["LeftAnkle"].update(max_dynamic_displacement_error_m=v),math.nan,"INVALID_SOURCE")
     def test_order(self):self.alter(lambda d,v:d["rigs"][0]["modes"][0]["source_fk_to_native_dynamic_residuals"]["LeftToe"].update(p50_dynamic_displacement_error_m=v),1.,"SOURCE_TRAJECTORY")
 if __name__=="__main__":unittest.main()
