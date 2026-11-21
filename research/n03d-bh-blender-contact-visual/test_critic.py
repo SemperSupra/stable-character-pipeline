@@ -12,7 +12,9 @@ def fixture():
        "source_60hz_frames":[120,479],
        "body_actual_evaluated_shape_sha256":SHA["AsterOriginal"],
        "real_blender_5_2_4_version":[5,2,4],
-       "reference_cameras_are_static_per_view":True,
+       "reference_cameras_are_static_per_view":False,
+       "reference_camera_angles_fixed_but_track_root":True,
+       "all_images_contain_subject_foreground":True,
        "characters_wear_real_CC0_shoes":False,
        "true_anatomical_heel_ball_semantics_calibrated":False,
        "real_force_grf":False,"floor_contact_verified":False,
@@ -35,7 +37,11 @@ def fixture():
         {"view":v,"source_index_60hz":i,"relative_seconds":round(i/60,6),
          "png":f"AsterOriginal_game_engine_{v}_{i:03d}.png",
          "png_sha256":f"{v[:1]}{i:03d}".ljust(64,"x"),
-         "bytes":5000,"body_source_only_CC0_not_photo":True}
+         "bytes":5000,"visible_nonblack_character_pixels":2350,
+         "visible_nonblack_character_fraction":.022949,
+         "camera_follows_original_actor_root":True,
+         "camera_target_m":[0,0,.6],
+         "body_source_only_CC0_not_photo":True}
          for v in ("front","profile") for i in (0,180,359)]
     return x
 class Tests(unittest.TestCase):
@@ -59,6 +65,12 @@ class Tests(unittest.TestCase):
         r=fixture()
         for im in r["genuine_blender_workbench_original_source_stills"]:im["png_sha256"]="a"*64
         with self.assertRaisesRegex(ValueError,"SOURCE_SAFE_RASTER"):check(r)
+    def test_black_subject_png(self):
+        r=fixture();r["genuine_blender_workbench_original_source_stills"][4]["visible_nonblack_character_pixels"]=0
+        with self.assertRaisesRegex(ValueError,"FAKE_WORKBENCH_PNG_OR_SOURCE"):check(r)
+    def test_camera_offscreen_false_promotion(self):
+        r=fixture();r["genuine_blender_workbench_original_source_stills"][1]["camera_follows_original_actor_root"]=False
+        with self.assertRaisesRegex(ValueError,"FAKE_WORKBENCH_PNG_OR_SOURCE"):check(r)
     def test_no_heel(self):
         r=fixture();r["fixed_heel_ball_body_vertex_region_receipts"]["L"]["n_heel"]=0
         with self.assertRaisesRegex(ValueError,"ORIGINAL_HEEL_BALL"):check(r)
