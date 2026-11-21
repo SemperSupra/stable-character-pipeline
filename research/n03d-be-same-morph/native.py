@@ -107,6 +107,16 @@ def build_pair(hs,ts,props):
             body.name=f"{profile['name']}_{rig_name}_Body"
             rig.name=f"{profile['name']}_{rig_name}_Rig"
             need(any(m.type=="ARMATURE" and m.object==rig for m in body.modifiers),"MISSING_REAL_SKIN")
+            extra_modifiers=[(m.name,m.type) for m in body.modifiers if m.type!="ARMATURE"]
+            # Direct material ID attribution requires stable base-vertex topology.
+            # Leave actual armature skin deformation enabled; disable visual/level
+            # modifiers ephemerally for this geometric witness, never save scene.
+            for mod in body.modifiers:
+                if mod.type!="ARMATURE":mod.show_viewport=False
+            print("N03D_BE_BASE_TOPOLOGY_OBSERVER",
+                  json.dumps({"actor":profile["name"],"rig":rig_name,
+                              "disabled_nonarmature_modifiers":extra_modifiers,
+                              "original_base_vertices":len(body.data.vertices)}),flush=True)
             bpy.context.view_layer.update()
             variants[rig_name]={"body":body,"rig":rig,"rest":verts(body),
                                 "count":len(rig.data.bones)}
