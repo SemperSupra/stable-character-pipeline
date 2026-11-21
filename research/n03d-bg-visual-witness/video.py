@@ -6,7 +6,7 @@ and game_engine53 with real licensed skinned shoes. Two cameras. Not a
 human-independent visual *quality* acceptance; video format and native source
 image provenance can be independently inspected, but physical gait remains HOLD.
 """
-import argparse,hashlib,importlib.util,json,math,sys
+import argparse,hashlib,importlib.util,json,math,sys,subprocess
 from pathlib import Path
 import bpy
 from mathutils import Matrix,Vector,Quaternion
@@ -157,11 +157,9 @@ def main():
     scene.display.shading.light="STUDIO"
     scene.display.shading.color_type="MATERIAL"
     scene.view_settings.view_transform="Standard"
-    scene.render.image_settings.file_format="FFMPEG"
-    scene.render.ffmpeg.format="MPEG4"
-    scene.render.ffmpeg.codec="H264"
-    scene.render.ffmpeg.audio_codec="NONE"
-    scene.render.ffmpeg.constant_rate_factor="MEDIUM"
+    # The official 5.2.4 LTS compiled Blender build offers image formats but
+    # not FFMPEG as a render image format; use exact 72 PNG frames then FFmpeg.
+    scene.render.image_settings.file_format="PNG"
     cams=[camera("N03D_BG_Front",(0,-11.5,2.95)),
           camera("N03D_BG_Oblique",(4.5,-10.5,3.0))]
     evidence=native_witness(actors)
@@ -172,10 +170,17 @@ def main():
         name=cam.name.lower().replace("n03d_bg_","")
         scene.render.filepath=str(out/(name+"_"))
         bpy.ops.render.render(animation=True)
-        videos=list(out.glob(name+"_*.mp4"))
-        need(len(videos)==1 and videos[0].stat().st_size>10000,"NO_REAL_H264_"+name)
-        media.append({"camera":name,"file":videos[0].name,
-                      "sha256":sha(videos[0].read_bytes()),"bytes":videos[0].stat().st_size,
+        frames=sorted(out.glob(name+"_*.png"))
+        need(len(frames)==72,"NO_REAL_72_RENDERED_SOURCE_IMAGES_"+name)
+        movie=out/(name+".mp4")
+        subprocess.run(["ffmpeg","-hide_banner","-loglevel","error","-y",
+                        "-framerate","12","-start_number","0",
+                        "-i",str(out/(name+"_%04d.png")),
+                        "-c:v","libx264","-pix_fmt","yuv420p",
+                        "-r","12","-crf","24","-movflags","+faststart",str(movie)],check=True)
+        need(movie.is_file() and movie.stat().st_size>10000,"NO_REAL_H264_"+name)
+        media.append({"camera":name,"file":movie.name,
+                      "sha256":sha(movie.read_bytes()),"bytes":movie.stat().st_size,
                       "source_rights_attribution":"MakeHuman CC0 + Ian Mason 100STYLE CC BY4",
                       "mvp_accepted":False})
     report={"schema":"scp.n03d-bg.two-camera-source-safe-visual-witness.v1",
