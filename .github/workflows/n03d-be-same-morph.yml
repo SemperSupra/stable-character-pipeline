@@ -1,0 +1,107 @@
+name: N03D BE official original same-morphology MPFB 163 vs53 native 100STYLE gait
+on:
+  push:
+    branches: [research/n03d-be-same-morph-20261121]
+    paths:
+      - 'research/n03d-be-same-morph/**'
+      - '.github/workflows/n03d-be-same-morph.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-be-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-source-and-matched-morph-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Bad phenotype, source, frame, false shoe, force and protected MVP tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-be-same-morph -p 'test_critic.py' -v
+          python3 -m unittest discover -s research/r078-r009-mpfb-pair -p 'test_contract.py' -v
+          python3 -m unittest discover -s research/r088-motion-real -p 'test_bvh_preflight.py' -v
+          python3 -m py_compile research/n03d-be-same-morph/*.py
+  actual-authenticated-matched-phenotype-native-rigs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: True source and rights preflight
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-be-same-morph -p 'test_critic.py' -v
+          python3 -m py_compile research/n03d-be-same-morph/*.py
+      - name: Exact official Blender 5.2.4 pinned upstream archive
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/official-blender"
+          cd "$RUNNER_TEMP/official-blender"
+          base="https://mirror.blender.org/release/Blender5.2"
+          fallback="https://download.blender.org/release/Blender5.2"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256 || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
+          hash="$(grep -F blender-5.2.4-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "$hash" = 2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86
+          printf '%s  %s\n' "$hash" blender-5.2.4-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-5.2.4-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/official-blender" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+      - name: Official original source pinned MPFB3D body, skeleton and vertex weight builder
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/mpfb2"
+          git -C "$RUNNER_TEMP/mpfb2" remote add origin https://github.com/makehumancommunity/mpfb2.git
+          git -C "$RUNNER_TEMP/mpfb2" -c protocol.version=2 fetch -q --depth 1 origin 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          git -C "$RUNNER_TEMP/mpfb2" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" = 9de0707fdc88438d7c53a1a2ac7937d9221e2431
+          test "$(git -C "$RUNNER_TEMP/mpfb2" hash-object src/mpfb/data/3dobjs/base.obj)" = d26635e9326e3cca30778fd7b9c00062b03cce09
+          blender --command extension build --source-dir "$RUNNER_TEMP/mpfb2/src/mpfb" --output-filepath "$RUNNER_TEMP/mpfb-pinned.zip"
+          blender --command extension install-file -r user_default -e "$RUNNER_TEMP/mpfb-pinned.zip"
+      - name: Exact original licensed 100STYLE full 60Hz source motion pinned Git content
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/be-source"
+          curl --retry 2 --connect-timeout 12 --max-time 120 -fLsS "https://raw.githubusercontent.com/tomcatmew/simple_motion_matching/10938b4881b55c5801faded89e427407ddf14bce/data/100style/Neutral_FW.bvh" -o "$RUNNER_TEMP/be-source/Neutral_FW.bvh"
+          test "$(git hash-object "$RUNNER_TEMP/be-source/Neutral_FW.bvh")" = a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61
+          python3 research/r088-motion-real/bvh_preflight.py --source "$RUNNER_TEMP/be-source/Neutral_FW.bvh" --sha1 a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61 --out "$RUNNER_TEMP/be-source/preflight.json"
+      - name: Two original fictional bodies generated twice with identical morphology and true 163bone vs53bone action 360x60Hz
+        run: |
+          set -euo pipefail
+          blender -b -t 2 --python-exit-code 12 --python research/n03d-be-same-morph/native.py -- --source "$RUNNER_TEMP/mpfb2" --motion "$RUNNER_TEMP/be-source/Neutral_FW.bvh" --out "$RUNNER_TEMP/be-source/be-native.json"
+      - name: Separate independent same-shape and actual 60Hz bilateral source-safe critic
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,sys,json
+          sys.path.insert(0,"research/n03d-be-same-morph")
+          from critic import assess
+          src=os.environ["RUNNER_TEMP"]+"/be-source/be-native.json"
+          doc=json.load(open(src))
+          out=assess(doc)
+          assert out["status"]=="HOLD_PHYSICS_SHOES_VISUAL" and len(out["trials"])==8
+          with open(os.environ["RUNNER_TEMP"]+"/be-source/be-critic.json","w") as f:json.dump(out,f,sort_keys=True,indent=2)
+          print("N03D_BE_INDEPENDENT_ACTUAL_MORPHOLOGY_HOLD",json.dumps({
+            "same_morphology_both_1mm":out["all_morphology_matched_to_1mm"],
+            "actor_morphology_match":out["actor_match"],
+            "trials":[{"actor":t["actor"],"rig":t["rig"],"mode":t["mode"],"witness":t["bilateral_body_foot_sensor"]} for t in out["trials"]],
+            "status":out["status"]},sort_keys=True))
+          PY
+      - name: Short-retention source-free JSON only, never raw generated .blend/body/motion/keys
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-be-same-morph-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/be-source/preflight.json
+            ${{ runner.temp }}/be-source/be-native.json
+            ${{ runner.temp }}/be-source/be-critic.json
+          if-no-files-found: ignore
+          retention-days: 3
