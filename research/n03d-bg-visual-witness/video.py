@@ -133,7 +133,7 @@ def native_witness(actors):
     return out
 def main():
     arg=argparse.ArgumentParser()
-    for k in ("source","motion","shoe-archive","work","out"):arg.add_argument("--"+k,required=True)
+    for k in ("source","motion","shoe-archive","work","out","ffmpeg"):arg.add_argument("--"+k,required=True)
     args=arg.parse_args(sys.argv[sys.argv.index("--")+1:])
     m=Path(args.motion).read_bytes()
     need(bf.git_blob_sha(m)==bf.SOURCE_BLOB,"AUTHENTIC_100STYLE_SHA")
@@ -186,7 +186,8 @@ def main():
         frames=sorted(out.glob(name+"_*.png"))
         need(len(frames)==72,"NO_REAL_72_RENDERED_SOURCE_IMAGES_"+name)
         movie=out/(name+".mp4")
-        subprocess.run(["ffmpeg","-hide_banner","-loglevel","error","-y",
+        need(Path(args.ffmpeg).is_file(),"PINNED_FFMPEG_BINARY_NOT_FOUND")
+        subprocess.run([args.ffmpeg,"-hide_banner","-loglevel","error","-y",
                         "-framerate","12","-start_number","0",
                         "-i",str(out/(name+"_%04d.png")),
                         "-c:v","libx264","-pix_fmt","yuv420p",
