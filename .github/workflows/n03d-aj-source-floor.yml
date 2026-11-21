@@ -1,4 +1,4 @@
-name: N03D AJ paired original toe-to-actual shoe floor and side identity falsifiers
+name: N03D AJ exact-source toe shoe plus F1 genuine vertex weight authority joint witness
 on:
   push:
     branches: [research/n03d-aj-source-floor-20261121]
@@ -44,6 +44,7 @@ jobs:
           python3 -m py_compile research/n03d-ai-temporal-floor/*.py
           python3 -m unittest discover -s research/n03d-aj-source-floor -p 'test_calibrate.py' -v
           python3 -m py_compile research/n03d-aj-source-floor/*.py
+          python3 -m unittest discover -s research/n03d-aj-source-floor -p 'test_f1_bridge.py' -v
   actual-thirdparty-native:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -151,6 +152,12 @@ jobs:
           sha="$(sha256sum "$target" | cut -d ' ' -f1)"
           blender -b "$target" -t 2 --python-exit-code 12 --python research/n03d-d-native-trace/native_trace.py -- --scene "$target" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --out "$RUNNER_TEMP/r090-native/n03d-native-trace.json"
           python3 research/n03d-d-native-trace/evaluate.py --source "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --out "$RUNNER_TEMP/r090-native/n03d-critic.json"
+      - name: Actual 163bone CC0 skinned shoe vertex-group rig-side weight proof (F1 established prior)
+        run: |
+          set -euo pipefail
+          scene="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$scene" | cut -d ' ' -f1)"
+          blender -b "$scene" -t 2 --python-exit-code 12 --python research/n03d-f1-shoe-bone/native_correspondence.py -- --scene "$scene" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --trace "$RUNNER_TEMP/r090-native/n03d-native-trace.json" --out "$RUNNER_TEMP/r090-native/n03d-aj-source-f1-real-shoe-weights.json"
       - name: Exact full 60Hz paired original BVH and real MPFB bone + worn CC0 shoe causal witness
         run: |
           set -euo pipefail
@@ -212,6 +219,31 @@ jobs:
           dest.write_text(json.dumps(out,sort_keys=True,indent=2,allow_nan=False)+"\n")
           assert json.loads(dest.read_text())==evaluate(t,a)
           print("N03D_AJ_SOURCE_TO_SHOE_EXACT_12HZ_HOLD",json.dumps({"actors":[{"name":r["actor"],"source_candidates":r["source_candidate_total_aligned"],"variants":[{"mapping":q["mapping"],"heldout_mean_abs_p95_m":q["mean_heldout_abs_p95_m"],"pairs":{s:{"heldout_candidates":q["sides"][s]["train_fit"]["heldout_source_low_slow_samples"],"candidate_shoe_z_p50_m":q["sides"][s]["train_fit"]["heldout_source_candidate_target_shoe_min_z_p50_m"]} for s in ("L","R")}} for q in r["comparisons"]]} for r in out["actors"]]},sort_keys=True))
+          PY
+      - name: Independent F1 source-of-truth weight authority versus AJ vertical residual pseudo mapping
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-aj-source-floor -p 'test_f1_bridge.py' -v
+          python3 - <<'PY'
+          import sys,os,json,hashlib
+          from pathlib import Path
+          sys.path.insert(0,"research/n03d-aj-source-floor")
+          from f1_bridge import join,independent
+          root=Path(os.environ["RUNNER_TEMP"])/"r090-native"
+          aj=json.loads((root/"n03d-aj-ground-source-shoe-12hz.json").read_text())
+          f1p=root/"n03d-aj-source-f1-real-shoe-weights.json"
+          f1=json.loads(f1p.read_text())
+          result=join(aj,f1,hashlib.sha256(f1p.read_bytes()).hexdigest())
+          assert independent(result)=="HOLD"
+          dest=root/"n03d-aj-f1-weight-authority-reconciliation.json"
+          dest.write_text(json.dumps(result,sort_keys=True,indent=2,allow_nan=False)+"\n")
+          assert json.loads(dest.read_text())==join(aj,f1,hashlib.sha256(f1p.read_bytes()).hexdigest())
+          print("N03D_AJ_F1_REAL_WEIGHT_PRIOR_HOLD",
+                json.dumps({"actors":[{"name":v["actor"],
+                  "rig_weight_named_mapping":v["weight_based_named_rig_mapping"],
+                  "AJ_height_only_best_not_authorized":v["aj_height_residual_numerical_winner_NOT_FOR_SIDE_ADOPTION"],
+                  "agrees":v["aj_height_residual_agrees_with_vertex_weights"],
+                  "source_weight_dominance":v["f1_source_rest_side_weights"]} for v in result["actors"]]},sort_keys=True))
           PY
       - name: Upload native evidence JSON only (no source motion, Blend or human assets)
         if: always()
