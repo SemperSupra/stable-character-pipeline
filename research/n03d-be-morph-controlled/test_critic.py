@@ -16,6 +16,15 @@ def example():
        "shape_key_profile_fingerprint":{"shape_key_weight_sha256":"c"*64,
            "active_shape_key_count":37,"all_shape_key_count":88},
        "evaluated_morphology_matched_before_rigging":True,
+       "post_rig_shape_equivalence_not_assumed":True,
+       "post_rig_evaluated_shape_per_rig":{"default":{"sha256":"d"*64,"vertices":19158},
+                                         "game_engine":{"sha256":"e"*64,"vertices":19158}},
+       "post_rig_shape_drift_per_rig":{"default":{"max_world_centered_vertex_displacement_m":.01,
+           "rms_world_centered_vertex_displacement_m":.001,
+           "pre_and_post_evaluated_shape_identical":False},
+           "game_engine":{"max_world_centered_vertex_displacement_m":.02,
+           "rms_world_centered_vertex_displacement_m":.005,
+           "pre_and_post_evaluated_shape_identical":False}},
        "actual_material_scope":"SOURCE_BODY_ARMATURE_ONLY_FIXED_VERTEX_IDS_NOT_RENDER_MASK",
        "non_armature_display_modifiers_excluded":{"default":[{"name":"TopologyMask","type":"MASK"}],"game_engine":[{"name":"TopologyMask","type":"MASK"}]},
        "named_rig_joint_head_differences_m":{s+n:0.01 for s in ("Left","Right")
@@ -75,6 +84,12 @@ class Critical(unittest.TestCase):
     def test_shape_key_absent(self):
         d=example();d["shape_key_profile_fingerprint"]["active_shape_key_count"]=0
         with self.assertRaisesRegex(ValueError,"UNEVALUATED_SOURCE_MORPHOLOGY_NOT_AUTHORITY"):check(d)
+    def test_refit_drift_forged(self):
+        d=example();d["post_rig_shape_drift_per_rig"]["default"]["pre_and_post_evaluated_shape_identical"]=True
+        with self.assertRaisesRegex(ValueError,"FALSE_POST_RIG_REFIT_EQUIVALENCE"):check(d)
+    def test_missing_drift_receipts(self):
+        d=example();d["post_rig_shape_drift_per_rig"].pop("game_engine")
+        with self.assertRaisesRegex(ValueError,"MISSING_POST_RIG_SHAPE_RECEIPTS"):check(d)
     def test_false_render_mask(self):
         d=example();d["actual_material_scope"]="FULL_RENDERED_CLOTHES"
         with self.assertRaisesRegex(ValueError,"UNDECLARED_SOURCE_MESH_MODIFIER_PROJECTION"):check(d)
