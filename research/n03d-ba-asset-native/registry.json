@@ -1,0 +1,66 @@
+{
+  "schema": "scp.n03d-ba.source-asset-registry.v1",
+  "experiment": "RIGGED_CHARACTERS_NATIVE_IMPORT_NOT_GAIT_ACCEPTANCE",
+  "blender": {
+    "version": "5.2.4",
+    "official_archive_sha256": "2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86"
+  },
+  "source_class": "THIRD_PARTY_OPEN_RESEARCH_ONLY_NO_PROTECTED_SOURCE",
+  "candidates": [
+    {
+      "id": "piston",
+      "repo": "PistonDevelopers/skeletal_animation_demo",
+      "commit": "267bf61a1c1be28c5aae84a275660272ba43727f",
+      "model": "assets/suit_guy.blend",
+      "model_blob": "0b109187f399c7dc9bf724b23c6a58dab5266fd0",
+      "motion": "assets/walk.dae",
+      "motion_blob": "2f2f61bac8df09df99cf77f2e267a2b06cf328b0",
+      "code_license": "MIT",
+      "model_license": "NOT_YET_INDEPENDENTLY_VERIFIED",
+      "motion_license": "CMU_MOCAP_DERIVATIVE_NEEDS_FILE_PROVENANCE",
+      "public_research_only": true,
+      "production_admitted": false,
+      "expected_format": "BLEND",
+      "requires_legacy_dae": true
+    },
+    {
+      "id": "vsim",
+      "repo": "kunalkushwaha/vsim",
+      "commit": "4ff8859e0ca507f6b8bf159e5a7a141c13ef4aaf",
+      "model": "packages/assets/library/human.glb",
+      "model_blob": "76fb3eb2b23de748368b5fecc0862e06a0321e2c",
+      "code_license": "MIT",
+      "model_license": "MPFB_CC0_DERIVATIVE_CLAIM_NEEDS_FILE_LEVEL_ADMISSION",
+      "motion_license": "GENERATED_WALK_HAND_AUTHORED_IN_SOURCE",
+      "public_research_only": true,
+      "production_admitted": false,
+      "expected_format": "GLB"
+    },
+    {
+      "id": "cc",
+      "repo": "kblood/CharacterCreator",
+      "commit": "852e48f316b90a0937234886630e4fb4cdfd1f78",
+      "model": "output/base_body_anim.glb",
+      "model_blob": "bdbdab04eb85903e46c56ff56c7a1ea0cbe9c78b",
+      "code_license": "GPL-3.0-or-later",
+      "model_license": "GENERATED_CC0_PER_UPSTREAM_LICENSE_NOTES",
+      "motion_license": "GENERATED_CC0_PER_UPSTREAM_LICENSE_NOTES",
+      "public_research_only": true,
+      "production_admitted": false,
+      "expected_format": "GLB"
+    },
+    {
+      "id": "rigify",
+      "repo": "PabloMesquida/three-procedural-locomotion",
+      "commit": "3f5b4896f1b28501b40aa9c408e47dba51322443",
+      "model": "modelos/human.glb",
+      "model_blob": "d3327b94c302278b5471c24d712ef5dc49f0d682",
+      "code_license": "MIT",
+      "model_license": "BLENDER_STUDIO_CC0_PER_UPSTREAM_README",
+      "motion_license": "PROCEDURAL_CONTROLLER_SEPARATE",
+      "public_research_only": true,
+      "production_admitted": false,
+      "expected_format": "GLB"
+    }
+  ]
+}
