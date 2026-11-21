@@ -75,10 +75,10 @@ def dae(data):
     return {"collada_root":root.tag.rsplit("}",1)[-1],"animation_count":len(root.findall(".//"+ns+"library_animations/"+ns+"animation")),
             "controller_count":len(root.findall(".//"+ns+"library_controllers/"+ns+"controller"))}
 def report(s,receipts,files):
-    a=Path(files[s["model"]]).read_bytes()
+    a=Path(files["model"]).read_bytes()
     info=glb(a) if s["expected_format"]=="GLB" else blend(a)
     if s.get("motion"):
-        info["external_motion_collada"]=dae(Path(files[s["motion"]]).read_bytes())
+        info["external_motion_collada"]=dae(Path(files["motion"]).read_bytes())
     return {"schema":SCHEMA,"candidate":s["id"],"source_repo":s["repo"],
             "source_commit":s["commit"],"assets":receipts,
             "metadata":info,"code_license":s["code_license"],
