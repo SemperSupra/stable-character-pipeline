@@ -66,6 +66,13 @@ def check(x):
          {(rig,mode) for rig in ("default","game_engine")
           for mode in ("direct_canonical","rest_frame_conjugated")},"FACTORS_NOT_COMPLETE")
     for a in res:
+        needs=a.get("native_deformed_body_local_sha256_frames",{})
+        need(a.get("actual_blender_pose_position")=="POSE" and
+             a.get("actual_local_deformed_skin_moved") is True and
+             set(str(k) for k in needs)=={"0","80","160","240","359"} and
+             len(set(needs.values()))>=3 and
+             all(isinstance(v,str) and len(v)==64 for v in needs.values()),
+             "FALSE_REST_MODE_OR_UNDEFORMED_SKIN")
         need(a.get("bone_count")=={"default":163,"game_engine":53}[a["rig"]] and
              a.get("original_body_SHA256")==x["exact_source_body_mesh_sha256"] and
              a.get("n_real_60hz_frames")==360 and a.get("source_frame_interval")==[120,479] and
