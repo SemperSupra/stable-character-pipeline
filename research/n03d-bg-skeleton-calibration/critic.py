@@ -67,6 +67,33 @@ def check(doc):
              q.get("source_controller_phases_are_not_true_contact") is True and
              q.get("physical_contact_accepted") is False,
              "FAKE_SOURCE_CONTACT_OR_BAD_60HZ_SAMPLING")
+        need(q.get("root_trajectory_applied_to_armature_object") is
+             (q["mode"]=="five_landmark_rest_similarity_with_model_root"),
+             "FAKE_ARMATURE_ROOT_TRANSFER")
+        coupling=q.get("real_skin_bone_displacement_coupling")
+        digests=q.get("root_independent_local_skin_sha256_samples")
+        need(isinstance(coupling,dict) and set(coupling)=={"L","R"} and
+             isinstance(digests,list) and len(digests)==5 and
+             all(isinstance(h,str) and len(h)==64 for h in digests),
+             "SOURCE_GLTF_SKIN_COUPLING_WITNESS_MISSING")
+        moving=len(set(digests))>=3
+        need(q.get("native_nonrigid_skin_deformation_verified") is moving,
+             "FAKE_NONRIGID_SOURCE_SKIN")
+        for side in ("L","R"):
+            c=coupling[side]
+            for key in ("p50_skin_bone_xy_displacement_m",
+                        "max_skin_bone_xy_displacement_m",
+                        "end_skin_bone_xy_displacement_m"):
+                scalar(c[key])
+            need(c["max_skin_bone_xy_displacement_m"]>=
+                 max(c["end_skin_bone_xy_displacement_m"],
+                     c["p50_skin_bone_xy_displacement_m"]) and
+                 c["max_skin_bone_xy_displacement_m"]>=0,
+                 "UNSOUND_SKIN_BONE_MOTION_INVARIANT")
+        coupled=all(coupling[side]["max_skin_bone_xy_displacement_m"]<.25
+                    for side in ("L","R"))
+        need(q.get("bilateral_real_skin_tracks_bone") is coupled,
+             "FALSE_BONE_MATERIAL_COUPLING_ACCEPTANCE")
         material=q.get("real_native_foot_material",{})
         errors=q.get("world_ankle_and_toe_delta_errors",{})
         need(set(material)=={"L","R"} and set(errors)==HOLD,
