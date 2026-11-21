@@ -8,7 +8,7 @@ import { Vector3, type Bone } from 'three';
 import { createWorld } from './helpers/sim.ts';
 
 it('exports source-exact 360x60Hz original procedural bone-local rotations and live support-state witnesses', () => {
-  assert.ok(process.env.SCP_BF_OUT);
+  assert.ok(process.env.SCP_BG_OUT);
   const w=createWorld();
   const h=w.human;
   const bones:Record<string,Bone>={
@@ -65,7 +65,7 @@ it('exports source-exact 360x60Hz original procedural bone-local rotations and l
              original_100style_motion_identical:false,
              source_grf_measured:false,physical_gait_accepted:false,mvp_accepted:false};
   assert.ok(doc.source_native_leg_length_m>0.4 && doc.source_native_leg_length_m<1.5);
-  writeFileSync(process.env.SCP_BF_OUT!,JSON.stringify(doc)+'\n');
+  writeFileSync(process.env.SCP_BG_OUT!,JSON.stringify(doc)+'\n');
   console.log('N03D_BG_REAL_THREE_WORLD_MATRICES_CAPTURED',JSON.stringify({
     model:sourceModel,mapping:sourceMapping,frames:360,full_foot_rest_names:Object.fromEntries(Object.entries(rest).map(([k,v])=>[k,v.node_name])),
     source_leg_length:h.legLength,source_ground_force:false}),);
