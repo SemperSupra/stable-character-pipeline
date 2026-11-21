@@ -13,7 +13,7 @@ def probe(path,ffmpeg):
     import re
     need("Video: h264" in data and "384x216" in data and
          re.search(r"\b12(?:\.0+)? fps\b",data),"NOT_BOUNDED_H264")
-    frame_numbers=[int(i) for i in re.findall(r"showinfo[^\\n]*?\bn:\s*(\d+)",data)]
+    frame_numbers=[int(i) for i in re.findall(r"showinfo[^\n]*?\bn:\s*(\d+)",data)]
     # This is a fresh decoder of all encoded frames, independent of original PNGs.
     need(frame_numbers==list(range(72)),"MISSING_ACTUAL_DECODED_FRAMES")
     m=re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)",data)
