@@ -41,7 +41,7 @@ def example():
                   "original_body_SHA256":"b"*64,"n_real_60hz_frames":360,
                   "actual_blender_pose_position":"POSE",
                   "actual_local_deformed_skin_moved":True,
-                  "native_deformed_body_local_sha256_frames":{str(k):str(k)*64 for k in (0,80,160,240,359)},
+                  "native_deformed_body_local_sha256_frames":{str(k):str(k).zfill(64) for k in (0,80,160,240,359)},
                   "source_frame_interval":[120,479],"own_low_height_reference_not_authenticated_ground":True,
                   "gait_contact_accepted":False,"leg_scale_ratio":1.0,
                   "skin_vertex_cohorts":{"L":55,"R":55},
