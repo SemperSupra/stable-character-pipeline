@@ -11,6 +11,8 @@ def example():
        "source_100style_sha256":"a"*64,"source_360_frame_clock_hz":60,
        "same_morphology_before_rig":True,"exact_source_body_mesh_sha256":"b"*64,
        "same_body_vertex_count":19158,
+       "actual_material_scope":"SOURCE_BODY_ARMATURE_ONLY_FIXED_VERTEX_IDS_NOT_RENDER_MASK",
+       "non_armature_display_modifiers_excluded":{"default":[{"name":"TopologyMask","type":"MASK"}],"game_engine":[{"name":"TopologyMask","type":"MASK"}]},
        "named_rig_joint_head_differences_m":{s+n:0.01 for s in ("Left","Right")
                                     for n in ("Hip","Knee","Ankle","Toe")},
        "shoe_heels_or_toe_force_verified":False,"true_floor_known":False,
@@ -62,6 +64,12 @@ class Critical(unittest.TestCase):
     def test_rig_count(self):
         d=example();d["results"][0]["bone_count"]=161
         with self.assertRaisesRegex(ValueError,"SOURCE_NATIVE_FACTOR_MISMATCH"):check(d)
+    def test_false_render_mask(self):
+        d=example();d["actual_material_scope"]="FULL_RENDERED_CLOTHES"
+        with self.assertRaisesRegex(ValueError,"UNDECLARED_SOURCE_MESH_MODIFIER_PROJECTION"):check(d)
+    def test_missing_modifier_receipt(self):
+        d=example();d["non_armature_display_modifiers_excluded"]={}
+        with self.assertRaisesRegex(ValueError,"UNTRACEABLE_MASK_MODIFIER_EXCLUSIONS"):check(d)
     def test_gait_promotion(self):
         d=example();d["results"][0]["gait_contact_accepted"]=True
         with self.assertRaisesRegex(ValueError,"SOURCE_NATIVE_FACTOR_MISMATCH"):check(d)
