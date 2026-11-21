@@ -1,0 +1,57 @@
+name: N03D BC genuine OpenSim biomechanics source GRF and 60Hz timing oracle
+on:
+  push:
+    branches: [research/n03d-bc-force-oracle-20261121]
+    paths:
+      - 'research/n03d-bc-force-oracle/**'
+      - '.github/workflows/n03d-bc-force-oracle.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-bc-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-stdlib-numerical-and-rights-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Falsify fake GRF truth, metadata repair, false 100STYLE contact and timeline
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-bc-force-oracle -p 'test_reference.py' -v
+          python3 -m py_compile research/n03d-bc-force-oracle/*.py
+  actual-open-sim-source-and-force-reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Actual SHA pinned OpenSim 80 muscle model and corresponding GRF and coordinate timeseries
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/n03d-bc-source"
+          python3 research/n03d-bc-force-oracle/reference.py --work "$RUNNER_TEMP/n03d-bc-source" --output "$RUNNER_TEMP/n03d-bc-evidence.json"
+      - name: Independent source force only original trial 60Hz critic
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,json,sys
+          sys.path.insert(0,"research/n03d-bc-force-oracle")
+          from reference import independent,COMMIT
+          d=json.load(open(os.environ["RUNNER_TEMP"]+"/n03d-bc-evidence.json"))
+          assert d["exact_commit"]==COMMIT and independent(d)=="HOLD"
+          assert d["coordinates_metadata"]["headercolumnsmatch"]=="False" and d["coordinates_metadata"]["ncolumns"]=="40" and d["coordinates_metadata"]["observedcolumns"]=="32",d["coordinates_metadata"]
+          assert d["grf_metadata"]["headercolumnsmatch"]=="True"
+          print("N03D_BC_REAL_SOURCE_HEADER_RED_PRESERVED",json.dumps({"source":d["exact_commit"],"metadata":d["coordinates_metadata"],"label_sensitivity":d["vertical_grf_threshold_N_sensitivity"],"time":[d["actual_overlap_start_s"],d["actual_overlap_end_s"]],"model_components":d["model"]["model_components"],"status":d["status"]},sort_keys=True))
+          PY
+      - name: Publish 3 day aggregate JSON only, original .sto/.mot/.osim remain ephemeral
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-bc-original-source-force-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/n03d-bc-evidence.json
+          if-no-files-found: ignore
+          retention-days: 3
