@@ -78,16 +78,26 @@ jobs:
           mkdir -p "$RUNNER_TEMP/bf-wardrobe"
           curl --retry 2 --connect-timeout 15 --max-time 240 -fLsS "https://files.makehumancommunity.org/asset_packs/shoes01/shoes01_cc0.zip" -o "$RUNNER_TEMP/bf-wardrobe/shoes01_cc0.zip"
           echo "ded3f70428505eabbf1f6d7b5f61196a7366ef20757103d276ad0ed336c35ada  $RUNNER_TEMP/bf-wardrobe/shoes01_cc0.zip" | sha256sum -c -
+      - name: SHA256 pinned 0.6.0 imageio FFmpeg wheel from existing proven original film workcell
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bg-wheels" "$RUNNER_TEMP/bg-python"
+          python3 -m pip download -q --disable-pip-version-check --no-deps --only-binary=:all: --dest "$RUNNER_TEMP/bg-wheels" imageio-ffmpeg==0.6.0
+          test "$(sha256sum "$RUNNER_TEMP/bg-wheels"/*.whl | awk '{print $1}')" = c7e46fcec401dd990405049d2e2f475e2b397779df2519b544b8aab515195282
+          python3 -m pip install -q --disable-pip-version-check --no-deps --no-index --find-links "$RUNNER_TEMP/bg-wheels" --target "$RUNNER_TEMP/bg-python" imageio-ffmpeg==0.6.0
+          ffmpeg="$(PYTHONPATH="$RUNNER_TEMP/bg-python" python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
+          test -x "$ffmpeg"
+          "$ffmpeg" -hide_banner -version | head -1
+          echo "SCP_FFMPEG=$ffmpeg" >> "$GITHUB_ENV"
       - name: Real native original actor H264 dual cameras and six-second keyframed CC0 shoe movement
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/bf-wardrobe/unpack"
-          blender -b -t 2 --python-exit-code 12 --python research/n03d-bg-visual-witness/video.py -- --source "$RUNNER_TEMP/mpfb2" --motion "$RUNNER_TEMP/be-source/Neutral_FW.bvh" --shoe-archive "$RUNNER_TEMP/bf-wardrobe/shoes01_cc0.zip" --work "$RUNNER_TEMP/bf-wardrobe/unpack" --out "$RUNNER_TEMP/be-source/bg-visual"
+          blender -b -t 2 --python-exit-code 12 --python research/n03d-bg-visual-witness/video.py -- --source "$RUNNER_TEMP/mpfb2" --motion "$RUNNER_TEMP/be-source/Neutral_FW.bvh" --shoe-archive "$RUNNER_TEMP/bf-wardrobe/shoes01_cc0.zip" --work "$RUNNER_TEMP/bf-wardrobe/unpack" --out "$RUNNER_TEMP/be-source/bg-visual" --ffmpeg "$SCP_FFMPEG"
       - name: Independent FFprobe 72 true decoded frames, 2 cameras, H264 and three changing pixels/scene states
         run: |
           set -euo pipefail
-          command -v ffprobe
-          command -v ffmpeg
+          test -x "$SCP_FFMPEG"
           python3 - <<'PY'
           import os,sys,json
           from pathlib import Path
@@ -95,7 +105,7 @@ jobs:
           from critic import validate
           root=Path(os.environ["RUNNER_TEMP"])/"be-source/bg-visual"
           report=json.loads((root/"n03d-bg-video-witness.json").read_text())
-          qualified=validate(report,root,allow_decoding=True)
+          qualified=validate(report,root,allow_decoding=True,ffmpeg_exe=os.environ["SCP_FFMPEG"])
           assert qualified["status"]=="PASS_NARROW_VIDEO_FORMAT_AND_PIXEL_CHANGE_HOLD_GAIT"
           assert qualified["real_native_H264_12fps_72_decoded_frames"] and not qualified["physical_gait_accepted"]
           (root/"n03d-bg-video-independent-critic.json").write_text(json.dumps(qualified,sort_keys=True,indent=2)+"\n")
