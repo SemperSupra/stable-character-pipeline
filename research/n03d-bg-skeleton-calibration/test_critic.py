@@ -51,7 +51,9 @@ def fixture():
                            "physical_contact_accepted":False,
                            "real_native_foot_material":{"L":mat.copy(),"R":mat.copy()},
                            "world_ankle_and_toe_delta_errors":copy.deepcopy(errs)}
-                          for mode in TRIAL_MODES]
+                          for mode in ("fixed_yup_to_zup_axis_only",
+                                       "five_landmark_rest_similarity",
+                                       "five_landmark_rest_similarity_with_model_root")]
     return f
 class Controls(unittest.TestCase):
     def test_narrow(self):self.assertEqual(check(fixture()),"HOLD")
