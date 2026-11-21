@@ -21,6 +21,15 @@ def check(x):
          len(x.get("source_100style_sha256",""))==64 and
          isinstance(x.get("same_body_vertex_count"),int) and
          x["same_body_vertex_count"]>=10000,"SOURCE_OR_BODY_FINGERPRINT")
+    need(x.get("actual_material_scope")==
+         "SOURCE_BODY_ARMATURE_ONLY_FIXED_VERTEX_IDS_NOT_RENDER_MASK",
+         "UNDECLARED_SOURCE_MESH_MODIFIER_PROJECTION")
+    mod=x.get("non_armature_display_modifiers_excluded")
+    need(isinstance(mod,dict) and set(mod)=={"default","game_engine"} and
+         all(isinstance(v,list) and
+             all(isinstance(m,dict) and set(m)=={"name","type"} and
+                 m["type"]!="ARMATURE" for m in v) for v in mod.values()),
+         "UNTRACEABLE_MASK_MODIFIER_EXCLUSIONS")
     diffs=x["named_rig_joint_head_differences_m"]
     need(set(diffs)=={"LeftHip","LeftKnee","LeftAnkle","LeftToe","RightHip","RightKnee","RightAnkle","RightToe"},
          "NAMED_JOINTS_UNVERIFIED")
