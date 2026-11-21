@@ -100,13 +100,13 @@ def sample(shoe,regions):
         return result
     finally:ev.to_mesh_clear()
 def stats(rows):
-    need(len(rows)==360,"NOT_360_NATIVE_SOURCE_SAMPLES")
+    need(len(rows)==356,"NOT_356_SOURCE_SUPPORTED_NATIVE_60HZ_SAMPLES")
     z=[r["z"] for r in rows]
-    v=[60*math.dist(rows[i]["xy"],rows[i-1]["xy"]) for i in range(1,360)]
+    v=[60*math.dist(rows[i]["xy"],rows[i-1]["xy"]) for i in range(1,356)]
     near=[v[i-1] for i in range(1,360)
           if z[i]<=.012 and z[i-1]<=.012]
     need(all(math.isfinite(t) for t in v+z),"NONFINITE_TRUE_SHOE_OBSERVATION")
-    return {"source_samples_60hz":360,
+    return {"source_samples_60hz":356,
             "actual_fixed_source_shoe_vertex_ids":rows[0]["n"],
             "real_flat_park_ground_plane_z_m":0.,
             "min_world_shoe_z_m":round(min(z),6),
@@ -127,10 +127,14 @@ def actor_trace(name,ward,scene):
          any(m.type=="ARMATURE" and m.object==rig and m.show_viewport for m in shoe.modifiers),
          "REAL_CC0_SHOE_NOT_ARMATURE_BOUND")
     scene.frame_set(0)
+    rig.data.pose_position="REST"
+    bpy.context.view_layer.update()
     groups=rest_groups(shoe,rig)
+    rig.data.pose_position="POSE"
+    bpy.context.view_layer.update()
     stream={side:{region:[] for region in ("heel","ball")} for side in ("L","R")}
     hashes=[]
-    for i in range(360):
+    for i in range(356):
         # Action is 72 frames at 12fps, original source 360 at 60fps.
         # Blender evaluates 60 true temporal subframes, not repeated whole frames.
         scene.frame_set(i//5,subframe=(i%5)/5)
@@ -138,7 +142,7 @@ def actor_trace(name,ward,scene):
         found=sample(shoe,groups)
         for side in ("L","R"):
             for reg in ("heel","ball"):stream[side][reg].append(found[side][reg])
-        if i in (0,80,160,240,359):
+        if i in (0,80,160,240,355):
             h=hashlib.sha256()
             for side in ("L","R"):
                 for reg in ("heel","ball"):
@@ -149,7 +153,7 @@ def actor_trace(name,ward,scene):
     results={}
     for side in ("L","R"):
         h=stream[side]["heel"];b=stream[side]["ball"]
-        delta=[b[i]["z"]-h[i]["z"] for i in range(360)]
+        delta=[b[i]["z"]-h[i]["z"] for i in range(356)]
         results[side]={"source_cc0_shoe_skin_named_side":groups[side]["weight_assignment"],
                        "source_local_rest_partition":groups[side]["partition"],
                        "persistent_heel_region":stats(h),
@@ -200,6 +204,9 @@ def main():
          "source_original_action_clock_hz":12,
          "actual_blender_subframe_clock_hz":60,
          "source_original_60hz_frame_window":[120,479],
+         "native_60hz_source_supported_samples":356,
+         "native_retarged_action_last_keyframe":71,
+         "excluded_unbacked_source_60hz_tail_frames":[356,357,358,359],
          "native_blender_version":list(bpy.app.version),
          "registered_original_CC0_shoes":True,
          "original_ground_plane_zero_authenticated":True,
@@ -211,7 +218,7 @@ def main():
          "actors":[actor_trace(person["name"],person,sc) for person in people],
          "status":"PASS_NARROW_ACTUAL_CC0_SHOE_PATCH_60HZ_HOLD_TRUE_CONTACT"}
     Path(a.out).write_text(json.dumps(out,sort_keys=True,indent=2,allow_nan=False)+"\n")
-    print("N03D_BI_360HZ_REAL_CC0_SHOE_PATCH",json.dumps({
+    print("N03D_BI_356_SUPPORTED_60HZ_REAL_CC0_SHOE_PATCH",json.dumps({
          "scene_sha":a.sha,"actors":[{"actor":x["actor"],"shoe":x["source_shoe_asset"],
                                     "metrics":x["source_actual_deformed_shoe_patches"]}
                    for x in out["actors"]],"status":out["status"]},sort_keys=True),flush=True)
