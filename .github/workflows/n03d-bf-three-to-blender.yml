@@ -1,0 +1,117 @@
+name: N03D BF genuine 360x60Hz Three locomotion original CC0 pose replay into native Blender skin
+on:
+  push:
+    branches: [research/n03d-bf-three-to-blender-20261121]
+    paths:
+      - 'research/n03d-bf-three-to-blender/**'
+      - '.github/workflows/n03d-bf-three-to-blender.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-bf-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actual-three-controller-to-blender-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        model:
+          - {id: named, mapping: mixamo, file: modelos/human_mix_propio.glb, blob: 2f86c50b2938f0f7d78df7ff9835864d6af0fd4a}
+          - {id: rigify, mapping: rigify, file: modelos/human.glb, blob: d3327b94c302278b5471c24d712ef5dc49f0d682}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: '22'
+      - name: Original source pinned MIT and CC0 rigged GLB, false-ground and source spoof tests
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-bf-three-to-blender -p 'test_critic.py' -v
+          python3 -m py_compile research/n03d-bf-three-to-blender/*.py
+          git init -q "$RUNNER_TEMP/upstream-three"
+          git -C "$RUNNER_TEMP/upstream-three" remote add origin https://github.com/PabloMesquida/three-procedural-locomotion.git
+          git -C "$RUNNER_TEMP/upstream-three" -c protocol.version=2 fetch --quiet --depth 1 origin 3f5b4896f1b28501b40aa9c408e47dba51322443
+          git -C "$RUNNER_TEMP/upstream-three" checkout -q FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/upstream-three" rev-parse HEAD)" = 3f5b4896f1b28501b40aa9c408e47dba51322443
+          test "$(git -C "$RUNNER_TEMP/upstream-three" hash-object '${{ matrix.model.file }}')" = '${{ matrix.model.blob }}'
+          grep -q "MIT License" "$RUNNER_TEMP/upstream-three/LICENSE"
+          grep -q 'Blender Studio, CC0' "$RUNNER_TEMP/upstream-three/README.md"
+      - name: Build genuine original third-party walking controller and source tests with immutable npm lock
+        env:
+          PH_MODEL: '${{ matrix.model.file }}'
+          PH_MAPPING: '${{ matrix.model.mapping }}'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/upstream-three"
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test -- walk
+          npm test -- naturalness
+      - name: ORIGINAL real 360 frames 60Hz source Three live lower-body bone pose recording
+        env:
+          PH_MODEL: '${{ matrix.model.file }}'
+          PH_MAPPING: '${{ matrix.model.mapping }}'
+          SCP_UPSTREAM_COMMIT: 3f5b4896f1b28501b40aa9c408e47dba51322443
+          SCP_BF_OUT: ${{ runner.temp }}/n03d-bf-three-live-pose.json
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/upstream-three"
+          cp "$GITHUB_WORKSPACE/research/n03d-bf-three-to-blender/capture.test.ts" tests/scp-capture.test.ts
+          npm test -- scp-capture
+          python3 - <<'PY'
+          import os,json,math
+          d=json.load(open(os.environ["SCP_BF_OUT"]))
+          assert d["genuine_realtime_three_frames_60hz"]==360 and len(d["frames"])==360
+          assert len(d["bone_rest_map"])==9 and all(len(f["pose"])==9 for f in d["frames"])
+          assert not d["source_grf_measured"] and not d["mvp_accepted"]
+          print("N03D_BF_ORIGINAL_SOURCE_QUATERNION_SNAPSHOT",d["source_glb_model"],d["source_mapping"],d["bone_rest_map"])
+          PY
+      - name: SHA authentic actual official Blender 5.2.4 native target runtime
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/official-blender"
+          cd "$RUNNER_TEMP/official-blender"
+          base="https://mirror.blender.org/release/Blender5.2"
+          fallback="https://download.blender.org/release/Blender5.2"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256 || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
+          hash="$(grep -F blender-5.2.4-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "$hash" = 2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86
+          printf '%s  %s\n' "$hash" blender-5.2.4-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-5.2.4-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/official-blender" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+      - name: ACTUAL original 360 60Hz procedural Three pose replay on SAME skinned Blender GLB with fixed material foot
+        run: |
+          set -euo pipefail
+          blender --background -t 2 --python-exit-code 12 --python research/n03d-bf-three-to-blender/native_bridge.py -- --rig '${{ matrix.model.id }}' --source "$RUNNER_TEMP/n03d-bf-three-live-pose.json" --model "$RUNNER_TEMP/upstream-three/${{ matrix.model.file }}" --out "$RUNNER_TEMP/n03d-bf-actual-blender.json"
+      - name: Independent actual material and first-frame-relative source world joint critic
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,sys,json
+          sys.path.insert(0,"research/n03d-bf-three-to-blender")
+          from critic import verify
+          d=json.load(open(os.environ["RUNNER_TEMP"]+"/n03d-bf-actual-blender.json"))
+          assert verify(d)=="HOLD"
+          assert d["rig"]=="${{ matrix.model.id }}"
+          print("N03D_BF_NATIVE_CROSSRUNTIME_SAME_RIG_HOLD",json.dumps({"rig":d["rig"],"source":d["source_pose_trace_sha256"],"trials":d["trials"]},sort_keys=True))
+          PY
+      - name: Only exact source trace and summary JSON 3-day, no model, video or motion source binary upload
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-bf-${{ matrix.model.id }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/n03d-bf-three-live-pose.json
+            ${{ runner.temp }}/n03d-bf-actual-blender.json
+          if-no-files-found: ignore
+          retention-days: 3
