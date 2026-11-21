@@ -49,6 +49,11 @@ def shoe_asset(z,actors,workdir,hs):
             need(g and g.type=="MESH" and len(g.data.vertices)>=200,"MISSING_NATIVE_REAL_SHOE_MESH")
             need(any(x.type=="ARMATURE" and x.object==rig for x in g.modifiers),
                  "ACTUAL_SHOE_NOT_SKINNED_TO_MATCHED_RIG")
+            # Fixed original material vertex IDs require no downstream topology changes.
+            # Keep the actual armature/skinning modifier enabled; this is an
+            # ephemeral geometric test, not visual/full subdivision acceptance.
+            for mod in g.modifiers:
+                if mod.type!="ARMATURE":mod.show_viewport=False
             g.name=f"{identity}_{rig_name}_CC0_{shoe_name}"
             item["shoe"]=g
             item["shoe_source_asset"]=shoe_name
