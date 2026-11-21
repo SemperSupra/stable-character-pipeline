@@ -25,6 +25,18 @@ RIGS={
 }
 def need(x,why):
     if not x:raise ValueError(why)
+def native_local_skin_digest(body):
+    """World-root invariant actual Blender evaluated deformed local mesh fingerprint."""
+    e=body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    m=e.to_mesh()
+    try:
+        need(len(m.vertices)>10000,"EMPTY_NATIVE_LOCAL_SKIN")
+        step=max(1,len(m.vertices)//2048)
+        h=hashlib.sha256()
+        for i in range(0,len(m.vertices),step):
+            h.update(struct.pack("<3f",*(round(float(z),6) for z in m.vertices[i].co)))
+        return h.hexdigest()
+    finally:e.to_mesh_clear()
 def raw_verts(body):
     h=hashlib.sha256()
     for v in body.data.vertices:
@@ -170,6 +182,11 @@ def measure_pair(actor,source,path):
         scale=targleg/srcleg
         need(.4<targleg<1.4 and .5<scale<2.5,"TARGET_LEG_SCALE")
         baseline=arm.matrix_world.copy()
+        # WARNING first BE refit experiment sampled all source motion in REST mode;
+        # that yielded the same rigid-root XY speed for every rig and both adapters.
+        # Require true pose deformation and a changing body-local evaluated mesh.
+        arm.data.pose_position="POSE"
+        need(arm.data.pose_position=="POSE","BLENDER_POSE_EVALUATION_DISABLED")
         for mode in ("direct_canonical","rest_frame_conjugated"):
             for bone in arm.pose.bones:
                 bone.rotation_mode="QUATERNION"
@@ -180,6 +197,7 @@ def measure_pair(actor,source,path):
             co=bd.cohorts([body],map_)
             need(all(co[s] for s in ("L","R")),"NO_ACTUAL_SKIN_ANKLE_TOE_WEIGHT")
             trace={"L":[],"R":[]}
+            local_digest_samples={}
             for k in range(360):
                 f=source["frames"][120+k]
                 for n,t in map_.items():
@@ -194,7 +212,11 @@ def measure_pair(actor,source,path):
                 shift*=.01*scale
                 arm.matrix_world=Matrix.Translation(shift)@baseline
                 bpy.context.view_layer.update()
+                if k in (0,80,160,240,359):
+                    local_digest_samples[k]=native_local_skin_digest(body)
                 for side in ("L","R"):trace[side].append(bd.observe_cohort(co[side]))
+            need(len(set(local_digest_samples.values()))>=3,
+                 "REST_MODE_OR_STALE_SKIN_FIRST_RED_DETECTED")
             reference=min(v["min_z_m"] for s in trace.values() for v in s)
             measurements={s:bd.diag(trace[s],reference) for s in ("L","R")}
             out.append({"rig":kind,"bone_count":len(arm.data.bones),"mode":mode,
