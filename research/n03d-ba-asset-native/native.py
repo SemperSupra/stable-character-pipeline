@@ -67,9 +67,20 @@ def main():
     walk=active_walk()
     all_actions=[{"name":a.name,"first":float(a.frame_range[0]),"last":float(a.frame_range[1])}
                  for a in bpy.data.actions]
-    end=min(240,max([a["last"] for a in all_actions]+[float(bpy.context.scene.frame_end),24.]))
-    first=min(1.,min([a["first"] for a in all_actions]+[1.]))
-    frames=sorted(set(int(first+(end-first)*t/4) for t in range(5)))
+    qualified_walk_action=[a for a in all_actions if a["name"].lower() in ("walk","walkaction","walk.001")]
+    # Anchor the temporal witness INSIDE the action span, not at frames 0,60,120,180,240.
+    # For Piston’s legacy unnamed actions, report action-range motion without calling it walk.
+    selected_range=(qualified_walk_action or all_actions[:1])
+    if selected_range:
+        first=float(selected_range[0]["first"])
+        end=float(selected_range[0]["last"])
+    else:
+        first=float(bpy.context.scene.frame_start)
+        end=min(float(bpy.context.scene.frame_end),first+24.)
+    require(math.isfinite(first) and math.isfinite(end) and end>first,
+            "ACTION_RANGE_INVALID")
+    frames=sorted(set(int(round(first+(end-first)*t/4)) for t in range(5)))
+    require(len(frames)>=3,"ACTION_TOO_SHORT_FOR_MOTION_WITNESS")
     telemetry=[]
     if rigs and skinned:
         mesh=skinned[0]
@@ -81,9 +92,10 @@ def main():
                                             for bone in rig.pose.bones])}
                       for rig in rigs]
             telemetry.append({"frame":frame,"rigs":rig_data,
-                              "real_evaluated_skin":observed_mesh(mesh)})
-    movement=(len(set(t["real_evaluated_skin"]["sample_digest"] for t in telemetry))>1
-              if telemetry else False)
+                              "real_evaluated_skin":observed_mesh(mesh),
+                              "all_actual_skinned_meshes":[{"name":m.name,**observed_mesh(m)} for m in skinned]})
+    movement=(any(len(set(t["all_actual_skinned_meshes"][j]["sample_digest"] for t in telemetry))>1
+                  for j in range(len(skinned))) if telemetry else False)
     joint_movement=(any(len(set(t["rigs"][idx]["pose_sha256"] for t in telemetry))>1
                         for idx in range(len(rigs))) if telemetry else False)
     result={"schema":"scp.n03d-ba.blender-native-admission.v1",
@@ -95,7 +107,9 @@ def main():
             "action_names":act,"nla_selected_walk":walk,
             "foot_named_bones":[r.name+":"+b.name for r in rigs for b in r.data.bones
                                  if any(x in b.name.lower() for x in ("foot","toe","ball","ankle"))][:80],
-            "native_frames":frames,"telemetry":telemetry,
+            "native_frames":frames,"sampled_action_range":[first,end],
+            "selected_action_name":selected_range[0]["name"] if selected_range else None,
+            "telemetry":telemetry,
             "evaluated_skin_changed":movement,"evaluated_pose_changed":joint_movement,
             "native_skin_import_verified":bool(rigs and skinned),
             "native_walk_clip_qualified":bool(rigs and skinned and walk and movement and joint_movement),
