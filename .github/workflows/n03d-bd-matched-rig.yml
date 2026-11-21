@@ -1,0 +1,87 @@
+name: N03D BD same original 100STYLE 360x60Hz two retarget strategies on three native rigs
+on:
+  push:
+    branches: [research/n03d-bd-matched-rig-20261121]
+    paths:
+      - 'research/n03d-bd-matched-rig/**'
+      - '.github/workflows/n03d-bd-matched-rig.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: n03d-bd-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  true-original-source-cross-rig-matched-motion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        model:
+          - {id: vsim, repo: kunalkushwaha/vsim, commit: 4ff8859e0ca507f6b8bf159e5a7a141c13ef4aaf, path: packages/assets/library/human.glb, blob: 76fb3eb2b23de748368b5fecc0862e06a0321e2c}
+          - {id: cc, repo: kblood/CharacterCreator, commit: 852e48f316b90a0937234886630e4fb4cdfd1f78, path: output/base_body_anim.glb, blob: bdbdab04eb85903e46c56ff56c7a1ea0cbe9c78b}
+          - {id: rigify, repo: PabloMesquida/three-procedural-locomotion, commit: 3f5b4896f1b28501b40aa9c408e47dba51322443, path: modelos/human.glb, blob: d3327b94c302278b5471c24d712ef5dc49f0d682}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Source rights, real canonical BVH and independent false-foot-contact controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-bd-matched-rig -p 'test_critic.py' -v
+          python3 -m unittest discover -s research/r088-motion-real -p 'test_bvh_preflight.py' -v
+          python3 -m py_compile research/n03d-bd-matched-rig/*.py
+      - name: Exact Git blob pinned source 100STYLE and target real model for SAME movie excerpt
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/n03d-bd-original"
+          model="$RUNNER_TEMP/n03d-bd-original/target.glb"
+          motion="$RUNNER_TEMP/n03d-bd-original/Neutral_FW.bvh"
+          curl -fLsS --retry 2 --max-time 180 "https://raw.githubusercontent.com/${{ matrix.model.repo }}/${{ matrix.model.commit }}/${{ matrix.model.path }}" -o "$model"
+          test "$(git hash-object "$model")" = "${{ matrix.model.blob }}"
+          curl -fLsS --retry 2 --max-time 120 "https://raw.githubusercontent.com/tomcatmew/simple_motion_matching/10938b4881b55c5801faded89e427407ddf14bce/data/100style/Neutral_FW.bvh" -o "$motion"
+          test "$(git hash-object "$motion")" = a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61
+          python3 research/r088-motion-real/bvh_preflight.py --source "$motion" --sha1 a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61 --out "$RUNNER_TEMP/n03d-bd-source.json"
+      - name: Official SHA-pinned original Blender 5.2.4 LTS native evaluator
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/official-blender"
+          cd "$RUNNER_TEMP/official-blender"
+          base="https://mirror.blender.org/release/Blender5.2"
+          fallback="https://download.blender.org/release/Blender5.2"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256 || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
+          hash="$(grep -F blender-5.2.4-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
+          test "$hash" = 2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86
+          printf '%s  %s\n' "$hash" blender-5.2.4-linux-x64.tar.xz | sha256sum --check
+          tar -xJf blender-5.2.4-linux-x64.tar.xz
+          bin="$(find "$RUNNER_TEMP/official-blender" -maxdepth 2 -type f -name blender | head -1)"
+          test -x "$bin"
+          echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+      - name: ACTUAL live Blender 360 60Hz original motion in two alternative retarget modes and true weighted skinned lower material
+        run: |
+          set -euo pipefail
+          blender -b -t 2 --python-exit-code 12 --python research/n03d-bd-matched-rig/native.py -- --candidate '${{ matrix.model.id }}' --model "$RUNNER_TEMP/n03d-bd-original/target.glb" --motion "$RUNNER_TEMP/n03d-bd-original/Neutral_FW.bvh" --out "$RUNNER_TEMP/n03d-bd-matched-native.json"
+      - name: Independent 60Hz true skinned material source / false-contact hold critic
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,sys,os
+          sys.path.insert(0,"research/n03d-bd-matched-rig")
+          from critic import assess
+          d=json.load(open(os.environ["RUNNER_TEMP"]+"/n03d-bd-matched-native.json"))
+          assert assess(d)=="HOLD"
+          assert d["candidate"]=="${{ matrix.model.id }}"
+          print("N03D_BD_INDEPENDENT_ACTUAL_60HZ_HOLD",json.dumps({"candidate":d["candidate"],"rig_bones":d["target_native_rig_bones"],"source_sha256":d["source_sha256"],"trials":[{"mode":a["mode"],"metrics":a["rig_foot_measures"]} for a in d["trials"]]},sort_keys=True))
+          PY
+      - name: Publish short-retention numerical JSON only no raw vendor BVH or skinned models
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: n03d-bd-${{ matrix.model.id }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/n03d-bd-source.json
+            ${{ runner.temp }}/n03d-bd-matched-native.json
+          retention-days: 3
+          if-no-files-found: ignore
