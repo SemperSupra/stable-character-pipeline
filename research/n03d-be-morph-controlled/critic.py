@@ -30,6 +30,15 @@ def check(x):
              all(isinstance(m,dict) and set(m)=={"name","type"} and
                  m["type"]!="ARMATURE" for m in v) for v in mod.values()),
          "UNTRACEABLE_MASK_MODIFIER_EXCLUSIONS")
+    need(x.get("evaluated_morphology_matched_before_rigging") is True and
+         isinstance(x.get("actual_evaluated_macro_shape"),dict) and
+         x["actual_evaluated_macro_shape"].get("sha256")==x["exact_source_body_mesh_sha256"] and
+         x["actual_evaluated_macro_shape"].get("vertices")==x.get("same_body_vertex_count") and
+         len(x.get("underlying_core_mesh_sha256",""))==64 and
+         isinstance(x.get("shape_key_profile_fingerprint"),dict) and
+         len(x["shape_key_profile_fingerprint"].get("shape_key_weight_sha256",""))==64 and
+         x["shape_key_profile_fingerprint"].get("active_shape_key_count",0)>0,
+         "UNEVALUATED_SOURCE_MORPHOLOGY_NOT_AUTHORITY")
     diffs=x["named_rig_joint_head_differences_m"]
     need(set(diffs)=={"LeftHip","LeftKnee","LeftAnkle","LeftToe","RightHip","RightKnee","RightAnkle","RightToe"},
          "NAMED_JOINTS_UNVERIFIED")
