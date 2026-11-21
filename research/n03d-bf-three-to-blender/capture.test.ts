@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { it } from 'node:test';
-import type { Bone } from 'three';
+import { Vector3, type Bone } from 'three';
 import { createWorld } from './helpers/sim.ts';
 
 it('exports source-exact 360x60Hz original procedural bone-local rotations and live support-state witnesses', () => {
@@ -35,7 +35,7 @@ it('exports source-exact 360x60Hz original procedural bone-local rotations and l
     w.model.updateMatrixWorld(true);
     const pose=Object.fromEntries(Object.entries(bones).map(([k,b])=>[k,quaternion(b)]));
     const landmarks=Object.fromEntries(Object.entries(bones).map(([k,b])=>{
-      const pt=b.getWorldPosition(new (b.position.constructor as any)());
+      const pt=b.getWorldPosition(new Vector3());
       return [k,translation(pt)];
     }));
     frames.push({i,pose,root_y_up:translation(h.position),
