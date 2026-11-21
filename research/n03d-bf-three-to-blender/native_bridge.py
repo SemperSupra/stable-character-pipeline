@@ -22,7 +22,7 @@ def canon(x):
 def q(wxyz):
     need(len(wxyz)==4 and all(type(x) in (float,int) and math.isfinite(x) for x in wxyz),"SOURCE_QUAT_INVALID")
     rot=Quaternion(tuple(wxyz))
-    need(abs(rot.length-1)<.001,"SOURCE_NONUNIT_QUAT")
+    need(abs(math.sqrt(sum(float(z)*float(z) for z in rot))-1)<.001,"SOURCE_NONUNIT_QUAT")
     return rot
 def v(x):
     need(len(x)==3 and all(type(z) in (float,int) and math.isfinite(z) and abs(z)<1e4 for z in x),"SOURCE_VECTOR_INVALID")
@@ -122,10 +122,16 @@ def main():
                     "RightHip","RightKnee","RightAnkle","RightToe"},"SOURCE_NINE_JOINT_MAPPING")
     pairs={k:named[canon(record["node_name"])] for k,record in rest.items()}
     need(len(set(pairs.values()))==9,"DUPLICATE_REPLAY_BONE")
-    nativefoot=[rig.data.bones[pairs[k]].head_local for k in ("LeftHip","LeftKnee","LeftAnkle")]
+    nativefoot=[rig.matrix_world@rig.data.bones[pairs[k]].head_local
+                for k in ("LeftHip","LeftKnee","LeftAnkle")]
     targetleg=(nativefoot[0]-nativefoot[1]).length+(nativefoot[1]-nativefoot[2]).length
     sourceleg=float(source["source_native_leg_length_m"])
-    need(.45<sourceleg<1.5 and .4<targetleg<1.5,"LEG_SCALE_UNTRUSTED")
+    print("N03D_BF_NATIVE_SOURCE_LEG_CALIBRATION",a.rig,
+          "source_leg_m",round(sourceleg,6),"Blender_world_leg_m",round(targetleg,6),
+          "armature_world_scale",tuple(round(float(x),6) for x in rig.matrix_world.to_scale()),
+          flush=True)
+    need(.45<sourceleg<1.5 and .25<targetleg<2.0,
+         "LEG_SCALE_UNTRUSTED_ACTUAL_NATIVE_WORLD_GEOMETRY")
     scale=targetleg/sourceleg
     base=rig.matrix_world.copy()
     C=Matrix.Rotation(math.pi/2,3,"X").to_quaternion()
