@@ -2,7 +2,7 @@
 import copy,math,sys,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parent))
-from critic import check,TRAIN,HOLD,MODES
+from critic import check,TRAIN,HOLD,MODES,TRIAL_MODES
 def fixture():
     f={"schema":"scp.n03d-bg.world-similarity-source-to-native-360-v1",
        "source_class":"PUBLIC_ORIGINAL_CC0_THREE_CONTROLLER",
@@ -12,6 +12,10 @@ def fixture():
        "measured_ground_force":False,"body_style_or_actor_identity_accepted":False,
        "true_sole_contact_accepted":False,"mvp_accepted":False,
        "status":"PASS_NARROW_SOURCE_TO_NATIVE_WORLD_MATCH_HOLD_PHYSICS",
+       "three_source_root_distance_m":5.983333,
+       "real_bone_skin_coupling_limited_or_stalled":False,
+       "native_original_armature_modifiers":[{"mesh":"original","parent":"rig",
+           "mods":[{"name":"Armature","enabled":True,"armature_match":True}]}],
        "rig":"rigify","blender_native_bones":161,
        "source_model_git_blob":"d3327b94c302278b5471c24d712ef5dc49f0d682",
        "source_pose_sha256":"a"*64,"source_model_sha256":"b"*64,
@@ -32,12 +36,22 @@ def fixture():
          "source_nonswing_is_not_force_verified":True,"actual_sole_and_ground_unverified":True}
     errs={k:{"p50_m":.01,"max_m":.05} for k in HOLD}
     f["retarget_models"]=[{"mode":mode,"actual_native_blender_frames":360,
+                           "root_trajectory_applied_to_armature_object":
+                                mode=="five_landmark_rest_similarity_with_model_root",
+                           "real_skin_bone_displacement_coupling":{side:{
+                               "p50_skin_bone_xy_displacement_m":.01,
+                               "max_skin_bone_xy_displacement_m":.05,
+                               "end_skin_bone_xy_displacement_m":.03}
+                               for side in ("L","R")},
+                           "root_independent_local_skin_sha256_samples":[str(i).zfill(64) for i in (0,80,160,240,359)],
+                           "native_nonrigid_skin_deformation_verified":True,
+                           "bilateral_real_skin_tracks_bone":True,
                            "actual_native_skin_mesh_count":3,
                            "source_controller_phases_are_not_true_contact":True,
                            "physical_contact_accepted":False,
                            "real_native_foot_material":{"L":mat.copy(),"R":mat.copy()},
                            "world_ankle_and_toe_delta_errors":copy.deepcopy(errs)}
-                          for mode in MODES]
+                          for mode in TRIAL_MODES]
     return f
 class Controls(unittest.TestCase):
     def test_narrow(self):self.assertEqual(check(fixture()),"HOLD")
@@ -81,6 +95,25 @@ class Controls(unittest.TestCase):
     def test_bad_toe(self):
         d=fixture();d["retarget_models"][0]["world_ankle_and_toe_delta_errors"]["LeftToe"]["p50_m"]=-.1
         with self.assertRaisesRegex(ValueError,"INVALID_SOURCE"):check(d)
+    def test_source_world_root_stalled(self):
+        d=fixture();d["three_source_root_distance_m"]=.0
+        with self.assertRaisesRegex(ValueError,"CONTROLLER_WORLD_TRAVEL"):check(d)
+    def test_first_two_source_skin_decoupled_not_green(self):
+        d=fixture();d["retarget_models"][0]["real_skin_bone_displacement_coupling"]["L"]["max_skin_bone_xy_displacement_m"]=6.
+        d["retarget_models"][0]["bilateral_real_skin_tracks_bone"]=False
+        with self.assertRaisesRegex(ValueError,"FAKE_SKIN_PHYSICAL_PASS"):check(d)
+        d["real_bone_skin_coupling_limited_or_stalled"]=True
+        d["status"]="HOLD_BIND_SKIN_DISPLACEMENT_DECOUPLING"
+        self.assertEqual(check(d),"HOLD")
+    def test_nonrigid_deformation_still_required(self):
+        d=fixture();d["retarget_models"][1]["native_nonrigid_skin_deformation_verified"]=False
+        with self.assertRaisesRegex(ValueError,"FAKE_NONRIGID_SOURCE_SKIN"):check(d)
+    def test_mismatched_6m_root_transport(self):
+        d=fixture();d["retarget_models"][2]["root_trajectory_applied_to_armature_object"]=False
+        with self.assertRaisesRegex(ValueError,"FAKE_ARMATURE_ROOT_TRANSFER"):check(d)
+    def test_disabled_source_armature_modifier(self):
+        d=fixture();d["native_original_armature_modifiers"][0]["mods"][0]["enabled"]=False
+        with self.assertRaisesRegex(ValueError,"SOURCE_GLTF_ACTUAL_SKIN_MODIFIER"):check(d)
     def test_no_height_stance_is_unknown(self):
         d=fixture();d["retarget_models"][0]["real_native_foot_material"]["L"]["near_self_low_p50_xy_speed_mps"]=None
         self.assertEqual(check(d),"HOLD")
