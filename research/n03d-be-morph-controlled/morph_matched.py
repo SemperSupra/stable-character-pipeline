@@ -30,6 +30,25 @@ def raw_verts(body):
     for v in body.data.vertices:
         h.update(struct.pack("<3f",float(v.co.x),float(v.co.y),float(v.co.z)))
     return h.hexdigest()
+def evaluated_profile(body):
+    """Evaluated, *unmasked* shape-key-deformed body, in local mesh coordinates."""
+    bpy.context.view_layer.update()
+    e=body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    mesh=e.to_mesh()
+    try:
+        need(len(mesh.vertices)>10000,"PROFILE_CORE_EVAL_EMPTY")
+        h=hashlib.sha256()
+        for v in mesh.vertices:
+            h.update(struct.pack("<3f",*(round(float(x),6) for x in v.co)))
+        return {"sha256":h.hexdigest(),"vertices":len(mesh.vertices)}
+    finally:e.to_mesh_clear()
+def active_shape_keys(body):
+    ks=body.data.shape_keys
+    vals=sorted((k.name,round(float(k.value),9)) for k in ks.key_blocks) if ks else []
+    data=json.dumps(vals,separators=(",",":"),ensure_ascii=True).encode()
+    return {"shape_key_weight_sha256":hashlib.sha256(data).hexdigest(),
+            "active_shape_key_count":sum(abs(v)>1e-9 for _,v in vals),
+            "all_shape_key_count":len(vals)}
 def setup():
     import addon_utils
     mod="bl_ext.user_default.mpfb"
@@ -47,19 +66,31 @@ def create(hs,ts,props,profile,rig_name):
     ts.reapply_macro_details(body)
     hs.refit(body)
     raw=raw_verts(body)
+    # First run showed raw MakeHuman base mesh hashes can be identical even when
+    # macro shape key values differ. Source morphology MUST use evaluated shape.
+    excluded=[{"name":m.name,"type":m.type} for m in body.modifiers
+               if m.type!="ARMATURE" and m.show_viewport]
+    for m in body.modifiers:
+        if m.type!="ARMATURE":m.show_viewport=False
+    before=evaluated_profile(body)
+    macros=active_shape_keys(body)
     bones_before=len(body.data.vertices)
     rig=hs.add_builtin_rig(body,rig_name,import_weights=True)
     need(rig is not None and rig.type=="ARMATURE","SOURCE_RIG_NOT_CREATED")
     hs.refit(body)
+    rig.data.pose_position="REST"
+    after=evaluated_profile(body)
     need(len(body.data.vertices)==bones_before and raw_verts(body)==raw,
-         "MORPHOLOGY_CHANGED_AFTER_SKELETON")
+         "MORPHOLOGY_CHANGED_AFTER_SKELETON_RAW")
+    need(before==after,"PROFILE_SHAPE_CHANGED_AFTER_RIG")
+    need(active_shape_keys(body)==macros,"PROFILE_MACRO_TARGETS_CHANGED_AFTER_RIG")
     body.name=profile["name"]+"_"+rig_name+"_body"
     rig.name=profile["name"]+"_"+rig_name+"_rig"
     need(any(m.type=="ARMATURE" and m.object==rig for m in body.modifiers),
          "SOURCE_SKIN_NOT_BOUND")
     expect=163 if rig_name=="default" else 53
     need(len(rig.data.bones)==expect,"UNEXPECTED_OFFICIAL_MPF_SKELETON")
-    return body,rig,raw
+    return body,rig,raw,before,macros,excluded
 def landmarks(rig,mapping):
     coords={k:tuple(float(z) for z in rig.data.bones[mapping[k]].head_local)
             for k in ("LeftHip","LeftKnee","LeftAnkle","LeftToe","RightHip","RightKnee","RightAnkle","RightToe")}
@@ -70,12 +101,17 @@ def measure_pair(actor,source,path):
     need(profile is not None,"UNAUTHORIZED_ACTOR_SOURCE")
     rigs={}
     for kind in ("default","game_engine"):
-        body,arm,raw=create(hs,ts,props,profile,kind)
-        rigs[kind]={"body":body,"arm":arm,"sha":raw,
+        body,arm,raw,shape,macros,excluded=create(hs,ts,props,profile,kind)
+        rigs[kind]={"body":body,"arm":arm,"sha":shape["sha256"],
+                    "raw_sha":raw,"shape":shape,"shape_keys":macros,
+                    "initial_nonarmature_exclusions":excluded,
                     "original_vertices":len(body.data.vertices),
                     "bone_count":len(arm.data.bones),
                     "landmarks":landmarks(arm,RIGS[kind])}
-    need(rigs["default"]["sha"]==rigs["game_engine"]["sha"],"NOT_IDENTICAL_SOURCE_MORPHOLOGY")
+    need(rigs["default"]["sha"]==rigs["game_engine"]["sha"],"NOT_IDENTICAL_EVALUATED_SOURCE_MORPHOLOGY")
+    need(rigs["default"]["shape"]==rigs["game_engine"]["shape"] and
+         rigs["default"]["shape_keys"]==rigs["game_engine"]["shape_keys"],
+         "NOT_IDENTICAL_SOURCE_MACRO_DEFORMATIONS")
     need(rigs["default"]["original_vertices"]==rigs["game_engine"]["original_vertices"],
          "BODY_TOPOLOGY_NOT_IDENTICAL")
     # Critical first-RED: MPFB native body has topology-changing display mask modifiers,
@@ -86,9 +122,10 @@ def measure_pair(actor,source,path):
     ignored_modifiers={}
     for kind in ("default","game_engine"):
         body=rigs[kind]["body"]
-        ignored_modifiers[kind]=[{"name":m.name,"type":m.type}
-                                  for m in body.modifiers
-                                  if m.type!="ARMATURE" and m.show_viewport]
+        ignored_modifiers[kind]=rigs[kind]["initial_nonarmature_exclusions"] + [
+            {"name":m.name,"type":m.type}
+            for m in body.modifiers
+            if m.type!="ARMATURE" and m.show_viewport]
         for m in body.modifiers:
             if m.type!="ARMATURE":m.show_viewport=False
         bpy.context.view_layer.update()
@@ -164,6 +201,10 @@ def measure_pair(actor,source,path):
          "source_100style_sha256":hashlib.sha256(Path(path).read_bytes()).hexdigest(),
          "source_360_frame_clock_hz":60,"same_morphology_before_rig":True,
          "exact_source_body_mesh_sha256":rigs["default"]["sha"],
+         "underlying_core_mesh_sha256":rigs["default"]["raw_sha"],
+         "actual_evaluated_macro_shape":rigs["default"]["shape"],
+         "shape_key_profile_fingerprint":rigs["default"]["shape_keys"],
+         "evaluated_morphology_matched_before_rigging":True,
          "same_body_vertex_count":rigs["default"]["original_vertices"],
          "non_armature_display_modifiers_excluded":ignored_modifiers,
          "actual_material_scope":"SOURCE_BODY_ARMATURE_ONLY_FIXED_VERTEX_IDS_NOT_RENDER_MASK",
