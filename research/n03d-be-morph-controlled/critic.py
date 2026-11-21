@@ -39,6 +39,23 @@ def check(x):
          len(x["shape_key_profile_fingerprint"].get("shape_key_weight_sha256",""))==64 and
          x["shape_key_profile_fingerprint"].get("active_shape_key_count",0)>0,
          "UNEVALUATED_SOURCE_MORPHOLOGY_NOT_AUTHORITY")
+    need(x.get("post_rig_shape_equivalence_not_assumed") is True,"FALSE_POST_RIG_IDENTICAL_CLAIM")
+    post=x.get("post_rig_evaluated_shape_per_rig")
+    drift=x.get("post_rig_shape_drift_per_rig")
+    need(isinstance(post,dict) and isinstance(drift,dict) and
+         set(post)=={"default","game_engine"} and set(drift)=={"default","game_engine"},
+         "MISSING_POST_RIG_SHAPE_RECEIPTS")
+    for rig in post:
+        need(post[rig].get("vertices")==x["same_body_vertex_count"] and
+             len(post[rig].get("sha256",""))==64,"POST_RIG_SHAPE_MISSING")
+        z=drift[rig]
+        for key in ("max_world_centered_vertex_displacement_m",
+                    "rms_world_centered_vertex_displacement_m"):
+            need(type(z.get(key)) in (int,float) and math.isfinite(z[key]) and z[key]>=0,
+                 "NONFINITE_SOURCE_RIG_REFIT_DRIFT")
+        need(z.get("pre_and_post_evaluated_shape_identical")==
+             (post[rig]["sha256"]==x["exact_source_body_mesh_sha256"]),
+             "FALSE_POST_RIG_REFIT_EQUIVALENCE")
     diffs=x["named_rig_joint_head_differences_m"]
     need(set(diffs)=={"LeftHip","LeftKnee","LeftAnkle","LeftToe","RightHip","RightKnee","RightAnkle","RightToe"},
          "NAMED_JOINTS_UNVERIFIED")
