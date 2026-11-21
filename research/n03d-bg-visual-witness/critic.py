@@ -4,32 +4,34 @@ from pathlib import Path
 
 def need(x,reason):
     if not x:raise ValueError(reason)
-def probe(path):
-    cmd=["ffprobe","-v","error","-count_frames","-select_streams","v:0",
-         "-show_entries","stream=codec_name,codec_type,width,height,r_frame_rate,avg_frame_rate,nb_read_frames,duration",
-         "-show_entries","format=duration","-of","json",str(path)]
-    x=subprocess.run(cmd,capture_output=True,text=True,check=True)
-    data=json.loads(x.stdout)
-    videos=data.get("streams",[])
-    need(len(videos)==1,"MULTIPLE_VIDEO_STREAMS")
-    a=videos[0]
-    need(a.get("codec_name")=="h264" and a.get("width")==384 and
-         a.get("height")==216,"NOT_BOUNDED_H264")
-    need(a.get("avg_frame_rate") in ("12/1","24/2"),"INCORRECT_FPS")
-    need(a.get("nb_read_frames")=="72","MISSING_ACTUAL_DECODED_FRAMES")
-    duration=float(data.get("format",{}).get("duration",a.get("duration",-1)))
+def probe(path,ffmpeg):
+    """Independently decode using SHA pinned external FFmpeg, not Blender or JSON claims."""
+    cmd=[ffmpeg,"-hide_banner","-loglevel","info","-i",str(path),
+         "-vf","showinfo","-an","-f","null","-"]
+    process=subprocess.run(cmd,capture_output=True,text=True,check=True)
+    data=process.stderr
+    import re
+    need("Video: h264" in data and "384x216" in data and
+         re.search(r"\b12(?:\.0+)? fps\b",data),"NOT_BOUNDED_H264")
+    frame_numbers=[int(i) for i in re.findall(r"showinfo[^\\n]*?\bn:\s*(\d+)",data)]
+    # This is a fresh decoder of all encoded frames, independent of original PNGs.
+    need(frame_numbers==list(range(72)),"MISSING_ACTUAL_DECODED_FRAMES")
+    m=re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)",data)
+    need(m is not None,"NO_REAL_MOVIE_DURATION")
+    duration=3600*int(m.group(1))+60*int(m.group(2))+float(m.group(3))
     need(math.isfinite(duration) and abs(duration-6.0)<.12,"NOT_SIX_SECONDS")
-    return {"h264_codec":a["codec_name"],"width":384,"height":216,"fps":12,
-            "actual_decoded_frames":72,"duration_s":round(duration,6)}
-def decoded_frame(path,n):
-    cmd=["ffmpeg","-hide_banner","-loglevel","error","-i",str(path),
+    return {"h264_codec":"h264","width":384,"height":216,"fps":12,
+            "actual_decoded_frames":len(frame_numbers),"duration_s":round(duration,6)}
+
+def decoded_frame(path,n,ffmpeg):
+    cmd=[ffmpeg,"-hide_banner","-loglevel","error","-i",str(path),
          "-vf",f"select=eq(n\\,{n})","-vsync","vfr",
          "-frames:v","1","-f","image2pipe","-vcodec","png","pipe:1"]
     data=subprocess.run(cmd,capture_output=True,check=True).stdout
     need(data[:8]==b"\x89PNG\r\n\x1a\n" and len(data)>1000,"NO_TRUE_DECODED_VIDEO_PIXEL")
     need(struct.unpack_from(">II",data,16)==(384,216),"DECODED_WRONG_FRAME_DIMENSION")
     return hashlib.sha256(data).hexdigest()
-def validate(report,root,allow_decoding=True):
+def validate(report,root,allow_decoding=True,ffmpeg_exe=None):
     need(report.get("schema")=="scp.n03d-bg.two-camera-source-safe-visual-witness.v1" and
          report.get("source_class")=="ORIGINAL_FICTIONAL_MPFBCORE_CC0" and
          report.get("source_MPF_upstream")=="9de0707fdc88438d7c53a1a2ac7937d9221e2431" and
@@ -69,8 +71,9 @@ def validate(report,root,allow_decoding=True):
         need(path.is_file() and path.stat().st_size==item["bytes"] and
              hashlib.sha256(path.read_bytes()).hexdigest()==item["sha256"],"VIDEO_BYTES_CHANGED")
         if allow_decoding:
-            data=probe(path)
-            h=[decoded_frame(path,k) for k in (0,35,71)]
+            need(ffmpeg_exe and Path(ffmpeg_exe).is_file(),"PINNED_FFMPEG_NOT_PROVIDED")
+            data=probe(path,ffmpeg_exe)
+            h=[decoded_frame(path,k,ffmpeg_exe) for k in (0,35,71)]
             need(len(set(h))==3,"FILM_STATIC_OR_CLOCK_FROZEN")
             data["actual_pixel_sha256_at_frame0_35_71"]=h
             stats[item["camera"]]=data
