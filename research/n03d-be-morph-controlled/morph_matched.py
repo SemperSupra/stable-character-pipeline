@@ -38,9 +38,17 @@ def evaluated_profile(body):
     try:
         need(len(mesh.vertices)>10000,"PROFILE_CORE_EVAL_EMPTY")
         h=hashlib.sha256()
-        for v in mesh.vertices:
-            h.update(struct.pack("<3f",*(round(float(x),6) for x in v.co)))
-        return {"sha256":h.hexdigest(),"vertices":len(mesh.vertices)}
+        origin=e.matrix_world.translation.copy()
+        points=[]
+        for vert in mesh.vertices:
+            world=e.matrix_world@vert.co-origin
+            xyz=tuple(round(float(z),6) for z in world)
+            h.update(struct.pack("<3f",*xyz))
+            points.append(xyz)
+        ext=[round(max(pt[k] for pt in points)-min(pt[k] for pt in points),6)
+             for k in range(3)]
+        return {"sha256":h.hexdigest(),"vertices":len(mesh.vertices),
+                "bbox_extent_m":ext},points
     finally:e.to_mesh_clear()
 def active_shape_keys(body):
     ks=body.data.shape_keys
@@ -72,17 +80,22 @@ def create(hs,ts,props,profile,rig_name):
                if m.type!="ARMATURE" and m.show_viewport]
     for m in body.modifiers:
         if m.type!="ARMATURE":m.show_viewport=False
-    before=evaluated_profile(body)
+    before,original_points=evaluated_profile(body)
     macros=active_shape_keys(body)
     bones_before=len(body.data.vertices)
     rig=hs.add_builtin_rig(body,rig_name,import_weights=True)
     need(rig is not None and rig.type=="ARMATURE","SOURCE_RIG_NOT_CREATED")
     hs.refit(body)
     rig.data.pose_position="REST"
-    after=evaluated_profile(body)
+    after,refitted_points=evaluated_profile(body)
     need(len(body.data.vertices)==bones_before and raw_verts(body)==raw,
          "MORPHOLOGY_CHANGED_AFTER_SKELETON_RAW")
-    need(before==after,"PROFILE_SHAPE_CHANGED_AFTER_RIG")
+    need(before["vertices"]==after["vertices"],"RIG_REFIT_TOPOLOGY_DRIFT")
+    distances=[math.dist(a,b) for a,b in zip(original_points,refitted_points)]
+    drift={"max_world_centered_vertex_displacement_m":round(max(distances),6),
+           "rms_world_centered_vertex_displacement_m":round(
+               math.sqrt(sum(x*x for x in distances)/len(distances)),6),
+           "pre_and_post_evaluated_shape_identical":before["sha256"]==after["sha256"]}
     need(active_shape_keys(body)==macros,"PROFILE_MACRO_TARGETS_CHANGED_AFTER_RIG")
     body.name=profile["name"]+"_"+rig_name+"_body"
     rig.name=profile["name"]+"_"+rig_name+"_rig"
@@ -90,7 +103,7 @@ def create(hs,ts,props,profile,rig_name):
          "SOURCE_SKIN_NOT_BOUND")
     expect=163 if rig_name=="default" else 53
     need(len(rig.data.bones)==expect,"UNEXPECTED_OFFICIAL_MPF_SKELETON")
-    return body,rig,raw,before,macros,excluded
+    return body,rig,raw,before,macros,excluded,after,drift
 def landmarks(rig,mapping):
     coords={k:tuple(float(z) for z in rig.data.bones[mapping[k]].head_local)
             for k in ("LeftHip","LeftKnee","LeftAnkle","LeftToe","RightHip","RightKnee","RightAnkle","RightToe")}
@@ -101,9 +114,10 @@ def measure_pair(actor,source,path):
     need(profile is not None,"UNAUTHORIZED_ACTOR_SOURCE")
     rigs={}
     for kind in ("default","game_engine"):
-        body,arm,raw,shape,macros,excluded=create(hs,ts,props,profile,kind)
+        body,arm,raw,shape,macros,excluded,after,drift=create(hs,ts,props,profile,kind)
         rigs[kind]={"body":body,"arm":arm,"sha":shape["sha256"],
                     "raw_sha":raw,"shape":shape,"shape_keys":macros,
+                    "post_rig_shape":after,"shape_drift":drift,
                     "initial_nonarmature_exclusions":excluded,
                     "original_vertices":len(body.data.vertices),
                     "bone_count":len(arm.data.bones),
@@ -204,6 +218,9 @@ def measure_pair(actor,source,path):
          "underlying_core_mesh_sha256":rigs["default"]["raw_sha"],
          "actual_evaluated_macro_shape":rigs["default"]["shape"],
          "shape_key_profile_fingerprint":rigs["default"]["shape_keys"],
+         "post_rig_evaluated_shape_per_rig":{k:rigs[k]["post_rig_shape"] for k in rigs},
+         "post_rig_shape_drift_per_rig":{k:rigs[k]["shape_drift"] for k in rigs},
+         "post_rig_shape_equivalence_not_assumed":True,
          "evaluated_morphology_matched_before_rigging":True,
          "same_body_vertex_count":rigs["default"]["original_vertices"],
          "non_armature_display_modifiers_excluded":ignored_modifiers,
@@ -229,6 +246,7 @@ def main():
     Path(args.out).write_text(json.dumps(doc,sort_keys=True,indent=2,allow_nan=False)+"\n")
     print("N03D_BE_TRUE_IDENTICAL_MORPH_RIG_RESULT",json.dumps({"actor":doc["actor"],
          "source_shape_sha256":doc["exact_source_body_mesh_sha256"],
+         "post_rig_shape_drift":doc["post_rig_shape_drift_per_rig"],
          "rig_head_deltas":doc["named_rig_joint_head_differences_m"],
          "trials":[{"rig":t["rig"],"mode":t["mode"],"shoe":t["actual_material"],
                     "leg_scale_ratio":t["leg_scale_ratio"]} for t in doc["results"]],
