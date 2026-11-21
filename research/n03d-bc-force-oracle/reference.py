@@ -43,8 +43,11 @@ def parse_storage(text):
         need(len(value)==len(columns) and
              all(math.isfinite(v) and abs(v)<1e8 for v in value),"STORAGE_NONFINITE_OR_WIDTH")
         rows.append(value)
-    need(len(rows)>50 and int(info.get("nrows",0))==len(rows) and
-         int(info.get("ncolumns",0))==len(columns),"HEADER_ROWS_OR_COLS")
+    need(len(rows)>50 and int(info.get("nrows",0))==len(rows),"HEADER_ROWS")
+    declared=int(info.get("ncolumns",0))
+    need(declared>0,"HEADER_NCOLUMNS_MISSING")
+    info["observedcolumns"]=str(len(columns))
+    info["headercolumnsmatch"]=str(declared==len(columns))
     need(all(rows[i+1][0]>rows[i][0] for i in range(len(rows)-1)),"STORAGE_TIME_NOT_STRICT")
     return {"columns":columns,"rows":rows,"metadata":info}
 def interpolate(t,col,storage):
@@ -108,22 +111,27 @@ def evaluate(grf,coord,model,receipts):
         stats[v.split("/")[-2]+"_"+v.split("/")[-1]]={
             "min_rad":round(min(series),6),"max_rad":round(max(series),6),
             "p50_rad":round(statistics.median(series),6)}
+    header_consistent=(coord["metadata"]["headercolumnsmatch"]=="True" and
+                       grf["metadata"]["headercolumnsmatch"]=="True")
     return {"schema":"scp.n03d-bc.opensim-60hz-force-scientific-reference.v1",
             "source_repo":UPSTREAM,"exact_commit":COMMIT,
             "source_asset_receipts":receipts,"source_class":"PUBLIC_OPENSIM_REFERENCE_RESEARCH_NOT_RELICENSED",
-            "coordinates_metadata":{k:v for k,v in coord["metadata"].items() if k in ("nrows","ncolumns","indegrees")},
-            "grf_metadata":{k:v for k,v in grf["metadata"].items() if k in ("nrows","ncolumns","indegrees")},
+            "coordinates_metadata":{k:v for k,v in coord["metadata"].items() if k in ("nrows","ncolumns","observedcolumns","headercolumnsmatch","indegrees")},
+            "grf_metadata":{k:v for k,v in grf["metadata"].items() if k in ("nrows","ncolumns","observedcolumns","headercolumnsmatch","indegrees")},
             "model":model,"sample_rate_hz":60,"actual_overlap_start_s":round(low,6),
             "actual_overlap_end_s":round(time[-1],6),"overlap_native_sample_count":len(time),
             "vertical_grf_threshold_N_sensitivity":limits,
             "kinematic_joint_ranges":stats,
             "independent_grf_contact_definition":"SOURCE_EXPLICIT_FORCE_Y_THRESHOLD_ONLY",
             "source_contact_known_only_for_this_walk":True,
+    "upstream_metadata_all_columns_consistent":header_consistent,
+    "source_has_independent_malformed_header_observation":not header_consistent,
             "100style_or_MPF_source_contact_corroborated":False,
             "ground_force_for_protected_actors":False,
             "native_blender_skin_tested":False,
             "physical_MPF_accepted":False,"mvp_accepted":False,
-            "status":"PASS_NARROW_SOURCE_GRFS_REFERENCE_HOLD_CROSS_SOURCE"}
+            "status":"PASS_NARROW_GRFS_DATA_RESEARCH_HOLD_CROSS_SOURCE" if header_consistent
+        else "HOLD_SOURCE_COORDINATE_HEADER_MISMATCH"}
 def independent(r):
     need(r.get("schema")=="scp.n03d-bc.opensim-60hz-force-scientific-reference.v1" and
          r.get("exact_commit")==COMMIT and r.get("source_contact_known_only_for_this_walk") is True and
@@ -131,13 +139,18 @@ def independent(r):
          r.get("ground_force_for_protected_actors") is False and
          r.get("native_blender_skin_tested") is False and r.get("physical_MPF_accepted") is False and
          r.get("mvp_accepted") is False,"FALSE_SOURCE_CONTACT_TRANSFER")
+    need(r.get("source_has_independent_malformed_header_observation") is not
+         r.get("upstream_metadata_all_columns_consistent"),"INCONSISTENT_SOURCE_HEADER_FLAG")
+    if not r["upstream_metadata_all_columns_consistent"]:
+        need(r.get("status")=="HOLD_SOURCE_COORDINATE_HEADER_MISMATCH",
+             "SOURCE_HEADER_FALSE_PASS")
     need(r["sample_rate_hz"]==60 and r["overlap_native_sample_count"]>=30 and
          set(r["vertical_grf_threshold_N_sensitivity"])=={"20","50","100"},
          "MISSING_FORCE_SENSITIVITY")
     for v in r["vertical_grf_threshold_N_sensitivity"].values():
         for n in ("right_stance_fraction","left_stance_fraction","double_support_fraction","no_support_fraction"):
             need(0<=v[n]<=1,"SOURCE_CONTACT_FRACTION")
-        need(abs(v["right_stance_fraction"]+v["left_stance_fraction"]-v["double_support_fraction"]-v["no_support_fraction"]-1)<1e-4,
+        need(abs(v["right_stance_fraction"]+v["left_stance_fraction"]-v["double_support_fraction"]+v["no_support_fraction"]-1)<1e-4,
              "INVALID_BINARY_CONTACT_IDENTITY")
     return "HOLD"
 def cli():
