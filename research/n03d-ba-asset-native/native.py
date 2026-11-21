@@ -58,7 +58,7 @@ def main():
         bpy.ops.wm.open_mainfile(filepath=str(Path(args.model).resolve()))
     else:
         bpy.ops.wm.read_factory_settings(use_empty=True)
-        bpy.ops.import_scene.gltf(filepath=str(Path(args.model).resolve()),import_shading="NORMALS")
+        bpy.ops.import_scene.gltf(filepath=str(Path(args.model).resolve()))
     rigs=sorted([obj for obj in bpy.data.objects if obj.type=="ARMATURE"],key=lambda r:r.name)
     skinned=sorted([o for o in bpy.data.objects if o.type=="MESH" and
                     any(m.type=="ARMATURE" and m.object and m.object in rigs for m in o.modifiers)],
