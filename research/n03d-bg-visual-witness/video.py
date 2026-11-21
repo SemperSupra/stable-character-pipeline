@@ -151,12 +151,25 @@ def main():
     receipt=encode_gait(actors,nodes,bvh,placements)
     scene=bpy.context.scene
     scene.frame_start=0;scene.frame_end=71;scene.render.fps=12
-    scene.render.engine="BLENDER_WORKBENCH"
+    # Public standard CPU runner lacks libEGL.so.1: Workbench requires EGL.
+    # Pinned Blender Cycles CPU does NOT need an EGL context; few fixed samples.
+    scene.render.engine="CYCLES"
+    scene.cycles.samples=8
     scene.render.resolution_x=384;scene.render.resolution_y=216
     scene.render.resolution_percentage=100
-    scene.display.shading.light="STUDIO"
-    scene.display.shading.color_type="MATERIAL"
     scene.view_settings.view_transform="Standard"
+    world=bpy.data.worlds.new("N03D_BG_ExplicitWhiteWorld")
+    world.use_nodes=True
+    background=world.node_tree.nodes.get("Background")
+    background.inputs["Color"].default_value=(.78,.84,.92,1.)
+    background.inputs["Strength"].default_value=.9
+    scene.world=world
+    light_data=bpy.data.lights.new("N03D_BG_Softbox","AREA")
+    light_data.energy=1200;light_data.shape="DISK";light_data.size=7
+    light=bpy.data.objects.new(light_data.name,light_data)
+    bpy.context.collection.objects.link(light)
+    light.location=(0,-6,8)
+    light.rotation_euler=(Vector((0,0,1.3))-light.location).to_track_quat("-Z","Y").to_euler()
     # The official 5.2.4 LTS compiled Blender build offers image formats but
     # not FFMPEG as a render image format; use exact 72 PNG frames then FFmpeg.
     scene.render.image_settings.file_format="PNG"
