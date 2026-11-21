@@ -98,7 +98,15 @@ def actor(whose,bvh,src):
         need(.4<target_leg<1.4 and .4<source_len<1.4,"SOURCE_TARGET_LEG_METRIC_INVALID")
         root0=bd.source_pos(source_nodes["Hips"],bvh["frames"][120])
         trials=[]
-        for mode in ("direct_canonical","rest_frame_conjugated"):
+        # First real RED: 2.4–3.7 m p50 ankle/toe FK residual even when body
+        # region skin speed looked lower; cannot infer superior gait from that.
+        # Factorize source pose adapter × source ROOT translation coordinate
+        # mapping rather than changing rig/sensor to make error disappear.
+        for mode,root_method in (
+            ("direct_canonical","legacy_fixed_axis_root"),
+            ("direct_canonical","five_landmark_sim3_root"),
+            ("rest_frame_conjugated","legacy_fixed_axis_root"),
+            ("rest_frame_conjugated","five_landmark_sim3_root")):
             arm.data.pose_position="POSE"
             for b in arm.pose.bones:
                 b.rotation_mode="QUATERNION"
@@ -117,8 +125,14 @@ def actor(whose,bvh,src):
                         if b.parent:rr=b.parent.matrix_local.to_3x3().inverted()@rr
                         rot=rr.inverted()@rot@rr
                     arm.pose.bones[tgt].rotation_quaternion=rot.to_quaternion()
-                shift=conv@(bd.source_pos(source_nodes["Hips"],f)-root0)
-                shift*=.01*target_leg/source_len
+                if root_method=="legacy_fixed_axis_root":
+                    shift=conv@(bd.source_pos(source_nodes["Hips"],f)-root0)
+                    shift*=.01*target_leg/source_len
+                else:
+                    # Source and target original world-root share fitted
+                    # proper rotation and scale; 100STYLE source world FK in
+                    # metres, so DO NOT apply second cm / leg conversion.
+                    shift=trans(src["Hips"][i])-trans(src["Hips"][0])
                 arm.matrix_world=Matrix.Translation(shift)@base
                 bpy.context.view_layer.update()
                 for k in ALL:
@@ -141,7 +155,8 @@ def actor(whose,bvh,src):
                          "p95_dynamic_displacement_error_m":pct(errors,.95),
                          "max_dynamic_displacement_error_m":round(max(errors),6),
                          "target_world_step_speed_p50_mps":diagnostics({k:actual})[k]["speed_p50_mps"]}
-            trials.append({"rig":kind,"mode":mode,"actual_native_60hz_frames":360,
+            trials.append({"rig":kind,"mode":mode,"root_method":root_method,
+                           "actual_native_60hz_frames":360,
                            "source_fk_motion_world_samples":360,
                            "native_real_body_local_shape_sha_samples":checks,
                            "actual_deformed_skin_verified":True,
@@ -194,7 +209,8 @@ def main():
         "actor":a.actor,
         "source":out["source_world_fk"],
         "models":[{"rig":v["rig"],"fit":v["source_to_native_walkfirst_rest_alignment_errors_m"],
-                  "modes":[{"mode":t["mode"],"resid":t["source_fk_to_native_dynamic_residuals"]}
+                  "modes":[{"mode":t["mode"],"root":t["root_method"],
+                            "resid":t["source_fk_to_native_dynamic_residuals"]}
                            for t in v["modes"]]} for v in rigs],
         "status":out["status"]},sort_keys=True))
 if __name__=="__main__":main()
