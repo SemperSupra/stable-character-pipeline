@@ -1,0 +1,20 @@
+# N03D-AG — Actual native shared-root plus BOTH five-bone IK legs, true shoe witness
+
+**Authority:** original/public gait DLE #662, numerical DOE #650, protected private MVP #23. Research sibling to independently executing AF #703, stacked on AE #702 exact immutable tested SHA. NO main changes or unsafe merge.
+
+## Problem/hypothesis
+
+AE #702 showed train-aligned source root and source hip-relative leg motion must be compatible: root-only and leg-only projected foot point velocities can be worse than unchanged, while their joint source-reconstruction yields small motion *by construction*. AE was a pure projected foot position exercise: it did not actuate bones, evaluate shoe skin, establish source contact or guarantee physical IK reachability. AG falsifies the leap from projected trajectory to a real world-skinned character.
+
+Native Blender 5.2.4 163-bone MPFB original fictional Aster+Juniper and actual skinned CC0 shoes/shirts/pants. Pinned real CC BY4.0 100STYLE Neutral_FW BVH and GPL Diffeomorphic. Read exact 360x60Hz original-to-actual MPFB paired-source AC trace; the AE shared source-root Sim(2) fit is frozen from training original samples 0..179. Candidate contact-selected 60Hz windows come solely from original source ankle+toe under 0.08m/s and height within 20mm of original toe minimum; pick first at/after sample180 with at least 5 consecutive eligible intervals for each source side. THIS IS NOT measured shoe/force contact or anatomically proven foot labeling.
+
+Two original actors x 2 source-selected anchor sides x 2 per-component displacement caps (40/80mm) x 4 modes = **32 native experiment windows**, each 6 measured actual 60Hz samples. The four modes are original source, source-trained root travel only, source-trained pelvis-relative leg motion only, and joint root+both legs. Both temporary nonstretch five-bone IK constraints are installed simultaneously when a leg mode is selected; true armature object matrix is re-evaluated and reset each observed source frame (source-null bone foot heads joined back to exact AC full-60Hz trace, max 2mm drift). Root translation and each leg target separately cap vector displacement; do not change source animation or write a corrected Blend. Record actual Blender-evaluated shoe material cohort world XY (persistent vertex IDs per window), actual min-Z of whole skinned shoe side, source/candidate foot bone positions, target residual and full five-bone pose-angle differences. Reject source drift/corrupt topology and any spoofed native acceptance.
+
+### Falsifiable gates
+
+- 2 independent public standard Linux CPU jobs, verified frozen head and completed native witness with independent 16 hostile test corpus, same-source no-change null, actual stage execution and critic agreement.
+- Research execution PASS_NARROW does NOT imply physically acceptable gait. Each native window independently checks <=10mm reference-ground penetration, near-ground material cohort speed <=0.08m/s with >=3 consecutive intervals, <=0.35rad relative pose rotation, <=20mm foot-head tracking residual, exact 40/80mm per-component correction budgets, source SHA/time/rights intact. All physical states **HOLD** until actual confirmed source contact, anatomical heel/ball/toe mapping, independent rendered visual QA, protected actor appearance and full clip.
+
+### Next critical path
+
+If bounded simultaneous native intervention fails: quantify whether corrections saturate, source-ground/root calibration is incorrect, model is unreachable or the shoe remains unplanted; use AF true shoe cohort windows and AD known-contact reference to refine constraints. Do NOT increase caps or relax floor thresholds to force success. Then implement a bounded temporal optimizer including continuous foot roll and bilateral support. Private Naomi/Alison source never goes to public GHA. No paid/private minutes, no unadmitted APIs or provenance bypass, original source binaries remain ephemeral, short-retention JSON only. Keep all prior failure evidence and drafts.
