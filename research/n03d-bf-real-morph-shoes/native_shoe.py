@@ -12,8 +12,11 @@ import bpy
 from mathutils import Matrix,Vector,Quaternion
 
 HERE=Path(__file__).parent
-sys.path.insert(0,str(HERE.parent/"n03d-be-same-morph"))
-import native as be
+import importlib.util
+be_path=HERE.parent/"n03d-be-same-morph"/"native.py"
+spec=importlib.util.spec_from_file_location("n03d_be_matched_body_authority",str(be_path))
+be=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(be)
 sys.path.insert(0,str(HERE.parent/"r082-mpfb-native-wardrobe"))
 import wardrobe_contract as wardrobe
 sys.path.insert(0,str(HERE.parent/"r088-motion-real"))
