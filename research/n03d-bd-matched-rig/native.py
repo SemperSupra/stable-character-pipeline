@@ -143,7 +143,9 @@ def main():
     # Source model may have unrelated original action. This is a NEW matched-source ablation.
     for x in bpy.data.objects:
         if x.animation_data:x.animation_data_clear()
-    mapping=MAPS[MODELS[a.candidate][1]]
+    nominal=MAPS[MODELS[a.candidate][1]]
+    mapping={src:(t if t in rig.pose.bones else t.replace(".","") if t.replace(".","") in rig.pose.bones else t)
+             for src,t in nominal.items()}
     need(all(t in rig.pose.bones for t in mapping.values()),"TARGET_MISSING_CANONICAL_LOWER_BONES")
     rig_matrix=rig.matrix_world.copy()
     conv=Matrix.Rotation(math.pi/2,3,"X")
