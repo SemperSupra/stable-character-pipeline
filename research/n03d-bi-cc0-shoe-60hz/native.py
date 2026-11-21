@@ -103,7 +103,7 @@ def stats(rows):
     need(len(rows)==356,"NOT_356_SOURCE_SUPPORTED_NATIVE_60HZ_SAMPLES")
     z=[r["z"] for r in rows]
     v=[60*math.dist(rows[i]["xy"],rows[i-1]["xy"]) for i in range(1,356)]
-    near=[v[i-1] for i in range(1,360)
+    near=[v[i-1] for i in range(1,356)
           if z[i]<=.012 and z[i-1]<=.012]
     need(all(math.isfinite(t) for t in v+z),"NONFINITE_TRUE_SHOE_OBSERVATION")
     return {"source_samples_60hz":356,
