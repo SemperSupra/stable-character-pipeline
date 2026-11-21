@@ -6,6 +6,7 @@ EXPECTED={"rigify":("d3327b94c302278b5471c24d712ef5dc49f0d682",161),
 TRAIN={"Hips","LeftHip","RightHip","LeftKnee","RightKnee"}
 HOLD={"LeftAnkle","RightAnkle","LeftToe","RightToe"}
 MODES={"fixed_yup_to_zup_axis_only","five_landmark_rest_similarity"}
+TRIAL_MODES=MODES|{"five_landmark_rest_similarity_with_model_root"}
 def need(ok,code):
     if not ok:raise ValueError(code)
 def scalar(s):
@@ -21,7 +22,8 @@ def check(doc):
          and doc.get("body_style_or_actor_identity_accepted") is False
          and doc.get("true_sole_contact_accepted") is False
          and doc.get("mvp_accepted") is False
-         and doc.get("status")=="PASS_NARROW_SOURCE_TO_NATIVE_WORLD_MATCH_HOLD_PHYSICS",
+         and doc.get("status") in ("PASS_NARROW_SOURCE_TO_NATIVE_WORLD_MATCH_HOLD_PHYSICS",
+                                    "HOLD_BIND_SKIN_DISPLACEMENT_DECOUPLING"),
          "FORGED_SOURCE_OR_PHYSICAL_ACCEPTANCE")
     need(doc.get("rig") in EXPECTED and
          doc.get("source_model_git_blob")==EXPECTED[doc["rig"]][0] and
@@ -48,8 +50,17 @@ def check(doc):
     need(fit["five_landmark_rest_similarity"]["train"]["rms_m"]<=
          fit["fixed_yup_to_zup_axis_only"]["train"]["rms_m"]+1e-4,
          "TRAIN_FIT_IS_NOT_OPTIMAL")
+    originalmods=doc.get("native_original_armature_modifiers")
+    need(isinstance(originalmods,list) and len(originalmods)>0 and
+         all(isinstance(e.get("mods"),list) and
+             any(m.get("enabled") is True and m.get("armature_match") is True
+                 for m in e["mods"]) for e in originalmods),
+         "SOURCE_GLTF_ACTUAL_SKIN_MODIFIER_NOT_ACTIVE")
+    need(4.5<=scalar(doc.get("three_source_root_distance_m"))<=7.0,
+         "CONTROLLER_WORLD_TRAVEL_MISSING_OR_STALLED")
     trials=doc.get("retarget_models",[])
-    need(len(trials)==2 and set(q["mode"] for q in trials)==MODES,"NOT_TWO_NATIVE_REPLAY_METHODS")
+    need(len(trials)==3 and set(q["mode"] for q in trials)==TRIAL_MODES,
+         "NO_INDEPENDENT_ROOT_TRANSPORT_COUNTERFACTUAL")
     for q in trials:
         need(q.get("actual_native_blender_frames")==360 and
              q.get("actual_native_skin_mesh_count",0)>0 and
@@ -76,4 +87,10 @@ def check(doc):
             scalar(d["p50_m"]);scalar(d["max_m"])
             need(d["p50_m"]>=0 and d["max_m"]>=d["p50_m"],
                  "INVALID_SOURCE_ANATOMICAL_CORRESPONDENCE")
+    any_bad=any(not t["bilateral_real_skin_tracks_bone"] or
+                not t["native_nonrigid_skin_deformation_verified"] for t in trials)
+    need(doc.get("real_bone_skin_coupling_limited_or_stalled") is any_bad and
+         doc["status"]==("HOLD_BIND_SKIN_DISPLACEMENT_DECOUPLING" if any_bad
+                         else "PASS_NARROW_SOURCE_TO_NATIVE_WORLD_MATCH_HOLD_PHYSICS"),
+         "FAKE_SKIN_PHYSICAL_PASS_DESPITE_6M_WORLD_TRAVEL")
     return "HOLD"
