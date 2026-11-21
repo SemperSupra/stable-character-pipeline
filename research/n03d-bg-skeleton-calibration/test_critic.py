@@ -61,6 +61,7 @@ class Controls(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"TRAIN_TEST_SET_CHANGED"):check(d)
     def test_forge_no_svd(self):
         d=fixture();d["calibration_rest_landmark_results"]["five_landmark_rest_similarity"]["train"]["rms_m"]=.8
+        d["calibration_rest_landmark_results"]["five_landmark_rest_similarity"]["train"]["max_m"]=.9
         with self.assertRaisesRegex(ValueError,"TRAIN_FIT_IS_NOT_OPTIMAL"):check(d)
     def test_nonfinite_matrix(self):
         d=fixture();d["calibration_rest_landmark_results"]["five_landmark_rest_similarity"]["matrix_source_world_to_native_world_colmajor"][0]=math.nan
