@@ -53,12 +53,12 @@ export function mountAudition(root = document.getElementById('audition')) {
     const thisGeneration = ++generation;
     const entries = selected.map(track => players.get(track.id)).filter(Boolean);
     // Wait until all decoded sources seek to the same origin before starting.
-    for (const {audio} of entries) {
+    for (const audio of entries) {
       audio.currentTime = 0;
       audio.muted = false;
     }
     state = { ...state, playing: true };
-    const results = await Promise.allSettled(entries.map(({audio}) => audio.play()));
+    const results = await Promise.allSettled(entries.map(audio => audio.play()));
     if (thisGeneration !== generation) return;
     const rejected = results.some(result => result.status === 'rejected');
     if (rejected) { stopAll(true); say('Playback was blocked. Use the audio player controls or check browser permission.'); return; }
@@ -69,9 +69,9 @@ export function mountAudition(root = document.getElementById('audition')) {
       const audio = players.get(track.id);
       if (!audio) continue;
       audio.muted = !isAudible(state, track);
-      const row = list.querySelector(`[data-track-id="${CSS.escape(id)}"]`);
+      const row = list.querySelector(`[data-track-id="${CSS.escape(track.id)}"]`);
       if (!row) continue;
-      row.querySelector('[data-action="solo"]').setAttribute('aria-pressed', String(state.soloId === id));
+      row.querySelector('[data-action="solo"]').setAttribute('aria-pressed', String(state.soloId === track.id));
       row.querySelector('[data-action="mute"]').setAttribute('aria-pressed', String(track.muted));
       row.querySelector('[data-action="group"]').value = track.group;
     }
@@ -88,7 +88,7 @@ export function mountAudition(root = document.getElementById('audition')) {
         state = { ...state, playing: true };
       });
       audio.addEventListener('ended', () => {
-        if (![...players.values()].some(entry => !entry.audio.paused)) state = { ...state, playing: false };
+        if (![...players.values()].some(entry => !entry.paused)) state = { ...state, playing: false };
       });
       const row = document.createElement('div'); row.className = 'stem-row'; row.dataset.trackId = track.id;
       const title = document.createElement('strong'); title.textContent = track.name;
