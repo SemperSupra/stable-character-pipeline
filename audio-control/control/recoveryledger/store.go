@@ -66,13 +66,19 @@ func (i Intent)validate()error{
  return nil
 }
 func NewStore(root string)(*Store,error){
- if root==""||!filepath.IsAbs(root)||filepath.Clean(root)!=root{return nil,ErrInvalid}
- if e:=os.MkdirAll(root,0700);e!=nil{return nil,e}
- real,e:=filepath.EvalSymlinks(root);if e!=nil{return nil,e}
- if real!=root{return nil,ErrInvalid}
- s,e:=os.Stat(root);if e!=nil{return nil,e}
- if !s.IsDir(){return nil,ErrInvalid}
- return &Store{root:root},nil
+ if root==""||!filepath.IsAbs(root){return nil,ErrInvalid}
+ // On Windows path case, and on macOS /var -> /private/var, resolving
+ // the path may change its spelling without changing the intended directory.
+ clean:=filepath.Clean(root)
+ if e:=os.MkdirAll(clean,0700);e!=nil{return nil,e}
+ entry,e:=os.Lstat(clean);if e!=nil{return nil,e}
+ if entry.Mode()&os.ModeSymlink!=0||!entry.IsDir(){return nil,ErrInvalid}
+ real,e:=filepath.EvalSymlinks(clean);if e!=nil{return nil,e}
+ st,e:=os.Stat(real);if e!=nil{return nil,e}
+ if !st.IsDir(){return nil,ErrInvalid}
+ // The caller MUST own and authorize the entire parent path. This does not
+ // prove directory ancestors are immutable or suitable for production WAL.
+ return &Store{root:real},nil
 }
 func (s *Store)paths(i Intent)(string,string){
  h:=sha256.Sum256([]byte(i.PrincipalID+"\x00"+i.SessionID+"\x00"+i.OperationID))
