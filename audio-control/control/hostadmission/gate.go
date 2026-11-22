@@ -91,11 +91,16 @@ func (g *Gate)Observe(e Observation)([]EffectIntent,error){
  case "started":
   switch g.phase{
   case StartPending:g.phase=Active;return nil,nil
-  case StopPending,Unknown:
+  case StopPending,Unknown,Stopped:
    return []EffectIntent{{Kind:"host_stop",Binding:g.binding}},nil
   default:return nil,ErrConflict
   }
- case "stopped","failed":
+ case "failed":
+  // Failure observes a fault, not silence. Retain STOP pending until a
+  // separately verified stopped event confirms completion.
+  g.phase=StopPending
+  return []EffectIntent{{Kind:"host_stop",Binding:g.binding}},nil
+ case "stopped":
   if g.phase==StartPending||g.phase==Active||g.phase==StopPending||g.phase==Unknown{
    g.phase=Stopped;return nil,nil
   }
@@ -108,6 +113,8 @@ func (g *Gate)Observe(e Observation)([]EffectIntent,error){
 // required action instead of silently treating STOP as physical success.
 func (g *Gate)Stop()EffectIntent{
  if g==nil||!valid(g.binding){
+  // Latch an unbound STOP so later consent cannot resurrect this session.
+  if g!=nil{g.phase=Unknown}
   return EffectIntent{Kind:"discover_then_stop"}
  }
  if g.phase!=Stopped{g.phase=StopPending}
@@ -116,7 +123,10 @@ func (g *Gate)Stop()EffectIntent{
 // RecoverUnknown is called only after a separately verified durable binding
 // is restored by the host. A JSON claim from an agent must not invoke this.
 func (g *Gate)RecoverUnknown(b Binding)error{
- if g==nil||!valid(b)||g.phase!=Idle{return ErrInvalid}
+ if g==nil||!valid(b){return ErrInvalid}
+ // Discovery after an unbound STOP may restore one trusted binding; never
+ // replace a binding already associated with this gate.
+ if g.phase!=Idle&&(g.phase!=Unknown||valid(g.binding)){return ErrInvalid}
  g.binding=b;g.phase=Unknown
  return nil
 }
