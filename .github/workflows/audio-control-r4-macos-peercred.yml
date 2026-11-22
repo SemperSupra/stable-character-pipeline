@@ -1,0 +1,23 @@
+name: Audio Control R4 native macOS getpeereid/LOCAL_PEERPID source qualification
+on:
+  pull_request:
+    paths:
+      - 'audio-control/platform/macos-peercred/**'
+      - '.github/workflows/audio-control-r4-macos-peercred.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  kernel-origin-darwin:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build and run bounded native C test on real Darwin host
+        shell: bash
+        run: |
+          clang -std=c11 -D_DARWIN_C_SOURCE -Wall -Wextra -Werror -O2 \
+            -o "$RUNNER_TEMP/audio-peer-macos" audio-control/platform/macos-peercred/peer_test.c
+          "$RUNNER_TEMP/audio-peer-macos"
