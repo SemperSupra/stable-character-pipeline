@@ -9,10 +9,10 @@ trap 'echo "first failure at line $LINENO" >&2' ERR
 # Original procedural synthetic motor and metal textures. No sampled machinery.
 ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'anoisesrc=color=brown:sample_rate=48000:duration=12:seed=121' -af 'lowpass=f=500,volume=0.055,afade=t=in:d=0.5,afade=t=out:st=11:d=1' -ac 2 -c:a pcm_s16le "$out/stems/machine_room.wav"
 ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'aevalsrc=0.08*sin(2*PI*(92+1.2*sin(2*PI*0.18*t))*t):s=48000:d=12' -af 'lowpass=f=420,afade=t=in:d=1,afade=t=out:st=11:d=1' -ac 2 -c:a pcm_s16le "$out/stems/motor_hum.wav"
-ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'aevalsrc=0.07*sin(2*PI*(180+1100*mod(t\,3)/3)*t)*if(lt(mod(t\,3)\,1.1)\,1\,0):s=48000:d=12' -af 'bandpass=f=900:width_type=h:w=1500,afade=t=out:st=11:d=1' -ac 2 -c:a pcm_s16le "$out/stems/servo_sweep.wav"
-ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'aevalsrc=0.09*sin(2*PI*1250*t)*exp(-45*mod(t\,0.6))*if(lt(mod(t\,0.6)\,0.045)\,1\,0):s=48000:d=12' -af 'highpass=f=500,lowpass=f=5000,afade=t=in:d=0.2,afade=t=out:st=11:d=1' -ac 2 -c:a pcm_s16le "$out/stems/gear_ticks.wav"
+ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'aevalsrc=0.07*sin(2*PI*(180+1100*mod(t+1.5\,3)/3)*t)*if(lt(mod(t+1.5\,3)\,1.1)\,1\,0):s=48000:d=12' -af 'bandpass=f=900:width_type=h:w=1500,afade=t=out:st=11:d=1' -ac 2 -c:a pcm_s16le "$out/stems/servo_sweep.wav"
+ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'aevalsrc=0.09*sin(2*PI*1250*t)*exp(-45*(t-2.5))*if(between(t\,2.5\,2.545)\,1\,0):s=48000:d=12' -af 'highpass=f=500,lowpass=f=5000,afade=t=in:d=0.2,afade=t=out:st=11:d=1' -ac 2 -c:a pcm_s16le "$out/stems/gear_ticks.wav"
 ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'anoisesrc=color=pink:sample_rate=48000:duration=12:seed=181' -af "bandpass=f=1250:width_type=h:w=1800,volume='0.045*between(t,6,8.8)',tremolo=f=5:d=0.35,afade=t=in:d=0.5,afade=t=out:st=11:d=1" -ac 2 -c:a pcm_s16le "$out/stems/hydraulic_hiss.wav"
-ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'aevalsrc=(0.06*sin(2*PI*420*t)+0.035*sin(2*PI*910*t))*exp(-0.8*mod(t\,2))*if(lt(mod(t\,2)\,0.9)\,1\,0):s=48000:d=12' -af 'lowpass=f=2400,afade=t=in:d=0.2,afade=t=out:st=11:d=1' -ac 2 -c:a pcm_s16le "$out/stems/metal_resonance.wav"
+ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'aevalsrc=(0.06*sin(2*PI*420*t)+0.035*sin(2*PI*910*t))*exp(-1.4*(t-8.5))*if(between(t\,8.5\,9.4)\,1\,0):s=48000:d=12' -af 'lowpass=f=2400,afade=t=in:d=0.2,afade=t=out:st=11:d=1' -ac 2 -c:a pcm_s16le "$out/stems/metal_resonance.wav"
 python3 - "$out" <<'PY'
 import hashlib,json,pathlib,sys
 root=pathlib.Path(sys.argv[1]); names=[
