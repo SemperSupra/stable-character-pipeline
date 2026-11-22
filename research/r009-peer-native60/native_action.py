@@ -14,6 +14,8 @@ from pathlib import Path
 
 import bpy
 
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from clock_contract import validate
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent/"r090-dressed"))
 from real_retarget import source_clip, digest, observed, pose_fingerprint, PLUGIN_COMMIT
 
@@ -60,9 +62,7 @@ def keyframe_receipt(rig):
         if len(frames)>1:
             animated_counts.append(len(frames))
     times=sorted(all_times)
-    require(len(times)==360,"NATIVE_ACTION_NOT_360_UNIQUE_KEY_TIMESTAMPS")
-    require(all(abs((times[i]-times[0])-i)<1e-4 for i in range(360)),"NATIVE_ACTION_NONUNIFORM_KEY_TIMES")
-    require(0<=times[0]<=1.01 and times[-1]<=360.01,"NATIVE_ACTION_TIME_ORIGIN_INVALID")
+    validate(times,60.0)  # Independent source↔target 360-key hostile oracle.
     require(animated_counts and min(animated_counts)>=350,
             "NATIVE_ACTION_CURVE_DECIMATION_PERSISTS")
     return {
