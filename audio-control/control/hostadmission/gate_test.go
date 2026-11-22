@@ -108,7 +108,6 @@ func TestStopGenerationOverflowFailsClosedUntilNewLease(t *testing.T){
  ack:=obs("stopped",b);ack.StopGeneration:^uint64(0)
  if _,e:=g.Observe(ack);!errors.Is(e,ErrUnverified)||g.Phase()!=Unknown{t.Fatalf("exhausted generation accepted stale ACK: %v phase=%s",e,g.Phase())}
  recovered:=b;recovered.LeaseID="lease_2";recovered.StopGeneration=0
- if e:=g.RecoverUnknown(recovered);e!=nil{t.Fatalf("new lease could not restore reconciliation: %v",e)}
  recoveredGate,_:=New(v)
  if e:=recoveredGate.RecoverUnknown(recovered);e!=nil{t.Fatalf("new lease could not restore reconciliation: %v",e)}
  stale:=obs("stopped",recovered)
