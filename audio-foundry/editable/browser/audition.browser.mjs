@@ -29,7 +29,7 @@ const browser = await chromium.launch({ headless:true, args:['--autoplay-policy=
 const page = await browser.newPage();
 const outsideRequests = [];
 const pageErrors = [];
-page.on('request',request => { if (!request.url().startsWith(origin + '/')) outsideRequests.push(request.url()); });
+page.on('request',request => { const url=request.url(); if (!url.startsWith(origin + '/') && !url.startsWith('blob:' + origin + '/')) outsideRequests.push(url); });
 page.on('pageerror',error => pageErrors.push(error.message));
 
 function syntheticWav(seconds=3) {
