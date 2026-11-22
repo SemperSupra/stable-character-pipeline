@@ -60,6 +60,7 @@ type Gate struct{
  phase Phase
  binding Binding
  stopGeneration uint64
+ generationExhausted bool
 }
 func New(v Verifier)(*Gate,error){
  if v==nil{return nil,ErrInvalid}
@@ -69,6 +70,15 @@ func (g *Gate)Phase()Phase {if g==nil{return Unknown};return g.phase}
 func valid(b Binding)bool{
  return b.PrincipalID!=""&&b.SessionID!=""&&b.TargetID!=""&&
   b.HostDeviceID!=""&&b.LeaseID!=""&&b.Epoch>0
+}
+func (g *Gate) advanceStopGeneration() bool {
+ if g.stopGeneration==^uint64(0) {
+  g.generationExhausted=true
+  g.phase=Unknown
+  return false
+ }
+ g.stopGeneration++
+ return true
 }
 // RequestStart is called only after the R0 command reducer accepts the
 // intent; this adapter independently checks local human/device authority.
@@ -96,7 +106,7 @@ func (g *Gate)Observe(e Observation)([]EffectIntent,error){
   switch g.phase{
   case StartPending:g.phase=Active;return nil,nil
   case StopPending,Unknown,Stopped:
-   g.stopGeneration++
+   if !g.advanceStopGeneration(){return []EffectIntent{{Kind:"discover_then_stop",Binding:g.binding,StopGeneration:g.stopGeneration}},nil}
    g.phase=StopPending
    return []EffectIntent{{Kind:"host_stop",Binding:g.binding,StopGeneration:g.stopGeneration}},nil
   default:return nil,ErrConflict
@@ -104,12 +114,14 @@ func (g *Gate)Observe(e Observation)([]EffectIntent,error){
  case "failed":
   // Failure observes a fault, not silence. Retain STOP pending until a
   // separately verified stopped event confirms completion.
+  if !g.advanceStopGeneration(){return []EffectIntent{{Kind:"discover_then_stop",Binding:g.binding,StopGeneration:g.stopGeneration}},nil}
   g.phase=StopPending
-  g.stopGeneration++
   return []EffectIntent{{Kind:"host_stop",Binding:g.binding,StopGeneration:g.stopGeneration}},nil
  case "stopped":
   if g.phase==StartPending||g.phase==Active||g.phase==StopPending||g.phase==Unknown{
-   if g.phase==StopPending && e.StopGeneration!=g.stopGeneration { return nil,ErrUnverified }
+   if g.phase==StopPending||g.phase==Unknown {
+    if g.generationExhausted||g.stopGeneration==0||e.StopGeneration!=g.stopGeneration{return nil,ErrUnverified}
+   }
    g.phase=Stopped;return nil,nil
   }
   return nil,ErrConflict
@@ -125,8 +137,10 @@ func (g *Gate)Stop()EffectIntent{
   if g!=nil{g.phase=Unknown}
   return EffectIntent{Kind:"discover_then_stop"}
  }
- if g.phase!=Stopped{g.phase=StopPending}
- if g.stopGeneration==0 || g.phase==StopPending { g.stopGeneration++ }
+ if g.phase!=Stopped{
+  if !g.advanceStopGeneration(){return EffectIntent{Kind:"discover_then_stop",Binding:g.binding,StopGeneration:g.stopGeneration}}
+  g.phase=StopPending
+ }
  return EffectIntent{Kind:"host_stop",Binding:g.binding,StopGeneration:g.stopGeneration}
 }
 // RecoverUnknown is called only after a separately verified durable binding
@@ -137,6 +151,7 @@ func (g *Gate)RecoverUnknown(b Binding)error{
  // Discovery after an unbound STOP may restore one trusted binding; never
  // replace a binding already associated with this gate.
  if g.phase!=Idle&&(g.phase!=Unknown||valid(g.binding)){return ErrInvalid}
- g.binding=b;g.stopGeneration=b.StopGeneration;g.phase=Unknown
+ if g.generationExhausted&&b.LeaseID==g.binding.LeaseID&&b.Epoch==g.binding.Epoch{return ErrInvalid}
+ g.binding=b;g.stopGeneration=b.StopGeneration;g.generationExhausted=false;g.phase=Unknown
  return nil
 }
