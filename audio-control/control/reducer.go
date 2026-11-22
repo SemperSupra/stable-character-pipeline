@@ -125,7 +125,7 @@ func (m *Machine) apply(c Command)Outcome{
  scopedOpKey:=c.PrincipalID+"|"+c.OperationID
  if old,ok:=m.seen[scopedOpKey];ok{
   if old.cmd!=c {status="operation_id_reused_with_different_payload";return reply()}
-  return Outcome{Receipt:old.receipt,Replayed:true}
+  return Outcome{Receipt:cloneReceipt(old.receipt),Replayed:true}
  }
  hostEvent:=isHostEvent(c.Action)
  full:=len(m.seen)>=maxRemembered
@@ -142,8 +142,8 @@ func (m *Machine) apply(c Command)Outcome{
    status="emergency_untracked"
   }
   receipt:=Receipt{SchemaVersion:ReceiptVersion,Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch,Effects:effects}
-  if !full{m.seen[scopedOpKey]=entry{cmd:c,receipt:receipt}}
-  return Outcome{Receipt:receipt,Dispatch:effects}
+  if !full{m.seen[scopedOpKey]=entry{cmd:c,receipt:cloneReceipt(receipt)}}
+  return Outcome{Receipt:cloneReceipt(receipt),Dispatch:cloneEffects(effects)}
  }
  // STOP preempts stale expectedRevision. Host observations are epoch fenced, with
  // authorization and role verification required outside this pure function.
@@ -215,4 +215,18 @@ func (m *Machine) apply(c Command)Outcome{
  default:status="unsupported_action"
  }
  return record()
+}
+
+
+// Each ledger/public boundary owns its effect values. A caller may mutate an
+// Outcome without changing another view or the original receipt on later replay.
+func cloneEffects(effects []Effect) []Effect {
+ if effects == nil { return nil }
+ cloned := make([]Effect, len(effects))
+ copy(cloned, effects)
+ return cloned
+}
+func cloneReceipt(receipt Receipt) Receipt {
+ receipt.Effects = cloneEffects(receipt.Effects)
+ return receipt
 }
