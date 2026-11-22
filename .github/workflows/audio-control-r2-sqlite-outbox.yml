@@ -1,0 +1,29 @@
+name: Audio Control R2 SQLite transactional outbox interview (synthetic)
+on:
+  pull_request:
+    paths:
+      - 'audio-control/experiments/sqlite-outbox/**'
+      - '.github/workflows/audio-control-r2-sqlite-outbox.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sqlite-wal-atomicity:
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+          cache: false
+      - name: Qualify real SQLite WAL and simultaneous writers on synthetic data
+        working-directory: audio-control/experiments/sqlite-outbox
+        run: python -m unittest discover -p 'test_*.py' -v
