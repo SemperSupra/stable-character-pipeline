@@ -33,8 +33,9 @@ static class Program
         }
         if (schema.TryGetProperty("$ref", out var reference))
         {
-            var s = reference.GetString();
-            Check(s != null && s.StartsWith("#/$defs/", StringComparison.Ordinal), "Unsupported $ref");
+            var s = reference.GetString()
+                ?? throw new InvalidOperationException("Null $ref rejected");
+            Check(s.StartsWith("#/$defs/", StringComparison.Ordinal), "Unsupported $ref");
             var name = s["#/$defs/".Length..];
             return Validate(value, root.GetProperty("$defs").GetProperty(name), root);
         }
