@@ -100,7 +100,10 @@ export function mountAudition(root = document.getElementById('audition')) {
       activePreparation = null;
       // Start all ready players in one task after every source has sought to zero.
       const results = await Promise.allSettled(entries.map(audio => audio.play()));
-      if (thisGeneration !== generation) return;
+      if (thisGeneration !== generation) {
+        for (const audio of entries) audio.pause();
+        return;
+      }
       const rejected = results.some(result => result.status === 'rejected');
       if (rejected) { stopAll(true); say('Playback was blocked. Use the audio player controls or check browser permission.'); return; }
       state = { ...state, playing: true };
