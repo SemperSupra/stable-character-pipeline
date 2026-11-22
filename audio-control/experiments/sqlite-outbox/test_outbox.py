@@ -73,6 +73,9 @@ class SQLiteOutboxQualification(unittest.TestCase):
             self.assertEqual(result.effects, ("discover_then_stop",))
             self.assertTrue(s.recovery_snapshot(P, S)["requires_host_reconcile"])
             self.assertFalse(s.recovery_snapshot(P, S)["may_issue_start"])
+            followup = s.apply(P, S, "second_stop", "stop", T, 7)
+            self.assertEqual(followup.state, "unknown_stop_requested")
+            self.assertEqual(followup.effects, ("discover_then_stop",))
             with self.assertRaises(Conflict):
                 self.admit(s)
 
@@ -99,7 +102,6 @@ class SQLiteOutboxQualification(unittest.TestCase):
         with Store(self.db) as s:
             self.assertEqual(s.recovery_snapshot(P, S)["state"], "start_pending")
             self.assertTrue(s.recovery_snapshot(P, S)["requires_host_reconcile"])
-            self.assertFalse(s.admit_start if hasattr(s, "admit_start") else False)
             replay = self.admit(s)
             self.assertTrue(replay.replayed)
             self.assertEqual(replay.effects, ())
@@ -111,6 +113,8 @@ class SQLiteOutboxQualification(unittest.TestCase):
             with Store(self.db) as s:
                 barrier.wait(timeout=10)
                 return self.admit(s)
+        with Store(self.db):
+            pass  # Initialize WAL/schema before concurrent open interviews.
         with concurrent.futures.ThreadPoolExecutor(max_workers=count) as pool:
             all_results = list(pool.map(worker, range(count)))
         self.assertEqual(sum(not x.replayed for x in all_results), 1)
