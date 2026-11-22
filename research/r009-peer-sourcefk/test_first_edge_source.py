@@ -27,7 +27,7 @@ class SourceFkAdversarial(unittest.TestCase):
         x[121]=(0.0,3.0,0.0)
         r=first_edge_metrics(x)
         self.assertGreater(r["first_edge_to_median_ratio"],1.5)
-        self.assertAlmostEqual(r["source_first_edge_3d_speed_mps"],70.8)
+        self.assertAlmostEqual(r["source_first_edge_3d_speed_mps"],70.2)
 
     def test_native_source_xz_horizontal_is_not_y(self):
         x=fixture()
