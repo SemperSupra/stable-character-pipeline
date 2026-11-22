@@ -29,6 +29,7 @@ type Binding struct {
  HostDeviceID string
  LeaseID string
  Epoch uint64
+ StopGeneration uint64 // restored host-side STOP generation, never user supplied
 }
 type Observation struct {
  Kind string // started, stopped, failed
@@ -129,12 +130,13 @@ func (g *Gate)Stop()EffectIntent{
  return EffectIntent{Kind:"host_stop",Binding:g.binding,StopGeneration:g.stopGeneration}
 }
 // RecoverUnknown is called only after a separately verified durable binding
-// is restored by the host. A JSON claim from an agent must not invoke this.
+// is restored by the host, including its latest STOP generation. A JSON claim
+// from an agent must not invoke this.
 func (g *Gate)RecoverUnknown(b Binding)error{
  if g==nil||!valid(b){return ErrInvalid}
  // Discovery after an unbound STOP may restore one trusted binding; never
  // replace a binding already associated with this gate.
  if g.phase!=Idle&&(g.phase!=Unknown||valid(g.binding)){return ErrInvalid}
- g.binding=b;g.phase=Unknown
+ g.binding=b;g.stopGeneration=b.StopGeneration;g.phase=Unknown
  return nil
 }
