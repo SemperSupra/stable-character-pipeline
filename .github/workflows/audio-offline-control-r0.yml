@@ -11,6 +11,11 @@ jobs:
   real-ffmpeg-scene:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
+    env:
+      AUDIO_CONTROL_REQUIRE_FFMPEG: '1'
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -19,12 +24,22 @@ jobs:
         with:
           go-version: '1.23.12'
           cache: false
-      - name: Check installed ffmpeg and ffprobe
+      - name: Install and require CPU FFmpeg tools
         run: |
-          ffmpeg -version | head -1
-          ffprobe -version | head -1
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -version
+          ffprobe -version
       - name: Reuse exact existing scene Plan/Render with original synthetic PCM16
         working-directory: audio-foundry
         run: |
-          go test -race -count=1 -v ./offlinecontrol
+          set -euo pipefail
+          go test -race -count=1 -v ./offlinecontrol | tee "${RUNNER_TEMP}/offline-control-tests.log"
+          if grep -q -- '--- SKIP:' "${RUNNER_TEMP}/offline-control-tests.log"; then
+            echo "::error::Offline qualification skipped a test"
+            exit 1
+          fi
           go vet ./offlinecontrol
