@@ -66,8 +66,8 @@ try {
   await page.evaluate(async () => {
     const audio=[...document.querySelectorAll('#stem_list audio')];
     await Promise.all(audio.map(player => new Promise(resolveSeek => {
-      if (player.currentTime===0) { player.currentTime=0.75; }
       player.addEventListener('seeked',resolveSeek,{once:true});
+      player.currentTime=0.75;
     })));
   });
   await page.locator('#play_a').focus();
