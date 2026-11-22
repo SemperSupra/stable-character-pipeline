@@ -49,6 +49,18 @@ The next bounded workcells from this document have source/PRs; **do not launch d
 
 **Next frontier beyond the first two waves:** prove an authenticated local host adapter and a crash-consistent durable effect/outbox ledger (especially physical STOP on a restarted host), or retain product-specific adapters unchanged. Select the smallest existing battle-tested storage/host supervision capabilities before bespoke implementation. Independently assess C#/Swift/Kotlin/Go cross-language contract conformance and real device permission boundaries. Avoid opening another task set solely for already-evidenced behavior.
 
+### Second-wave exact-head qualification and stack audit
+
+**N1 [#728](https://github.com/SemperSupra/stable-character-pipeline/pull/728) `53761fea`**: public 3-OS Go race/strict test [run 44987402500](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44987402500) **PASS**. Reveals a meaningful *negative* invariant: after restart, the in-memory reducer has no durable audio-host evidence; an emergency STOP on a fresh `new` instance emits no physical device STOP effect. **Do not interpret passing negative tests as production-safe crash recovery.**
+
+**N2 [#729](https://github.com/SemperSupra/stable-character-pipeline/pull/729) `149a9d19`**: public JSON Schema/ingress [run 44987402348](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44987402348) **PASS**. Shape validation is not authentication.
+
+**N3 [#730](https://github.com/SemperSupra/stable-character-pipeline/pull/730) `636f5e7d`**: public [real FFmpeg recovery tests 44987405653](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44987405653) **PASS** plus [scene contract 44987405700](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44987405700) and [soundtrack fixture 44987405635](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44987405635) **PASS**. Unfinished/truncated/orphan WAV is refused, not automatically reconciled as a durable success.
+
+**C6 initial GitHub stack audit:** actual changed-file list for child PRs #725/#726/#727 is disjoint across code/workflows, and #728/#729/#730 add only scoped test/docs files except #729 deliberately updates its parent test script. Stacked source relationships are `#728→#725→#723→#722`, `#729→#726→#722`, `#730→#727→#11`. GitHub currently reports `mergeable=false` for draft #722/#723/#726, while other listed child drafts are `true`; this is **a mergeability/rebase review gate**, not permission to force-push, flatten stacks, or treat parent diffs as production-ready. Verify exact GitHub mergeability and conflicts before *any* promotion. No merges performed.
+
+**Next sequential barrier:** independent acceptance review of candidate contract, threat model and actual PR bases, then owner-authorized reduction of draft stack. Production host authorization/outbox, real device Stop, clinical data protection, and distribution remain separately HOLD. Public source CI completion is not acceptance of live audio.
+
 ## Constraints, safety, and housekeeping
 
 No direct `main` writes. Keep PRs draft, document tested versus unknown, no private Actions quota, no protected voice/medical data, no live input/capture/physical audio, no hardware claims from CI. Distinguish accepted command from observed effect. STOP must work under full dedupe ledger; receipts may be degraded, but not falsely replay-safe. An agent/voice transcript cannot forge a host event. Preserve resource/time budget; avoid repeated one-at-a-time work when other READY tasks have disjoint paths.
