@@ -35,11 +35,11 @@ type Intent struct {
 }
 type Observation struct {
  Intent Intent `json:"intent"`
- Kind string `json:"kind"` // Only an authorized host should ever produce "stopped".
+ Kind string `json:"kind"` // Unverified stop claim; NOT actual OS/device proof.
  HostEvidenceSHA256 string `json:"host_evidence_sha256"`
 }
 type State struct {
- Kind string `json:"kind"` // unknown_no_record, unknown_pending, observed_stopped, corrupt_unknown
+ Kind string `json:"kind"` // unknown_no_record, unknown_pending, unverified_stop_claim, corrupt_unknown
  RequiresHostReconcile bool `json:"requires_host_reconcile"`
  MayIssueStart bool `json:"may_issue_start"` // ALWAYS false for recovery.
 }
@@ -122,7 +122,7 @@ func (s *Store)AdmitStart(i Intent)(bool,error){
  // Diagnose existing untrusted/partial records before calling duplicate/conflict.
  // A forged stopped file is not evidence of a completed host stop.
  if _,e:=os.Lstat(stopped);e==nil{
-  if state:=s.Recover(i);state.Kind=="observed_stopped"{return false,ErrConflict}
+  if state:=s.Recover(i);state.Kind=="unverified_stop_claim"{return false,ErrConflict}
   return false,ErrCorrupt
  }else if !errors.Is(e,os.ErrNotExist){return false,e}
  if _,e:=os.Lstat(pending);e==nil{
@@ -151,23 +151,23 @@ func (s *Store)Recover(i Intent)State{
  if errors.Is(stopErr,os.ErrNotExist){return State{Kind:"unknown_pending",RequiresHostReconcile:true}}
  if stopErr!=nil{return state}
  var obs Observation
- if json.Unmarshal(stoppedBytes,&obs)!=nil||obs.Kind!="stopped"||obs.Intent!=i||!sha(obs.HostEvidenceSHA256){
+ if json.Unmarshal(stoppedBytes,&obs)!=nil||obs.Kind!="stop_claim"||obs.Intent!=i||!sha(obs.HostEvidenceSHA256){
   return state
  }
  canonicalObs,_:=canonical(obs)
  if !bytes.Equal(stoppedBytes,canonicalObs){return state}
- return State{Kind:"observed_stopped",RequiresHostReconcile:false}
+ return State{Kind:"unverified_stop_claim",RequiresHostReconcile:true}
 }
-// RecordHostStopped is an intentionally UNTRUSTED API in this probe.
-// A production adapter would require independently authenticated host events
-// and matching device/lease/epoch, not caller-supplied host evidence strings.
-func (s *Store)RecordHostStopped(i Intent,evidenceDigest string)(bool,error){
+// RecordUnverifiedStopClaim retains claimant evidence without claiming
+// actual host silence. No caller-provided digest can clear host reconciliation.
+// Only a future authenticated native adapter may produce a verified STOP.
+func (s *Store)RecordUnverifiedStopClaim(i Intent,evidenceDigest string)(bool,error){
  if s==nil||i.validate()!=nil||!sha(evidenceDigest){return false,ErrInvalid}
- if got:=s.Recover(i);got.Kind!="unknown_pending"&&got.Kind!="observed_stopped"{
+ if got:=s.Recover(i);got.Kind!="unknown_pending"&&got.Kind!="unverified_stop_claim"{
   return false,fmt.Errorf("%w: missing original pending intent",ErrCorrupt)
  }
  _,path:=s.paths(i)
- b,e:=canonical(Observation{Intent:i,Kind:"stopped",HostEvidenceSHA256:evidenceDigest})
+ b,e:=canonical(Observation{Intent:i,Kind:"stop_claim",HostEvidenceSHA256:evidenceDigest})
  if e!=nil{return false,e}
  return writeOnce(path,b)
 }
