@@ -177,6 +177,13 @@ func (m *Machine) apply(c Command)Outcome{
    m.state=StopPending;m.revision++
    effects=append(effects,Effect{Kind:"host_stop_now",Epoch:m.epoch})
    status="accepted"
+  case Failed:
+   // Failure records the fault but is not evidence of physical silence.
+   // A fresh emergency STOP must remain dispatchable until host confirmation.
+   m.state=StopPending
+   m.revision++
+   effects=append(effects,Effect{Kind:"host_stop_now",Epoch:m.epoch})
+   status="accepted"
   case StopPending:
    // New STOP id can safely restate the same stop intent. Same op ID is
    // suppressed by the replay ledger above.
@@ -196,7 +203,9 @@ func (m *Machine) apply(c Command)Outcome{
   }
  case HostStopped:
   switch m.state{
-  case StartPending,Active,StopPending:
+  case StartPending,Active,StopPending,Failed:
+   // A host fault may have emitted a stop request; only this separately
+   // observed STOP confirms output has ended.
    m.state=Stopped;m.revision++;status="accepted"
   case Stopped:status="noop"
   default:status="rejected"
@@ -209,7 +218,7 @@ func (m *Machine) apply(c Command)Outcome{
    effects=append(effects,Effect{Kind:"host_stop_now",Epoch:m.epoch})
   }else{status="rejected"}
  case Close:
-  if m.state==Stopped||m.state==Completed||m.state==Failed{
+  if m.state==Stopped||m.state==Completed{
    m.state=Closed;m.revision++;status="accepted"
   }else{status="rejected"}
  default:status="unsupported_action"
