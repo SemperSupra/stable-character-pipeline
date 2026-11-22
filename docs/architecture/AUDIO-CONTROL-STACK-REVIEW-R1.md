@@ -20,6 +20,12 @@ Status **REVIEW / NO MERGE AUTHORITY** (2026-11-22). Source: [Audio Foundry #9](
 
 **Potential mergeability gate:** On the inspected GitHub snapshots the parent C0 #722 became `mergeable=true`, while #723/#726 reported `mergeable=false` even though their displayed PR patches were disjoint from the parent paths. The field does not establish why a merge is unavailable. Treat reason as **UNKNOWN** until GitHub merge tree/conflict checks, current branch protection and base comparison are inspected; never bypass with force push or manual tree replacement. Current parent is an unfinished **draft** regardless of mergeability.
 
+## Executed read-only merge feasibility receipt
+
+[Public workflow run 44988557310](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44988557310) **SUCCESS** at source PR #733 head `7c4b104a75110e17f8b2b643873fe5f1b29685b4`. The dedicated script `scripts/audio-control-audit/check_merge_tree.sh` invoked `git merge-tree --write-tree` for **10 parent/child edges** using exact current remote branch SHAs, and **all 10 reported `clean tree simulation`**, including C0→C1, C0→C3 and the two R1 implementation children. It did not mutate remote refs, merges, releases or PRs.
+
+**Correction to earlier ambiguity:** Although GitHub's PR metadata had returned `mergeable=false` for #723/#726, read-only Git merge-tree shows no source-tree content conflict for their observed SHA pairs. Therefore branch protection, PR API caching/status semantics, review policy, or a different current base may explain unavailable merges; **reason remains UNKNOWN**, and no force update is authorized. Reinspect exact heads and merge gate immediately before future owner-approved integration. The audit is source feasibility evidence, not semantic, security or release acceptance.
+
 ## Reversible R1 lanes while local actor works
 
 - **R1-D immutable process-restart journal:** branch `experiment/audio-control-r1-recovery-ledger`, `audio-control/control/recoveryledger/**` and a dedicated public 3-OS CI. Separates stored immutable start intent and observed STOP receipt, classifies interrupted playback as unknown. Must not be mistaken for atomic SQLite WAL or a production transactional outbox; current host evidence is *not authenticated*.
