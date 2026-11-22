@@ -78,6 +78,16 @@ try {
   assert.deepEqual(await players.evaluateAll(list => list.map(player => player.currentTime<0.5)),[true,true],
     'group playback did not reset both stem playheads near time zero');
 
+  const groups=page.locator('.stem-row select[data-action="group"]');
+  await groups.nth(1).selectOption('B');
+  await page.locator('#play_b').focus();
+  await page.keyboard.press('Enter');
+  await page.getByText(/Playing Group B from time zero/).waitFor();
+  assert.deepEqual(await players.evaluateAll(list => list.map(player => !player.paused)),[false,true],
+    'Group B did not isolate playback to its assigned stem');
+  assert.deepEqual(await players.evaluateAll(list => list.map(player => player.currentTime<0.5)),[true,true],
+    'Group B playback did not reset its assigned stem near time zero');
+
   const firstSolo=page.locator('.stem-row').first().getByRole('button',{name:'Solo'});
   await firstSolo.focus();
   await page.keyboard.press('Space');
