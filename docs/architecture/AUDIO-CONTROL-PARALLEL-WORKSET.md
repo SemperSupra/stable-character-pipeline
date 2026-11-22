@@ -38,6 +38,17 @@ At each wake:
 
 N1/N2/N3/N4 are READY **in parallel** because they own disjoint files, domains and source snapshots. N5 can read concurrently but its decision is sequential after these receipts. A qualified outside actor may consume one bounded N-cell via existing approved Agent Dispatch delegation; **do not invent** workset/delegation IDs or assert local actor runs without execution receipts. If the local actor is out of capacity, use GHA and source-only tests in the other lanes.
 
+### Second-wave admission and exact receipts (2026-11-22)
+
+The next bounded workcells from this document have source/PRs; **do not launch duplicate work under the old N labels**:
+- **N1:** [draft #728](https://github.com/SemperSupra/stable-character-pipeline/pull/728), head `53761fea`, real reducer crash/replay negative tests; public three-platform [CI 44987402500](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44987402500). Explicit counterexample: lost in-memory state cannot prove physical silence after restart or rebuild its durable outbox. Maintain device admission HOLD regardless of test success.
+- **N2:** [draft #729](https://github.com/SemperSupra/stable-character-pipeline/pull/729), head `149a9d19`, seven schema-valid verified-host vs untrusted transport examples; public [CI 44987402348](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44987402348) **PASS**. Transport examples are not actual OS authentication.
+- **N3:** [draft #730](https://github.com/SemperSupra/stable-character-pipeline/pull/730), head `636f5e7d`, real synthetic FFmpeg lost receipt, tamper and orphan evidence; public [C4 offline CI 44987405653](https://github.com/SemperSupra/stable-character-pipeline/actions/runs/44987405653) **PASS**. Inherited base scene/fixture workflows must also be checked independently.
+- **N4:** [Aural consumer source review in #5](https://github.com/SemperSupra/aural-observatory/issues/5#issuecomment-7074499017) **DOCUMENTED**. Aural `QuietSearch` subjective during/after experiment phases and device STOP must remain distinct from generic service lifecycle; no native driver test claimed.
+- **N5:** cross-branch red/blue integration review remains **READY** once all exact-head workflows finish. This is a review/compatibility gate and cannot silently merge/promote.
+
+**Next frontier beyond the first two waves:** prove an authenticated local host adapter and a crash-consistent durable effect/outbox ledger (especially physical STOP on a restarted host), or retain product-specific adapters unchanged. Select the smallest existing battle-tested storage/host supervision capabilities before bespoke implementation. Independently assess C#/Swift/Kotlin/Go cross-language contract conformance and real device permission boundaries. Avoid opening another task set solely for already-evidenced behavior.
+
 ## Constraints, safety, and housekeeping
 
 No direct `main` writes. Keep PRs draft, document tested versus unknown, no private Actions quota, no protected voice/medical data, no live input/capture/physical audio, no hardware claims from CI. Distinguish accepted command from observed effect. STOP must work under full dedupe ledger; receipts may be degraded, but not falsely replay-safe. An agent/voice transcript cannot forge a host event. Preserve resource/time budget; avoid repeated one-at-a-time work when other READY tasks have disjoint paths.
