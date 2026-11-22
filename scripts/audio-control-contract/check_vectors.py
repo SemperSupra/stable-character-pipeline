@@ -36,6 +36,15 @@ def main() -> int:
         else:
             rejected += 1
     assert accepted >= 5 and rejected >= 5 and host_only >= 2
+    ingress = json.loads((ROOT / "audio-control" / "contract" / "ingress-r0.json").read_text(encoding="utf-8"))
+    for case in ingress:
+        assert validator.is_valid(case["envelope"]), case["id"] + " must be well-formed before transport authorization"
+        is_host = case["envelope"]["action"].startswith("host_")
+        permitted = ((case["channel"] == "verified_local_host") == is_host)
+        if permitted != case["allow"]:
+            raise AssertionError(f"R0 transport boundary mismatch: {case['id']}")
+    assert len(ingress) >= 7
+    print(f"PASS schema-valid cross-ingress examples={len(ingress)}; authentication of the local host remains unimplemented")
     print(f"PASS schema 2020-12, vectors={len(cases)}, admitted={accepted}, rejected={rejected}, privileged-host-vectors={host_only}")
     print("NOTE: a valid host-only JSON envelope is NOT authenticated; real ingress separation is a host responsibility.")
     return 0
