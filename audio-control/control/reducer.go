@@ -119,7 +119,7 @@ func (m *Machine) routeRejected(status string)Outcome{
 func (m *Machine) apply(c Command)Outcome{
  status:="rejected"
  reply:=func() Outcome {
-  return Outcome{Receipt:Receipt{Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch}}
+  return Outcome{Receipt:Receipt{SchemaVersion:ReceiptVersion,Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch}}
  }
  if c.SchemaVersion!=ProtocolVersion||!validID(c.PrincipalID)||!validID(c.OperationID)||c.SessionID!=m.sessionID||c.TargetID!=m.targetID{return reply()}
  scopedOpKey:=c.PrincipalID+"|"+c.OperationID
@@ -127,14 +127,22 @@ func (m *Machine) apply(c Command)Outcome{
   if old.cmd!=c {status="operation_id_reused_with_different_payload";return reply()}
   return Outcome{Receipt:old.receipt,Replayed:true}
  }
- if len(m.seen)>=maxRemembered{status="bounded_history_full";return reply()}
+ hostEvent:=isHostEvent(c.Action)
+ full:=len(m.seen)>=maxRemembered
+ // A full dedupe ledger must NEVER prevent emergency STOP or the matching
+ // physical host acknowledgment. In this degraded mode, no new normal start
+ // is allowed; STOP and authenticated host observations still converge.
+ // Their receipts are explicitly untracked rather than falsely replay-safe.
+ if full && c.Action!=Stop && !hostEvent{
+  status="bounded_history_full";return reply()
+ }
  effects:=[]Effect{}
  record:=func()Outcome{
+  if full{status="emergency_untracked"}
   receipt:=Receipt{SchemaVersion:ReceiptVersion,Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch,Effects:effects}
-  m.seen[scopedOpKey]=entry{cmd:c,receipt:receipt}
+  if !full{m.seen[scopedOpKey]=entry{cmd:c,receipt:receipt}}
   return Outcome{Receipt:receipt,Dispatch:effects}
  }
- hostEvent:=isHostEvent(c.Action)
  // STOP preempts stale expectedRevision. Host observations are epoch fenced, with
  // authorization and role verification required outside this pure function.
  if c.Action!=Stop&&!hostEvent&&c.ExpectedRevision!=m.revision{
