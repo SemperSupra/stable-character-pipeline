@@ -1,5 +1,10 @@
 // Local-only stem audition controls. This module never fetches or transmits audio.
 export const PUBLIC_CLASSIFICATION = 'PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL';
+export function validateAudioFiles(files) {
+  if (files.length > 32) return 'Load at most 32 stems at once.';
+  if (files.some(file => !file.type.startsWith('audio/') && !/\.(wav|m4a|mp3|ogg|flac)$/i.test(file.name))) return 'Choose audio stem files only.';
+  return null;
+}
 export function createAuditionState(files = []) {
   const tracks = files.map((file, index) => ({
     id: String(index), name: file.name, file, url: null, muted: false, group: 'A'
@@ -38,31 +43,79 @@ export function mountAudition(root = document.getElementById('audition')) {
   const players = new Map();
   let state = createAuditionState();
   let generation = 0;
+  let activePreparation = null;
+  let groupStarting = false;
   const say = text => { status.textContent = text; };
-    function stopAll(reset = true) {
+  function invalidatePlayback() {
+    generation += 1;
+    activePreparation?.abort();
+    activePreparation = null;
+  }
+  function stopAll(reset = true, invalidate = true) {
+    if (invalidate) invalidatePlayback();
     for (const audio of players.values()) {
       audio.pause();
       if (reset && audio.readyState >= HTMLMediaElement.HAVE_METADATA) audio.currentTime = 0;
     }
     state = { ...state, playing: false };
   }
+  function waitForEvent(audio, eventName, signal) {
+    if (eventName === 'loadedmetadata' && audio.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        audio.removeEventListener(eventName, onReady);
+        audio.removeEventListener('error', onError);
+        signal.removeEventListener('abort', onAbort);
+      };
+      const onReady = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); reject(new Error('Audio source failed to load')); };
+      const onAbort = () => { cleanup(); reject(new DOMException('Playback preparation cancelled', 'AbortError')); };
+      audio.addEventListener(eventName, onReady, { once: true });
+      audio.addEventListener('error', onError, { once: true });
+      signal.addEventListener('abort', onAbort, { once: true });
+    });
+  }
+  async function prepareFromZero(audio, signal) {
+    await waitForEvent(audio, 'loadedmetadata', signal);
+    if (audio.currentTime === 0) return;
+    const seeking = waitForEvent(audio, 'seeked', signal);
+    audio.currentTime = 0;
+    await seeking;
+  }
   async function playGroup(group) {
     const selected = selectedGroup(state, group);
     if (!selected.length) { say(`Assign at least one audible stem to Group ${group}.`); return; }
     stopAll(true);
-    const thisGeneration = ++generation;
+    const thisGeneration = generation;
+    const controller = new AbortController();
+    activePreparation = controller;
     const entries = selected.map(track => players.get(track.id)).filter(Boolean);
-    // Wait until all decoded sources seek to the same origin before starting.
-    for (const audio of entries) {
-      audio.currentTime = 0;
-      audio.muted = false;
+    if (entries.length !== selected.length) {
+      stopAll(true);
+      say('A selected stem is unavailable. Load the local audio files again.');
+      return;
     }
-    state = { ...state, playing: true };
-    const results = await Promise.allSettled(entries.map(audio => audio.play()));
-    if (thisGeneration !== generation) return;
-    const rejected = results.some(result => result.status === 'rejected');
-    if (rejected) { stopAll(true); say('Playback was blocked. Use the audio player controls or check browser permission.'); return; }
-    say(`Playing Group ${group} from synchronized time zero. Synthetic candidate only; perception and device acceptance are not recorded.`);
+    try {
+      await Promise.all(entries.map(audio => prepareFromZero(audio, controller.signal)));
+      if (thisGeneration !== generation) return;
+      activePreparation = null;
+      // Start all ready players in one task after every source has sought to zero.
+      groupStarting = true;
+      const results = await Promise.allSettled(entries.map(audio => audio.play()));
+      groupStarting = false;
+      if (thisGeneration !== generation) return;
+      const rejected = results.some(result => result.status === 'rejected');
+      if (rejected) { stopAll(true); say('Playback was blocked. Use the audio player controls or check browser permission.'); return; }
+      state = { ...state, playing: true };
+      say(`Playing Group ${group} from time zero. Browser scheduling may vary; perception and device acceptance are not recorded.`);
+    } catch (error) {
+      controller.abort();
+      if (activePreparation === controller) activePreparation = null;
+      groupStarting = false;
+      if (thisGeneration !== generation) return;
+      stopAll(true);
+      say(error?.name === 'AbortError' ? 'Playback preparation cancelled.' : 'A stem could not be loaded or positioned. Check the local audio files.');
+    }
   }
   function repaint() {
     for (const track of state.tracks) {
@@ -84,7 +137,10 @@ export function mountAudition(root = document.getElementById('audition')) {
       audio.src = track.url; audio.preload = 'metadata'; audio.controls = true;
       audio.setAttribute('aria-label', `Local preview: ${track.name}`);
       audio.addEventListener('play', () => {
-        // Manual player play is allowed; align sibling tracks only when the group buttons are used.
+        if (!groupStarting) {
+          invalidatePlayback();
+          for (const sibling of players.values()) if (sibling !== audio) sibling.pause();
+        }
         state = { ...state, playing: true };
       });
       audio.addEventListener('ended', () => {
@@ -106,12 +162,16 @@ export function mountAudition(root = document.getElementById('audition')) {
     repaint();
   }
   fileInput.addEventListener('change', () => {
+    const files = [...fileInput.files];
+    const validationError = validateAudioFiles(files);
+    if (validationError) {
+      fileInput.value = '';
+      say(validationError + ' Previous stems remain loaded.');
+      return;
+    }
     stopAll();
     for (const track of state.tracks) if (track.url) URL.revokeObjectURL(track.url);
     players.clear();
-    const files = [...fileInput.files];
-    if (files.some(file => !file.type.startsWith('audio/') && !/\.(wav|m4a|mp3|ogg|flac)$/i.test(file.name))) { say('Choose audio stem files only.'); return; }
-    if (files.length > 32) { say('Load at most 32 stems at once.'); return; }
     state = createAuditionState(files);
     render();
     say(files.length ? `${files.length} local stems loaded. Set A/B groups, solo or mute. Files remain in this browser session.` : 'No stems selected.');
