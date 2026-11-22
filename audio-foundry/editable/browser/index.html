@@ -13,7 +13,7 @@ legend{font-weight:700}label{display:block;margin:.55rem 0}input,select{display:
 button{font:inherit;padding:.6rem 1rem;margin:.5rem .5rem .5rem 0;cursor:pointer}button:disabled{opacity:.55}
 #status{padding:.7rem 1rem;border:1px solid #8888;border-radius:.5rem}#status.error{border-color:#c65d50}
 output{display:block;word-break:break-word}
-#stem_list{display:grid;gap:.75rem}.stem-row{display:grid;grid-template-columns:minmax(8rem,1fr) auto auto minmax(7rem,auto);align-items:center;gap:.5rem;border:1px solid #8888;border-radius:.5rem;padding:.5rem}.stem-row audio{grid-column:1/-1}.stem-row button[aria-pressed=true]{outline:2px solid #358fe4}audio{width:100%}
+#stem_list{display:grid;gap:.75rem}.stem-row{display:grid;grid-template-columns:minmax(8rem,1fr) repeat(4,auto);align-items:center;gap:.5rem;border:1px solid #8888;border-radius:.5rem;padding:.5rem}.stem-row audio{grid-column:1/-1}.stem-row button[aria-pressed=true]{outline:2px solid #358fe4}audio{width:100%}
 :focus-visible{outline:3px solid #358fe4;outline-offset:3px}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
@@ -44,7 +44,7 @@ output{display:block;word-break:break-word}
 <h2 id="audition-heading">Local stem audition and A/B compare</h2>
 <p><strong>Classification:</strong> PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL. Select original, rights-cleared synthetic stem files. This panel uses browser-local file URLs only; it does not upload audio. A changed source project must be re-rendered before listening.</p>
 <label for="stem_files">Load WAV/M4A/MP3 stems<input id="stem_files" type="file" accept="audio/*,.wav,.m4a,.mp3,.ogg,.flac" multiple /></label>
-<div id="stem_list" aria-label="Loaded audio stems"></div>
+<div id="stem_list" role="list" aria-label="Loaded audio stems"></div>
 <div role="group" aria-label="Synchronized A/B playback controls">
 <button type="button" id="play_a">Play Group A from start</button>
 <button type="button" id="play_b">Play Group B from start</button>

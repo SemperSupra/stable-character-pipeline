@@ -28,6 +28,17 @@ jobs:
           go test -race -count=1 ./...
           go vet ./...
           node --test browser/*.test.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install pinned browser and accessibility test tools
+        working-directory: audio-foundry/editable
+        run: npm install --no-save --package-lock=false playwright@1.65.1 axe-core@4.14.0
+      - name: Install Chromium for local browser tests
+        run: npx playwright install --with-deps chromium
+      - name: Exercise audition in Chromium with axe-core
+        working-directory: audio-foundry/editable
+        run: node browser/audition.browser.mjs
       - name: Verify immutable source edits, interchange, stems and mix
         shell: bash
         run: |
