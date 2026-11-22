@@ -43,7 +43,8 @@ func TestStopPreemptsDelayedStartAndRequiresHostStop(t *testing.T){
  if e!=nil||g.Phase()!=StopPending||len(late)!=1||late[0].Kind!="host_stop"{
   t.Fatalf("late START revived audio or lacked corrective STOP: %+v %v",late,e)
  }
- if _,e:=g.Observe(obs("stopped",start.Binding));e!=nil||g.Phase()!=Stopped{
+ ack:=obs("stopped",start.Binding);ack.StopGeneration=late[0].StopGeneration
+ if _,e:=g.Observe(ack);e!=nil||g.Phase()!=Stopped{
   t.Fatalf("physical STOP acknowledgment not observed: %v",e)
  }
  if again:=g.Stop();again.Kind!="host_stop"||g.Phase()!=Stopped{
@@ -80,9 +81,39 @@ func TestCrashRecoverUnknownRequestsActualHostStop(t *testing.T){
  if effect.Kind!="host_stop"||effect.Binding.Epoch!=13||recovered.Phase()!=StopPending{
   t.Fatalf("recovery STOP not emitted: %+v",effect)
  }
- if _,e:=recovered.Observe(obs("stopped",start.Binding));e!=nil||recovered.Phase()!=Stopped{
+ ack:=obs("stopped",start.Binding);ack.StopGeneration=effect.StopGeneration
+ if _,e:=recovered.Observe(ack);e!=nil||recovered.Phase()!=Stopped{
   t.Fatalf("recovery physical observation failed: %v",e)
  }
+}
+func TestRecoveredUnknownRequiresExactNonzeroStopGeneration(t *testing.T){
+ v:=&fakeVerifier{grant:true,observed:true,epoch:13}
+ g,_:=New(v)
+ b:=Binding{PrincipalID:"authorized_human",SessionID:"session_1",TargetID:"selected_headphones",HostDeviceID:"mock_os_device",LeaseID:"lease_1",Epoch:13,StopGeneration:7}
+ if e:=g.RecoverUnknown(b);e!=nil{t.Fatal(e)}
+ for _,generation:=range []uint64{0,6,8}{
+  ack:=obs("stopped",b);ack.StopGeneration=generation
+  if _,e:=g.Observe(ack);!errors.Is(e,ErrUnverified)||g.Phase()!=Unknown{t.Fatalf("recovered gate accepted generation %d: %v phase=%s",generation,e,g.Phase())}
+ }
+ ack:=obs("stopped",b);ack.StopGeneration=7
+ if _,e:=g.Observe(ack);e!=nil||g.Phase()!=Stopped{t.Fatalf("matching recovered generation rejected: %v phase=%s",e,g.Phase())}
+}
+func TestStopGenerationOverflowFailsClosedUntilNewLease(t *testing.T){
+ v:=&fakeVerifier{grant:true,observed:true,epoch:13}
+ g,_:=New(v)
+ b:=Binding{PrincipalID:"authorized_human",SessionID:"session_1",TargetID:"selected_headphones",HostDeviceID:"mock_os_device",LeaseID:"lease_1",Epoch:13,StopGeneration:^uint64(0)}
+ if e:=g.RecoverUnknown(b);e!=nil{t.Fatal(e)}
+ effect:=g.Stop()
+ if effect.Kind!="discover_then_stop"||g.Phase()!=Unknown{t.Fatalf("overflow did not fail closed: %+v phase=%s",effect,g.Phase())}
+ ack:=obs("stopped",b);ack.StopGeneration = ^uint64(0)
+ if _,e:=g.Observe(ack);!errors.Is(e,ErrUnverified)||g.Phase()!=Unknown{t.Fatalf("exhausted generation accepted stale ACK: %v phase=%s",e,g.Phase())}
+ recovered:=b;recovered.LeaseID="lease_2";recovered.StopGeneration=0
+ recoveredGate,_:=New(v)
+ if e:=recoveredGate.RecoverUnknown(recovered);e!=nil{t.Fatalf("new lease could not restore reconciliation: %v",e)}
+ stale:=obs("stopped",recovered)
+ if _,e:=recoveredGate.Observe(stale);!errors.Is(e,ErrUnverified){t.Fatalf("zero generation accepted after new lease: %v",e)}
+ next:=recoveredGate.Stop()
+ if next.Kind!="host_stop"||next.StopGeneration!=1{t.Fatalf("new lease did not start fresh generation: %+v",next)}
 }
 func TestHostGrantBindingCannotOverrideSelectedTarget(t *testing.T){
  f:=&fakeVerifier{grant:true,observed:true,epoch:1}
