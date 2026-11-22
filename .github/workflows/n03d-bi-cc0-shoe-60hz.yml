@@ -1,7 +1,7 @@
 name: N03D BI original actual CC0 shoe 356 supported 60Hz fixed heel ball material
 on:
   push:
-    branches: [research/n03d-bi-cc0-shoe-60hz-20261121]
+    branches: [research/n03d-bi-cc0-shoe-60hz-20261121, review/r009-original-shoe-pitch-witness-20261122]
     paths:
       - 'research/n03d-bi-cc0-shoe-60hz/**'
       - '.github/workflows/n03d-bi-cc0-shoe-60hz.yml'
@@ -23,6 +23,11 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s research/n03d-bi-cc0-shoe-60hz -p 'test_critic.py' -v
           python3 -m py_compile research/n03d-bi-cc0-shoe-60hz/*.py
+      - name: Peer independent shoe chord-vs-horizontal sign controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-bi-cc0-shoe-60hz -p 'test_peer_pitch.py' -v
+          python3 -m py_compile research/n03d-bi-cc0-shoe-60hz/peer_pitch_*.py
       - name: Strict source-only real BVH controls
         run: |
           set -euo pipefail
@@ -38,9 +43,10 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/r092-blender"
           cd "$RUNNER_TEMP/r092-blender"
-          base="https://download.blender.org/release/Blender5.2"
-          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256
-          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
+          base="https://mirror.blender.org/release/Blender5.2"
+          fallback="https://download.blender.org/release/Blender5.2"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256 || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
           hash="$(grep -F blender-5.2.4-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
           test "$(printf '%s' "$hash" | wc -c)" -eq 64
           printf '%s  %s\n' "$hash" blender-5.2.4-linux-x64.tar.xz | sha256sum --check
@@ -132,6 +138,29 @@ jobs:
             "source_supported_samples":x["native_60hz_source_supported_samples"],
             "withheld_tail":x["excluded_unbacked_source_60hz_tail_frames"],"status":x["status"]},
             sort_keys=True))
+          PY
+      - name: Independently inspect real original CC0 heel-to-ball world-pitch geometry
+        run: |
+          set -euo pipefail
+          target="$RUNNER_TEMP/r090-native/report.blend"
+          sha="$(sha256sum "$target" | cut -d ' ' -f1)"
+          blender -b "$target" -t 2 --python-exit-code 12 --python research/n03d-bi-cc0-shoe-60hz/peer_pitch_native.py -- --scene "$target" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --retarget "$RUNNER_TEMP/r090-native/report.json" --out "$RUNNER_TEMP/r090-native/n03d-bi-peer-original-shoe-pitch.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r090-native"/"n03d-bi-peer-original-shoe-pitch.json"
+          d=json.loads(p.read_text())
+          assert d["status"]=="HOLD" and d["mvp_accepted"] is False
+          assert sorted(a["name"] for a in d["actors"])==["AsterOriginal","JuniperOriginal"]
+          assert d["sampled_60hz_indices"]==[0,80,160,240,355]
+          for actor in d["actors"]:
+              assert len(actor["sampled_original_geometry"])==5
+              for row in actor["sampled_original_geometry"]:
+                  for side in ("left","right"):
+                      m=row[side]
+                      assert m["physical_contact_accepted"] is False
+                      assert m["atan2_asin_agreement_deg"]<1e-8
+          print("R009_ORIGINAL_CC0_REAL_SHOE_GEOMETRY_HOLD",json.dumps(d,sort_keys=True))
           PY
       - name: Upload native evidence JSON only (no source motion, Blend or human assets)
         if: always()
