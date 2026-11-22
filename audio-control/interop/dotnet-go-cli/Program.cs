@@ -94,7 +94,7 @@ static class Program
         Require(a[1].GetProperty("effect_intents")[0].GetProperty("kind").GetString()
                 == "host_authorize_then_start", "Missing host authorization effect");
         Require(a[2].GetProperty("replayed").GetBoolean() &&
-                a[2].GetProperty("effect_intents").ValueKind == JsonValueKind.Undefined,
+                !a[2].TryGetProperty("effect_intents", out _),
             "Go replay dispatched a duplicate effect intent");
         Require(Receipt(a[1]).GetRawText() == Receipt(a[2]).GetRawText(),
             "Go replay did not preserve original immutable receipt");
