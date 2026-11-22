@@ -1,0 +1,197 @@
+[
+  {
+    "name": "valid_configure",
+    "valid": true,
+    "channel": "user",
+    "value": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "human_1",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "configure_001",
+      "action": "configure",
+      "expected_revision": 0,
+      "config_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "valid_stop",
+    "valid": true,
+    "channel": "user",
+    "value": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "human_1",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "stop_002",
+      "action": "stop",
+      "expected_revision": 1
+    }
+  },
+  {
+    "name": "valid_trusted_observation",
+    "valid": true,
+    "channel": "host_only",
+    "value": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "host_1",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "ack_003",
+      "action": "host_stopped",
+      "epoch": 1
+    }
+  },
+  {
+    "name": "valid_accepted_receipt",
+    "valid": true,
+    "channel": "receipt",
+    "value": {
+      "schema_version": "audio_control.receipt.r0",
+      "status": "accepted",
+      "state": "start_pending",
+      "revision": 2,
+      "epoch": 1,
+      "effects": [
+        {
+          "kind": "host_authorize_then_start",
+          "epoch": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid_emergency_receipt",
+    "valid": true,
+    "channel": "receipt",
+    "value": {
+      "schema_version": "audio_control.receipt.r0",
+      "status": "emergency_untracked",
+      "state": "stop_pending",
+      "revision": 3,
+      "epoch": 1,
+      "effects": [
+        {
+          "kind": "host_stop_now",
+          "epoch": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "invalid_missing_principal",
+    "valid": false,
+    "channel": "user",
+    "value": {
+      "schema_version": "audio_control.r0",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "stop_004",
+      "action": "stop",
+      "expected_revision": 1
+    }
+  },
+  {
+    "name": "invalid_unsafe_host_event_schema",
+    "valid": false,
+    "channel": "host_only",
+    "value": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "host_1",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "ack_005",
+      "action": "host_started",
+      "epoch": 0
+    }
+  },
+  {
+    "name": "invalid_unexpected_privilege",
+    "valid": false,
+    "channel": "user",
+    "value": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "human_1",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "stop_006",
+      "action": "stop",
+      "expected_revision": 1,
+      "host_authorized": true
+    }
+  },
+  {
+    "name": "invalid_negative_revision",
+    "valid": false,
+    "channel": "user",
+    "value": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "human_1",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "start_007",
+      "action": "request_start",
+      "expected_revision": -1
+    }
+  },
+  {
+    "name": "invalid_configure_without_digest",
+    "valid": false,
+    "channel": "user",
+    "value": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "human_1",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "configure_008",
+      "action": "configure",
+      "expected_revision": 0
+    }
+  },
+  {
+    "name": "invalid_wrong_schema",
+    "valid": false,
+    "channel": "user",
+    "value": {
+      "schema_version": "audio_control.r9",
+      "principal_id": "human_1",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "stop_009",
+      "action": "stop",
+      "expected_revision": 2
+    }
+  },
+  {
+    "name": "invalid_wrong_receipt_kind",
+    "valid": false,
+    "channel": "receipt",
+    "value": {
+      "schema_version": "audio_control.receipt.r0",
+      "status": "accepted",
+      "state": "start_pending",
+      "revision": 2,
+      "epoch": 1,
+      "effects": [
+        {
+          "kind": "play_without_authorization",
+          "epoch": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid_host_failed",
+    "valid": true,
+    "channel": "host_only",
+    "value": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "host_1",
+      "session_id": "s1",
+      "target_id": "headphones",
+      "operation_id": "ack_010",
+      "action": "host_failed",
+      "epoch": 5
+    }
+  }
+]
