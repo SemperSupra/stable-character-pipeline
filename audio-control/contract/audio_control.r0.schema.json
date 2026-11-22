@@ -55,6 +55,7 @@
       "additionalProperties": false,
       "required": [
         "schema_version",
+        "principal_id",
         "session_id",
         "target_id",
         "operation_id",
@@ -92,6 +93,9 @@
         },
         "config_digest": {
           "$ref": "#/$defs/digest"
+        },
+        "principal_id": {
+          "$ref": "#/$defs/id"
         }
       },
       "allOf": [
@@ -120,6 +124,7 @@
       "additionalProperties": false,
       "required": [
         "schema_version",
+        "principal_id",
         "session_id",
         "target_id",
         "operation_id",
@@ -154,6 +159,9 @@
         "epoch": {
           "type": "integer",
           "minimum": 1
+        },
+        "principal_id": {
+          "$ref": "#/$defs/id"
         }
       }
     },
