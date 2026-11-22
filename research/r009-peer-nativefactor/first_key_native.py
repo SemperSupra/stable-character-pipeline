@@ -13,6 +13,7 @@ from pathlib import Path
 import bpy
 
 HERE=Path(__file__).resolve().parent
+sys.path.insert(0,str(HERE))
 sys.path.insert(0,str(HERE.parent/"r009-peer-native60"))
 from native_action import action_fcurves, keyframe_receipt
 sys.path.insert(0,str(HERE.parent/"r090-dressed"))
