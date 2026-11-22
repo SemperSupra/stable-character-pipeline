@@ -1,9 +1,10 @@
 name: N03D BI original actual CC0 shoe 356 supported 60Hz fixed heel ball material
 on:
   push:
-    branches: [research/n03d-bi-cc0-shoe-60hz-20261121]
+    branches: [research/n03d-bi-cc0-shoe-60hz-20261121, review/r009-true-native-360-action-20261122]
     paths:
       - 'research/n03d-bi-cc0-shoe-60hz/**'
+      - 'research/r009-peer-native60/**'
       - '.github/workflows/n03d-bi-cc0-shoe-60hz.yml'
   workflow_dispatch:
 permissions:
@@ -12,6 +13,17 @@ concurrency:
   group: n03d-bi-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  independent-native-60hz-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Reject fabricated 60Hz, decimation and dropped-tail controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/r009-peer-native60 -p 'test_clock_contract.py' -v
+          python3 -m py_compile research/r009-peer-native60/*.py
   actual-thirdparty-native:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -38,9 +50,10 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/r092-blender"
           cd "$RUNNER_TEMP/r092-blender"
-          base="https://download.blender.org/release/Blender5.2"
-          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256
-          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
+          base="https://mirror.blender.org/release/Blender5.2"
+          fallback="https://download.blender.org/release/Blender5.2"
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4.sha256" -o blender.sha256 || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4.sha256" -o blender.sha256
+          curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$base/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz || curl --retry 2 --connect-timeout 20 --max-time 300 -fLsS "$fallback/blender-5.2.4-linux-x64.tar.xz" -o blender-5.2.4-linux-x64.tar.xz
           hash="$(grep -F blender-5.2.4-linux-x64.tar.xz blender.sha256 | awk '{print $1}')"
           test "$(printf '%s' "$hash" | wc -c)" -eq 64
           printf '%s  %s\n' "$hash" blender-5.2.4-linux-x64.tar.xz | sha256sum --check
@@ -132,6 +145,31 @@ jobs:
             "source_supported_samples":x["native_60hz_source_supported_samples"],
             "withheld_tail":x["excluded_unbacked_source_60hz_tail_frames"],"status":x["status"]},
             sort_keys=True))
+          PY
+      - name: Retarget fresh original CC0 MPFB scene at TRUE native 360 keys and 60Hz
+        run: |
+          set -euo pipefail
+          source="$RUNNER_TEMP/r082/aster-juniper-cc0-native-wardrobe.blend"
+          sha="$(sha256sum "$source" | cut -d ' ' -f1)"
+          blender -b "$source" -t 2 --python-exit-code 12 --python research/r009-peer-native60/native_action.py -- --stage build --scene "$source" --sha "$sha" --source "$RUNNER_TEMP/r090-native/Neutral_FW.bvh" --clip "$RUNNER_TEMP/r090-native/peer-360-motion.bvh" --out "$RUNNER_TEMP/r090-native/n03d-peer-true-native60.json"
+      - name: Fresh-process native60 saved-action SHA, FCurve and skin readback
+        run: |
+          set -euo pipefail
+          blender -b "$RUNNER_TEMP/r090-native/n03d-peer-true-native60.blend" -t 2 --python-exit-code 12 --python research/r009-peer-native60/native_action.py -- --stage verify --out "$RUNNER_TEMP/r090-native/n03d-peer-true-native60.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"r090-native"/"n03d-peer-true-native60.json"
+          d=json.loads(p.read_text())
+          assert d["native_fps"]==60 and d["native_fps_base"]==1.0
+          assert d["status"]=="HOLD_NATIVE_CLOCK_EXPERIMENT" and d["mvp_accepted"] is False
+          assert len(d["actors"])==2
+          for a in d["actors"]:
+              assert a["keys"]["distinct_native_key_times"]==360
+              assert a["left_tail_world_path_m"]>0.0001
+              assert a["retargeted_motion_semantics_accepted"] is False
+          print("R009_TRUE_NATIVE_360_SOURCE_CLOCK_REOPEN_HOLD",
+                json.dumps([{k:a[k] for k in ("name","keys","left_tail_world_path_m","right_tail_world_path_m")} for a in d["actors"]],sort_keys=True))
           PY
       - name: Upload native evidence JSON only (no source motion, Blend or human assets)
         if: always()
