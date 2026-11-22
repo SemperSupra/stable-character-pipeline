@@ -1,7 +1,7 @@
 name: N03D AC exact 60Hz source-to-native gait causal bisection
 on:
   push:
-    branches: [research/n03d-ac-causal-gait-20261120]
+    branches: [research/n03d-ac-causal-gait-20261120, review/r009-native-360-tail-edge-20261122]
     paths:
       - 'research/n03d-ac-causal/**'
       - '.github/workflows/n03d-ac-causal.yml'
@@ -18,6 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with: {persist-credentials: false}
+      - name: Independent 360-frame full-edge and source-tail hostile controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-ac-causal -p 'test_peer_edges.py' -v
+          python3 -m py_compile research/n03d-ac-causal/peer_edges.py research/n03d-ac-causal/test_peer_edges.py
       - name: Independent stdlib finite and heldout alignment controls
         run: |
           python3 -m unittest discover -s research/n03d-s-planar-align -p 'test_planar.py' -v
@@ -242,6 +247,23 @@ jobs:
           assert truth==calculated, "CAUSAL_CRITIC_DISAGREE"
           assert truth["status"]=="HOLD" and len(truth["results"])==4
           print("N03D_AC_INDEPENDENT_FULL_CLIP_HOLD",json.dumps(truth["results"],sort_keys=True))
+          PY
+      - name: Independently inspect all native 60Hz foot edges incl original tail (diagnostic only)
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/n03d-ac-causal -p 'test_peer_edges.py' -v
+          python3 research/n03d-ac-causal/peer_edges.py --source "$RUNNER_TEMP/r090-native/n03d-ac-causal.json" --out "$RUNNER_TEMP/r090-native/n03d-ac-peer-edges.json"
+          python3 - <<'PY'
+          import json,os,sys
+          from pathlib import Path
+          sys.path.insert(0,"research/n03d-ac-causal")
+          from peer_edges import assess
+          root=Path(os.environ["RUNNER_TEMP"])/"r090-native"
+          doc=json.loads((root/"n03d-ac-causal.json").read_text())
+          receipt=json.loads((root/"n03d-ac-peer-edges.json").read_text())
+          assert receipt == assess(doc) and receipt["status"]=="HOLD"
+          assert len(receipt["results"])==4 and all(r["edge_count"]==359 for r in receipt["results"])
+          print("N03D_AC_PEER_ALL_EDGE_NATIVE_HOLD",json.dumps(receipt["results"],sort_keys=True))
           PY
       - name: Upload native evidence JSON only (no source motion, Blend or human assets)
         if: always()
