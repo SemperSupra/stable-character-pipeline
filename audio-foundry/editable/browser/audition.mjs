@@ -146,7 +146,7 @@ export function mountAudition(root = document.getElementById('audition')) {
       audio.addEventListener('ended', () => {
         if (![...players.values()].some(entry => !entry.paused)) state = { ...state, playing: false };
       });
-      const row = document.createElement('div'); row.className = 'stem-row'; row.dataset.trackId = track.id;
+      const row = document.createElement('div'); row.className = 'stem-row'; row.setAttribute('role', 'listitem'); row.dataset.trackId = track.id;
       const title = document.createElement('strong'); title.textContent = track.name;
       const solo = document.createElement('button'); solo.type = 'button'; solo.textContent = 'Solo'; solo.dataset.action = 'solo'; solo.setAttribute('aria-pressed', 'false');
       solo.addEventListener('click', () => { stopAll(false); state = setSolo(state, track.id); repaint(); say(state.soloId ? `Soloing ${track.name}` : 'Solo cleared'); });
