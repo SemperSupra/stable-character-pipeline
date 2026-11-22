@@ -1,0 +1,68 @@
+name: R009 peer C original source window continuity DoE
+on:
+  push:
+    branches: [review/r009-peer-source-window-doe-20261122]
+    paths:
+      - 'research/r009-peer-source-window/**'
+      - '.github/workflows/r009-peer-C-source-window-doe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-peer-C-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  independent-adversarial-original-source-window:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Strict original source boundary/axis and corrupt-clock controls
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/r009-peer-source-window -p 'test_window_doe.py' -v
+          python3 -m py_compile research/r009-peer-source-window/*.py research/r088-motion-real/bvh_preflight.py
+  source-window-real-bvh-fk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: SHA-authenticate original 100STYLE source file on disposable public CPU
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/source"
+          curl --retry 2 --connect-timeout 12 --max-time 120 -fLsS "https://raw.githubusercontent.com/tomcatmew/simple_motion_matching/10938b4881b55c5801faded89e427407ddf14bce/data/100style/Neutral_FW.bvh" -o "$RUNNER_TEMP/source/Neutral_FW.bvh"
+          test "$(git hash-object "$RUNNER_TEMP/source/Neutral_FW.bvh")" = a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61
+      - name: Independent original nine-joint FK window start perturbation
+        run: |
+          set -euo pipefail
+          python3 research/r009-peer-source-window/window_doe.py --motion "$RUNNER_TEMP/source/Neutral_FW.bvh" --out "$RUNNER_TEMP/source/r009-peer-source-window-doe.json"
+      - name: Validate observed original source window without target-acceptance leakage
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=json.loads((Path(os.environ["RUNNER_TEMP"])/"source"/"r009-peer-source-window-doe.json").read_text())
+          assert d["schema"]=="scp.r009.peer-original-source-window-sensitivity-v1"
+          assert d["status"]=="HOLD" and d["native_retarget_equivalence_accepted"] is False
+          assert d["source_window_offsets_studied"]==[119,120,121,122,180]
+          assert d["source_clock_hz"]==60 and d["source_full_frame_count"]==2400
+          assert d["mvp_accepted"] is False and d["protected_likeness_used"] is False
+          for st,regions in d["windows"].items():
+              assert set(regions)=={"LeftAnkle","RightAnkle","LeftToe","RightToe"}
+              assert all(r["first_edge"]==st+"->"+str(int(st)+1) for r in regions.values())
+          print("R009_PEER_C_SOURCE_WINDOW_HOLD",json.dumps({
+              k:{n:v["first_edge_speed_3d_mps"] for n,v in reg.items()}
+              for k,reg in d["windows"].items()},sort_keys=True))
+          PY
+      - name: Upload JSON only, exclude all source BVH binary
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r009-peer-C-source-only-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/source/r009-peer-source-window-doe.json
+          retention-days: 3
+          if-no-files-found: ignore
