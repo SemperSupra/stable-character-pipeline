@@ -119,14 +119,20 @@ class Store:
                 else:
                     if existing[0] != target or existing[1] != epoch:
                         raise Conflict("stop target/epoch differs from accepted binding")
-                    new_state, revision = "stop_pending", existing[3] + 1
+                    revision = existing[3] + 1
+                    # A STOP on a previously unknown device never manufactures
+                    # a trusted binding/epoch. It stays an explicit discovery
+                    # request, not a claim that a specific host can be stopped.
+                    if existing[2] == "unknown_stop_requested":
+                        new_state, effect = "unknown_stop_requested", "discover_then_stop"
+                    else:
+                        new_state, effect = "stop_pending", "host_stop_now"
                     c.execute("UPDATE sessions SET state=?,revision=? WHERE principal=? AND session=?",
                               (new_state, revision, principal, session))
                     # A prepared START must never be eligible once STOP commits.
                     c.execute("""UPDATE outbox SET status='canceled_by_stop'
                         WHERE principal=? AND session=? AND effect='host_authorize_then_start'
                         AND status='pending'""", (principal, session))
-                    effect = "host_stop_now"
             receipt = {"status": "accepted", "revision": revision, "state": new_state}
             c.execute("INSERT INTO operations VALUES(?,?,?,?,?,?)",
                       (principal, session, opid, action, digest,
