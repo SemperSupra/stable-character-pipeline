@@ -39,11 +39,10 @@ export function mountAudition(root = document.getElementById('audition')) {
   let state = createAuditionState();
   let generation = 0;
   const say = text => { status.textContent = text; };
-  const activePlayers = () => [...players.values()].filter(({track, audio}) => isAudible(state, track) && !audio.paused);
-  function stopAll(reset = true) {
-    for (const {audio} of players.values()) {
+    function stopAll(reset = true) {
+    for (const audio of players.values()) {
       audio.pause();
-      if (reset) audio.currentTime = 0;
+      if (reset && audio.readyState >= HTMLMediaElement.HAVE_METADATA) audio.currentTime = 0;
     }
     state = { ...state, playing: false };
   }
@@ -66,7 +65,9 @@ export function mountAudition(root = document.getElementById('audition')) {
     say(`Playing Group ${group} from synchronized time zero. Synthetic candidate only; perception and device acceptance are not recorded.`);
   }
   function repaint() {
-    for (const [id, {track, audio}] of players) {
+    for (const track of state.tracks) {
+      const audio = players.get(track.id);
+      if (!audio) continue;
       audio.muted = !isAudible(state, track);
       const row = list.querySelector(`[data-track-id="${CSS.escape(id)}"]`);
       if (!row) continue;
@@ -100,13 +101,13 @@ export function mountAudition(root = document.getElementById('audition')) {
       group.value = track.group;
       group.addEventListener('change', () => { stopAll(false); state = setGroup(state, track.id, group.value); repaint(); say(`${track.name} assigned to Group ${group.value}`); });
       row.append(title, solo, mute, group, audio); list.appendChild(row);
-      players.set(track.id, {track,audio});
+      players.set(track.id, audio);
     }
     repaint();
   }
   fileInput.addEventListener('change', () => {
     stopAll();
-    for (const entry of players.values()) if (entry.track.url) URL.revokeObjectURL(entry.track.url);
+    for (const track of state.tracks) if (track.url) URL.revokeObjectURL(track.url);
     players.clear();
     const files = [...fileInput.files];
     if (files.some(file => !file.type.startsWith('audio/') && !/\.(wav|m4a|mp3|ogg|flac)$/i.test(file.name))) { say('Choose audio stem files only.'); return; }
@@ -118,5 +119,5 @@ export function mountAudition(root = document.getElementById('audition')) {
   playA.addEventListener('click', () => playGroup('A'));
   playB.addEventListener('click', () => playGroup('B'));
   stop.addEventListener('click', () => { generation++; stopAll(); say('All stems paused and reset to time zero.'); });
-  window.addEventListener('pagehide', () => { stopAll(); for (const entry of players.values()) if (entry.track.url) URL.revokeObjectURL(entry.track.url); });
+  window.addEventListener('pagehide', () => { stopAll(); for (const track of state.tracks) if (track.url) URL.revokeObjectURL(track.url); });
 }
