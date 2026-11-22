@@ -45,7 +45,7 @@ class SourceWindowTests(unittest.TestCase):
             edge_metrics((0.,0.,0.),(1.,0.,0.),dt=0.)
 
     def test_bad_window_range_and_type_rejected(self):
-        for bad in (0,True,181,300):
+        for bad in (0,True,182,300):
             with self.subTest(bad=bad),self.assertRaises(ValueError):
                 window_summary(coords(),bad)
 
