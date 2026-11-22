@@ -75,7 +75,7 @@ func TestUnsafeAndPrivatePlansFailClosed(t *testing.T){
  m.Classification=scene.Private
  if _,err:=Prepare(m,root,out);err==nil{t.Fatal("private final voice/content admitted")}
  m.Classification=scene.Public
- if _,err:=Prepare(m,root,filepath.Join(root,"..","bad.wav"));err==nil{t.Fatal("unclean output path admitted")}
+ if _,err:=Prepare(m,root,root+"/../bad.wav");err==nil{t.Fatal("unclean output path admitted")}
  if _,err:=Prepare(m,root,"relative.wav");err==nil{t.Fatal("relative output admitted")}
  victim:=filepath.Join(root,"source.wav")
  if err:=os.Symlink(victim,out);err!=nil{t.Skip(err)}
