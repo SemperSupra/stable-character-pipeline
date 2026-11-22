@@ -44,7 +44,6 @@ export function mountAudition(root = document.getElementById('audition')) {
   let state = createAuditionState();
   let generation = 0;
   let activePreparation = null;
-  const groupPlayGeneration = new WeakMap();
   const say = text => { status.textContent = text; };
   function invalidatePlayback() {
     generation += 1;
@@ -100,7 +99,6 @@ export function mountAudition(root = document.getElementById('audition')) {
       if (thisGeneration !== generation) return;
       activePreparation = null;
       // Start all ready players in one task after every source has sought to zero.
-      for (const audio of entries) groupPlayGeneration.set(audio, thisGeneration);
       const results = await Promise.allSettled(entries.map(audio => audio.play()));
       if (thisGeneration !== generation) return;
       const rejected = results.some(result => result.status === 'rejected');
@@ -113,6 +111,30 @@ export function mountAudition(root = document.getElementById('audition')) {
       if (thisGeneration !== generation) return;
       stopAll(true);
       say(error?.name === 'AbortError' ? 'Playback preparation cancelled.' : 'A stem could not be loaded or positioned. Check the local audio files.');
+    }
+  }
+  async function playTrack(id) {
+    const track = state.tracks.find(item => item.id === id);
+    const audio = players.get(id);
+    if (!track || !audio) { say('The selected stem is unavailable.'); return; }
+    stopAll(true);
+    const thisGeneration = generation;
+    const controller = new AbortController();
+    activePreparation = controller;
+    try {
+      await prepareFromZero(audio, controller.signal);
+      if (thisGeneration !== generation) return;
+      activePreparation = null;
+      await audio.play();
+      if (thisGeneration !== generation) { audio.pause(); return; }
+      state = { ...state, playing: true };
+      say(`Playing ${track.name} from time zero. Perception and device acceptance are not recorded.`);
+    } catch (error) {
+      controller.abort();
+      if (activePreparation === controller) activePreparation = null;
+      if (thisGeneration !== generation) return;
+      stopAll(true);
+      say(error?.name === 'AbortError' ? 'Playback preparation cancelled.' : 'A stem could not be loaded or played.');
     }
   }
   function repaint() {
@@ -132,24 +154,15 @@ export function mountAudition(root = document.getElementById('audition')) {
     for (const track of state.tracks) {
       if (!track.url) track.url = URL.createObjectURL(track.file);
       const audio = document.createElement('audio');
-      audio.src = track.url; audio.preload = 'metadata'; audio.controls = true;
-      audio.setAttribute('aria-label', `Local preview: ${track.name}`);
-      audio.addEventListener('play', () => {
-        if (groupPlayGeneration.get(audio) === generation) {
-          groupPlayGeneration.delete(audio);
-        } else {
-          invalidatePlayback();
-          for (const sibling of players.values()) if (sibling !== audio) sibling.pause();
-        }
-        state = { ...state, playing: true };
-      });
-      audio.addEventListener('pause', () => groupPlayGeneration.delete(audio));
+      audio.src = track.url; audio.preload = 'metadata';
+      audio.setAttribute('aria-hidden', 'true');
       audio.addEventListener('ended', () => {
-        groupPlayGeneration.delete(audio);
         if (![...players.values()].some(entry => !entry.paused)) state = { ...state, playing: false };
       });
       const row = document.createElement('div'); row.className = 'stem-row'; row.setAttribute('role', 'listitem'); row.dataset.trackId = track.id;
       const title = document.createElement('strong'); title.textContent = track.name;
+      const preview = document.createElement('button'); preview.type = 'button'; preview.textContent = 'Preview'; preview.setAttribute('aria-label', `Preview stem: ${track.name}`); preview.dataset.action = 'preview';
+      preview.addEventListener('click', () => playTrack(track.id));
       const solo = document.createElement('button'); solo.type = 'button'; solo.textContent = 'Solo'; solo.dataset.action = 'solo'; solo.setAttribute('aria-pressed', 'false');
       solo.addEventListener('click', () => { stopAll(false); state = setSolo(state, track.id); repaint(); say(state.soloId ? `Soloing ${track.name}` : 'Solo cleared'); });
       const mute = document.createElement('button'); mute.type = 'button'; mute.textContent = 'Mute'; mute.dataset.action = 'mute'; mute.setAttribute('aria-pressed', 'false');
@@ -158,7 +171,7 @@ export function mountAudition(root = document.getElementById('audition')) {
       for (const value of ['A','B']) { const option=document.createElement('option'); option.value=value; option.textContent=`Group ${value}`; group.appendChild(option); }
       group.value = track.group;
       group.addEventListener('change', () => { stopAll(false); state = setGroup(state, track.id, group.value); repaint(); say(`${track.name} assigned to Group ${group.value}`); });
-      row.append(title, solo, mute, group, audio); list.appendChild(row);
+      row.append(title, preview, solo, mute, group, audio); list.appendChild(row);
       players.set(track.id, audio);
     }
     repaint();
