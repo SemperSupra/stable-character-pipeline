@@ -1,8 +1,10 @@
 package control
 
 import (
+ "encoding/json"
  "math/rand"
  "reflect"
+ "strings"
  "testing"
 )
 func setup(t *testing.T)*Machine{
@@ -14,6 +16,27 @@ func setup(t *testing.T)*Machine{
 func apply(m *Machine,c Command)Outcome{
  if isHostEvent(c.Action){return m.ObserveHost(c)}
  return m.Submit(c)
+}
+func TestPortableJSONContract(t *testing.T){
+ m:=setup(t)
+ c:=cmd("portable",Configure,0,0)
+ c.ConfigDigest=Digest([]byte("fixture"))
+ b,err:=json.Marshal(c);if err!=nil{t.Fatal(err)}
+ if !strings.Contains(string(b),`"schema_version":"audio_control.r0"`)||
+   !strings.Contains(string(b),`"operation_id":"portable"`){
+  t.Fatalf("unexpected public JSON command: %s",b)
+ }
+ o:=m.Submit(c)
+ receipt,err:=json.Marshal(o.Receipt);if err!=nil{t.Fatal(err)}
+ if !strings.Contains(string(receipt),`"schema_version":"audio_control.receipt.r0"`)||
+  !strings.Contains(string(receipt),`"state":"configured"`){
+  t.Fatalf("unexpected JSON receipt: %s",receipt)
+ }
+ wrong:=cmd("unversioned",RequestStart,m.Snapshot().Revision,0)
+ wrong.SchemaVersion=""
+ if got:=m.Submit(wrong);got.Receipt.Status!="rejected"||got.Receipt.State!=Configured{
+  t.Fatalf("unversioned command accepted: %+v",got)
+ }
 }
 func TestRejectForgedHostIngress(t *testing.T){
  m:=setup(t)
@@ -28,7 +51,7 @@ func TestRejectForgedHostIngress(t *testing.T){
  if m.Snapshot().Revision!=0 || m.Snapshot().State!=New{t.Fatal("invalid ingress mutated state")}
 }
 func cmd(id string,a Action,rev,epoch uint64)Command{
- return Command{SessionID:"session.synthetic",TargetID:"target.synthetic",
+ return Command{SchemaVersion:ProtocolVersion,SessionID:"session.synthetic",TargetID:"target.synthetic",
  OperationID:id,Action:a,ExpectedRevision:rev,Epoch:epoch}
 }
 func configure(t *testing.T,m *Machine) {
