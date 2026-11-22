@@ -43,7 +43,8 @@ func TestStopPreemptsDelayedStartAndRequiresHostStop(t *testing.T){
  if e!=nil||g.Phase()!=StopPending||len(late)!=1||late[0].Kind!="host_stop"{
   t.Fatalf("late START revived audio or lacked corrective STOP: %+v %v",late,e)
  }
- if _,e:=g.Observe(obs("stopped",start.Binding));e!=nil||g.Phase()!=Stopped{
+ ack:=obs("stopped",start.Binding);ack.StopGeneration=stop.StopGeneration
+ if _,e:=g.Observe(ack);e!=nil||g.Phase()!=Stopped{
   t.Fatalf("physical STOP acknowledgment not observed: %v",e)
  }
  if again:=g.Stop();again.Kind!="host_stop"||g.Phase()!=Stopped{
