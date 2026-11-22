@@ -1,0 +1,101 @@
+[
+  {
+    "id": "untrusted_host_start",
+    "channel": "untrusted_submit",
+    "allow": false,
+    "envelope": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "synthetic_host_or_human",
+      "session_id": "sim_s1",
+      "target_id": "sim_t1",
+      "operation_id": "sim_o1",
+      "action": "host_started",
+      "epoch": 1
+    }
+  },
+  {
+    "id": "authorized_host_start",
+    "channel": "verified_local_host",
+    "allow": true,
+    "envelope": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "synthetic_host_or_human",
+      "session_id": "sim_s1",
+      "target_id": "sim_t1",
+      "operation_id": "sim_o1",
+      "action": "host_started",
+      "epoch": 1
+    }
+  },
+  {
+    "id": "untrusted_stop",
+    "channel": "untrusted_submit",
+    "allow": true,
+    "envelope": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "synthetic_host_or_human",
+      "session_id": "sim_s1",
+      "target_id": "sim_t1",
+      "operation_id": "sim_o1",
+      "action": "stop",
+      "expected_revision": 2
+    }
+  },
+  {
+    "id": "user_via_host_port",
+    "channel": "verified_local_host",
+    "allow": false,
+    "envelope": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "synthetic_host_or_human",
+      "session_id": "sim_s1",
+      "target_id": "sim_t1",
+      "operation_id": "sim_o1",
+      "action": "request_start",
+      "expected_revision": 2
+    }
+  },
+  {
+    "id": "untrusted_host_fail",
+    "channel": "untrusted_submit",
+    "allow": false,
+    "envelope": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "synthetic_host_or_human",
+      "session_id": "sim_s1",
+      "target_id": "sim_t1",
+      "operation_id": "sim_o1",
+      "action": "host_failed",
+      "epoch": 1
+    }
+  },
+  {
+    "id": "host_stop",
+    "channel": "verified_local_host",
+    "allow": true,
+    "envelope": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "synthetic_host_or_human",
+      "session_id": "sim_s1",
+      "target_id": "sim_t1",
+      "operation_id": "sim_o1",
+      "action": "host_stopped",
+      "epoch": 1
+    }
+  },
+  {
+    "id": "untrusted_configure",
+    "channel": "untrusted_submit",
+    "allow": true,
+    "envelope": {
+      "schema_version": "audio_control.r0",
+      "principal_id": "synthetic_host_or_human",
+      "session_id": "sim_s1",
+      "target_id": "sim_t1",
+      "operation_id": "sim_o1",
+      "action": "configure",
+      "expected_revision": 0,
+      "config_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  }
+]
