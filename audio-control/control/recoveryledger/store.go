@@ -113,7 +113,16 @@ func (s *Store)AdmitStart(i Intent)(bool,error){
  if s==nil{return false,ErrInvalid}
  if e:=i.validate();e!=nil{return false,e}
  pending,stopped:=s.paths(i)
- if _,e:=os.Lstat(stopped);e==nil{return false,ErrConflict
+ // Diagnose existing untrusted/partial records before calling duplicate/conflict.
+ // A forged stopped file is not evidence of a completed host stop.
+ if _,e:=os.Lstat(stopped);e==nil{
+  if state:=s.Recover(i);state.Kind=="observed_stopped"{return false,ErrConflict}
+  return false,ErrCorrupt
+ }else if !errors.Is(e,os.ErrNotExist){return false,e}
+ if _,e:=os.Lstat(pending);e==nil{
+  state:=s.Recover(i)
+  if state.Kind=="unknown_pending"{return false,nil}
+  return false,ErrCorrupt
  }else if !errors.Is(e,os.ErrNotExist){return false,e}
  b,e:=canonical(i);if e!=nil{return false,e}
  return writeOnce(pending,b)
