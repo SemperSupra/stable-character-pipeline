@@ -12,7 +12,7 @@ fieldset{border:1px solid #8888;border-radius:.75rem;padding:1rem}
 legend{font-weight:700}label{display:block;margin:.55rem 0}input,select{display:block;width:100%;font:inherit;padding:.45rem;border-radius:.3rem}
 button{font:inherit;padding:.6rem 1rem;margin:.5rem .5rem .5rem 0;cursor:pointer}button:disabled{opacity:.55}
 #status{padding:.7rem 1rem;border:1px solid #8888;border-radius:.5rem}#status.error{border-color:#c65d50}
-output{display:block;word-break:break-word}audio{width:100%}
+output{display:block;word-break:break-word}\n#stem_list{display:grid;gap:.75rem}.stem-row{display:grid;grid-template-columns:minmax(8rem,1fr) auto auto minmax(7rem,auto);align-items:center;gap:.5rem;border:1px solid #8888;border-radius:.5rem;padding:.5rem}.stem-row audio{grid-column:1/-1}.stem-row button[aria-pressed=true]{outline:2px solid #358fe4}audio{width:100%}
 :focus-visible{outline:3px solid #358fe4;outline-offset:3px}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
@@ -39,6 +39,19 @@ output{display:block;word-break:break-word}audio{width:100%}
 </fieldset>
 <div><button type="submit">Apply source changes</button><button type="button" id="reset" disabled>Revert edits</button><button type="button" id="export" disabled>Export revised project JSON</button></div>
 </form>
+<section id="audition" aria-labelledby="audition-heading">
+<h2 id="audition-heading">Local stem audition and A/B compare</h2>
+<p><strong>Classification:</strong> PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL. Select original, rights-cleared synthetic stem files. This panel uses browser-local file URLs only; it does not upload audio. A changed source project must be re-rendered before listening.</p>
+<label for="stem_files">Load WAV/M4A/MP3 stems<input id="stem_files" type="file" accept="audio/*,.wav,.m4a,.mp3,.ogg,.flac" multiple /></label>
+<div id="stem_list" aria-label="Loaded audio stems"></div>
+<div role="group" aria-label="Synchronized A/B playback controls">
+<button type="button" id="play_a">Play Group A from start</button>
+<button type="button" id="play_b">Play Group B from start</button>
+<button type="button" id="stop_compare">Pause and reset all</button>
+</div>
+<p id="audition_status" role="status" aria-live="polite">Load local stems, assign each to A or B, then compare from synchronized time zero.</p>
+<p><strong>Receipt limits:</strong> file selection and player state are browser-local indications only. They do not establish download success, perceptual quality, synchronized acoustic output or device acceptance.</p>
+</section>
 <h2>Source changes</h2><output id="changes" aria-live="polite">None</output>
 <h2>Optional local audio listening</h2>
 <p>Use your operating system's audio player or select a previously rendered WAV/M4A recording below. This player does not regenerate audio and is not proof that downloads work on your device.</p>
@@ -46,6 +59,7 @@ output{display:block;word-break:break-word}audio{width:100%}
 <audio controls id="audio_preview" preload="none">Your browser cannot play audio.</audio>
 </main>
 <script type="module" src="./ui.mjs"></script>
+<script type="module">import {mountAudition} from "./audition.mjs"; mountAudition();</script>
 <script>
 // Local optional playback only; source editing does not silently change audio.
 document.getElementById('audio_file').addEventListener('change', e => {

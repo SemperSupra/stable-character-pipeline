@@ -27,7 +27,7 @@ jobs:
         run: |
           go test -race -count=1 ./...
           go vet ./...
-          node --test browser/editor.test.mjs
+          node --test browser/*.test.mjs
       - name: Verify immutable source edits, interchange, stems and mix
         shell: bash
         run: |
