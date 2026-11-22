@@ -1,0 +1,32 @@
+name: Audio Control R1 trusted host admission boundary (synthetic)
+on:
+  pull_request:
+    paths:
+      - 'audio-control/control/hostadmission/**'
+      - '.github/workflows/audio-control-r1-host-admission.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host-origin-and-stop-fencing:
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.23.12'
+          cache: false
+      - name: Qualify synthetic host consent, leases and STOP-before-START
+        working-directory: audio-control/control
+        run: go test -race -count=1 -v ./hostadmission
+      - name: Static analysis
+        working-directory: audio-control/control
+        run: go vet ./hostadmission
