@@ -35,25 +35,27 @@ const (
  HostFailed Action = "host_failed"
 )
 type Command struct {
- SessionID string
- TargetID string
- OperationID string
- Action Action
- ExpectedRevision uint64
- Epoch uint64
+ SchemaVersion string `json:"schema_version"`
+ SessionID string `json:"session_id"`
+ TargetID string `json:"target_id"`
+ OperationID string `json:"operation_id"`
+ Action Action `json:"action"`
+ ExpectedRevision uint64 `json:"expected_revision"`
+ Epoch uint64 `json:"epoch,omitempty"`
  // ConfigDigest is a hex SHA-256 of an independently validated immutable plan.
- ConfigDigest string
+ ConfigDigest string `json:"config_digest,omitempty"`
 }
 type Effect struct {
- Kind string
- Epoch uint64
+ Kind string `json:"kind"`
+ Epoch uint64 `json:"epoch"`
 }
 type Receipt struct {
- Status string
- State State
- Revision uint64
- Epoch uint64
- Effects []Effect
+ SchemaVersion string `json:"schema_version"`
+ Status string `json:"status"`
+ State State `json:"state"`
+ Revision uint64 `json:"revision"`
+ Epoch uint64 `json:"epoch"`
+ Effects []Effect `json:"effects,omitempty"`
 }
 type Outcome struct {
  Receipt Receipt
@@ -70,7 +72,11 @@ type Machine struct {
  configDigest string
  seen map[string]entry
 }
-const maxRemembered = 512
+const (
+ maxRemembered = 512
+ ProtocolVersion = "audio_control.r0"
+ ReceiptVersion = "audio_control.receipt.r0"
+)
 
 func NewMachine(sessionID,targetID string)(*Machine,error){
  if !validID(sessionID)||!validID(targetID){return nil,errors.New("invalid session/target ID")}
@@ -87,7 +93,7 @@ func validDigest(s string)bool {
 }
 func Digest(b []byte)string{sum:=sha256.Sum256(b);return hex.EncodeToString(sum[:])}
 func (m *Machine) Snapshot()Receipt{
- return Receipt{Status:"observed",State:m.state,Revision:m.revision,Epoch:m.epoch}
+ return Receipt{SchemaVersion:ReceiptVersion,Status:"observed",State:m.state,Revision:m.revision,Epoch:m.epoch}
 }
 // Submit is the untrusted human/automation/agent command ingress. It cannot
 // claim that audio began, ended or failed; only a verified host adapter may
@@ -107,14 +113,14 @@ func isHostEvent(a Action)bool{
  return a==HostStarted||a==HostStopped||a==HostCompleted||a==HostFailed
 }
 func (m *Machine) routeRejected(status string)Outcome{
- return Outcome{Receipt:Receipt{Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch}}
+ return Outcome{Receipt:Receipt{SchemaVersion:ReceiptVersion,Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch}}
 }
 func (m *Machine) apply(c Command)Outcome{
  status:="rejected"
  reply:=func() Outcome {
   return Outcome{Receipt:Receipt{Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch}}
  }
- if !validID(c.OperationID)||c.SessionID!=m.sessionID||c.TargetID!=m.targetID{return reply()}
+ if c.SchemaVersion!=ProtocolVersion||!validID(c.OperationID)||c.SessionID!=m.sessionID||c.TargetID!=m.targetID{return reply()}
  if old,ok:=m.seen[c.OperationID];ok{
   if old.cmd!=c {status="operation_id_reused_with_different_payload";return reply()}
   return Outcome{Receipt:old.receipt,Replayed:true}
@@ -122,7 +128,7 @@ func (m *Machine) apply(c Command)Outcome{
  if len(m.seen)>=maxRemembered{status="bounded_history_full";return reply()}
  effects:=[]Effect{}
  record:=func()Outcome{
-  receipt:=Receipt{Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch,Effects:effects}
+  receipt:=Receipt{SchemaVersion:ReceiptVersion,Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch,Effects:effects}
   m.seen[c.OperationID]=entry{cmd:c,receipt:receipt}
   return Outcome{Receipt:receipt,Dispatch:effects}
  }
