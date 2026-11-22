@@ -1,0 +1,28 @@
+name: R5 editable audio A/B signal witness (public synthetic)
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/qa/**'
+      - '.github/workflows/audio-r5-ab-qualification.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ab-signal-witness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/editable/go.mod
+      - name: Install licensed system CPU renderers (no weights/downloaded samples)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends csound ffmpeg
+      - name: Seven adversarial pure-Python tests (no skip)
+        run: python3 -m unittest discover -s audio-foundry/qa -p 'test_*.py' -v
+      - name: Render two actual mixes from original source and revised MIDI/motor recipe
+        run: bash audio-foundry/qa/qualify_ab.sh
