@@ -11,6 +11,8 @@ pairs=(
  "test/audio-control-r0-protocol-vectors|test/audio-control-r0-host-boundary"
  "experiment/audio-foundry-scene-contract-v01|experiment/audio-control-r0-scene-bridge"
  "experiment/audio-control-r0-scene-bridge|test/audio-control-r0-offline-recovery"
+ "test/audio-control-r0-crash-replay|fix/audio-control-r0-receipt-ownership"
+ "test/audio-control-r0-offline-recovery|fix/audio-control-r0-required-ffmpeg"
  "experiment/audio-capability-control-reducer-r0|experiment/audio-control-r1-recovery-ledger"
  "experiment/audio-capability-control-reducer-r0|experiment/audio-control-r1-host-admission"
 )
