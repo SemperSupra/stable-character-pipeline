@@ -1,5 +1,10 @@
 // Local-only stem audition controls. This module never fetches or transmits audio.
 export const PUBLIC_CLASSIFICATION = 'PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL';
+export function validateAudioFiles(files) {
+  if (files.length > 32) return 'Load at most 32 stems at once.';
+  if (files.some(file => !file.type.startsWith('audio/') && !/\\.(wav|m4a|mp3|ogg|flac)$/i.test(file.name))) return 'Choose audio stem files only.';
+  return null;
+}
 export function createAuditionState(files = []) {
   const tracks = files.map((file, index) => ({
     id: String(index), name: file.name, file, url: null, muted: false, group: 'A'
@@ -85,6 +90,11 @@ export function mountAudition(root = document.getElementById('audition')) {
     const controller = new AbortController();
     activePreparation = controller;
     const entries = selected.map(track => players.get(track.id)).filter(Boolean);
+    if (entries.length !== selected.length) {
+      stopAll(true);
+      say('A selected stem is unavailable. Load the local audio files again.');
+      return;
+    }
     try {
       await Promise.all(entries.map(audio => prepareFromZero(audio, controller.signal)));
       if (thisGeneration !== generation) return;
@@ -152,12 +162,16 @@ export function mountAudition(root = document.getElementById('audition')) {
     repaint();
   }
   fileInput.addEventListener('change', () => {
+    const files = [...fileInput.files];
+    const validationError = validateAudioFiles(files);
+    if (validationError) {
+      fileInput.value = '';
+      say(validationError + ' Previous stems remain loaded.');
+      return;
+    }
     stopAll();
     for (const track of state.tracks) if (track.url) URL.revokeObjectURL(track.url);
     players.clear();
-    const files = [...fileInput.files];
-    if (files.some(file => !file.type.startsWith('audio/') && !/\.(wav|m4a|mp3|ogg|flac)$/i.test(file.name))) { say('Choose audio stem files only.'); return; }
-    if (files.length > 32) { say('Load at most 32 stems at once.'); return; }
     state = createAuditionState(files);
     render();
     say(files.length ? `${files.length} local stems loaded. Set A/B groups, solo or mute. Files remain in this browser session.` : 'No stems selected.');
