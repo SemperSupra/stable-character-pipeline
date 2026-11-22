@@ -1,0 +1,35 @@
+name: Audio Control R3 .NET client to actual Go reducer CLI
+on:
+  pull_request:
+    paths:
+      - 'audio-control/interop/dotnet-go-cli/**'
+      - '.github/workflows/audio-control-r3-dotnet-go-cli.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  language-boundary-no-device:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.23.12'
+          cache: false
+      - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build actual existing Go control-probe in disposable runner
+        working-directory: audio-control/control
+        shell: bash
+        run: go build -trimpath -o "../control-probe${{ runner.os == 'Windows' && '.exe' || '' }}" ./cmd/control-probe
+      - name: Execute .NET commands through Go CLI and audit receipts
+        shell: bash
+        run: dotnet run --project audio-control/interop/dotnet-go-cli/Probe.csproj --configuration Release -- "./audio-control/control-probe${{ runner.os == 'Windows' && '.exe' || '' }}"
