@@ -38,31 +38,68 @@ export function mountAudition(root = document.getElementById('audition')) {
   const players = new Map();
   let state = createAuditionState();
   let generation = 0;
+  let activePreparation = null;
   const say = text => { status.textContent = text; };
-    function stopAll(reset = true) {
+  function invalidatePlayback() {
+    generation += 1;
+    activePreparation?.abort();
+    activePreparation = null;
+  }
+  function stopAll(reset = true, invalidate = true) {
+    if (invalidate) invalidatePlayback();
     for (const audio of players.values()) {
       audio.pause();
       if (reset && audio.readyState >= HTMLMediaElement.HAVE_METADATA) audio.currentTime = 0;
     }
     state = { ...state, playing: false };
   }
+  function waitForEvent(audio, eventName, signal) {
+    if (eventName === 'loadedmetadata' && audio.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        audio.removeEventListener(eventName, onReady);
+        audio.removeEventListener('error', onError);
+        signal.removeEventListener('abort', onAbort);
+      };
+      const onReady = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); reject(new Error('Audio source failed to load')); };
+      const onAbort = () => { cleanup(); reject(new DOMException('Playback preparation cancelled', 'AbortError')); };
+      audio.addEventListener(eventName, onReady, { once: true });
+      audio.addEventListener('error', onError, { once: true });
+      signal.addEventListener('abort', onAbort, { once: true });
+    });
+  }
+  async function prepareFromZero(audio, signal) {
+    await waitForEvent(audio, 'loadedmetadata', signal);
+    if (audio.currentTime === 0) return;
+    const seeking = waitForEvent(audio, 'seeked', signal);
+    audio.currentTime = 0;
+    await seeking;
+  }
   async function playGroup(group) {
     const selected = selectedGroup(state, group);
     if (!selected.length) { say(`Assign at least one audible stem to Group ${group}.`); return; }
     stopAll(true);
-    const thisGeneration = ++generation;
+    const thisGeneration = generation;
+    const controller = new AbortController();
+    activePreparation = controller;
     const entries = selected.map(track => players.get(track.id)).filter(Boolean);
-    // Wait until all decoded sources seek to the same origin before starting.
-    for (const audio of entries) {
-      audio.currentTime = 0;
-      audio.muted = false;
+    try {
+      await Promise.all(entries.map(audio => prepareFromZero(audio, controller.signal)));
+      if (thisGeneration !== generation) return;
+      activePreparation = null;
+      // Start all ready players in one task after every source has sought to zero.
+      const results = await Promise.allSettled(entries.map(audio => audio.play()));
+      if (thisGeneration !== generation) return;
+      const rejected = results.some(result => result.status === 'rejected');
+      if (rejected) { stopAll(true); say('Playback was blocked. Use the audio player controls or check browser permission.'); return; }
+      state = { ...state, playing: true };
+      say(`Playing Group ${group} from time zero. Browser scheduling may vary; perception and device acceptance are not recorded.`);
+    } catch (error) {
+      if (thisGeneration !== generation) return;
+      stopAll(true);
+      say(error?.name === 'AbortError' ? 'Playback preparation cancelled.' : 'A stem could not be loaded or positioned. Check the local audio files.');
     }
-    state = { ...state, playing: true };
-    const results = await Promise.allSettled(entries.map(audio => audio.play()));
-    if (thisGeneration !== generation) return;
-    const rejected = results.some(result => result.status === 'rejected');
-    if (rejected) { stopAll(true); say('Playback was blocked. Use the audio player controls or check browser permission.'); return; }
-    say(`Playing Group ${group} from synchronized time zero. Synthetic candidate only; perception and device acceptance are not recorded.`);
   }
   function repaint() {
     for (const track of state.tracks) {
