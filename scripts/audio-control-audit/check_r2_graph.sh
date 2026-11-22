@@ -7,8 +7,8 @@ pairs=(
  "experiment/audio-control-r2-sqlite-outbox|test/audio-control-r2-sqlite-faults"
  "test/audio-control-r0-host-boundary|test/audio-control-r2-dotnet-wire"
  "fix/audio-control-r0-receipt-ownership|test/audio-control-r2-bounded-model"
- "experiment/audio-control-r1-host-admission|fix/audio-control-r1-host-conformance"
- "fix/audio-control-r0-receipt-ownership|fix/audio-control-r0-command-required-fields"
+ "experiment/audio-control-r1-host-admission|fix/audio-control-r1-host-stop-conformance"
+ "fix/audio-control-r0-receipt-ownership|fix/audio-control-r0-required-fields"
  "experiment/audio-control-r1-recovery-ledger|test/audio-control-r1-process-restart"
  "experiment/audio-capability-control-reducer-r0|ci/audio-control-r1-selective-baseline"
 )
