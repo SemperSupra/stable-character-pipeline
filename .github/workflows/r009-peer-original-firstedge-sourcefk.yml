@@ -1,0 +1,73 @@
+name: R009 peer original 100STYLE source FK first-edge 120-121
+on:
+  push:
+    branches: [review/r009-source-fk-firstedge-original-20261122]
+    paths:
+      - 'research/r009-peer-sourcefk/**'
+      - '.github/workflows/r009-peer-original-firstedge-sourcefk.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-peer-sourcefk-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  adversarial-source-fk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Strict first-edge units, origin, nonfinite and negative control suite
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/r009-peer-sourcefk -p 'test_first_edge_source.py' -v
+          python3 -m py_compile research/r009-peer-sourcefk/*.py research/r088-motion-real/bvh_preflight.py
+  measured-real-original-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Authenticate original CC-BY 100STYLE source without committing motion binaries
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/source"
+          curl --retry 2 --connect-timeout 12 --max-time 120 -fLsS "https://raw.githubusercontent.com/tomcatmew/simple_motion_matching/10938b4881b55c5801faded89e427407ddf14bce/data/100style/Neutral_FW.bvh" -o "$RUNNER_TEMP/source/Neutral_FW.bvh"
+          test "$(git hash-object "$RUNNER_TEMP/source/Neutral_FW.bvh")" = a534f69b1d7a867f9b7d4dccefcf3f1d255c4a61
+      - name: Actual original nine-joint world FK at first source clip edge
+        run: |
+          set -euo pipefail
+          python3 research/r009-peer-sourcefk/first_edge_source.py --motion "$RUNNER_TEMP/source/Neutral_FW.bvh" --out "$RUNNER_TEMP/source/r009-peer-sourcefk-firstedge.json"
+      - name: Independent evidence-only source FK HOLD critic
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])/"source"/"r009-peer-sourcefk-firstedge.json"
+          d=json.loads(p.read_text())
+          assert d["schema"]=="scp.r009.peer-original-bvh-fk-start-edge-v1"
+          assert d["status"]=="HOLD" and d["mvp_accepted"] is False
+          assert d["protected_likeness_used"] is False and d["native_retarget_equivalence_proven"] is False
+          assert d["source_fk_unit_conversion"]=="cm * 0.01 = metres"
+          assert d["source_full_frame_count"]==2400 and d["admitted_source_window_first_frame"]==120
+          assert len(d["source_fk_joints"])==9
+          for name,x in d["source_fk_joints"].items():
+              assert x["source_first_edge"]=="120->121"
+              assert x["source_first_edge_3d_speed_mps"]>=0
+              assert x["source_joint_anatomy_verified"] is False
+          print("R009_SOURCE_FIRST_EDGE_FK_STAYS_HOLD",json.dumps({
+              n:{"speed_mps":x["source_first_edge_3d_speed_mps"],
+                 "horizontal_speed_mps":x["source_first_edge_horizontal_xz_speed_mps"],
+                 "first_to_median":x["first_edge_to_median_ratio"]}
+              for n,x in d["source_fk_joints"].items()},sort_keys=True))
+          PY
+      - name: Upload source-only JSON, exclude original source BVH bytes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r009-peer-original-bvh-source-fk-json-${{ github.run_id }}
+          path: ${{ runner.temp }}/source/r009-peer-sourcefk-firstedge.json
+          retention-days: 3
+          if-no-files-found: ignore
