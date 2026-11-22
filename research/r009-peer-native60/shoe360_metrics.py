@@ -45,11 +45,29 @@ def analyze(rows):
     tail_heel=sum(math.dist(rows[i]["heel_xy"],rows[i-1]["heel_xy"]) for i in range(356,360))
     tail_ball=sum(math.dist(rows[i]["ball_xy"],rows[i-1]["ball_xy"]) for i in range(356,360))
     minimum=min(row["world_shoe_side_min_z"] for row in rows)
+    hmax=1+max(range(359),key=lambda j:heel_v[j])
+    bmax=1+max(range(359),key=lambda j:ball_v[j])
+    eligible_edges=[j for j,yes in enumerate(candidate) if yes]
+    hnear=1+max(eligible_edges,key=lambda j:heel_v[j]) if eligible_edges else None
+    bnear=1+max(eligible_edges,key=lambda j:ball_v[j]) if eligible_edges else None
+    crossing_edges=[j for j,yes in enumerate(transitions) if yes]
+    crossing_max=1+max(crossing_edges,key=lambda j:max(heel_v[j],ball_v[j])) if crossing_edges else None
+    floor_min= min(range(360),key=lambda j:rows[j]["world_shoe_side_min_z"])
+    def signed_xy(frame,region):
+        return [round(rows[frame][region][k]-rows[frame-1][region][k],8) for k in range(2)]
     return {
         "source_frames":360,
         "source_frame_edges":359,
         "source_sample_end_s":round(359/60,9),
         "min_actual_world_shoe_side_z_m":round(minimum,8),
+        "min_world_shoe_z_frame":floor_min,
+        "max_heel_speed_destination_frame":hmax,
+        "max_ball_speed_destination_frame":bmax,
+        "max_heel_speed_signed_xy_delta_m":signed_xy(hmax,"heel_xy"),
+        "max_ball_speed_signed_xy_delta_m":signed_xy(bmax,"ball_xy"),
+        "max_heel_near_ground_destination_frame":hnear,
+        "max_ball_near_ground_destination_frame":bnear,
+        "max_candidate_transition_destination_frame":crossing_max,
         "max_actual_geometry_penetration_m":round(max(0.,-minimum),8),
         "max_heel_material_region_speed_mps":round(max(heel_v),6),
         "max_ball_material_region_speed_mps":round(max(ball_v),6),
