@@ -35,7 +35,9 @@ func run(args []string,in io.Reader,out io.Writer)error{
    var fields map[string]json.RawMessage
    if err:=json.Unmarshal(b,&fields);err!=nil{return fmt.Errorf("invalid command %d: %w",count+1,err)}
    required:=[]string{"schema_version","principal_id","session_id","target_id","operation_id","action","expected_revision"}
-   if string(fields["action"])=="\"configure\"" { required=append(required,"config_digest") }
+   var action string
+   if err:=json.Unmarshal(fields["action"],&action);err!=nil{return fmt.Errorf("invalid command %d action: %w",count+1,err)}
+   if action=="configure" { required=append(required,"config_digest") }
    for _, key:=range required {
     value,ok:=fields[key]
     if !ok||string(value)=="null" { return fmt.Errorf("invalid command %d: required field %s is absent or null",count+1,key) }
