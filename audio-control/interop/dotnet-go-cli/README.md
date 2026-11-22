@@ -1,0 +1,11 @@
+# R3 native-client interoperability — .NET 10 → actual Go reducer CLI
+
+This bounded **CPU-only**, nonproduction workcell uses the **actual** previously accepted local-actor Go `control-probe` from [PR #739](https://github.com/SemperSupra/stable-character-pipeline/pull/739), not a second reimplementation of the state machine. It also depends on the local actor's [receipt deep-copy fix #735](https://github.com/SemperSupra/stable-character-pipeline/pull/735). It only changes `audio-control/interop/dotnet-go-cli/**` and its own public 3-OS workflow.
+
+The workflow builds `cmd/control-probe` using Go 1.23 from repository source on disposable public GitHub runners and launches it using .NET 10 `ProcessStartInfo`. The native C# client uses `System.Text.Json` to submit a sequence of **seven** actual JSON command envelopes through standard input and asserts the Go reducer's observed output: configure accepted, human-requested START becomes `start_pending` with a host authorization effect (not physical playback), exact repeated START returns an identical receipt with **no** repeated effect, forged client-origin `host_started` is rejected, STOP preempts a deliberately stale revision and emits a host-stop **intent**, repeated STOP does not reissue an effect, and a reused operation ID with conflicting payload is rejected. A separate `capabilities` call confirms no physical audio, no production admission and trusted-host authorization requirement.
+
+**Test success would establish** cross-language JSON command/receipt behavior with the actual reducer and native .NET process/stdio integration on Linux, Windows and macOS. **It does not establish** a stable network API, general JSON-schema validation, audio playback, native device stop acknowledgment, authenticated local principal, Aural trial-phase correctness or clinical safety. C# DSP and native Android views remain Aural owned. This is intentionally not a new Go service or browser UI.
+
+Run from repository root after building actual Go executable in `audio-control/control`: `dotnet run --project audio-control/interop/dotnet-go-cli/Probe.csproj --configuration Release -- PATH_TO_BUILT_GO_CONTROL_PROBE`. The GitHub workflow is the reproducible, no-copy one-shot evidence.
+
+Draft/unmerged. No personal recordings, paid/private runners, signing, release or device authorization.
