@@ -1,0 +1,27 @@
+name: Audio Control R3 Linux kernel peer-credential host ingress
+on:
+  pull_request:
+    paths:
+      - 'audio-control/control/linuxhostpeer/**'
+      - '.github/workflows/audio-control-r3-linux-peercred.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux-kernel-peer-origin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.23.12'
+          cache: false
+      - name: Real child PID/UID Unix socket origin proof, no audio
+        working-directory: audio-control/control
+        run: go test -race -count=1 -v ./linuxhostpeer
+      - name: Static analysis
+        working-directory: audio-control/control
+        run: go vet ./linuxhostpeer
