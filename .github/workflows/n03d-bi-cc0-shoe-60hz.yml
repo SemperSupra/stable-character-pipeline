@@ -1,7 +1,7 @@
 name: N03D BI original actual CC0 shoe 356 supported 60Hz fixed heel ball material
 on:
   push:
-    branches: [research/n03d-bi-cc0-shoe-60hz-20261121, review/r009-true-native-360-action-20261122]
+    branches: [research/n03d-bi-cc0-shoe-60hz-20261121, review/r009-true-native-360-action-20261122, review/r009-native360-cc0-shoe-fullclip-20261122]
     paths:
       - 'research/n03d-bi-cc0-shoe-60hz/**'
       - 'research/r009-peer-native60/**'
@@ -23,6 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/r009-peer-native60 -p 'test_clock_contract.py' -v
+          python3 -m unittest discover -s research/r009-peer-native60 -p 'test_shoe360.py' -v
           python3 -m py_compile research/r009-peer-native60/*.py
   actual-thirdparty-native:
     runs-on: ubuntu-24.04
@@ -170,6 +171,35 @@ jobs:
               assert a["retargeted_motion_semantics_accepted"] is False
           print("R009_TRUE_NATIVE_360_SOURCE_CLOCK_REOPEN_HOLD",
                 json.dumps([{k:a[k] for k in ("name","keys","left_tail_world_path_m","right_tail_world_path_m")} for a in d["actors"]],sort_keys=True))
+          PY
+      - name: Independent true native 360-frame full CC0 skinned shoe/heel-ball mesh witness
+        run: |
+          set -euo pipefail
+          target="$RUNNER_TEMP/r090-native/n03d-peer-true-native60.blend"
+          sha="$(sha256sum "$target" | cut -d ' ' -f1)"
+          blender -b "$target" -t 2 --python-exit-code 12 --python research/r009-peer-native60/shoe360_native.py -- --scene "$target" --sha "$sha" --wardrobe "$RUNNER_TEMP/r082/build.json" --clock-report "$RUNNER_TEMP/r090-native/n03d-peer-true-native60.json" --out "$RUNNER_TEMP/r090-native/n03d-peer-native360-shoe-fullclip.json"
+      - name: Independent source-safe all-359-edge shoe metric replay and HOLD
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,sys
+          from pathlib import Path
+          sys.path.insert(0,"research/r009-peer-native60")
+          from shoe360_metrics import analyze
+          p=Path(os.environ["RUNNER_TEMP"])/"r090-native"/"n03d-peer-native360-shoe-fullclip.json"
+          d=json.loads(p.read_text())
+          assert d["status"]=="HOLD" and d["physical_contact_accepted"] is False
+          assert sorted(a["name"] for a in d["actors"])==["AsterOriginal","JuniperOriginal"]
+          for actor in d["actors"]:
+              assert sorted(actor["sides"])==["L","R"]
+              for side in ("L","R"):
+                  entry=actor["sides"][side]
+                  calculated=analyze(entry["rows"])
+                  assert entry["metrics"]==calculated, "NATIVE_SHOE_INDEPENDENT_REPLAY"
+                  assert calculated["source_frames"]==360 and calculated["source_frame_edges"]==359
+                  assert calculated["ground_reaction_force_measured"] is False
+          print("R009_ORIGINAL_NATIVE_360_SKINNED_SHOE_FULLCLIP_HOLD",
+                json.dumps({a["name"]:{s:a["sides"][s]["metrics"] for s in ("L","R")} for a in d["actors"]},sort_keys=True))
           PY
       - name: Upload native evidence JSON only (no source motion, Blend or human assets)
         if: always()
