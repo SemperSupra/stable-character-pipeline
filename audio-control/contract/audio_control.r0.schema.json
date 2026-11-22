@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SemperSupra/stable-character-pipeline/blob/research/audio-capability-control-r0/audio-control/contract/audio_control.r0.schema.json",
+  "title": "Audio Capability Control R0 - synthetic contract candidate",
+  "description": "Nonproduction portable command/receipt vocabulary. Schema validation is not authorization; host events are accepted only through a separate privileged OS adapter.",
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]{1,96}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "new",
+        "configured",
+        "start_pending",
+        "active",
+        "stop_pending",
+        "stopped",
+        "completed",
+        "failed",
+        "closed"
+      ]
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "epoch"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "host_authorize_then_start",
+            "host_stop_now"
+          ]
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "title": "Untrusted command envelope",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "session_id",
+        "target_id",
+        "operation_id",
+        "action",
+        "expected_revision"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "audio_control.r0"
+        },
+        "session_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "action": {
+          "enum": [
+            "configure",
+            "request_start",
+            "stop",
+            "close"
+          ]
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "config_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "configure"
+              }
+            },
+            "required": [
+              "action"
+            ]
+          },
+          "then": {
+            "required": [
+              "config_digest"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "title": "Host observation (privileged channel only)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "session_id",
+        "target_id",
+        "operation_id",
+        "action",
+        "epoch"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "audio_control.r0"
+        },
+        "session_id": {
+          "$ref": "#/$defs/id"
+        },
+        "target_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "action": {
+          "enum": [
+            "host_started",
+            "host_stopped",
+            "host_completed",
+            "host_failed"
+          ]
+        },
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    {
+      "title": "State receipt",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "state",
+        "revision",
+        "epoch"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "audio_control.receipt.r0"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "observed",
+            "accepted",
+            "rejected",
+            "noop",
+            "stale_revision",
+            "stale_epoch",
+            "ignored_late_start",
+            "unsupported_action",
+            "bounded_history_full",
+            "operation_id_reused_with_different_payload",
+            "host_observation_requires_trusted_adapter",
+            "user_command_requires_submit"
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/state"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effect"
+          },
+          "maxItems": 4
+        }
+      }
+    }
+  ]
+}
