@@ -1,0 +1,28 @@
+name: Audio Control R2 .NET 10 portable wire contract interview
+on:
+  pull_request:
+    paths:
+      - 'audio-control/interop/dotnet-wire/**'
+      - '.github/workflows/audio-control-r2-dotnet-wire.yml'
+      - 'audio-control/contract/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dotnet-contract-vectors:
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d
+        with:
+          dotnet-version: '10.0.x'
+      - name: Compare .NET 10 independent subset against frozen contract and ingress vectors
+        run: dotnet run --project audio-control/interop/dotnet-wire/Probe.csproj --configuration Release -- .
