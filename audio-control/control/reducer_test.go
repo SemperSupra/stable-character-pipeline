@@ -11,6 +11,22 @@ func setup(t *testing.T)*Machine{
  if e!=nil{t.Fatal(e)}
  return m
 }
+func apply(m *Machine,c Command)Outcome{
+ if isHostEvent(c.Action){return m.ObserveHost(c)}
+ return m.Submit(c)
+}
+func TestRejectForgedHostIngress(t *testing.T){
+ m:=setup(t)
+ attempt:=cmd("forged-start",HostStarted,0,1)
+ got:=m.Submit(attempt)
+ if got.Receipt.Status!="host_observation_requires_trusted_adapter"{
+  t.Fatalf("host observation admitted via untrusted command: %+v",got)
+ }
+ if got:=m.ObserveHost(cmd("wrong-way",RequestStart,0,0));got.Receipt.Status!="user_command_requires_submit"{
+  t.Fatalf("user command admitted through host observation path: %+v",got)
+ }
+ if m.Snapshot().Revision!=0 || m.Snapshot().State!=New{t.Fatal("invalid ingress mutated state")}
+}
 func cmd(id string,a Action,rev,epoch uint64)Command{
  return Command{SessionID:"session.synthetic",TargetID:"target.synthetic",
  OperationID:id,Action:a,ExpectedRevision:rev,Epoch:epoch}
@@ -19,62 +35,62 @@ func configure(t *testing.T,m *Machine) {
  t.Helper()
  c:=cmd("cfg",Configure,0,0)
  c.ConfigDigest=Digest([]byte("synthetic-no-audio"))
- o:=m.Apply(c)
+ o:=apply(m,c)
  if o.Receipt.State!=Configured||o.Receipt.Revision!=1||len(o.Dispatch)!=0{
   t.Fatalf("configure: %+v",o)
  }
 }
 func start(t *testing.T,m *Machine)Outcome{
  t.Helper()
- r:=m.Apply(cmd("start",RequestStart,1,0))
+ r:=apply(m,cmd("start",RequestStart,1,0))
  if r.Receipt.State!=StartPending||r.Receipt.Epoch!=1||
  len(r.Dispatch)!=1||r.Dispatch[0].Kind!="host_authorize_then_start"{t.Fatalf("start: %+v",r)}
  return r
 }
 func TestStopDominatesLateHostStart(t *testing.T){
  m:=setup(t);configure(t,m);first:=start(t,m)
- stop:=m.Apply(cmd("stop",Stop,0,0)) // Must bypass stale revision.
+ stop:=apply(m,cmd("stop",Stop,0,0)) // Must bypass stale revision.
  if stop.Receipt.State!=StopPending||stop.Receipt.Revision!=3||
  len(stop.Dispatch)!=1||stop.Dispatch[0].Kind!="host_stop_now"{t.Fatalf("stop: %+v",stop)}
- replay:=m.Apply(cmd("stop",Stop,0,0))
+ replay:=apply(m,cmd("stop",Stop,0,0))
  if !replay.Replayed||len(replay.Dispatch)!=0||!reflect.DeepEqual(stop.Receipt,replay.Receipt){
   t.Fatalf("duplicate stop redispatched or changed receipt: %+v",replay)
  }
- late:=m.Apply(cmd("host-start",HostStarted,0,1))
+ late:=apply(m,cmd("host-start",HostStarted,0,1))
  if late.Receipt.State!=StopPending||late.Receipt.Status!="ignored_late_start"||
  len(late.Dispatch)!=1||late.Dispatch[0].Kind!="host_stop_now"{
   t.Fatalf("late host start revived output: %+v",late)
  }
- ended:=m.Apply(cmd("host-stop",HostStopped,0,1))
+ ended:=apply(m,cmd("host-stop",HostStopped,0,1))
  if ended.Receipt.State!=Stopped||ended.Receipt.Revision!=4{t.Fatalf("host stopped: %+v",ended)}
- if got:=m.Apply(cmd("second-start",RequestStart,4,0));got.Receipt.Status=="accepted"{
+ if got:=apply(m,cmd("second-start",RequestStart,4,0));got.Receipt.Status=="accepted"{
   t.Fatal("terminal STOP allowed restart without new session")
  }
- if got:=m.Apply(cmd("close",Close,4,0));got.Receipt.State!=Closed{t.Fatal("close terminal failed")}
+ if got:=apply(m,cmd("close",Close,4,0));got.Receipt.State!=Closed{t.Fatal("close terminal failed")}
  if first.Receipt.Epoch!=1{t.Fatal("start epoch lost")}
 }
 func TestStartObservationAndCompletion(t *testing.T){
  m:=setup(t);configure(t,m);start(t,m)
- started:=m.Apply(cmd("host-start",HostStarted,0,1))
+ started:=apply(m,cmd("host-start",HostStarted,0,1))
  if started.Receipt.State!=Active||started.Receipt.Revision!=3{t.Fatalf("host start: %+v",started)}
- completed:=m.Apply(cmd("host-completed",HostCompleted,0,1))
+ completed:=apply(m,cmd("host-completed",HostCompleted,0,1))
  if completed.Receipt.State!=Completed||completed.Receipt.Revision!=4{t.Fatalf("host EOS: %+v",completed)}
- if r:=m.Apply(cmd("stop",Stop,0,0));r.Receipt.State!=Completed||len(r.Dispatch)!=0{t.Fatalf("stop post EOS: %+v",r)}
+ if r:=apply(m,cmd("stop",Stop,0,0));r.Receipt.State!=Completed||len(r.Dispatch)!=0{t.Fatalf("stop post EOS: %+v",r)}
 }
 func TestIdempotencyConflictStaleAndScope(t *testing.T){
  m:=setup(t);configure(t,m)
- original:=m.Apply(cmd("start",RequestStart,1,0))
- if x:=m.Apply(cmd("start",RequestStart,1,0));!x.Replayed||len(x.Dispatch)!=0||
+ original:=apply(m,cmd("start",RequestStart,1,0))
+ if x:=apply(m,cmd("start",RequestStart,1,0));!x.Replayed||len(x.Dispatch)!=0||
   !reflect.DeepEqual(x.Receipt,original.Receipt){t.Fatalf("replay: %+v",x)}
  collision:=cmd("start",RequestStart,1,0);collision.TargetID="other"
  // Scope rejection takes precedence and does not reveal another session's receipt.
- if x:=m.Apply(collision);x.Receipt.Status!="rejected"{t.Fatal("cross-target not rejected")}
+ if x:=apply(m,collision);x.Receipt.Status!="rejected"{t.Fatal("cross-target not rejected")}
  collision=cmd("start",RequestStart,999,0)
- if x:=m.Apply(collision);x.Receipt.Status!="operation_id_reused_with_different_payload"{t.Fatal("same ID altered payload accepted")}
- if x:=m.Apply(cmd("stale",Close,1,0));x.Receipt.Status!="stale_revision"{t.Fatal("stale revision accepted")}
- if x:=m.Apply(cmd("stale-host",HostStarted,0,99));x.Receipt.Status!="stale_epoch"{t.Fatal("stale host epoch accepted")}
- if x:=m.Apply(cmd("same-host-start",HostStarted,0,1));x.Receipt.State!=Active{t.Fatal("valid host observation rejected")}
- if x:=m.Apply(cmd("stop",Stop,0,0));x.Receipt.State!=StopPending{t.Fatal("STOP could not override stale revision")}
+ if x:=apply(m,collision);x.Receipt.Status!="operation_id_reused_with_different_payload"{t.Fatal("same ID altered payload accepted")}
+ if x:=apply(m,cmd("stale",Close,1,0));x.Receipt.Status!="stale_revision"{t.Fatal("stale revision accepted")}
+ if x:=apply(m,cmd("stale-host",HostStarted,0,99));x.Receipt.Status!="stale_epoch"{t.Fatal("stale host epoch accepted")}
+ if x:=apply(m,cmd("same-host-start",HostStarted,0,1));x.Receipt.State!=Active{t.Fatal("valid host observation rejected")}
+ if x:=apply(m,cmd("stop",Stop,0,0));x.Receipt.State!=StopPending{t.Fatal("STOP could not override stale revision")}
 }
 func TestBoundedHistoryAndAdversarialTrace(t *testing.T){
  m:=setup(t);configure(t,m);start(t,m)
@@ -87,7 +103,7 @@ func TestBoundedHistoryAndAdversarialTrace(t *testing.T){
   id:="rnd"+toID(i)
   c:=cmd(id,a,m.Snapshot().Revision,m.Snapshot().Epoch)
   if a==Configure{c.ConfigDigest=Digest([]byte("new"))}
-  v:=m.Apply(c)
+  v:=apply(m,c)
   if v.Receipt.Revision<prevRev{t.Fatalf("non-monotonic revision at %d",i)}
   prevRev=v.Receipt.Revision
   if v.Receipt.State==StopPending||v.Receipt.State==Stopped{wasStopped=true}
@@ -104,9 +120,9 @@ func toID(n int)string{
 func TestLedgerFullFailsClosed(t *testing.T){
  m:=setup(t)
  for i:=0;i<maxRemembered;i++ {
-  m.Apply(cmd("unique"+toID(i),Close,0,0))
+  apply(m,cmd("unique"+toID(i),Close,0,0))
  }
- r:=m.Apply(cmd("overflow",Stop,0,0))
+ r:=apply(m,cmd("overflow",Stop,0,0))
  if r.Receipt.Status!="bounded_history_full"||r.Receipt.State!=New{
   t.Fatalf("silent dedupe eviction or effect: %+v",r)
  }
