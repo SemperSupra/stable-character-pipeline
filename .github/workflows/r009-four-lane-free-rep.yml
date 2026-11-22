@@ -1,0 +1,114 @@
+name: R009 four independent source-critic lanes on public free CPU
+on:
+  push:
+    branches:
+      - ops/r009-four-lane-github-native-free-rep-20261122
+    paths:
+      - .github/workflows/r009-four-lane-free-rep.yml
+      - AGENTS.md
+      - README.md
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r009-source-critic-rep-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  independent-rep:
+    name: ${{ matrix.lane }} (pinned source critic only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - lane: real-cc0-shoe-source-gate
+            source_sha: f51429a31897eb82f50cd64905edcaf468cc456f
+            scope: research/n03d-bi-cc0-shoe-60hz
+            expected_min_tests: '14'
+          - lane: authentic-source-fk-native-gate
+            source_sha: 5b6c1f24ddb1d514784b87c69021281fa767505e
+            scope: research/n03d-bj-mpfb-source-landmarks
+            expected_min_tests: '16'
+          - lane: same-source-world-calibration-gate
+            source_sha: 91c67068c4fb5cb925b503f844dc3ea9735daed9
+            scope: research/n03d-bg-skeleton-calibration
+            expected_min_tests: '20'
+          - lane: original-visual-foot-body-gate
+            source_sha: 74e433038caeb07c0d0f2b87b05bf21bbeb3afdd
+            scope: research/n03d-bh-blender-contact-visual
+            expected_min_tests: '15'
+    steps:
+      - name: Checkout EXACT independently qualified original public research head (never private source)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ matrix.source_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify immutable workcell source, scope and free-hosted execution
+        env:
+          SOURCE_SHA: ${{ matrix.source_sha }}
+          TEST_SCOPE: ${{ matrix.scope }}
+          LANE: ${{ matrix.lane }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test -f "$TEST_SCOPE/critic.py"
+          test -f "$TEST_SCOPE/test_critic.py"
+          test -x "$(command -v python3)"
+          printf 'R009_PARALLEL_LANE_SOURCE_PIN %s %s %s\n' "$LANE" "$SOURCE_SHA" "$TEST_SCOPE"
+      - name: Independent source-bound, forbidden-acceptance and actual-workcell hostile critic tests
+        env:
+          SOURCE_SHA: ${{ matrix.source_sha }}
+          TEST_SCOPE: ${{ matrix.scope }}
+          LANE: ${{ matrix.lane }}
+          MIN_TESTS: ${{ matrix.expected_min_tests }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          started="$(date -u +%s)"
+          log="$RUNNER_TEMP/r009-lane-unit.log"
+          python3 -m py_compile "$TEST_SCOPE"/*.py
+          compile_rc=$?
+          if [ "$compile_rc" -eq 0 ]; then
+            python3 -m unittest discover -s "$TEST_SCOPE" -p test_critic.py -v > "$log" 2>&1
+            test_rc=$?
+          else
+            printf 'Source compilation failed before test execution\n' > "$log"
+            test_rc=$compile_rc
+          fi
+          cat "$log"
+          export TEST_EXIT="$test_rc" ELAPSED="$(( $(date -u +%s) - started ))" RECEIPT_FILE="$RUNNER_TEMP/r009-lane-receipt.json" TEST_LOG="$log"
+          python3 - <<'PY'
+          import hashlib,json,os,re,pathlib
+          content=pathlib.Path(os.environ['TEST_LOG']).read_bytes()
+          matches=re.findall(rb'Ran (\d+) tests in', content)
+          count=int(matches[-1]) if matches else 0
+          minimum=int(os.environ['MIN_TESTS'])
+          passed=(int(os.environ['TEST_EXIT'])==0 and count>=minimum)
+          doc={'schema':'scp.r009.parallel-existing-critic-batch-v1',
+               'lane':os.environ['LANE'],'source_commit':os.environ['SOURCE_SHA'],
+               'checkout_exact_git_head':os.popen('git rev-parse HEAD').read().strip(),
+               'test_scope':os.environ['TEST_SCOPE'],'observed_tests':count,
+               'expected_min_tests':minimum,'observed_execution_seconds':int(os.environ['ELAPSED']),
+               'test_log_sha256':hashlib.sha256(content).hexdigest(),
+               'public_original_source_only':True,'actual_native_blender_reexecuted':False,
+               'physical_gait_or_protected_mvp_accepted':False,
+               'result':'PASS_SOURCE_CRITIC_ONLY' if passed else 'RED_SOURCE_CRITIC_HOLD'}
+          pathlib.Path(os.environ['RECEIPT_FILE']).write_text(json.dumps(doc,sort_keys=True,indent=2)+'\n')
+          print('R009_BATCH_INDEPENDENT_LANE_RESULT',json.dumps(doc,sort_keys=True))
+          if not passed:raise SystemExit('SOURCE_CRITIC_TESTS_OR_MIN_COUNT_FAILED')
+          PY
+      - name: Publish bounded source-only receipt (never original meshes, model or private media)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: r009-source-critic-${{ matrix.lane }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/r009-lane-receipt.json
+            ${{ runner.temp }}/r009-lane-unit.log
+          retention-days: 3
+          if-no-files-found: ignore
