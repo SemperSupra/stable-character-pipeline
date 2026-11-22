@@ -194,7 +194,8 @@
             "bounded_history_full",
             "operation_id_reused_with_different_payload",
             "host_observation_requires_trusted_adapter",
-            "user_command_requires_submit"
+            "user_command_requires_submit",
+            "emergency_untracked"
           ]
         },
         "state": {
