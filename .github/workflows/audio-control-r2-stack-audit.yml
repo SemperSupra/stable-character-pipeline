@@ -1,0 +1,21 @@
+name: Audio Control R2 cross-actor read-only Git merge qualification
+on:
+  pull_request:
+    paths:
+      - 'scripts/audio-control-audit/check_r2_graph.sh'
+      - '.github/workflows/audio-control-r2-stack-audit.yml'
+      - 'docs/architecture/AUDIO-CONTROL-R2-REVIEW.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-exact-parent-child-source-graph:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Simulate R2 and local-actor stacks without any remote mutation
+        run: bash scripts/audio-control-audit/check_r2_graph.sh
