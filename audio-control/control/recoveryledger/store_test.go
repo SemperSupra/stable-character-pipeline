@@ -34,27 +34,27 @@ func TestRestartDisablesDuplicateStartAndRequestsHostReconciliation(t *testing.T
   t.Fatalf("operation ID collision admitted: %v",e)
  }
 }
-func TestObservedStopRequiresOriginalIntentAndKeepsOriginalReceipt(t *testing.T){
+func TestUnverifiedStopClaimRequiresActualHostReconciliation(t *testing.T){
  root:=filepath.Join(t.TempDir(),"ledger")
  s:=mustStore(t,root);i:=example()
- if _,e:=s.RecordHostStopped(i,digest("host stop"));e==nil{
+ if _,e:=s.RecordUnverifiedStopClaim(i,digest("host stop"));e==nil{
   t.Fatal("stopped receipt without original intent accepted")
  }
  if _,e:=s.AdmitStart(i);e!=nil{t.Fatal(e)}
- first,e:=s.RecordHostStopped(i,digest("host stop"))
+ first,e:=s.RecordUnverifiedStopClaim(i,digest("host stop"))
  if e!=nil||!first{t.Fatalf("first stop receipt: %v %v",first,e)}
  restarted:=mustStore(t,root)
  state:=restarted.Recover(i)
- if state.Kind!="observed_stopped"||state.RequiresHostReconcile||state.MayIssueStart{
-  t.Fatalf("confirmed stop lost: %+v",state)
+ if state.Kind!="unverified_stop_claim"||!state.RequiresHostReconcile||state.MayIssueStart{
+  t.Fatalf("unverified stop claim falsely trusted or lost: %+v",state)
  }
- again,e:=restarted.RecordHostStopped(i,digest("host stop"))
+ again,e:=restarted.RecordUnverifiedStopClaim(i,digest("host stop"))
  if e!=nil||again{t.Fatalf("same stop not deduplicated: %v %v",again,e)}
- if _,e:=restarted.RecordHostStopped(i,digest("other host record"));!errors.Is(e,ErrConflict){
+ if _,e:=restarted.RecordUnverifiedStopClaim(i,digest("other host record"));!errors.Is(e,ErrConflict){
   t.Fatalf("host stop evidence substitution accepted: %v",e)
  }
  if _,e:=restarted.AdmitStart(i);!errors.Is(e,ErrConflict){
-  t.Fatalf("restarted after confirmed STOP: %v",e)
+  t.Fatalf("restarted after unverified STOP claim: %v",e)
  }
 }
 func TestTruncatedPendingAndSpoofedHostObservationFailClosed(t *testing.T){
