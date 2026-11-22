@@ -105,7 +105,7 @@ func TestStopGenerationOverflowFailsClosedUntilNewLease(t *testing.T){
  if e:=g.RecoverUnknown(b);e!=nil{t.Fatal(e)}
  effect:=g.Stop()
  if effect.Kind!="discover_then_stop"||g.Phase()!=Unknown{t.Fatalf("overflow did not fail closed: %+v phase=%s",effect,g.Phase())}
- ack:=obs("stopped",b);ack.StopGeneration:^uint64(0)
+ ack:=obs("stopped",b);ack.StopGeneration = ^uint64(0)
  if _,e:=g.Observe(ack);!errors.Is(e,ErrUnverified)||g.Phase()!=Unknown{t.Fatalf("exhausted generation accepted stale ACK: %v phase=%s",e,g.Phase())}
  recovered:=b;recovered.LeaseID="lease_2";recovered.StopGeneration=0
  recoveredGate,_:=New(v)
