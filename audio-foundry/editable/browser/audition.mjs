@@ -39,6 +39,7 @@ export function mountAudition(root = document.getElementById('audition')) {
   let state = createAuditionState();
   let generation = 0;
   let activePreparation = null;
+  let groupStarting = false;
   const say = text => { status.textContent = text; };
   function invalidatePlayback() {
     generation += 1;
@@ -89,13 +90,18 @@ export function mountAudition(root = document.getElementById('audition')) {
       if (thisGeneration !== generation) return;
       activePreparation = null;
       // Start all ready players in one task after every source has sought to zero.
+      groupStarting = true;
       const results = await Promise.allSettled(entries.map(audio => audio.play()));
+      groupStarting = false;
       if (thisGeneration !== generation) return;
       const rejected = results.some(result => result.status === 'rejected');
       if (rejected) { stopAll(true); say('Playback was blocked. Use the audio player controls or check browser permission.'); return; }
       state = { ...state, playing: true };
       say(`Playing Group ${group} from time zero. Browser scheduling may vary; perception and device acceptance are not recorded.`);
     } catch (error) {
+      controller.abort();
+      if (activePreparation === controller) activePreparation = null;
+      groupStarting = false;
       if (thisGeneration !== generation) return;
       stopAll(true);
       say(error?.name === 'AbortError' ? 'Playback preparation cancelled.' : 'A stem could not be loaded or positioned. Check the local audio files.');
@@ -121,7 +127,10 @@ export function mountAudition(root = document.getElementById('audition')) {
       audio.src = track.url; audio.preload = 'metadata'; audio.controls = true;
       audio.setAttribute('aria-label', `Local preview: ${track.name}`);
       audio.addEventListener('play', () => {
-        // Manual player play is allowed; align sibling tracks only when the group buttons are used.
+        if (!groupStarting) {
+          invalidatePlayback();
+          for (const sibling of players.values()) if (sibling !== audio) sibling.pause();
+        }
         state = { ...state, playing: true };
       });
       audio.addEventListener('ended', () => {
