@@ -120,9 +120,14 @@ func (s *Store)AdmitStart(i Intent)(bool,error){
   return false,ErrCorrupt
  }else if !errors.Is(e,os.ErrNotExist){return false,e}
  if _,e:=os.Lstat(pending);e==nil{
-  state:=s.Recover(i)
-  if state.Kind=="unknown_pending"{return false,nil}
-  return false,ErrCorrupt
+  raw,readErr:=readProtected(pending)
+  if readErr!=nil{return false,ErrCorrupt}
+  var prior Intent
+  if json.Unmarshal(raw,&prior)!=nil||prior.validate()!=nil{return false,ErrCorrupt}
+  encoded,_:=canonical(prior)
+  if !bytes.Equal(raw,encoded){return false,ErrCorrupt}
+  if prior==i{return false,nil}
+  return false,ErrConflict
  }else if !errors.Is(e,os.ErrNotExist){return false,e}
  b,e:=canonical(i);if e!=nil{return false,e}
  return writeOnce(pending,b)
