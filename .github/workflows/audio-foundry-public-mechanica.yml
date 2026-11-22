@@ -1,0 +1,57 @@
+name: Audio Foundry mechanica public synthetic scene
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/demos/public-scene-mechanica/**'
+      - '.github/workflows/audio-foundry-public-mechanica.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/go.mod
+          cache: false
+      - name: Install required public CPU tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg python3
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -version
+          ffprobe -version
+      - name: Render synthetic scene and verify every stem
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/mechanica-public-scene"
+          bash audio-foundry/demos/public-scene-mechanica/build.sh "$out"
+          echo 'canonical scene_audio.v1 render receipt:'
+          cat "$out/render_receipt.json"
+          echo 'per-asset codec, signal-level and hash receipt:'
+          cat "$out/receipt.json"
+          test "$(find "$out/stems" -name '*.wav' -type f | wc -l)" -eq 6
+          python3 - "$out/receipt.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          assert r["status"]=="per_stem_technical_signal_check_passed"
+          assert r["perceptual_acceptance"]=="NOT_TESTED"
+          assert r["real_device_acceptance"]=="NOT_TESTED"
+          assert r["classification"]=="PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL"
+          assert len([x for x in r["assets"] if x["path"].startswith("stems/")])==6
+          print("public_mechanica_ci_receipt_PASS")
+          PY
+          if find "$out" -name '*.log' -type f | grep -q .; then
+            echo "::error::unexpected log artifact"
+            exit 1
+          fi
