@@ -1,0 +1,48 @@
+name: Audio Foundry tropical public synthetic scene
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/demos/public-scene-tropical/**'
+      - '.github/workflows/audio-foundry-public-tropical.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install required public CPU tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg python3
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -version
+          ffprobe -version
+      - name: Render original synthetic tropical scene and verify all stems
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/tropical-public-scene"
+          bash audio-foundry/demos/public-scene-tropical/build.sh "$out"
+          test "$(find "$out/stems" -name '*.wav' -type f | wc -l)" -eq 6
+          python3 - "$out/receipt.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1]))
+          assert r["status"]=="technical_signal_check_passed"
+          assert r["perceptual_acceptance"]=="NOT_TESTED"
+          assert r["real_device_acceptance"]=="NOT_TESTED"
+          assert len([x for x in r["assets"] if x["path"].startswith("stems/")])==6
+          print("public_tropical_ci_receipt_PASS")
+          PY
+          if find "$out" -name '*.log' -type f | grep -q .; then
+            echo "::error::unexpected log artifact"
+            exit 1
+          fi
