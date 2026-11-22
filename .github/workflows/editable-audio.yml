@@ -38,7 +38,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Exercise audition in Chromium with axe-core
         working-directory: audio-foundry/editable
-        run: node browser/audition.browser.test.mjs
+        run: node browser/audition.browser.mjs
       - name: Verify immutable source edits, interchange, stems and mix
         shell: bash
         run: |
