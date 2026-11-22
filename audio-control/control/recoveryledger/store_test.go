@@ -94,3 +94,14 @@ func TestSymlinkSubstitutionCannotImpersonateJournal(t *testing.T){
   t.Fatalf("symlink journal trusted: %+v",got)
  }
 }
+
+func TestJournalRootSymlinkRefused(t *testing.T){
+ parent:=t.TempDir()
+ real:=filepath.Join(parent,"real")
+ if err:=os.Mkdir(real,0700);err!=nil{t.Fatal(err)}
+ link:=filepath.Join(parent,"link")
+ if err:=os.Symlink(real,link);err!=nil{t.Skip("symlink privilege unavailable: "+err.Error())}
+ if _,err:=NewStore(link);!errors.Is(err,ErrInvalid){
+  t.Fatalf("journal root symlink admitted: %v",err)
+ }
+}
