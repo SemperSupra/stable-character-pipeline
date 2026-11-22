@@ -155,13 +155,34 @@ func toID(n int)string{
  for n>0{i--;b[i]=byte('0'+n%10);n/=10}
  return string(b[i:])
 }
-func TestLedgerFullFailsClosed(t *testing.T){
+func TestLedgerFullPreservesEmergencyStopAndHostAcknowledgment(t *testing.T){
  m:=setup(t)
- for i:=0;i<maxRemembered;i++ {
-  apply(m,cmd("unique"+toID(i),Close,0,0))
+ configure(t,m);start(t,m)
+ for i:=0;i<maxRemembered-2;i++ {
+  apply(m,cmd("unique"+toID(i),Close,1,0))
  }
- r:=apply(m,cmd("overflow",Stop,0,0))
- if r.Receipt.Status!="bounded_history_full"||r.Receipt.State!=New{
-  t.Fatalf("silent dedupe eviction or effect: %+v",r)
+ if len(m.seen)!=maxRemembered {t.Fatalf("ledger not saturated: %d",len(m.seen))}
+ if r:=apply(m,cmd("over-cap-start",RequestStart,2,0));r.Receipt.Status!="bounded_history_full"{
+  t.Fatalf("ledger admitted noncritical work: %+v",r)
+ }
+ stop:=apply(m,cmd("overflow-stop",Stop,0,0))
+ if stop.Receipt.Status!="emergency_untracked"||stop.Receipt.State!=StopPending||
+  len(stop.Dispatch)!=1||stop.Dispatch[0].Kind!="host_stop_now"{
+  t.Fatalf("emergency STOP lost at ledger cap: %+v",stop)
+ }
+ late:=apply(m,cmd("late-start-when-full",HostStarted,0,1))
+ if late.Receipt.State!=StopPending||len(late.Dispatch)!=1||late.Dispatch[0].Kind!="host_stop_now"{
+  t.Fatalf("late start after capped STOP resurrected playback: %+v",late)
+ }
+ done:=apply(m,cmd("stopped-when-full",HostStopped,0,1))
+ if done.Receipt.State!=Stopped||done.Receipt.Status!="emergency_untracked"{
+  t.Fatalf("ledger blocked observed hardware STOP: %+v",done)
+ }
+ if len(m.seen)!=maxRemembered{t.Fatal("emergency recovery grew bounded ledger")}
+ // In a ledger-full emergency, replay receipts cannot be promised; all
+ // physical STOP effects are convergent and the degraded status is explicit.
+ again:=apply(m,cmd("overflow-stop",Stop,0,0))
+ if again.Receipt.State!=Stopped||again.Receipt.Status!="emergency_untracked"{
+  t.Fatalf("repeated STOP in degraded mode was not fail-safe: %+v",again)
  }
 }
