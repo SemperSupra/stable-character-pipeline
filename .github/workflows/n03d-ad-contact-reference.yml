@@ -1,7 +1,7 @@
 name: N03D AD contact-state reference and independent synthetic physics
 on:
   push:
-    branches: [research/n03d-ad-contact-reference-20261120]
+    branches: [research/n03d-ad-contact-reference-20261120, review/r009-n03d-ad-edge-teleport-20261122]
     paths:
       - 'research/n03d-ad-contact-reference/**'
       - '.github/workflows/n03d-ad-contact-reference.yml'

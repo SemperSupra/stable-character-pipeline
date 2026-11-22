@@ -41,6 +41,24 @@ class Reference(unittest.TestCase):
     def test_unknown_is_not_pass(self):
         d=synthetic();d["rows"][16]["state"]="UNKNOWN"
         with self.assertRaisesRegex(ValueError,"UNKNOWN_NO_GROUND_TRUTH"):assess(d)
+    def test_cross_phase_toeoff_teleport_is_rejected(self):
+        # Preserve within-phase geometry, IK lengths and ground support but
+        # inject a full-body +1m jump precisely on TOE -> SWING. The old
+        # same-phase-only slip oracle incorrectly accepted this mutation.
+        d=synthetic()
+        for row in d["rows"][36:]:
+            for key in ("heel_xy_m","toe_xy_m","hip_xy_m","knee_xy_m"):
+                row[key][0]+=1.0
+        result=assess(d)
+        self.assertEqual(result["reference_result"],"FAIL",result)
+        self.assertIn("FOOT_EDGE_TELEPORT",result["violations"],result)
+        self.assertGreater(result["max_foot_edge_mps"],50.0)
+
+    def test_normal_phase_boundaries_are_continuous(self):
+        result=assess(synthetic())
+        self.assertEqual(result["reference_result"],"PASS_NARROW",result)
+        self.assertLess(result["max_foot_edge_mps"],5.0)
+
     def test_timebase(self):
         d=synthetic();d["rows"][23]["time_s"]+=.01
         with self.assertRaisesRegex(ValueError,"CLOCK"):assess(d)
