@@ -36,6 +36,7 @@ const (
 )
 type Command struct {
  SchemaVersion string `json:"schema_version"`
+ PrincipalID string `json:"principal_id"`
  SessionID string `json:"session_id"`
  TargetID string `json:"target_id"`
  OperationID string `json:"operation_id"`
@@ -120,8 +121,9 @@ func (m *Machine) apply(c Command)Outcome{
  reply:=func() Outcome {
   return Outcome{Receipt:Receipt{Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch}}
  }
- if c.SchemaVersion!=ProtocolVersion||!validID(c.OperationID)||c.SessionID!=m.sessionID||c.TargetID!=m.targetID{return reply()}
- if old,ok:=m.seen[c.OperationID];ok{
+ if c.SchemaVersion!=ProtocolVersion||!validID(c.PrincipalID)||!validID(c.OperationID)||c.SessionID!=m.sessionID||c.TargetID!=m.targetID{return reply()}
+ scopedOpKey:=c.PrincipalID+"|"+c.OperationID
+ if old,ok:=m.seen[scopedOpKey];ok{
   if old.cmd!=c {status="operation_id_reused_with_different_payload";return reply()}
   return Outcome{Receipt:old.receipt,Replayed:true}
  }
@@ -129,7 +131,7 @@ func (m *Machine) apply(c Command)Outcome{
  effects:=[]Effect{}
  record:=func()Outcome{
   receipt:=Receipt{SchemaVersion:ReceiptVersion,Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch,Effects:effects}
-  m.seen[c.OperationID]=entry{cmd:c,receipt:receipt}
+  m.seen[scopedOpKey]=entry{cmd:c,receipt:receipt}
   return Outcome{Receipt:receipt,Dispatch:effects}
  }
  hostEvent:=isHostEvent(c.Action)
