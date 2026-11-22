@@ -50,6 +50,26 @@ class TrueNativeShoeMetrics(unittest.TestCase):
         self.assertAlmostEqual(r["max_actual_geometry_penetration_m"],0.025)
         self.assertFalse(r["physical_contact_accepted"])
 
+    def test_actual_peak_frame_is_not_hidden_by_clip_maximum(self):
+        x=fixture()
+        for row in x[100:]:
+            row["heel_xy"][0]+=1.0
+            row["ball_xy"][0]+=1.0
+        result=analyze(x)
+        self.assertEqual(result["max_heel_speed_destination_frame"],100)
+        self.assertEqual(result["max_ball_speed_destination_frame"],100)
+        self.assertEqual(result["max_heel_near_ground_destination_frame"],100)
+        self.assertEqual(result["max_ball_near_ground_destination_frame"],100)
+        self.assertEqual(result["max_heel_speed_signed_xy_delta_m"],[1.0,0.0])
+        self.assertEqual(result["max_ball_speed_signed_xy_delta_m"],[1.0,0.0])
+
+    def test_minimum_actual_geometry_penetration_frame(self):
+        x=fixture()
+        x[160]["world_shoe_side_min_z"]=-0.025
+        result=analyze(x)
+        self.assertEqual(result["min_world_shoe_z_frame"],160)
+        self.assertEqual(result["max_actual_geometry_penetration_m"],0.025)
+
     def test_false_356_frames_rejected(self):
         with self.assertRaisesRegex(ValueError,"SOURCE_60HZ_NOT_360"):
             analyze(fixture()[:-4])
