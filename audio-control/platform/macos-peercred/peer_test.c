@@ -43,6 +43,10 @@ int main(void) {
         // Self-asserted privilege and fake process ID MUST NOT be trusted.
         const char message[]="{\"host_authorized\":true,\"pid\":987654321,\"uid\":0}\n";
         if(write(client,message,sizeof(message)-1)!=(ssize_t)(sizeof(message)-1))_exit(33);
+        // Keep the AF_UNIX session alive until the host reads OS-issued
+        // peer credentials; otherwise LOCAL_PEERPID can fail with ENOTCONN.
+        char ack=0;
+        if(read(client,&ack,1)!=1||ack!='K')_exit(34);
         close(client);
         _exit(0);
     }
@@ -61,6 +65,8 @@ int main(void) {
     char message[128]={0};
     ssize_t n=read(peer,message,sizeof(message)-1);
     must(n>0&&strstr(message,"987654321")!=NULL,"forged JSON received only as untrusted data");
+    const char ack='K';
+    must(write(peer,&ack,1)==1,"acknowledge after credential verification");
     int status=0;
     must(waitpid(child,&status,0)==child&&WIFEXITED(status)&&WEXITSTATUS(status)==0,"child exited cleanly");
     close(peer);close(server);
