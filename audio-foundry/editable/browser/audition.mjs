@@ -44,7 +44,7 @@ export function mountAudition(root = document.getElementById('audition')) {
   let state = createAuditionState();
   let generation = 0;
   let activePreparation = null;
-  let groupStarting = false;
+  const groupPlayGeneration = new WeakMap();
   const say = text => { status.textContent = text; };
   function invalidatePlayback() {
     generation += 1;
@@ -100,9 +100,8 @@ export function mountAudition(root = document.getElementById('audition')) {
       if (thisGeneration !== generation) return;
       activePreparation = null;
       // Start all ready players in one task after every source has sought to zero.
-      groupStarting = true;
+      for (const audio of entries) groupPlayGeneration.set(audio, thisGeneration);
       const results = await Promise.allSettled(entries.map(audio => audio.play()));
-      groupStarting = false;
       if (thisGeneration !== generation) return;
       const rejected = results.some(result => result.status === 'rejected');
       if (rejected) { stopAll(true); say('Playback was blocked. Use the audio player controls or check browser permission.'); return; }
@@ -111,7 +110,6 @@ export function mountAudition(root = document.getElementById('audition')) {
     } catch (error) {
       controller.abort();
       if (activePreparation === controller) activePreparation = null;
-      groupStarting = false;
       if (thisGeneration !== generation) return;
       stopAll(true);
       say(error?.name === 'AbortError' ? 'Playback preparation cancelled.' : 'A stem could not be loaded or positioned. Check the local audio files.');
@@ -137,13 +135,17 @@ export function mountAudition(root = document.getElementById('audition')) {
       audio.src = track.url; audio.preload = 'metadata'; audio.controls = true;
       audio.setAttribute('aria-label', `Local preview: ${track.name}`);
       audio.addEventListener('play', () => {
-        if (!groupStarting) {
+        if (groupPlayGeneration.get(audio) === generation) {
+          groupPlayGeneration.delete(audio);
+        } else {
           invalidatePlayback();
           for (const sibling of players.values()) if (sibling !== audio) sibling.pause();
         }
         state = { ...state, playing: true };
       });
+      audio.addEventListener('pause', () => groupPlayGeneration.delete(audio));
       audio.addEventListener('ended', () => {
+        groupPlayGeneration.delete(audio);
         if (![...players.values()].some(entry => !entry.paused)) state = { ...state, playing: false };
       });
       const row = document.createElement('div'); row.className = 'stem-row'; row.setAttribute('role', 'listitem'); row.dataset.trackId = track.id;
