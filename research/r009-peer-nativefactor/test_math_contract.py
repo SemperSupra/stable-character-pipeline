@@ -6,8 +6,10 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).parent))
 from math_contract import step_metric,summarize_channels
 
+class Co:
+    def __init__(self,x,y):self.x=x;self.y=y
 class Key:
-    def __init__(self,x,y):self.co=(x,y)
+    def __init__(self,x,y):self.co=Co(x,y)
 class Curve:
     def __init__(self,i,ys):
         self.data_path='pose.bones["foot.L"].location'
@@ -52,7 +54,7 @@ class NativeKeyFactor(unittest.TestCase):
 
     def test_action_nonfinite_must_fail(self):
         curves=[Curve(i,[0,0,0]) for i in range(12)]
-        curves[0].keyframe_points[1].co=(1,math.nan)
+        curves[0].keyframe_points[1].co.y=math.nan
         with self.assertRaisesRegex(ValueError,"NONFINITE"):
             summarize_channels(curves)
 
