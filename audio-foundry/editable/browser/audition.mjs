@@ -2,7 +2,7 @@
 export const PUBLIC_CLASSIFICATION = 'PUBLIC_SYNTHETIC_CANDIDATE_NOT_FINAL';
 export function validateAudioFiles(files) {
   if (files.length > 32) return 'Load at most 32 stems at once.';
-  if (files.some(file => !file.type.startsWith('audio/') && !/\\.(wav|m4a|mp3|ogg|flac)$/i.test(file.name))) return 'Choose audio stem files only.';
+  if (files.some(file => !file.type.startsWith('audio/') && !/\.(wav|m4a|mp3|ogg|flac)$/i.test(file.name))) return 'Choose audio stem files only.';
   return null;
 }
 export function createAuditionState(files = []) {
