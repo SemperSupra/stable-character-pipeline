@@ -72,8 +72,8 @@ static class Program
         Require(!string.IsNullOrWhiteSpace(kernelSid), "missing impersonated client SID");
         Require(kernelSid != "S-1-5-18", "forged SYSTEM sid must not control host authority");
         using var reader = new StreamReader(server);
-        var message = await reader.ReadLineAsync(cts.Token);
-        Require(message != null, "no child JSON payload");
+        var message = await reader.ReadLineAsync(cts.Token)
+            ?? throw new InvalidOperationException("no child JSON payload");
         using var document = JsonDocument.Parse(message);
         Require(document.RootElement.GetProperty("pid").GetInt64() == 987654321,
             "negative fixture missing forged process ID");
