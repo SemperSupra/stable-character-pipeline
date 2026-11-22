@@ -88,6 +88,11 @@ try {
   assert.deepEqual(await players.evaluateAll(list => list.map(player => player.currentTime<0.5)),[true,true],
     'Group B playback did not reset its assigned stem near time zero');
 
+  await page.getByRole('button',{name:'Preview stem: synthetic_motor.wav'}).click();
+  await page.getByText(/Playing synthetic_motor.wav from time zero/).waitFor();
+  assert.deepEqual(await players.evaluateAll(list => list.map(player => !player.paused)),[true,false],
+    'single-stem preview did not isolate the selected file');
+
   const firstSolo=page.locator('.stem-row').first().getByRole('button',{name:'Solo'});
   await firstSolo.focus();
   await page.keyboard.press('Space');
