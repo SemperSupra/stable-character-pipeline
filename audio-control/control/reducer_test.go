@@ -1,0 +1,188 @@
+package control
+
+import (
+ "encoding/json"
+ "math/rand"
+ "reflect"
+ "strings"
+ "testing"
+)
+func setup(t *testing.T)*Machine{
+ t.Helper()
+ m,e:=NewMachine("session.synthetic","target.synthetic")
+ if e!=nil{t.Fatal(e)}
+ return m
+}
+func apply(m *Machine,c Command)Outcome{
+ if isHostEvent(c.Action){return m.ObserveHost(c)}
+ return m.Submit(c)
+}
+func TestPrincipalScopedIdempotency(t *testing.T){
+ m:=setup(t)
+ a:=cmd("shared-id",Configure,0,0);a.ConfigDigest=Digest([]byte("one"))
+ if r:=m.Submit(a);r.Receipt.Status!="accepted"{t.Fatalf("baseline: %+v",r)}
+ b:=cmd("shared-id",Configure,0,0)
+ b.PrincipalID="different.host.bound.principal"
+ b.ConfigDigest=Digest([]byte("another"))
+ got:=m.Submit(b)
+ if got.Receipt.Status=="operation_id_reused_with_different_payload"{
+  t.Fatal("different authenticated principals collided in replay ledger")
+ }
+ if got.Receipt.State!=Configured||got.Receipt.Status!="stale_revision"{
+  t.Fatalf("scope and revision not enforced: %+v",got)
+ }
+}
+func TestPortableJSONContract(t *testing.T){
+ m:=setup(t)
+ c:=cmd("portable",Configure,0,0)
+ c.ConfigDigest=Digest([]byte("fixture"))
+ b,err:=json.Marshal(c);if err!=nil{t.Fatal(err)}
+ if !strings.Contains(string(b),`"schema_version":"audio_control.r0"`)||
+   !strings.Contains(string(b),`"operation_id":"portable"`){
+  t.Fatalf("unexpected public JSON command: %s",b)
+ }
+ o:=m.Submit(c)
+ receipt,err:=json.Marshal(o.Receipt);if err!=nil{t.Fatal(err)}
+ if !strings.Contains(string(receipt),`"schema_version":"audio_control.receipt.r0"`)||
+  !strings.Contains(string(receipt),`"state":"configured"`){
+  t.Fatalf("unexpected JSON receipt: %s",receipt)
+ }
+ wrong:=cmd("unversioned",RequestStart,m.Snapshot().Revision,0)
+ wrong.SchemaVersion=""
+ if got:=m.Submit(wrong);got.Receipt.Status!="rejected"||got.Receipt.State!=Configured{
+  t.Fatalf("unversioned command accepted: %+v",got)
+ }
+}
+func TestRejectForgedHostIngress(t *testing.T){
+ m:=setup(t)
+ attempt:=cmd("forged-start",HostStarted,0,1)
+ got:=m.Submit(attempt)
+ if got.Receipt.Status!="host_observation_requires_trusted_adapter"{
+  t.Fatalf("host observation admitted via untrusted command: %+v",got)
+ }
+ if got:=m.ObserveHost(cmd("wrong-way",RequestStart,0,0));got.Receipt.Status!="user_command_requires_submit"{
+  t.Fatalf("user command admitted through host observation path: %+v",got)
+ }
+ if m.Snapshot().Revision!=0 || m.Snapshot().State!=New{t.Fatal("invalid ingress mutated state")}
+}
+func cmd(id string,a Action,rev,epoch uint64)Command{
+ return Command{SchemaVersion:ProtocolVersion,PrincipalID:"principal.synthetic",SessionID:"session.synthetic",TargetID:"target.synthetic",
+ OperationID:id,Action:a,ExpectedRevision:rev,Epoch:epoch}
+}
+func configure(t *testing.T,m *Machine) {
+ t.Helper()
+ c:=cmd("cfg",Configure,0,0)
+ c.ConfigDigest=Digest([]byte("synthetic-no-audio"))
+ o:=apply(m,c)
+ if o.Receipt.State!=Configured||o.Receipt.Revision!=1||len(o.Dispatch)!=0{
+  t.Fatalf("configure: %+v",o)
+ }
+}
+func start(t *testing.T,m *Machine)Outcome{
+ t.Helper()
+ r:=apply(m,cmd("start",RequestStart,1,0))
+ if r.Receipt.State!=StartPending||r.Receipt.Epoch!=1||
+ len(r.Dispatch)!=1||r.Dispatch[0].Kind!="host_authorize_then_start"{t.Fatalf("start: %+v",r)}
+ return r
+}
+func TestStopDominatesLateHostStart(t *testing.T){
+ m:=setup(t);configure(t,m);first:=start(t,m)
+ stop:=apply(m,cmd("stop",Stop,0,0)) // Must bypass stale revision.
+ if stop.Receipt.State!=StopPending||stop.Receipt.Revision!=3||
+ len(stop.Dispatch)!=1||stop.Dispatch[0].Kind!="host_stop_now"{t.Fatalf("stop: %+v",stop)}
+ replay:=apply(m,cmd("stop",Stop,0,0))
+ if !replay.Replayed||len(replay.Dispatch)!=0||!reflect.DeepEqual(stop.Receipt,replay.Receipt){
+  t.Fatalf("duplicate stop redispatched or changed receipt: %+v",replay)
+ }
+ late:=apply(m,cmd("host-start",HostStarted,0,1))
+ if late.Receipt.State!=StopPending||late.Receipt.Status!="ignored_late_start"||
+ len(late.Dispatch)!=1||late.Dispatch[0].Kind!="host_stop_now"{
+  t.Fatalf("late host start revived output: %+v",late)
+ }
+ ended:=apply(m,cmd("host-stop",HostStopped,0,1))
+ if ended.Receipt.State!=Stopped||ended.Receipt.Revision!=4{t.Fatalf("host stopped: %+v",ended)}
+ if got:=apply(m,cmd("second-start",RequestStart,4,0));got.Receipt.Status=="accepted"{
+  t.Fatal("terminal STOP allowed restart without new session")
+ }
+ if got:=apply(m,cmd("close",Close,4,0));got.Receipt.State!=Closed{t.Fatal("close terminal failed")}
+ if first.Receipt.Epoch!=1{t.Fatal("start epoch lost")}
+}
+func TestStartObservationAndCompletion(t *testing.T){
+ m:=setup(t);configure(t,m);start(t,m)
+ started:=apply(m,cmd("host-start",HostStarted,0,1))
+ if started.Receipt.State!=Active||started.Receipt.Revision!=3{t.Fatalf("host start: %+v",started)}
+ completed:=apply(m,cmd("host-completed",HostCompleted,0,1))
+ if completed.Receipt.State!=Completed||completed.Receipt.Revision!=4{t.Fatalf("host EOS: %+v",completed)}
+ if r:=apply(m,cmd("stop",Stop,0,0));r.Receipt.State!=Completed||len(r.Dispatch)!=0{t.Fatalf("stop post EOS: %+v",r)}
+}
+func TestIdempotencyConflictStaleAndScope(t *testing.T){
+ m:=setup(t);configure(t,m)
+ original:=apply(m,cmd("start",RequestStart,1,0))
+ if x:=apply(m,cmd("start",RequestStart,1,0));!x.Replayed||len(x.Dispatch)!=0||
+  !reflect.DeepEqual(x.Receipt,original.Receipt){t.Fatalf("replay: %+v",x)}
+ collision:=cmd("start",RequestStart,1,0);collision.TargetID="other"
+ // Scope rejection takes precedence and does not reveal another session's receipt.
+ if x:=apply(m,collision);x.Receipt.Status!="rejected"{t.Fatal("cross-target not rejected")}
+ collision=cmd("start",RequestStart,999,0)
+ if x:=apply(m,collision);x.Receipt.Status!="operation_id_reused_with_different_payload"{t.Fatal("same ID altered payload accepted")}
+ if x:=apply(m,cmd("stale",Close,1,0));x.Receipt.Status!="stale_revision"{t.Fatal("stale revision accepted")}
+ if x:=apply(m,cmd("stale-host",HostStarted,0,99));x.Receipt.Status!="stale_epoch"{t.Fatal("stale host epoch accepted")}
+ if x:=apply(m,cmd("same-host-start",HostStarted,0,1));x.Receipt.State!=Active{t.Fatal("valid host observation rejected")}
+ if x:=apply(m,cmd("stop",Stop,0,0));x.Receipt.State!=StopPending{t.Fatal("STOP could not override stale revision")}
+}
+func TestBoundedHistoryAndAdversarialTrace(t *testing.T){
+ m:=setup(t);configure(t,m);start(t,m)
+ r:=rand.New(rand.NewSource(20261122))
+ actions:=[]Action{RequestStart,Stop,HostStarted,HostStopped,HostCompleted,HostFailed,Close,Configure}
+ wasStopped:=false
+ prevRev:=m.Snapshot().Revision
+ for i:=0;i<300;i++ {
+  a:=actions[r.Intn(len(actions))]
+  id:="rnd"+toID(i)
+  c:=cmd(id,a,m.Snapshot().Revision,m.Snapshot().Epoch)
+  if a==Configure{c.ConfigDigest=Digest([]byte("new"))}
+  v:=apply(m,c)
+  if v.Receipt.Revision<prevRev{t.Fatalf("non-monotonic revision at %d",i)}
+  prevRev=v.Receipt.Revision
+  if v.Receipt.State==StopPending||v.Receipt.State==Stopped{wasStopped=true}
+  if wasStopped&&v.Receipt.State==Active{t.Fatalf("STOP resurrection at %d",i)}
+ }
+ if _,err:=NewMachine("a/b","target");err==nil{t.Fatal("unvalidated ID")}
+}
+func toID(n int)string{
+ if n==0{return "0"}
+ var b [20]byte;i:=len(b)
+ for n>0{i--;b[i]=byte('0'+n%10);n/=10}
+ return string(b[i:])
+}
+func TestLedgerFullPreservesEmergencyStopAndHostAcknowledgment(t *testing.T){
+ m:=setup(t)
+ configure(t,m);start(t,m)
+ for i:=0;i<maxRemembered-2;i++ {
+  apply(m,cmd("unique"+toID(i),Close,1,0))
+ }
+ if len(m.seen)!=maxRemembered {t.Fatalf("ledger not saturated: %d",len(m.seen))}
+ if r:=apply(m,cmd("over-cap-start",RequestStart,2,0));r.Receipt.Status!="bounded_history_full"{
+  t.Fatalf("ledger admitted noncritical work: %+v",r)
+ }
+ stop:=apply(m,cmd("overflow-stop",Stop,0,0))
+ if stop.Receipt.Status!="emergency_untracked"||stop.Receipt.State!=StopPending||
+  len(stop.Dispatch)!=1||stop.Dispatch[0].Kind!="host_stop_now"{
+  t.Fatalf("emergency STOP lost at ledger cap: %+v",stop)
+ }
+ late:=apply(m,cmd("late-start-when-full",HostStarted,0,1))
+ if late.Receipt.State!=StopPending||len(late.Dispatch)!=1||late.Dispatch[0].Kind!="host_stop_now"{
+  t.Fatalf("late start after capped STOP resurrected playback: %+v",late)
+ }
+ done:=apply(m,cmd("stopped-when-full",HostStopped,0,1))
+ if done.Receipt.State!=Stopped||done.Receipt.Status!="emergency_untracked"{
+  t.Fatalf("ledger blocked observed hardware STOP: %+v",done)
+ }
+ if len(m.seen)!=maxRemembered{t.Fatal("emergency recovery grew bounded ledger")}
+ // In a ledger-full emergency, replay receipts cannot be promised; all
+ // physical STOP effects are convergent and the degraded status is explicit.
+ again:=apply(m,cmd("overflow-stop",Stop,0,0))
+ if again.Receipt.State!=Stopped||again.Receipt.Status!="emergency_untracked"{
+  t.Fatalf("repeated STOP in degraded mode was not fail-safe: %+v",again)
+ }
+}
