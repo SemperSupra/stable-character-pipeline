@@ -80,6 +80,7 @@ def assess(doc, gap=.002,slip=.08):
             isinstance(doc.get("rows"),list) and len(doc["rows"])==60,"TIMELINE")
     require(finite(gap,slip) and 0<gap<.05 and 0<slip<=1,"THRESHOLD")
     reasons=[];previous=None
+    max_foot_edge_mps=0.0
     summaries={"HEEL":[],"FLAT":[],"TOE":[],"SWING":[]}
     for i,row in enumerate(doc["rows"]):
         require(row.get("frame")==i and finite(row.get("time_s")) and abs(row["time_s"]-i/60)<1e-8,"CLOCK")
@@ -102,6 +103,16 @@ def assess(doc, gap=.002,slip=.08):
         if s=="FLAT" and (abs(heel[1])>gap or abs(toe[1])>gap):reasons.append("FLAT_NOT_PLANTED")
         if s=="TOE" and abs(toe[1])>gap:reasons.append("TOE_NOT_PLANTED")
         summaries[s].append(i)
+        # Observe every foot edge, INCLUDING contact phase boundaries. The
+        # same-phase stance-slide check below is necessary but insufficient:
+        # a controller can conceal a toe-off teleport in a state transition.
+        if i:
+            prior=doc["rows"][i-1]
+            for label in ("heel_xy_m","toe_xy_m"):
+                speed=math.dist(prior[label],row[label])*60.0
+                max_foot_edge_mps=max(max_foot_edge_mps,speed)
+                if speed>5.0:
+                    reasons.append("FOOT_EDGE_TELEPORT")
         if i and s==doc["rows"][i-1]["state"]:
             prev=doc["rows"][i-1]
             contact_labels={"HEEL":["heel_xy_m"],"FLAT":["heel_xy_m","toe_xy_m"],"TOE":["toe_xy_m"],"SWING":[]}
@@ -111,6 +122,7 @@ def assess(doc, gap=.002,slip=.08):
     return {"schema":"scp.n03d-ad.independent-analytic-critic.v1",
             "reference_result":"PASS_NARROW" if not reasons else "FAIL",
             "violations":sorted(set(reasons)),
+            "max_foot_edge_mps":round(max_foot_edge_mps,6),
             "state_counts":{k:len(v) for k,v in summaries.items()},
             "mvp_accepted":False,"native_footwear_accepted":False}
 
