@@ -1,0 +1,24 @@
+name: Audio control R0 portable contract vectors
+on:
+  pull_request:
+    paths:
+      - 'audio-control/contract/**'
+      - 'scripts/audio-control-contract/**'
+      - '.github/workflows/audio-control-r0-schema.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  jsonschema-2020-12:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Isolated schema-validation environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/audio-control-schema-venv"
+          "$RUNNER_TEMP/audio-control-schema-venv/bin/python" -m pip install --disable-pip-version-check jsonschema==4.25.1
+      - name: Qualify valid and negative protocol vectors
+        run: "$RUNNER_TEMP/audio-control-schema-venv/bin/python scripts/audio-control-contract/check_vectors.py"
