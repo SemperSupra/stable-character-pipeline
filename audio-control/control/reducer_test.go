@@ -17,6 +17,21 @@ func apply(m *Machine,c Command)Outcome{
  if isHostEvent(c.Action){return m.ObserveHost(c)}
  return m.Submit(c)
 }
+func TestPrincipalScopedIdempotency(t *testing.T){
+ m:=setup(t)
+ a:=cmd("shared-id",Configure,0,0);a.ConfigDigest=Digest([]byte("one"))
+ if r:=m.Submit(a);r.Receipt.Status!="accepted"{t.Fatalf("baseline: %+v",r)}
+ b:=cmd("shared-id",Configure,0,0)
+ b.PrincipalID="different.host.bound.principal"
+ b.ConfigDigest=Digest([]byte("another"))
+ got:=m.Submit(b)
+ if got.Receipt.Status=="operation_id_reused_with_different_payload"{
+  t.Fatal("different authenticated principals collided in replay ledger")
+ }
+ if got.Receipt.State!=Configured||got.Receipt.Status!="stale_revision"{
+  t.Fatalf("scope and revision not enforced: %+v",got)
+ }
+}
 func TestPortableJSONContract(t *testing.T){
  m:=setup(t)
  c:=cmd("portable",Configure,0,0)
@@ -51,7 +66,7 @@ func TestRejectForgedHostIngress(t *testing.T){
  if m.Snapshot().Revision!=0 || m.Snapshot().State!=New{t.Fatal("invalid ingress mutated state")}
 }
 func cmd(id string,a Action,rev,epoch uint64)Command{
- return Command{SchemaVersion:ProtocolVersion,SessionID:"session.synthetic",TargetID:"target.synthetic",
+ return Command{SchemaVersion:ProtocolVersion,PrincipalID:"principal.synthetic",SessionID:"session.synthetic",TargetID:"target.synthetic",
  OperationID:id,Action:a,ExpectedRevision:rev,Epoch:epoch}
 }
 func configure(t *testing.T,m *Machine) {
