@@ -89,7 +89,27 @@ func Digest(b []byte)string{sum:=sha256.Sum256(b);return hex.EncodeToString(sum[
 func (m *Machine) Snapshot()Receipt{
  return Receipt{Status:"observed",State:m.state,Revision:m.revision,Epoch:m.epoch}
 }
-func (m *Machine) Apply(c Command)Outcome{
+// Submit is the untrusted human/automation/agent command ingress. It cannot
+// claim that audio began, ended or failed; only a verified host adapter may
+// call ObserveHost, and that authorization MUST be enforced at the process
+// boundary (the Go type system is not an authentication authority).
+func (m *Machine) Submit(c Command)Outcome{
+ if isHostEvent(c.Action){return m.routeRejected("host_observation_requires_trusted_adapter")}
+ return m.apply(c)
+}
+// ObserveHost is for authenticated local adapter observations, never published
+// as a user, network, CLI or agent invocation without host verification.
+func (m *Machine) ObserveHost(c Command)Outcome{
+ if !isHostEvent(c.Action){return m.routeRejected("user_command_requires_submit")}
+ return m.apply(c)
+}
+func isHostEvent(a Action)bool{
+ return a==HostStarted||a==HostStopped||a==HostCompleted||a==HostFailed
+}
+func (m *Machine) routeRejected(status string)Outcome{
+ return Outcome{Receipt:Receipt{Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch}}
+}
+func (m *Machine) apply(c Command)Outcome{
  status:="rejected"
  reply:=func() Outcome {
   return Outcome{Receipt:Receipt{Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch}}
@@ -106,7 +126,7 @@ func (m *Machine) Apply(c Command)Outcome{
   m.seen[c.OperationID]=entry{cmd:c,receipt:receipt}
   return Outcome{Receipt:receipt,Dispatch:effects}
  }
- hostEvent:=c.Action==HostStarted||c.Action==HostStopped||c.Action==HostCompleted||c.Action==HostFailed
+ hostEvent:=isHostEvent(c.Action)
  // STOP preempts stale expectedRevision. Host observations are epoch fenced, with
  // authorization and role verification required outside this pure function.
  if c.Action!=Stop&&!hostEvent&&c.ExpectedRevision!=m.revision{
