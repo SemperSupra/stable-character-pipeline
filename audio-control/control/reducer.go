@@ -138,7 +138,9 @@ func (m *Machine) apply(c Command)Outcome{
  }
  effects:=[]Effect{}
  record:=func()Outcome{
-  if full{status="emergency_untracked"}
+  if full && (status=="accepted"||status=="noop"||status=="ignored_late_start"){
+   status="emergency_untracked"
+  }
   receipt:=Receipt{SchemaVersion:ReceiptVersion,Status:status,State:m.state,Revision:m.revision,Epoch:m.epoch,Effects:effects}
   if !full{m.seen[scopedOpKey]=entry{cmd:c,receipt:receipt}}
   return Outcome{Receipt:receipt,Dispatch:effects}
