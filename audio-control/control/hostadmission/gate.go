@@ -37,10 +37,12 @@ type Observation struct {
  HostDeviceID string
  LeaseID string
  Epoch uint64
+ StopGeneration uint64 // generation of the STOP intent this observation acknowledges
 }
 type EffectIntent struct {
  Kind string // host_start, host_stop, discover_then_stop
  Binding Binding
+ StopGeneration uint64
 }
 var ErrUnverified=errors.New("hostadmission: host authorization/observation rejected")
 var ErrConflict=errors.New("hostadmission: invalid lifecycle transition")
@@ -56,6 +58,7 @@ type Gate struct{
  verify Verifier
  phase Phase
  binding Binding
+ stopGeneration uint64
 }
 func New(v Verifier)(*Gate,error){
  if v==nil{return nil,ErrInvalid}
@@ -92,16 +95,20 @@ func (g *Gate)Observe(e Observation)([]EffectIntent,error){
   switch g.phase{
   case StartPending:g.phase=Active;return nil,nil
   case StopPending,Unknown,Stopped:
-   return []EffectIntent{{Kind:"host_stop",Binding:g.binding}},nil
+   g.stopGeneration++
+   g.phase=StopPending
+   return []EffectIntent{{Kind:"host_stop",Binding:g.binding,StopGeneration:g.stopGeneration}},nil
   default:return nil,ErrConflict
   }
  case "failed":
   // Failure observes a fault, not silence. Retain STOP pending until a
   // separately verified stopped event confirms completion.
   g.phase=StopPending
-  return []EffectIntent{{Kind:"host_stop",Binding:g.binding}},nil
+  g.stopGeneration++
+  return []EffectIntent{{Kind:"host_stop",Binding:g.binding,StopGeneration:g.stopGeneration}},nil
  case "stopped":
   if g.phase==StartPending||g.phase==Active||g.phase==StopPending||g.phase==Unknown{
+   if g.phase==StopPending && e.StopGeneration!=g.stopGeneration { return nil,ErrUnverified }
    g.phase=Stopped;return nil,nil
   }
   return nil,ErrConflict
@@ -118,7 +125,8 @@ func (g *Gate)Stop()EffectIntent{
   return EffectIntent{Kind:"discover_then_stop"}
  }
  if g.phase!=Stopped{g.phase=StopPending}
- return EffectIntent{Kind:"host_stop",Binding:g.binding}
+ if g.stopGeneration==0 || g.phase==StopPending { g.stopGeneration++ }
+ return EffectIntent{Kind:"host_stop",Binding:g.binding,StopGeneration:g.stopGeneration}
 }
 // RecoverUnknown is called only after a separately verified durable binding
 // is restored by the host. A JSON claim from an agent must not invoke this.
