@@ -37,6 +37,8 @@ jobs:
             go vet ./...
             go run ./cmd/synthetic-scene --variant=A > "${RUNNER_TEMP}/r167-A.json"
             go run ./cmd/synthetic-scene --variant=B > "${RUNNER_TEMP}/r167-B.json"
+            go run ./cmd/synthetic-scene --profile=preview > "${RUNNER_TEMP}/r167-preview.json"
+            go run ./cmd/synthetic-scene --profile=quality > "${RUNNER_TEMP}/r167-quality.json"
           )
           python3 - "${RUNNER_TEMP}/r167-A.json" "${RUNNER_TEMP}/r167-B.json" <<'PY'
           import json, sys
@@ -92,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           install -d -m 700 "${RUNNER_TEMP}/r167-A" "${RUNNER_TEMP}/r167-B"
-          timeout 150s "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 --python tests/rdte/r167_public_cycles_from_contract.py -- "${RUNNER_TEMP}/r167-A.json" "${RUNNER_TEMP}/r167-A"
+          timeout 150s /usr/bin/time -f '%e %M' -o "${RUNNER_TEMP}/r167-standard.time" "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 --python tests/rdte/r167_public_cycles_from_contract.py -- "${RUNNER_TEMP}/r167-A.json" "${RUNNER_TEMP}/r167-A"
           timeout 150s "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 --python tests/rdte/r167_public_cycles_from_contract.py -- "${RUNNER_TEMP}/r167-B.json" "${RUNNER_TEMP}/r167-B"
           test -s "${RUNNER_TEMP}/r167-A/r167-scene.png"
           test -s "${RUNNER_TEMP}/r167-B/r167-scene.png"
@@ -136,6 +138,75 @@ jobs:
                   "source_fidelity":"SYNTHETIC_ONLY_NOT_ONEIRIFACT"
               },sort_keys=True))
           PY
+      - name: Measure bounded quality profiles on the same synthetic scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          for profile in preview quality; do
+            install -d -m 700 "${RUNNER_TEMP}/r167-${profile}"
+            timeout 150s /usr/bin/time -f '%e %M' -o "${RUNNER_TEMP}/r167-${profile}.time" "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 --python tests/rdte/r167_public_cycles_from_contract.py -- "${RUNNER_TEMP}/r167-${profile}.json" "${RUNNER_TEMP}/r167-${profile}"
+          done
+          "${RUNNER_TEMP}/r167-pillow/bin/python" - "${RUNNER_TEMP}" <<'PY'
+          import hashlib, json, math, pathlib, sys
+          from PIL import Image
+          root = pathlib.Path(sys.argv[1])
+          profiles = (("preview", "preview", 160, 120, 8),
+                      ("standard", "A", 320, 240, 32),
+                      ("quality", "quality", 640, 480, 64))
+          result, fingerprints, source = [], set(), None
+          for name, key, width, height, samples in profiles:
+              raw = (root/f"r167-{key}.json").read_bytes()
+              packet = json.loads(raw)
+              req = dict(packet["request"])
+              options = req.pop("options")
+              assert (options["width"], options["height"], options["samples"]) == (width, height, samples)
+              assert options["seed"] == 139
+              assert options["engine"] == "BLENDER_CYCLES_5_2_4_CPU"
+              if source is None:
+                  source = req
+              else:
+                  assert source == req
+              folder = root/f"r167-{key}"
+              receipt = json.loads((folder/"r167-scene-receipt.json").read_text())
+              fingerprint = packet["synthetic_request_fingerprint"]
+              assert fingerprint not in fingerprints
+              fingerprints.add(fingerprint)
+              assert receipt["synthetic_request_fingerprint"] == fingerprint
+              assert receipt["request_file_sha256"] == "sha256:" + hashlib.sha256(raw).hexdigest()
+              assert receipt["source_binding"] == req["source"]
+              assert receipt["source_fidelity"] == "UNVERIFIED_SYNTHETIC_GEOMETRY_REGISTRY"
+              assert receipt["resolution"] == [width, height] and receipt["samples"] == samples
+              image = folder/"r167-scene.png"
+              assert receipt["image_sha256"] == "sha256:" + hashlib.sha256(image.read_bytes()).hexdigest()
+              with Image.open(image) as img:
+                  img.load()
+                  assert img.format == "PNG" and img.size == (width, height)
+              elapsed, rss = (root/f"r167-{name}.time").read_text().strip().split()
+              elapsed, rss = float(elapsed), int(rss)
+              assert math.isfinite(elapsed) and elapsed >= 0 and rss > 0
+              result.append({"profile":name, "width":width, "height":height, "samples":samples,
+                             "sample_pixels":width*height*samples, "elapsed_seconds":elapsed,
+                             "peak_rss_kib":rss, "image_bytes":image.stat().st_size,
+                             "fingerprint":fingerprint, "image_sha256":receipt["image_sha256"]})
+          assert len(fingerprints) == 3
+          record = {"schema":"synthetic.cycles-profile-observation/v1",
+                    "scope":"single public CPU runner, fixed synthetic scene; not a device-wide latency or fidelity guarantee",
+                    "source_equal_except_render_options":True, "profiles":result}
+          (root/"r167-profile-observations.json").write_text(json.dumps(record, indent=2)+"\n")
+          print("SYNTHETIC QUALITY PROFILE OBSERVATIONS", json.dumps(record, sort_keys=True))
+          PY
+      - name: Retain only synthetic quality profile observations
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r167-synthetic-quality-profiles
+          path: |
+            ${{ runner.temp }}/r167-profile-observations.json
+            ${{ runner.temp }}/r167-preview/r167-scene.png
+            ${{ runner.temp }}/r167-preview/r167-scene-receipt.json
+            ${{ runner.temp }}/r167-quality/r167-scene.png
+            ${{ runner.temp }}/r167-quality/r167-scene-receipt.json
+          retention-days: 7
+          if-no-files-found: error
       - name: Retain only original synthetic render receipts and images
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

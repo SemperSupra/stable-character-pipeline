@@ -43,24 +43,59 @@ func makeRequest(variant string) rendercontract.Request {
 	return r
 }
 
-func main() {
-	variant := "A"
-	if len(os.Args) > 2 {
-		fmt.Fprintln(os.Stderr, "expected zero or one --variant=A|B option")
-		os.Exit(2)
+// qualityOptions selects a finite experimental quality profile; it does not
+// change source geometry, camera, lighting, materials, or acceptance authority.
+func qualityOptions(profile string, opts rendercontract.Options) (rendercontract.Options, error) {
+	switch profile {
+	case "preview":
+		opts.Width, opts.Height, opts.Samples = 160, 120, 8
+	case "standard":
+		opts.Width, opts.Height, opts.Samples = 320, 240, 32
+	case "quality":
+		opts.Width, opts.Height, opts.Samples = 640, 480, 64
+	default:
+		return rendercontract.Options{}, fmt.Errorf("unknown quality profile %q", profile)
 	}
-	if len(os.Args) == 2 {
-		switch os.Args[1] {
-		case "--variant=A":
-			variant = "A"
-		case "--variant=B":
-			variant = "B"
+	return opts, nil
+}
+
+func parseArgs(args []string) (string, string, error) {
+	variant, profile := "A", "standard"
+	seenVariant, seenProfile := false, false
+	for _, arg := range args {
+		switch {
+		case strings.HasPrefix(arg, "--variant=") && !seenVariant:
+			variant = strings.TrimPrefix(arg, "--variant=")
+			seenVariant = true
+			if variant != "A" && variant != "B" {
+				return "", "", fmt.Errorf("unknown variant")
+			}
+		case strings.HasPrefix(arg, "--profile=") && !seenProfile:
+			profile = strings.TrimPrefix(arg, "--profile=")
+			seenProfile = true
+			if _, err := qualityOptions(profile, rendercontract.Options{}); err != nil {
+				return "", "", err
+			}
 		default:
-			fmt.Fprintln(os.Stderr, "unknown variant")
-			os.Exit(2)
+			return "", "", fmt.Errorf("unknown or repeated option")
 		}
 	}
-	v, err := rendercontract.Canonicalize(makeRequest(variant))
+	return variant, profile, nil
+}
+
+func main() {
+	variant, profile, err := parseArgs(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	req := makeRequest(variant)
+	req.Options, err = qualityOptions(profile, req.Options)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	v, err := rendercontract.Canonicalize(req)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "synthetic request invalid:", err)
 		os.Exit(1)
