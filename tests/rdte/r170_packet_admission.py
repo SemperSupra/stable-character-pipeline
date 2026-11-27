@@ -1,6 +1,6 @@
 """Independent strict receiver for original synthetic Go->Blender scene packets.
 
-This ONLY admits the two frozen, original R167 synthetic fixtures. Hash matching
+This ONLY admits the five frozen, original R167/R171 synthetic fixtures. Hash matching
 detects pipeline drift, not actor authentication or genuine Oneirifact source.
 """
 from __future__ import annotations
@@ -22,6 +22,9 @@ PLACEHOLDER_SOURCE = "sha256:" + "a" * 64
 FROZEN_FINGERPRINTS = {
     "A": "sha256:5d31f87a612fb964638eb45d37f837ba40e67e352441e0f115d3029f7c855c86",
     "B": "sha256:a91475b4230293079128c7bca6dbc73c52b9712ba2279041708460c10fc5f3ed",
+    "camera": "sha256:ad6eb3a18b88b81649f29d457bd775d5500e379d23245881027ceebd20dd100b",
+    "material": "sha256:d302911c4706c6a1db83691c55659988596359c22ca5f19b37512c9f3bc75a51",
+    "light": "sha256:7118493f5a9ea230f03df9609c55508d49105e7adadcc0c06a9bd453d29009ad",
 }
 NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
 
@@ -167,7 +170,7 @@ def validate_bytes(raw: bytes) -> dict:
         "options": opts,
     }
     # Same field order and compact encoding as the frozen R166 Go typed struct.
-    # Only these two source-free fixture numeric profiles are admitted.
+    # Only five source-free fixture numeric profiles are admitted.
     encoded = json.dumps(canonical, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
     actual = _sha(encoded)
     claimed = packet["synthetic_request_fingerprint"]
