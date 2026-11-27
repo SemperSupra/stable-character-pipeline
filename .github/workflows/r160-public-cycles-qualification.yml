@@ -48,13 +48,15 @@ jobs:
           # A successful first run was followed by HTTP 403 from download.blender.org.
           # Use Blender's official mirror first, then two documented mirrors,
           # retaining the EXACT independently pinned archive hash in all cases.
+          # Prefer the verified official endpoint; abort stalled transfers early
+          # rather than spending 200 seconds on each reachable-but-stuck mirror.
           for url in \
-            "https://mirror.blender.org/release/Blender5.2/${artifact}" \
             "https://download.blender.org/release/Blender5.2/${artifact}" \
+            "https://mirror.blender.org/release/Blender5.2/${artifact}" \
             "https://mirror.nju.edu.cn/blender/release/Blender5.2/${artifact}"; do
             rm -f "${root}/${artifact}"
             echo "R160 checking mirror host ${url%%/release/*} (checksum required)"
-            if timeout 220s curl --fail --location --silent --show-error --connect-timeout 15 --max-time 200 "${url}" --output "${root}/${artifact}"; then
+            if timeout 110s curl --fail --location --silent --show-error --connect-timeout 12 --speed-limit 32768 --speed-time 12 --max-time 95 "${url}" --output "${root}/${artifact}"; then
               if printf '%s  %s\n' "${expected}" "${root}/${artifact}" | sha256sum --check --status; then
                 verified=1
                 break
