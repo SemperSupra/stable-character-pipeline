@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: r165-png-evidence-${{ github.ref }}
@@ -33,3 +34,57 @@ jobs:
           python3 -m unittest discover -s tests/rdte -p 'test_r165_png_evidence.py' -v
           sha256sum tests/rdte/r165_png_evidence.py tests/rdte/test_r165_png_evidence.py
           echo "R165 SYNTHETIC PNG EVIDENCE PASS: file vs image chunk separate"
+
+  archived-real-cycles-png-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout public source-free PNG oracle
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify public synthetic source run and retrieve only its PNGs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = "false"
+          test ! -f internal/engineadapter/compiler.go
+          expected="a460494b61bff321855e04d8a3b7e91f706e452b"
+          actual="$(gh api repos/SemperSupra/stable-character-pipeline/actions/runs/45972917804 --jq .head_sha)"
+          test "${actual}" = "${expected}"
+          mkdir -p "${RUNNER_TEMP}/r165-evidence"
+          gh run download 45972917804 --repo SemperSupra/stable-character-pipeline \
+            --name r160-source-safe-cycles-png --dir "${RUNNER_TEMP}/r165-evidence"
+          test -s "${RUNNER_TEMP}/r165-evidence/r160-cycles-output/r139-cycles.png"
+          test -s "${RUNNER_TEMP}/r165-evidence/r160-cycles-output-repeat/r139-cycles.png"
+      - name: Independently compare real synthetic Cycles PNG chunk payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests/rdte -p 'test_r165_png_evidence.py' -v
+          python3 - <<'PY'
+          import json, os, pathlib, sys
+          sys.path.insert(0, str(pathlib.Path("tests/rdte").resolve()))
+          from r165_png_evidence import compare_payloads, inspect_png
+          root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "r165-evidence"
+          first = (root / "r160-cycles-output" / "r139-cycles.png").read_bytes()
+          second = (root / "r160-cycles-output-repeat" / "r139-cycles.png").read_bytes()
+          one, two = inspect_png(first), inspect_png(second)
+          verdict = compare_payloads(first, second)
+          assert one["dimensions"] == (320, 240), one
+          assert two["dimensions"] == (320, 240), two
+          assert verdict["same_dimensions"] and verdict["identical_idat"], verdict
+          print("R165 ARCHIVED REAL CYCLES IDAT PASS", json.dumps({
+              "public_source_run": 45972917804,
+              "first_file_sha256": one["file_sha256"],
+              "second_file_sha256": two["file_sha256"],
+              "image_payload_sha256": one["idat_sha256"],
+              "same_dimensions": verdict["same_dimensions"],
+              "identical_idat": verdict["identical_idat"],
+              "identical_file": verdict["identical_file"],
+              "changed_text_keys": verdict["changed_text_keys"],
+              "scope": "public_synthetic_compressed_PNG_only_NOT_private_Oneirifact_fidelity"
+          },sort_keys=True))
+          PY
