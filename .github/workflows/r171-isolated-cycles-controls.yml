@@ -30,7 +30,8 @@ jobs:
           test ! -e internal/engineadapter
           test ! -e internal/renderhost
           python3 -m unittest discover -s tests/rdte -p 'test_r167_public_cycles_from_contract.py' -v
-          python3 -m py_compile tests/rdte/r167_public_cycles_from_contract.py
+          python3 -m unittest discover -s tests/rdte -p 'test_r170_packet_admission.py' -v
+          python3 -m py_compile tests/rdte/r167_public_cycles_from_contract.py tests/rdte/r170_packet_admission.py
           (
             cd tests/rdte/r166_rendercontract
             go test -race -count=2 ./... -v
@@ -41,8 +42,10 @@ jobs:
           )
           python3 - "${RUNNER_TEMP}" <<'PY'
           import json, pathlib, sys
+          sys.path.insert(0, str(pathlib.Path("tests/rdte").resolve()))
+          from r170_packet_admission import validate_bytes
           root=pathlib.Path(sys.argv[1])
-          requests={v:json.loads((root/("r171-"+v+".json")).read_text()) for v in ("A","camera","material","light")}
+          requests={v:validate_bytes((root/("r171-"+v+".json")).read_bytes()) for v in ("A","camera","material","light")}
           base=requests["A"]["request"]
           expected={"camera":"cameras","material":"materials","light":"lights"}
           for kind,changed_key in expected.items():
