@@ -11,30 +11,8 @@ m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 
 
-def packet():
-    return {
-        "schema": m.EXPECTED_PACKET,
-        "variant": "A",
-        "source_fidelity": "UNVERIFIED_SYNTHETIC_GEOMETRY_REGISTRY",
-        "synthetic_request_fingerprint": "sha256:" + "a" * 64,
-        "request": {
-            "schema": "synthetic.render-request/v0.1",
-            "source": {"document_id": "OriginalSynthetic", "revision": "syntheticRevision1",
-                       "graph_sha256": "sha256:" + "a" * 64},
-            "frame": "Z_UP_METERS_RIGHT_HANDED",
-            "objects": [
-                {"id": "cube", "feature_path": "root/cube", "material_id": "blue",
-                 "translation": [-0.8, 0, 0.7], "uniform_scale": 1},
-                {"id": "sphere", "feature_path": "root/sphere", "material_id": "red",
-                 "translation": [0.9, 0, 0.85], "uniform_scale": 1}],
-            "materials": [{"id": "blue"}, {"id": "red"}],
-            "cameras": [{"id": "camera"}],
-            "lights": [{"id": "area"}],
-            "options": {"engine": m.EXPECTED_RENDER, "width": 320, "height": 240,
-                        "samples": 32, "seed": 139},
-        },
-    }
-
+# Use the same typed Go-canonical original fixture as the receiver negatives.
+from test_r170_packet_admission import fixture as packet
 
 class SyntheticPacketTests(unittest.TestCase):
     def setUp(self):
