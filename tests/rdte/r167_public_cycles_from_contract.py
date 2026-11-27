@@ -13,6 +13,9 @@ import os
 from pathlib import Path
 import sys
 
+# Fail closed in the receiving process, not only in the Go request producer.
+from r170_packet_admission import validate_bytes
+
 EXPECTED_PACKET = "synthetic.cycles-scene-packet/v0.1"
 EXPECTED_RENDER = "BLENDER_CYCLES_5_2_4_CPU"
 SOURCE_GEOMETRY = {
@@ -50,8 +53,7 @@ def safe_paths(argv: list[str]) -> tuple[Path, Path]:
 
 def load_packet(source: Path) -> tuple[dict, bytes]:
     raw = source.read_bytes()
-    packet = json.loads(raw, parse_constant=lambda value:
-                        (_ for _ in ()).throw(ValueError("nonfinite JSON token")))
+    packet = validate_bytes(raw)
     if not isinstance(packet, dict) or packet.get("schema") != EXPECTED_PACKET:
         raise ValueError("unsupported synthetic packet schema")
     if packet.get("variant") not in ("A", "B") or not isinstance(packet.get("request"), dict):
