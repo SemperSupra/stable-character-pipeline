@@ -13,6 +13,9 @@ import os
 from pathlib import Path
 import sys
 
+# Blender's --python executor does not put the script directory on sys.path.
+# Resolve the pinned companion module strictly beside this original source file.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 # Fail closed in the receiving process, not only in the Go request producer.
 from r170_packet_admission import validate_bytes
 
