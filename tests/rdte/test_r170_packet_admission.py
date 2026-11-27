@@ -26,10 +26,12 @@ def fixture(variant="A"):
         "lights": [{"id": "area", "type": "AREA", "position": [1, -3, 6], "power_watts": 1000, "size_meters": 5}],
         "options": {"engine": m.ENGINE, "width": 320, "height": 240, "samples": 32, "seed": 139},
     }
-    if variant == "B":
+    if variant in ("B", "material"):
         req["materials"][0]["base_color"] = [0.07, 0.68, 0.24]
         req["materials"][1]["base_color"] = [0.18, 0.25, 0.79]
+    if variant in ("B", "camera"):
         req["cameras"][0]["position"] = [4, -6, 4.5]
+    if variant in ("B", "light"):
         req["lights"][0]["power_watts"] = 700
     return {
         "schema": m.SCHEMA,
@@ -50,7 +52,7 @@ class ReceiverAdmissionTests(unittest.TestCase):
             m.validate_bytes(encode(value))
 
     def test_admit_go_canonical_variants_A_B(self):
-        for variant in ("A", "B"):
+        for variant in ("A", "B", "camera", "material", "light"):
             with self.subTest(variant=variant):
                 p = fixture(variant)
                 self.assertEqual(m.validate_bytes(encode(p))["variant"], variant)
