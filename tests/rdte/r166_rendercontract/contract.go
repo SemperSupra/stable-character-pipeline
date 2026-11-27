@@ -81,7 +81,7 @@ func digest(s string) bool {
 	return err == nil
 }
 func occurrencePath(s string) bool {
-	if s == "" || len(s) > 512 || strings.Contains(s, "\") { return false }
+	if s == "" || len(s) > 512 || strings.ContainsRune(s, 92) { return false }
 	for _, seg := range strings.Split(s, "/") {
 		if !name(seg) { return false }
 	}
