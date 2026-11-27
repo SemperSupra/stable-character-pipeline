@@ -49,6 +49,7 @@ jobs:
           assert a["source_fidelity"] == b["source_fidelity"] == "UNVERIFIED_SYNTHETIC_GEOMETRY_REGISTRY"
           assert [o["feature_path"] for o in a["request"]["objects"]] == [o["feature_path"] for o in b["request"]["objects"]]
           from pathlib import Path
+          sys.path.insert(0, str(Path("tests/rdte").resolve()))
           from r170_packet_admission import validate_bytes
           for source in sys.argv[1:]:
               value = validate_bytes(Path(source).read_bytes())
