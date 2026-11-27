@@ -1,0 +1,176 @@
+name: R160 Public-Safe Cycles Render Qualification
+
+on:
+  push:
+    branches:
+      - rdte/r160-public-cycles-synthetic
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r160-cycles-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-free-blender-cycles:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout public-only synthetic fixture
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify source inventory and run seven offline negatives
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = "false"
+          test -f tests/rdte/r139_cycles_synthetic.py
+          test -f tests/rdte/test_r139_cycles_synthetic.py
+          test ! -f internal/engineadapter/compiler.go
+          python3 -m unittest discover -s tests/rdte -p 'test_r139_cycles_synthetic.py' -v
+          python3 -m py_compile tests/rdte/r139_cycles_synthetic.py tests/rdte/test_r139_cycles_synthetic.py
+          sha256sum tests/rdte/r139_cycles_synthetic.py tests/rdte/test_r139_cycles_synthetic.py
+          python3 -m unittest discover -s tests/rdte -p 'test_r165_png_evidence.py' -v
+          python3 -m py_compile tests/rdte/r165_png_evidence.py tests/rdte/test_r165_png_evidence.py
+          sha256sum tests/rdte/r165_png_evidence.py tests/rdte/test_r165_png_evidence.py
+      - name: Download checksum-verified official Blender 5.2.4 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact="blender-5.2.4-linux-x64.tar.xz"
+          expected="2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86"
+          root="${RUNNER_TEMP}/r160-blender"
+          install -d -m 700 "${root}"
+          verified=0
+          # A successful first run was followed by HTTP 403 from download.blender.org.
+          # Use Blender's official mirror first, then two documented mirrors,
+          # retaining the EXACT independently pinned archive hash in all cases.
+          # Prefer the verified official endpoint; abort stalled transfers early
+          # rather than spending 200 seconds on each reachable-but-stuck mirror.
+          for url in \
+            "https://download.blender.org/release/Blender5.2/${artifact}" \
+            "https://mirror.blender.org/release/Blender5.2/${artifact}" \
+            "https://mirror.nju.edu.cn/blender/release/Blender5.2/${artifact}"; do
+            rm -f "${root}/${artifact}"
+            echo "R160 checking mirror host ${url%%/release/*} (checksum required)"
+            if timeout 110s curl --fail --location --silent --show-error --connect-timeout 12 --speed-limit 32768 --speed-time 12 --max-time 95 "${url}" --output "${root}/${artifact}"; then
+              if printf '%s  %s\n' "${expected}" "${root}/${artifact}" | sha256sum --check --status; then
+                verified=1
+                break
+              fi
+              echo "::error::Downloaded Blender archive failed pinned SHA-256; refusing to execute it"
+              exit 1
+            fi
+          done
+          if test "${verified}" -ne 1; then
+            echo "::error::No Blender mirror supplied the pinned archive"
+            exit 1
+          fi
+          echo "R160 OFFICIAL BLENDER SHA256 PASS ${expected}"
+          timeout 150s tar -xf "${root}/${artifact}" -C "${root}"
+          binary="${root}/blender-5.2.4-linux-x64/blender"
+          test -x "${binary}"
+          echo "BLENDER_BIN=${binary}" >> "${GITHUB_ENV}"
+          "${binary}" --version | head -n 3
+      - name: Render first-party synthetic scene with bounded CPU Cycles
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="${RUNNER_TEMP}/r160-cycles-output"
+          install -d -m 700 "${out}"
+          timeout 180s "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 \
+            --python tests/rdte/r139_cycles_synthetic.py -- "${out}"
+          test -s "${out}/r139-cycles.png"
+          test -s "${out}/r139-cycles-receipt.json"
+          sha256sum "${out}/r139-cycles.png" "${out}/r139-cycles-receipt.json"
+          out2="${RUNNER_TEMP}/r160-cycles-output-repeat"
+          install -d -m 700 "${out2}"
+          timeout 180s "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 \
+            --python tests/rdte/r139_cycles_synthetic.py -- "${out2}"
+          test -s "${out2}/r139-cycles.png"
+          test -s "${out2}/r139-cycles-receipt.json"
+          sha256sum "${out2}/r139-cycles.png" "${out2}/r139-cycles-receipt.json"
+      - name: Independently decode PNG and cross-check render receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "${RUNNER_TEMP}/r160-png-venv"
+          "${RUNNER_TEMP}/r160-png-venv/bin/pip" install --no-input --disable-pip-version-check 'Pillow==11.3.0'
+          "${RUNNER_TEMP}/r160-png-venv/bin/python" - "${RUNNER_TEMP}/r160-cycles-output" <<'PY'
+          import hashlib, json, pathlib, sys
+          from PIL import Image, ImageStat
+          folder = pathlib.Path(sys.argv[1])
+          raw = (folder / "r139-cycles.png").read_bytes()
+          receipt = json.loads((folder / "r139-cycles-receipt.json").read_text(encoding="utf-8"))
+          digest = "sha256:" + hashlib.sha256(raw).hexdigest()
+          assert receipt["schema"] == "oneirifact.rdte.cycles-synthetic/v0.1", receipt
+          assert receipt["status"] == "SYNTHETIC_CYCLES_EXECUTED_UNVERIFIED", receipt
+          assert receipt["blender_version"].startswith("5.2.4"), receipt
+          assert receipt["renderer"] == "CYCLES" and receipt["device"] == "CPU", receipt
+          assert receipt["samples"] == 32 and receipt["seed"] == 139, receipt
+          assert receipt["png_sha256"] == digest and receipt["png_size_bytes"] == len(raw), receipt
+          with Image.open(folder / "r139-cycles.png") as image:
+              image.load()
+              assert image.format == "PNG" and image.size == (320, 240), image
+              rgb = image.convert("RGB")
+              stats = ImageStat.Stat(rgb)
+              assert max(stats.stddev) > 3.0, stats.stddev
+              colors = len(set(rgb.getdata()))
+              assert colors > 32, colors
+              print("R160 INDEPENDENT PNG PASS", json.dumps({
+                  "width": rgb.width, "height": rgb.height,
+                  "distinct_rgb_colors": colors, "stddev_rgb": stats.stddev,
+                  "png_sha256": digest, "blender_version": receipt["blender_version"],
+                  "renderer": receipt["renderer"], "samples": receipt["samples"]
+              }, sort_keys=True))
+          with Image.open(pathlib.Path(sys.argv[1]).parent / "r160-cycles-output-repeat" / "r139-cycles.png") as second_image:
+              second_image.load()
+              assert second_image.size == (320, 240) and second_image.format == "PNG"
+              repeated = (folder.parent / "r160-cycles-output-repeat" / "r139-cycles.png").read_bytes()
+              repeated_receipt = json.loads((folder.parent / "r160-cycles-output-repeat" / "r139-cycles-receipt.json").read_text(encoding="utf-8"))
+              repeated_sha = "sha256:" + hashlib.sha256(repeated).hexdigest()
+              assert repeated_receipt["png_sha256"] == repeated_sha
+              assert repeated_receipt["samples"] == receipt["samples"] and repeated_receipt["seed"] == receipt["seed"]
+              assert repeated_receipt["fixture_sha256"] == receipt["fixture_sha256"]
+              with Image.open(folder / "r139-cycles.png") as first_image:
+                  from PIL import ImageChops
+                  delta = ImageChops.difference(first_image.convert("RGB"), second_image.convert("RGB"))
+                  rgb_difference = ImageStat.Stat(delta)
+                  print("R160 REPEAT QUALIFICATION", json.dumps({
+                      "bitwise_identical_png": raw == repeated,
+                      "repeat_png_sha256": repeated_sha,
+                      "mean_absolute_rgb_difference": rgb_difference.mean,
+                      "maximum_absolute_rgb_difference": [p[1] for p in delta.getextrema()],
+                      "interpretation": "DONOR_REPEAT_ONLY_NO_PRIVATE_SCENE_FIDELITY"
+                  }, sort_keys=True))
+          PY
+      - name: Independently inspect PNG chunks and actual IDAT equality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, sys
+          sys.path.insert(0, str(pathlib.Path("tests/rdte").resolve()))
+          from r165_png_evidence import compare_payloads
+          base = pathlib.Path(__import__("os").environ["RUNNER_TEMP"])
+          first = (base / "r160-cycles-output" / "r139-cycles.png").read_bytes()
+          second = (base / "r160-cycles-output-repeat" / "r139-cycles.png").read_bytes()
+          verdict = compare_payloads(first, second)
+          assert verdict["same_dimensions"] and verdict["identical_idat"], verdict
+          print("R165 REAL CYCLES IDAT EQUIVALENCE PASS", json.dumps(verdict, sort_keys=True))
+          print("R165 SCOPE: same-run compressed image payload, not private Oneirifact source or global reproducibility")
+          PY
+      - name: Archive public-only synthetic PNG and receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r160-source-safe-cycles-png
+          path: |
+            ${{ runner.temp }}/r160-cycles-output/r139-cycles.png
+            ${{ runner.temp }}/r160-cycles-output/r139-cycles-receipt.json
+            ${{ runner.temp }}/r160-cycles-output-repeat/r139-cycles.png
+            ${{ runner.temp }}/r160-cycles-output-repeat/r139-cycles-receipt.json
+          if-no-files-found: error
+          retention-days: 7
