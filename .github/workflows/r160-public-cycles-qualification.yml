@@ -61,6 +61,13 @@ jobs:
           test -s "${out}/r139-cycles.png"
           test -s "${out}/r139-cycles-receipt.json"
           sha256sum "${out}/r139-cycles.png" "${out}/r139-cycles-receipt.json"
+          out2="${RUNNER_TEMP}/r160-cycles-output-repeat"
+          install -d -m 700 "${out2}"
+          timeout 180s "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 \
+            --python tests/rdte/r139_cycles_synthetic.py -- "${out2}"
+          test -s "${out2}/r139-cycles.png"
+          test -s "${out2}/r139-cycles-receipt.json"
+          sha256sum "${out2}/r139-cycles.png" "${out2}/r139-cycles-receipt.json"
       - name: Independently decode PNG and cross-check render receipt
         shell: bash
         run: |
@@ -94,6 +101,26 @@ jobs:
                   "png_sha256": digest, "blender_version": receipt["blender_version"],
                   "renderer": receipt["renderer"], "samples": receipt["samples"]
               }, sort_keys=True))
+          with Image.open(pathlib.Path(sys.argv[1]).parent / "r160-cycles-output-repeat" / "r139-cycles.png") as second_image:
+              second_image.load()
+              assert second_image.size == (320, 240) and second_image.format == "PNG"
+              repeated = (folder.parent / "r160-cycles-output-repeat" / "r139-cycles.png").read_bytes()
+              repeated_receipt = json.loads((folder.parent / "r160-cycles-output-repeat" / "r139-cycles-receipt.json").read_text(encoding="utf-8"))
+              repeated_sha = "sha256:" + hashlib.sha256(repeated).hexdigest()
+              assert repeated_receipt["png_sha256"] == repeated_sha
+              assert repeated_receipt["samples"] == receipt["samples"] and repeated_receipt["seed"] == receipt["seed"]
+              assert repeated_receipt["fixture_sha256"] == receipt["fixture_sha256"]
+              with Image.open(folder / "r139-cycles.png") as first_image:
+                  from PIL import ImageChops
+                  delta = ImageChops.difference(first_image.convert("RGB"), second_image.convert("RGB"))
+                  rgb_difference = ImageStat.Stat(delta)
+                  print("R160 REPEAT QUALIFICATION", json.dumps({
+                      "bitwise_identical_png": raw == repeated,
+                      "repeat_png_sha256": repeated_sha,
+                      "mean_absolute_rgb_difference": rgb_difference.mean,
+                      "maximum_absolute_rgb_difference": [p[1] for p in delta.getextrema()],
+                      "interpretation": "DONOR_REPEAT_ONLY_NO_PRIVATE_SCENE_FIDELITY"
+                  }, sort_keys=True))
           PY
       - name: Archive public-only synthetic PNG and receipt
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -102,5 +129,7 @@ jobs:
           path: |
             ${{ runner.temp }}/r160-cycles-output/r139-cycles.png
             ${{ runner.temp }}/r160-cycles-output/r139-cycles-receipt.json
+            ${{ runner.temp }}/r160-cycles-output-repeat/r139-cycles.png
+            ${{ runner.temp }}/r160-cycles-output-repeat/r139-cycles-receipt.json
           if-no-files-found: error
           retention-days: 7
