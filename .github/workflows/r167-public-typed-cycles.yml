@@ -1,0 +1,149 @@
+name: R167 Public Synthetic Typed Scene to Cycles
+
+on:
+  push:
+    branches:
+      - rdte/r167-synthetic-typed-cycles-scene
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r167-typed-cycles-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-free-typed-cycles:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout standalone public synthetic renderer experiment
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Offline negative tests and generate two validated source-free requests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = "false"
+          test ! -e internal/engineadapter
+          test ! -e internal/renderhost
+          python3 -m unittest discover -s tests/rdte -p 'test_r167_public_cycles_from_contract.py' -v
+          python3 -m py_compile tests/rdte/r167_public_cycles_from_contract.py tests/rdte/test_r167_public_cycles_from_contract.py
+          (
+            cd tests/rdte/r166_rendercontract
+            go test -race -count=1 ./...
+            go vet ./...
+            go run ./cmd/synthetic-scene --variant=A > "${RUNNER_TEMP}/r167-A.json"
+            go run ./cmd/synthetic-scene --variant=B > "${RUNNER_TEMP}/r167-B.json"
+          )
+          python3 - "${RUNNER_TEMP}/r167-A.json" "${RUNNER_TEMP}/r167-B.json" <<'PY'
+          import json, sys
+          a, b = [json.load(open(p, encoding="utf-8")) for p in sys.argv[1:]]
+          assert a["schema"] == b["schema"] == "synthetic.cycles-scene-packet/v0.1"
+          assert a["request"]["source"] == b["request"]["source"]
+          assert a["synthetic_request_fingerprint"] != b["synthetic_request_fingerprint"]
+          assert a["source_fidelity"] == b["source_fidelity"] == "UNVERIFIED_SYNTHETIC_GEOMETRY_REGISTRY"
+          assert [o["feature_path"] for o in a["request"]["objects"]] == [o["feature_path"] for o in b["request"]["objects"]]
+          print("R167 TYPED SOURCE-FREE REQUESTS PASS", a["synthetic_request_fingerprint"], b["synthetic_request_fingerprint"])
+          PY
+      - name: Download checksum-verified official Blender 5.2.4 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact="blender-5.2.4-linux-x64.tar.xz"
+          expected="2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86"
+          root="${RUNNER_TEMP}/r160-blender"
+          install -d -m 700 "${root}"
+          verified=0
+          # A successful first run was followed by HTTP 403 from download.blender.org.
+          # Use Blender's official mirror first, then two documented mirrors,
+          # retaining the EXACT independently pinned archive hash in all cases.
+          # Prefer the verified official endpoint; abort stalled transfers early
+          # rather than spending 200 seconds on each reachable-but-stuck mirror.
+          for url in \
+            "https://download.blender.org/release/Blender5.2/${artifact}" \
+            "https://mirror.blender.org/release/Blender5.2/${artifact}" \
+            "https://mirror.nju.edu.cn/blender/release/Blender5.2/${artifact}"; do
+            rm -f "${root}/${artifact}"
+            echo "R160 checking mirror host ${url%%/release/*} (checksum required)"
+            if timeout 110s curl --fail --location --silent --show-error --connect-timeout 12 --speed-limit 32768 --speed-time 12 --max-time 95 "${url}" --output "${root}/${artifact}"; then
+              if printf '%s  %s\n' "${expected}" "${root}/${artifact}" | sha256sum --check --status; then
+                verified=1
+                break
+              fi
+              echo "::error::Downloaded Blender archive failed pinned SHA-256; refusing to execute it"
+              exit 1
+            fi
+          done
+          if test "${verified}" -ne 1; then
+            echo "::error::No Blender mirror supplied the pinned archive"
+            exit 1
+          fi
+          echo "R160 OFFICIAL BLENDER SHA256 PASS ${expected}"
+          timeout 150s tar -xf "${root}/${artifact}" -C "${root}"
+          binary="${root}/blender-5.2.4-linux-x64/blender"
+          test -x "${binary}"
+          echo "BLENDER_BIN=${binary}" >> "${GITHUB_ENV}"
+          "${binary}" --version | head -n 3
+      - name: Execute typed camera/material/light scene A and B on real Blender CPU Cycles
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "${RUNNER_TEMP}/r167-A" "${RUNNER_TEMP}/r167-B"
+          timeout 150s "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 --python tests/rdte/r167_public_cycles_from_contract.py -- "${RUNNER_TEMP}/r167-A.json" "${RUNNER_TEMP}/r167-A"
+          timeout 150s "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 --python tests/rdte/r167_public_cycles_from_contract.py -- "${RUNNER_TEMP}/r167-B.json" "${RUNNER_TEMP}/r167-B"
+          test -s "${RUNNER_TEMP}/r167-A/r167-scene.png"
+          test -s "${RUNNER_TEMP}/r167-B/r167-scene.png"
+          sha256sum "${RUNNER_TEMP}/r167-A/r167-scene.png" "${RUNNER_TEMP}/r167-B/r167-scene.png"
+      - name: Independent image/scene-identity consumer and deliberate A-B visual difference
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "${RUNNER_TEMP}/r167-pillow"
+          "${RUNNER_TEMP}/r167-pillow/bin/pip" install --no-input --disable-pip-version-check 'Pillow==11.3.0'
+          "${RUNNER_TEMP}/r167-pillow/bin/python" - "${RUNNER_TEMP}/r167-A" "${RUNNER_TEMP}/r167-B" <<'PY'
+          import hashlib, json, pathlib, sys
+          from PIL import Image, ImageChops, ImageStat
+          a,b = [pathlib.Path(x) for x in sys.argv[1:]]
+          ra,rb = [json.loads((p/"r167-scene-receipt.json").read_text(encoding="utf-8")) for p in (a,b)]
+          assert ra["schema"]==rb["schema"]=="synthetic.cycles-render-receipt/v0.1"
+          assert (ra["variant"],rb["variant"])==("A","B")
+          assert ra["source_binding"]==rb["source_binding"]
+          assert ra["synthetic_request_fingerprint"]!=rb["synthetic_request_fingerprint"]
+          assert ra["objects"]==rb["objects"]
+          assert ra["camera_position"]!=rb["camera_position"]
+          assert ra["light_energy"]!=rb["light_energy"]
+          for root,receipt in ((a,ra),(b,rb)):
+              blob=(root/"r167-scene.png").read_bytes()
+              assert receipt["image_sha256"]=="sha256:"+hashlib.sha256(blob).hexdigest()
+              assert receipt["image_size"]==len(blob)
+              assert receipt["source_fidelity"]=="UNVERIFIED_SYNTHETIC_GEOMETRY_REGISTRY"
+              assert receipt["blender_version"].startswith("5.2.4")
+          with Image.open(a/"r167-scene.png") as aa, Image.open(b/"r167-scene.png") as bb:
+              aa.load();bb.load()
+              assert aa.format==bb.format=="PNG" and aa.size==bb.size==(320,240)
+              delta=ImageChops.difference(aa.convert("RGB"),bb.convert("RGB"))
+              stats=ImageStat.Stat(delta)
+              changed=sum(1 for px in delta.getdata() if px!=(0,0,0))
+              assert changed>1000 and max(stats.mean)>3.0,(changed,stats.mean)
+              print("R167 TYPED PUBLIC CYCLES A/B PASS",json.dumps({
+                  "changed_pixels":changed,"pixels_total":320*240,
+                  "mean_absolute_rgb_delta":stats.mean,
+                  "source_binding_equal":True,
+                  "object_positions_equal":True,
+                  "source_fidelity":"SYNTHETIC_ONLY_NOT_ONEIRIFACT"
+              },sort_keys=True))
+          PY
+      - name: Retain only original synthetic render receipts and images
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r167-synthetic-typed-cycles-A-B
+          path: |
+            ${{ runner.temp }}/r167-A/r167-scene.png
+            ${{ runner.temp }}/r167-A/r167-scene-receipt.json
+            ${{ runner.temp }}/r167-B/r167-scene.png
+            ${{ runner.temp }}/r167-B/r167-scene-receipt.json
+          retention-days: 7
+          if-no-files-found: error
