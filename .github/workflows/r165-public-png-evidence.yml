@@ -1,0 +1,35 @@
+name: R165 Public-Safe PNG Evidence Oracle
+
+on:
+  push:
+    branches:
+      - rdte/r165-public-render-scene-contract
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r165-png-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-png-oracle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source-free public fixtures only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Assert no private engine and execute negative suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = "false"
+          test ! -f internal/engineadapter/compiler.go
+          test ! -f internal/renderhost/fence.go
+          python3 -m py_compile tests/rdte/r165_png_evidence.py tests/rdte/test_r165_png_evidence.py
+          python3 -m unittest discover -s tests/rdte -p 'test_r165_png_evidence.py' -v
+          sha256sum tests/rdte/r165_png_evidence.py tests/rdte/test_r165_png_evidence.py
+          echo "R165 SYNTHETIC PNG EVIDENCE PASS: file vs image chunk separate"
