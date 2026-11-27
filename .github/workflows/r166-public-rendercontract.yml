@@ -40,6 +40,19 @@ jobs:
           go vet ./...
           sha256sum contract.go contract_test.go go.mod
           echo "R166 SYNTHETIC RENDER REQUEST CONTRACT PASS (no private Oneirifact code)"
+      - name: Emit only allowlisted public synthetic formatted source for exact PR readback
+        shell: bash
+        working-directory: tests/rdte/r166_rendercontract
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = "false"
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          for name in ("contract.go", "contract_test.go"):
+              content = pathlib.Path(name).read_bytes()
+              receipt = {"path": name, "sha256": hashlib.sha256(content).hexdigest(), "content": content.decode("utf-8")}
+              print("R166_FORMATTED_SOURCE_JSON=" + json.dumps(receipt, separators=(",", ":")))
+          PY
       - name: Retain exact formatted public synthetic source for reconciliation
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
