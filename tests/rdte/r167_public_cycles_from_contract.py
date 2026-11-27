@@ -189,7 +189,7 @@ def execute(packet: dict, input_bytes: bytes, output: Path) -> None:
         "engine": opts["engine"],
         "objects": object_positions,
         "camera_position": list(eye.location),
-        "light_energy": data.energy if False else light["power_watts"],
+        "light_energy": light["power_watts"],
         "image_sha256": sha(image),
         "image_size": len(image),
         "resolution": [opts["width"], opts["height"]],
