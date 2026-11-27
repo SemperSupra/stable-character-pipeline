@@ -34,10 +34,14 @@ func makeRequest(variant string) rendercontract.Request {
 		},
 		Options: rendercontract.Options{Engine: rendercontract.Engine, Width: 320, Height: 240, Samples: 32, Seed: 139},
 	}
-	if variant == "B" {
+	if variant == "B" || variant == "material" {
 		r.Materials[0].BaseColor = [3]float64{0.07, 0.68, 0.24}
 		r.Materials[1].BaseColor = [3]float64{0.18, 0.25, 0.79}
+	}
+	if variant == "B" || variant == "camera" {
 		r.Cameras[0].Position = [3]float64{4, -6, 4.5}
+	}
+	if variant == "B" || variant == "light" {
 		r.Lights[0].PowerWatts = 700
 	}
 	return r
@@ -46,7 +50,7 @@ func makeRequest(variant string) rendercontract.Request {
 func main() {
 	variant := "A"
 	if len(os.Args) > 2 {
-		fmt.Fprintln(os.Stderr, "expected zero or one --variant=A|B option")
+		fmt.Fprintln(os.Stderr, "expected zero or one --variant=A|B|camera|material|light option")
 		os.Exit(2)
 	}
 	if len(os.Args) == 2 {
@@ -55,6 +59,12 @@ func main() {
 			variant = "A"
 		case "--variant=B":
 			variant = "B"
+		case "--variant=camera":
+			variant = "camera"
+		case "--variant=material":
+			variant = "material"
+		case "--variant=light":
+			variant = "light"
 		default:
 			fmt.Fprintln(os.Stderr, "unknown variant")
 			os.Exit(2)
