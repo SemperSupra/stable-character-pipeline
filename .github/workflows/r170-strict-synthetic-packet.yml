@@ -1,0 +1,51 @@
+name: R170 Strict Public Synthetic Packet Admission
+
+on:
+  push:
+    branches:
+      - rdte/r170-synthetic-packet-admission
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r170-synthetic-packet-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-packet-fence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Public-source-only checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Strict receiver negatives and actual Go emitter parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = "false"
+          test ! -e internal/engineadapter
+          test ! -e internal/renderhost
+          python3 -m py_compile tests/rdte/r170_packet_admission.py tests/rdte/test_r170_packet_admission.py
+          python3 -m unittest discover -s tests/rdte -p 'test_r170_packet_admission.py' -v
+          (
+            cd tests/rdte/r166_rendercontract
+            go test -race -count=1 ./...
+            go vet ./...
+            go run ./cmd/synthetic-scene --variant=A > "${RUNNER_TEMP}/r170-A.json"
+            go run ./cmd/synthetic-scene --variant=B > "${RUNNER_TEMP}/r170-B.json"
+          )
+          python3 - "${RUNNER_TEMP}/r170-A.json" "${RUNNER_TEMP}/r170-B.json" <<'PY'
+          import pathlib, sys
+          sys.path.insert(0, str(pathlib.Path("tests/rdte").resolve()))
+          from r170_packet_admission import validate_bytes, FROZEN_FINGERPRINTS
+          for file_name, variant in zip(sys.argv[1:], ("A", "B")):
+              packet=validate_bytes(pathlib.Path(file_name).read_bytes())
+              assert packet["variant"]==variant
+              assert packet["synthetic_request_fingerprint"]==FROZEN_FINGERPRINTS[variant]
+              print("R170 GO-TO-PYTHON FROZEN PACKET ACCEPT PASS",variant,packet["synthetic_request_fingerprint"])
+          PY
+          sha256sum tests/rdte/r170_packet_admission.py tests/rdte/test_r170_packet_admission.py
