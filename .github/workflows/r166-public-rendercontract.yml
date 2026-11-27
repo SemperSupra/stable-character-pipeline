@@ -1,0 +1,38 @@
+name: R166 Public-Safe Render Request Contract
+
+on:
+  push:
+    branches:
+      - rdte/r166-public-rendercontract
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r166-render-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  synthetic-render-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout original public-safe standalone Go module
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Confirm public-only scope and run exact source
+        shell: bash
+        working-directory: tests/rdte/r166_rendercontract
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = "false"
+          test ! -e ../../../internal/engineadapter
+          test ! -e ../../../internal/renderhost
+          go version
+          test -z "$(gofmt -l contract.go contract_test.go)"
+          go test -race -count=3 ./... -v
+          go vet ./...
+          sha256sum contract.go contract_test.go go.mod
+          echo "R166 SYNTHETIC RENDER REQUEST CONTRACT PASS (no private Oneirifact code)"
