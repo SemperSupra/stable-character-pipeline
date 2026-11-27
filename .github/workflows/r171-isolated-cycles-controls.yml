@@ -1,0 +1,172 @@
+name: R171 Original Synthetic Isolated Cycles Control DOE
+
+on:
+  push:
+    branches:
+      - rdte/r171-isolated-visual-factors
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r171-isolated-cycles-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-free-isolated-controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout original source-free control fixtures
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Prove isolated typed controls and emit original requests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ github.event.repository.private }}" = "false"
+          test ! -e internal/engineadapter
+          test ! -e internal/renderhost
+          python3 -m unittest discover -s tests/rdte -p 'test_r167_public_cycles_from_contract.py' -v
+          python3 -m unittest discover -s tests/rdte -p 'test_r170_packet_admission.py' -v
+          python3 -m py_compile tests/rdte/r167_public_cycles_from_contract.py tests/rdte/r170_packet_admission.py
+          (
+            cd tests/rdte/r166_rendercontract
+            go test -race -count=2 ./... -v
+            go vet ./...
+            for variant in A camera material light; do
+              go run ./cmd/synthetic-scene --variant="${variant}" > "${RUNNER_TEMP}/r171-${variant}.json"
+            done
+          )
+          python3 - "${RUNNER_TEMP}" <<'PY'
+          import json, pathlib, sys
+          sys.path.insert(0, str(pathlib.Path("tests/rdte").resolve()))
+          from r170_packet_admission import validate_bytes
+          root=pathlib.Path(sys.argv[1])
+          requests={v:validate_bytes((root/("r171-"+v+".json")).read_bytes()) for v in ("A","camera","material","light")}
+          base=requests["A"]["request"]
+          expected={"camera":"cameras","material":"materials","light":"lights"}
+          for kind,changed_key in expected.items():
+              nxt=requests[kind]["request"]
+              changed=[key for key in base if base[key]!=nxt[key]]
+              assert changed==[changed_key],(kind,changed)
+              assert nxt["source"]==base["source"] and nxt["objects"]==base["objects"]
+              assert requests[kind]["synthetic_request_fingerprint"]!=requests["A"]["synthetic_request_fingerprint"]
+              assert requests[kind]["source_fidelity"]=="UNVERIFIED_SYNTHETIC_GEOMETRY_REGISTRY"
+          print("R171 TYPED ONE-FACTOR INPUT CONTRACT PASS",expected)
+          PY
+      - name: Download checksum-verified official Blender 5.2.4 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact="blender-5.2.4-linux-x64.tar.xz"
+          expected="2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86"
+          root="${RUNNER_TEMP}/r160-blender"
+          install -d -m 700 "${root}"
+          verified=0
+          # A successful first run was followed by HTTP 403 from download.blender.org.
+          # Use Blender's official mirror first, then two documented mirrors,
+          # retaining the EXACT independently pinned archive hash in all cases.
+          # Prefer the verified official endpoint; abort stalled transfers early
+          # rather than spending 200 seconds on each reachable-but-stuck mirror.
+          for url in \
+            "https://download.blender.org/release/Blender5.2/${artifact}" \
+            "https://mirror.blender.org/release/Blender5.2/${artifact}" \
+            "https://mirror.nju.edu.cn/blender/release/Blender5.2/${artifact}"; do
+            rm -f "${root}/${artifact}"
+            echo "R160 checking mirror host ${url%%/release/*} (checksum required)"
+            if timeout 110s curl --fail --location --silent --show-error --connect-timeout 12 --speed-limit 32768 --speed-time 12 --max-time 95 "${url}" --output "${root}/${artifact}"; then
+              if printf '%s  %s\n' "${expected}" "${root}/${artifact}" | sha256sum --check --status; then
+                verified=1
+                break
+              fi
+              echo "::error::Downloaded Blender archive failed pinned SHA-256; refusing to execute it"
+              exit 1
+            fi
+          done
+          if test "${verified}" -ne 1; then
+            echo "::error::No Blender mirror supplied the pinned archive"
+            exit 1
+          fi
+          echo "R160 OFFICIAL BLENDER SHA256 PASS ${expected}"
+          timeout 150s tar -xf "${root}/${artifact}" -C "${root}"
+          binary="${root}/blender-5.2.4-linux-x64/blender"
+          test -x "${binary}"
+          echo "BLENDER_BIN=${binary}" >> "${GITHUB_ENV}"
+          "${binary}" --version | head -n 3
+      - name: Execute four typed original synthetic scenes in native Cycles
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variant in A camera material light; do
+            install -d -m 700 "${RUNNER_TEMP}/r171-${variant}"
+            timeout 150s "${BLENDER_BIN}" --background --factory-startup --disable-autoexec -t 2 \
+              --python tests/rdte/r167_public_cycles_from_contract.py \
+              -- "${RUNNER_TEMP}/r171-${variant}.json" "${RUNNER_TEMP}/r171-${variant}"
+            test -s "${RUNNER_TEMP}/r171-${variant}/r167-scene.png"
+            test -s "${RUNNER_TEMP}/r171-${variant}/r167-scene-receipt.json"
+          done
+      - name: Independent one-factor output and pixel-change oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "${RUNNER_TEMP}/r171-venv"
+          "${RUNNER_TEMP}/r171-venv/bin/pip" install --no-input --disable-pip-version-check 'Pillow==11.3.0'
+          "${RUNNER_TEMP}/r171-venv/bin/python" - "${RUNNER_TEMP}" <<'PY'
+          import hashlib,json,pathlib,sys
+          from PIL import Image,ImageChops,ImageStat
+          root=pathlib.Path(sys.argv[1])
+          readings={}
+          pixels={}
+          for name in ("A","camera","material","light"):
+              dir=root/("r171-"+name)
+              data=(dir/"r167-scene.png").read_bytes()
+              result=json.loads((dir/"r167-scene-receipt.json").read_text())
+              assert result["variant"]==name
+              assert result["image_sha256"]=="sha256:"+hashlib.sha256(data).hexdigest()
+              assert result["blender_version"].startswith("5.2.4")
+              with Image.open(dir/"r167-scene.png") as img:
+                  img.load()
+                  assert img.format=="PNG" and img.size==(320,240)
+                  pixels[name]=img.convert("RGB").copy()
+              readings[name]=result
+          b=readings["A"]
+          for kind,changes in (
+              ("camera",("camera_position",)),
+              ("material",("materials",)),
+              ("light",("light_energy",)),
+          ):
+              x=readings[kind]
+              assert x["source_binding"]==b["source_binding"] and x["objects"]==b["objects"]
+              assert x["synthetic_request_fingerprint"]!=b["synthetic_request_fingerprint"]
+              observed=[k for k in ("camera_position","materials","light_energy") if x[k]!=b[k]]
+              assert observed==list(changes),(kind,observed)
+              delta=ImageChops.difference(pixels["A"],pixels[kind])
+              summary=ImageStat.Stat(delta)
+              changed=sum(1 for v in delta.getdata() if v!=(0,0,0))
+              assert changed>1000 and max(summary.mean)>0.5,(kind,changed,summary.mean)
+              print("R171 INDEPENDENT ONE-FACTOR CYCLES PASS",json.dumps({
+                "factor":kind,"changed_pixels":changed,"pixel_total":76800,
+                "mean_absolute_rgb_delta":summary.mean,
+                "source_and_object_positions_equal":True,
+                "changed_control_fields":observed,
+                "source_fidelity":"ORIGINAL_SYNTHETIC_ONLY_NOT_ONEIRIFACT"
+              },sort_keys=True))
+          PY
+      - name: Retain four original synthetic images and receipts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r171-isolated-controls
+          path: |
+            ${{ runner.temp }}/r171-A/r167-scene.png
+            ${{ runner.temp }}/r171-A/r167-scene-receipt.json
+            ${{ runner.temp }}/r171-camera/r167-scene.png
+            ${{ runner.temp }}/r171-camera/r167-scene-receipt.json
+            ${{ runner.temp }}/r171-material/r167-scene.png
+            ${{ runner.temp }}/r171-material/r167-scene-receipt.json
+            ${{ runner.temp }}/r171-light/r167-scene.png
+            ${{ runner.temp }}/r171-light/r167-scene-receipt.json
+          if-no-files-found: error
+          retention-days: 7

@@ -13,6 +13,10 @@ import os
 from pathlib import Path
 import sys
 
+# Blender --python does not add script directory to sys.path automatically.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from r170_packet_admission import validate_bytes
+
 EXPECTED_PACKET = "synthetic.cycles-scene-packet/v0.1"
 EXPECTED_RENDER = "BLENDER_CYCLES_5_2_4_CPU"
 SOURCE_GEOMETRY = {
@@ -50,11 +54,10 @@ def safe_paths(argv: list[str]) -> tuple[Path, Path]:
 
 def load_packet(source: Path) -> tuple[dict, bytes]:
     raw = source.read_bytes()
-    packet = json.loads(raw, parse_constant=lambda value:
-                        (_ for _ in ()).throw(ValueError("nonfinite JSON token")))
+    packet = validate_bytes(raw)
     if not isinstance(packet, dict) or packet.get("schema") != EXPECTED_PACKET:
         raise ValueError("unsupported synthetic packet schema")
-    if packet.get("variant") not in ("A", "B") or not isinstance(packet.get("request"), dict):
+    if packet.get("variant") not in ("A", "B", "camera", "material", "light") or not isinstance(packet.get("request"), dict):
         raise ValueError("invalid synthetic request")
     req = packet["request"]
     if packet.get("source_fidelity") != "UNVERIFIED_SYNTHETIC_GEOMETRY_REGISTRY":
@@ -188,6 +191,7 @@ def execute(packet: dict, input_bytes: bytes, output: Path) -> None:
         "blender_version": bpy.app.version_string,
         "engine": opts["engine"],
         "objects": object_positions,
+        "materials": {m["id"]: list(m["base_color"]) for m in req["materials"]},
         "camera_position": list(eye.location),
         "light_energy": light["power_watts"],
         "image_sha256": sha(image),
