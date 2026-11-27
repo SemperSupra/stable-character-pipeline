@@ -33,6 +33,9 @@ jobs:
           python3 -m unittest discover -s tests/rdte -p 'test_r139_cycles_synthetic.py' -v
           python3 -m py_compile tests/rdte/r139_cycles_synthetic.py tests/rdte/test_r139_cycles_synthetic.py
           sha256sum tests/rdte/r139_cycles_synthetic.py tests/rdte/test_r139_cycles_synthetic.py
+          python3 -m unittest discover -s tests/rdte -p 'test_r165_png_evidence.py' -v
+          python3 -m py_compile tests/rdte/r165_png_evidence.py tests/rdte/test_r165_png_evidence.py
+          sha256sum tests/rdte/r165_png_evidence.py tests/rdte/test_r165_png_evidence.py
       - name: Download checksum-verified official Blender 5.2.4 LTS
         shell: bash
         run: |
@@ -141,6 +144,22 @@ jobs:
                       "maximum_absolute_rgb_difference": [p[1] for p in delta.getextrema()],
                       "interpretation": "DONOR_REPEAT_ONLY_NO_PRIVATE_SCENE_FIDELITY"
                   }, sort_keys=True))
+          PY
+      - name: Independently inspect PNG chunks and actual IDAT equality
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, pathlib, sys
+          sys.path.insert(0, str(pathlib.Path("tests/rdte").resolve()))
+          from r165_png_evidence import compare_payloads
+          base = pathlib.Path(__import__("os").environ["RUNNER_TEMP"])
+          first = (base / "r160-cycles-output" / "r139-cycles.png").read_bytes()
+          second = (base / "r160-cycles-output-repeat" / "r139-cycles.png").read_bytes()
+          verdict = compare_payloads(first, second)
+          assert verdict["same_dimensions"] and verdict["identical_idat"], verdict
+          print("R165 REAL CYCLES IDAT EQUIVALENCE PASS", json.dumps(verdict, sort_keys=True))
+          print("R165 SCOPE: same-run compressed image payload, not private Oneirifact source or global reproducibility")
           PY
       - name: Archive public-only synthetic PNG and receipt
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
