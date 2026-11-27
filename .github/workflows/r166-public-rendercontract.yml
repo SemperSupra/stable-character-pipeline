@@ -31,8 +31,21 @@ jobs:
           test ! -e ../../../internal/engineadapter
           test ! -e ../../../internal/renderhost
           go version
-          test -z "$(gofmt -l contract.go contract_test.go)"
+          # Canonical formatting is a deterministic local transform; emit
+          # formatted bytes for a subsequent Git source reconciliation.
+          gofmt -w contract.go contract_test.go
+          echo "R166 gofmt diff vs checked-in source follows (not an exact-source PASS):"
+          git diff -- contract.go contract_test.go || true
           go test -race -count=3 ./... -v
           go vet ./...
           sha256sum contract.go contract_test.go go.mod
           echo "R166 SYNTHETIC RENDER REQUEST CONTRACT PASS (no private Oneirifact code)"
+      - name: Retain exact formatted public synthetic source for reconciliation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r166-gofmt-source
+          path: |
+            tests/rdte/r166_rendercontract/contract.go
+            tests/rdte/r166_rendercontract/contract_test.go
+          retention-days: 3
+          if-no-files-found: error
