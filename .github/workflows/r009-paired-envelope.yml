@@ -1,0 +1,62 @@
+name: R009 paired bilateral envelope source-safe witness
+on:
+  pull_request:
+    paths:
+      - 'research/r009-paired-envelope/**'
+      - '.github/workflows/r009-paired-envelope.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - run: python3 -m unittest discover -s research/r009-paired-envelope -v
+  native-original-counterexample:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Acquire pinned official Blender archive
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive=blender-5.2.4-linux-x64.tar.xz
+          expected=2fd14c50987426897ba60237ee996edf2b4151f4b1a72a460ca20be58c1d2d86
+          ok=0
+          for host in https://download.blender.org https://mirror.blender.org https://mirror.nju.edu.cn/blender; do
+            if curl -fLsS --connect-timeout 12 --speed-limit 32768 --speed-time 12 --max-time 95 "$host/release/Blender5.2/$archive" -o "$archive" && echo "$expected  $archive" | sha256sum -c -; then ok=1; break; fi
+          done
+          test "$ok" -eq 1
+          timeout 150s tar -xf "$archive"
+          echo "$RUNNER_TEMP/blender-5.2.4-linux-x64" >> "$GITHUB_PATH"
+      - name: Native saved scene reference and counterexample, independent fresh reopen
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/envelope"
+          mkdir "$dir"
+          src=research/r009-paired-envelope
+          blender -b --python-exit-code 12 --python-expr 'import bpy; assert bpy.app.version == (5,2,4)'
+          for variant in reference candidate; do
+            blender -b -t 2 --python-exit-code 12 --python "$src/native_fixture.py" -- --stage "$variant" --scene "$dir/$variant.blend"
+            blender -b "$dir/$variant.blend" -t 2 --python-exit-code 12 --python "$src/native_fixture.py" -- --stage sample --scene "$dir/$variant.blend" --out "$dir/$variant.json"
+          done
+          python3 "$src/paired_envelope.py" --reference "$dir/reference.json" --candidate "$dir/candidate.json" --windows '[[50,70]]' --out "$dir/report.json"
+          python3 - "$dir/report.json" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1])); a=d["actors"]["a"]; b=d["actors"]["b"]
+          assert d["samples"]==980 and d["edges"]==979 and d["last_tick"]==11488
+          assert d["reference_scene_sha256"]!=d["candidate_scene_sha256"]
+          assert a["feet"]["L"]["max_induced_displacement_m"]["value"]<1e-6
+          assert abs(a["feet"]["R"]["max_induced_displacement_m"]["value"]-.03)<1e-6
+          assert abs(a["markers"]["root"]["max_induced_displacement_m"]["value"]-.03)<1e-6
+          assert abs(a["markers"]["root"]["max_induced_speed_mps"]["value"]-.18)<.001
+          assert b["feet"]["R"]["max_induced_displacement_m"]["value"]<1e-6
+          assert a["feet"]["R"]["outside_window_max_displacement_m"]<1e-6
+          assert d["status"]=="HOLD_DIAGNOSTIC_ONLY" and not d["physical_contact_accepted"]
+          print("NATIVE_PAIRED_BODY_AND_OPPOSITE_FOOT_WITNESS_PASS_NARROW")
+          PY
