@@ -41,6 +41,17 @@ export function mountAudition(root = document.getElementById('audition')) {
   const playB = root.querySelector('#play_b');
   const stop = root.querySelector('#stop_compare');
   const players = new Map();
+  // Track the current generation that issued play() for each media element.
+  const playOwners = new WeakMap();
+  function startOwned(audio, owner) {
+    playOwners.set(audio, owner);
+    return audio.play();
+  }
+  function quiesceObsolete(audio) {
+    // An obsolete promise must never pause a successor using the same element.
+    // If no current owner exists (STOP, replacement, or another group), quiesce.
+    if (playOwners.get(audio) !== generation) audio.pause();
+  }
   let state = createAuditionState();
   let generation = 0;
   let activePreparation = null;
@@ -53,12 +64,14 @@ export function mountAudition(root = document.getElementById('audition')) {
   function stopAll(reset = true, invalidate = true) {
     if (invalidate) invalidatePlayback();
     for (const audio of players.values()) {
+      playOwners.delete(audio);
       audio.pause();
       if (reset && audio.readyState >= HTMLMediaElement.HAVE_METADATA) audio.currentTime = 0;
     }
     state = { ...state, playing: false };
   }
   function waitForEvent(audio, eventName, signal) {
+    if (signal.aborted) return Promise.reject(new DOMException('Playback preparation cancelled', 'AbortError'));
     if (eventName === 'loadedmetadata' && audio.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve();
     return new Promise((resolve, reject) => {
       const cleanup = () => {
@@ -76,6 +89,7 @@ export function mountAudition(root = document.getElementById('audition')) {
   }
   async function prepareFromZero(audio, signal) {
     await waitForEvent(audio, 'loadedmetadata', signal);
+    if (signal.aborted) throw new DOMException('Playback preparation cancelled', 'AbortError');
     if (audio.currentTime === 0) return;
     const seeking = waitForEvent(audio, 'seeked', signal);
     audio.currentTime = 0;
@@ -99,9 +113,9 @@ export function mountAudition(root = document.getElementById('audition')) {
       if (thisGeneration !== generation) return;
       activePreparation = null;
       // Start all ready players in one task after every source has sought to zero.
-      const results = await Promise.allSettled(entries.map(audio => audio.play()));
+      const results = await Promise.allSettled(entries.map(audio => startOwned(audio, thisGeneration)));
       if (thisGeneration !== generation) {
-        for (const audio of entries) audio.pause();
+        for (const audio of entries) quiesceObsolete(audio);
         return;
       }
       const rejected = results.some(result => result.status === 'rejected');
@@ -128,8 +142,8 @@ export function mountAudition(root = document.getElementById('audition')) {
       await prepareFromZero(audio, controller.signal);
       if (thisGeneration !== generation) return;
       activePreparation = null;
-      await audio.play();
-      if (thisGeneration !== generation) { audio.pause(); return; }
+      await startOwned(audio, thisGeneration);
+      if (thisGeneration !== generation) { quiesceObsolete(audio); return; }
       state = { ...state, playing: true };
       say(`Playing ${track.name} from time zero. Perception and device acceptance are not recorded.`);
     } catch (error) {
@@ -196,6 +210,6 @@ export function mountAudition(root = document.getElementById('audition')) {
   });
   playA.addEventListener('click', () => playGroup('A'));
   playB.addEventListener('click', () => playGroup('B'));
-  stop.addEventListener('click', () => { generation++; stopAll(); say('All stems paused and reset to time zero.'); });
+  stop.addEventListener('click', () => { stopAll(); say('All stems paused and reset to time zero.'); });
   window.addEventListener('pagehide', () => { stopAll(); for (const track of state.tracks) if (track.url) URL.revokeObjectURL(track.url); });
 }
