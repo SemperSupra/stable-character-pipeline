@@ -52,8 +52,9 @@ class Stream(unittest.TestCase):
             v=p["rows"][5]["actors"]["a"]["feet"]["L"];v["99"]=v.pop("0")
         with self.assertRaisesRegex(ValueError,"ID_DRIFT"):check(a,b)
     def test_line_budget_and_protected_source(self):
-        a,b=packets()
-        with self.assertRaisesRegex(ValueError,"LINE_BUDGET"):audit_stream(io.BytesIO(encode(a)),io.BytesIO(encode(b)),WINDOWS,1024)
+        a,b=packets(vertices=32)
+        raw=encode(a);self.assertGreater(len(raw.splitlines()[1]),1024)
+        with self.assertRaisesRegex(ValueError,"LINE_BUDGET"):audit_stream(io.BytesIO(raw),io.BytesIO(encode(b)),WINDOWS,1024)
         b["protected_likeness_used"]=True
         with self.assertRaisesRegex(ValueError,"ADMISSION"):check(a,b)
 if __name__=="__main__":unittest.main()
