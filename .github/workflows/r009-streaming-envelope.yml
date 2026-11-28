@@ -1,0 +1,24 @@
+name: R009 streaming paired envelope
+on:
+  pull_request:
+    paths:
+      - 'research/r009-streaming-envelope/**'
+      - '.github/workflows/r009-streaming-envelope.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  differential:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - run: python3 -m unittest discover -s research/r009-streaming-envelope -v
+  memory-witness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - run: python3 research/r009-streaming-envelope/benchmark.py
