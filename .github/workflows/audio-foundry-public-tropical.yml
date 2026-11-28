@@ -18,6 +18,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: audio-foundry/go.mod
+          cache: false
       - name: Install required public CPU tools
         run: |
           set -euo pipefail
@@ -39,7 +43,13 @@ jobs:
           assert r["status"]=="technical_signal_check_passed"
           assert r["perceptual_acceptance"]=="NOT_TESTED"
           assert r["real_device_acceptance"]=="NOT_TESTED"
+          assert r["event_causality"]=="METADATA_ONLY"
+          assert r["per_stem_pcm_acceptance"]=="PASS"
+          assert r["gain_mutation"]["acceptance"]=="PASS"
+          assert len(r["assets"])==8
+          assert len({x["path"] for x in r["assets"]})==8
           assert len([x for x in r["assets"] if x["path"].startswith("stems/")])==6
+          print(json.dumps(r,sort_keys=True))
           print("public_tropical_ci_receipt_PASS")
           PY
           if find "$out" -name '*.log' -type f | grep -q .; then
