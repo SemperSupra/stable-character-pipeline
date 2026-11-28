@@ -1,0 +1,36 @@
+name: Audio Foundry R5 generation race falsifier
+on:
+  pull_request:
+    paths:
+      - 'audio-foundry/editable/browser/audition.mjs'
+      - 'audio-foundry/editable/browser/audition.race.test.mjs'
+      - '.github/workflows/audio-r5-generation-race.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  controlled-media-order:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Retain actual parent RED before candidate replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d)"
+          git show cb1b7481d8931bd1eac12ff032ce1eeb93173224:audio-foundry/editable/browser/audition.mjs > "$dir/audition.mjs"
+          cp audio-foundry/editable/browser/audition.race.test.mjs "$dir/"
+          set +e
+          node --test "$dir/audition.race.test.mjs" > "$dir/parent.log" 2>&1
+          rc=$?
+          set -e
+          cat "$dir/parent.log"
+          test "$rc" -ne 0
+          test "$(grep -c "error: 'STALE_COMPLETION_PAUSED_NEW_OWNER'" "$dir/parent.log")" -eq 4
+          grep -q '# fail 4' "$dir/parent.log"
+      - name: Candidate exact source race and STOP controls
+        run: node --test audio-foundry/editable/browser/audition.race.test.mjs
