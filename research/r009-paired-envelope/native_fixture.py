@@ -26,10 +26,20 @@ def boot(name,parent,y):
     ob.parent=parent;ob.location=(0,y,0)
     return ob
 
+def curves(ob):
+    ad=ob.animation_data
+    found=[]
+    for layer in ad.action.layers:
+        for strip in layer.strips:
+            bag=strip.channelbag(ad.action_slot)
+            if bag:found.extend(bag.fcurves)
+    if len(found)!=3 or any(len(fc.keyframe_points)!=5 for fc in found):
+        raise ValueError("native five-key XYZ action mismatch")
+    return found
+
 def build(path,candidate):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc=bpy.context.scene;sc.render.fps=60;sc.render.fps_base=1;sc.frame_start=0;sc.frame_end=359
-    bpy.context.preferences.edit.keyframe_new_interpolation_type="LINEAR"
     sc["source_class"]="ORIGINAL_SYNTHETIC"
     for a,y in (("a",0),("b",2)):
         root=empty(a+"_root",loc=(0,y,0))
@@ -42,6 +52,10 @@ def build(path,candidate):
             delta=.03 if candidate and a=="a" and frame==60 else 0.
             root.location.x=delta;left.location.x=-delta
             root.keyframe_insert("location",frame=frame);left.keyframe_insert("location",frame=frame)
+        for ob in (root,left):
+            for fc in curves(ob):
+                for key in fc.keyframe_points:key.interpolation="LINEAR"
+                fc.update()
     sc.frame_set(0)
     bpy.ops.wm.save_as_mainfile(filepath=str(Path(path).resolve()))
 
@@ -51,6 +65,10 @@ def sample(path,out):
         raise ValueError("unexpected native source")
     if Path(bpy.data.filepath).resolve()!=Path(path).resolve():
         raise ValueError("not reopened requested source")
+    for a in ("a","b"):
+        for ob in (bpy.data.objects[a+"_root"],bpy.data.objects[a+"_L"]):
+            if any(k.interpolation!="LINEAR" for fc in curves(ob) for k in fc.keyframe_points):
+                raise ValueError("reopened interpolation differs from explicit source")
     rows=[]
     for tick in schedule(WINDOWS):
         sc.frame_set(tick//32,subframe=(tick%32)/32)
