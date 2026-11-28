@@ -18,7 +18,7 @@ ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'aevalsrc=0.05*sin(2*PI
 ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'aevalsrc=0.045*sin(2*PI*230*t)*if(lt(mod(t\,0.8)\,0.22)\,1\,0):s=48000:d=12' -af 'lowpass=f=600' -ac 2 -c:a pcm_s16le "$out/stems/synthetic_pulses.wav"
 ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'anoisesrc=color=white:sample_rate=48000:duration=12:seed=73' -af 'highpass=f=4500,lowpass=f=10000,volume=0.018,afade=t=in:d=0.5,afade=t=out:st=11:d=1' -ac 2 -c:a pcm_s16le "$out/stems/insect_texture.wav"
 ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'anoisesrc=color=brown:sample_rate=48000:duration=12:seed=19' -af 'highpass=f=180,lowpass=f=1600,volume=0.055,afade=t=in:d=0.5,afade=t=out:st=10:d=2' -ac 2 -c:a pcm_s16le "$out/stems/leaf_rustle.wav"
-ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'anoisesrc=color=blue:sample_rate=48000:duration=12:seed=29' -af 'lowpass=f=1300,volume=0.028,afade=t=in:d=1,afade=t=out:st=10:d=2' -ac 2 -c:a pcm_s16le "$out/stems/water_texture.wav"
+ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i 'anoisesrc=color=white:sample_rate=48000:duration=12:seed=29' -af 'lowpass=f=1300,volume=0.028,afade=t=in:d=1,afade=t=out:st=10:d=2' -ac 2 -c:a pcm_s16le "$out/stems/water_texture.wav"
 python3 - "$out" <<'PY'
 import hashlib,json,pathlib,sys
 root=pathlib.Path(sys.argv[1]); names=[
